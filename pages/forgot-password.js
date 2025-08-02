@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import Link from 'next/link';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -36,6 +37,10 @@ export default function ForgotPassword() {
           />
           <button type="submit" style={styles.button}>Send Reset Link</button>
         </form>
+
+        {/* ✅ Back to Home */}
+        <Link href="/" style={styles.backLink}>← Back to Home</Link>
+
         {message && <p style={styles.success}>{message}</p>}
         {error && <p style={styles.error}>{error}</p>}
       </div>
@@ -52,6 +57,7 @@ const styles = {
   form: { display: 'flex', flexDirection: 'column', gap: '1rem' },
   input: { padding: '0.8rem', border: '1px solid #CCC', borderRadius: '8px', background: '#FFFFFF', color: '#000000', fontSize: '1rem' },
   button: { padding: '0.8rem', background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', border: 'none', borderRadius: '8px', color: '#FFFFFF', fontWeight: 'bold', cursor: 'pointer' },
+  backLink: { display: 'inline-block', marginTop: '1rem', color: '#27E3DA', fontSize: '0.9rem', textDecoration: 'none', fontWeight: 'bold' },
   success: { color: '#27E3DA', marginTop: '1rem', fontSize: '0.9rem' },
   error: { color: '#D9534F', marginTop: '1rem', fontSize: '0.9rem' }
 };
