@@ -24,7 +24,6 @@ const styles = {
     alignItems: 'center',
     background: '#121212',
     fontFamily: 'Inter, sans-serif',
-    padding: '1rem'
   },
   card: {
     textAlign: 'center',
@@ -61,7 +60,6 @@ const styles = {
     borderRadius: '8px',
     textDecoration: 'none',
     fontWeight: 'bold',
-    transition: 'opacity 0.3s',
   },
   buttonOutline: {
     border: '2px solid #27E3DA',
@@ -70,6 +68,5 @@ const styles = {
     borderRadius: '8px',
     textDecoration: 'none',
     fontWeight: 'bold',
-    transition: 'background 0.3s',
   },
 };
