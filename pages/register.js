@@ -7,48 +7,41 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
   const [passwordValid, setPasswordValid] = useState(false);
   const router = useRouter();
 
-  // ✅ Password validation regex
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-
-  const validatePassword = (pwd) => {
-    return passwordRegex.test(pwd);
-  };
+  const validatePassword = (pwd) => passwordRegex.test(pwd);
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setLoading(true);
 
-    // ✅ Check password policy
+    // ✅ Password validation
     if (!validatePassword(password)) {
       setError('Password must be at least 8 characters and include uppercase, lowercase, number, and special character.');
+      setLoading(false);
       return;
     }
 
-    // ✅ Check if email already exists
-    const { data: { users }, error: fetchError } = await supabase.auth.admin.listUsers();
-    if (fetchError) {
-      setError('Unable to verify email. Please try again.');
-      return;
-    }
-
-    const emailExists = users.some((user) => user.email === email);
-    if (emailExists) {
-      setError('This email is already registered. Please login or reset your password.');
-      return;
-    }
-
-    // ✅ Proceed with registration
+    // ✅ Native Supabase sign-up
     const { error: signUpError } = await supabase.auth.signUp({ email, password });
+
     if (signUpError) {
-      setError('An unexpected error occurred. Please try again.');
+      if (signUpError.message.includes('User already registered')) {
+        setError('This email is already registered. Please login or reset your password.');
+      } else {
+        setError(signUpError.message || 'An unexpected error occurred. Please try again.');
+      }
     } else {
-      setSuccess('Registration successful! Please check your email to confirm your account.');
+      setSuccess('Registration successful! Please check your email inbox to confirm your account.');
       setTimeout(() => router.push('/login'), 4000);
     }
+
+    setLoading(false);
   };
 
   return (
@@ -61,7 +54,7 @@ export default function Register() {
             type="email"
             placeholder="Email"
             value={email}
-            onChange={(e)=>setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
             style={styles.input}
             required
           />
@@ -69,14 +62,15 @@ export default function Register() {
             type="password"
             placeholder="Password"
             value={password}
-            onChange={(e)=>{
+            onChange={(e) => {
               setPassword(e.target.value);
               setPasswordValid(validatePassword(e.target.value));
             }}
             style={styles.input}
             required
           />
-          {/* ✅ Password policy visual feedback */}
+
+          {/* Password hints */}
           <div style={styles.passwordHints}>
             <p style={{ color: password.length >= 8 ? '#27E3DA' : '#D9534F' }}>• At least 8 characters</p>
             <p style={{ color: /[A-Z]/.test(password) ? '#27E3DA' : '#D9534F' }}>• Uppercase letter</p>
@@ -84,10 +78,17 @@ export default function Register() {
             <p style={{ color: /\d/.test(password) ? '#27E3DA' : '#D9534F' }}>• Number</p>
             <p style={{ color: /[@$!%*?&]/.test(password) ? '#27E3DA' : '#D9534F' }}>• Special character (@$!%*?&)</p>
           </div>
-          <button type="submit" style={{ ...styles.button, opacity: passwordValid ? 1 : 0.6 }} disabled={!passwordValid}>
-            Register
+
+          {/* Submit button with loader */}
+          <button
+            type="submit"
+            style={{ ...styles.button, opacity: passwordValid ? 1 : 0.6 }}
+            disabled={!passwordValid || loading}
+          >
+            {loading ? 'Registering...' : 'Register'}
           </button>
         </form>
+
         {error && <p style={styles.error}>{error}</p>}
         {success && <p style={styles.success}>{success}</p>}
         <p style={styles.footerText}>
