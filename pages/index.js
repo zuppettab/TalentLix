@@ -7,11 +7,8 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       const { data, error } = await supabase.from('test_table').select('*');
-      if (error) {
-        console.error('Errore Supabase:', error.message);
-      } else {
-        setData(data);
-      }
+      if (error) console.error('Errore Supabase:', error.message);
+      else setData(data);
     };
     fetchData();
   }, []);
