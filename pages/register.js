@@ -16,7 +16,7 @@ export default function Register() {
     const { error } = await supabase.auth.signUp({ email, password });
     if (error) setError(error.message);
     else {
-      setSuccess('Registrazione avvenuta! Ora puoi accedere.');
+      setSuccess('Registration successful! Redirecting to login...');
       setTimeout(() => router.push('/login'), 2000);
     }
   };
@@ -25,7 +25,7 @@ export default function Register() {
     <div style={styles.container}>
       <div style={styles.card}>
         <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
-        <h2 style={styles.title}>Crea il tuo account</h2>
+        <h2 style={styles.title}>Create your account</h2>
         <form onSubmit={handleRegister} style={styles.form}>
           <input
             type="email"
@@ -43,12 +43,12 @@ export default function Register() {
             style={styles.input}
             required
           />
-          <button type="submit" style={styles.button}>Registrati</button>
+          <button type="submit" style={styles.button}>Register</button>
         </form>
         {error && <p style={styles.error}>{error}</p>}
         {success && <p style={styles.success}>{success}</p>}
         <p style={styles.footerText}>
-          Hai già un account? <a href="/login" style={styles.link}>Accedi</a>
+          Already have an account? <a href="/login" style={styles.link}>Login</a>
         </p>
       </div>
     </div>
