@@ -32,9 +32,9 @@ export default function Dashboard() {
 }
 
 const styles = {
-  container: { minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#121212', fontFamily: 'Inter, sans-serif' },
-  card: { background: '#1E1E1E', padding: '2rem', borderRadius: '16px', textAlign: 'center', width: '100%', maxWidth: '400px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' },
-  title: { color: '#FFFFFF', fontSize: '1.5rem', marginBottom: '1rem' },
-  text: { color: '#AAAAAA', marginBottom: '2rem' },
-  button: { padding: '0.8rem', background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', border: 'none', borderRadius: '8px', color: '#121212', fontWeight: 'bold', cursor: 'pointer' }
+  container: { minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#FFFFFF', fontFamily: 'Inter, sans-serif' },
+  card: { background: '#F8F9FA', padding: '2rem', borderRadius: '12px', textAlign: 'center', width: '100%', maxWidth: '400px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid #E0E0E0' },
+  title: { color: '#000000', fontSize: '1.5rem', marginBottom: '1rem' },
+  text: { color: '#555555', marginBottom: '2rem' },
+  button: { padding: '0.8rem', background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', border: 'none', borderRadius: '8px', color: '#FFFFFF', fontWeight: 'bold', cursor: 'pointer' }
 };
