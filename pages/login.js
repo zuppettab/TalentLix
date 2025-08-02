@@ -84,4 +84,33 @@ const styles = {
     padding: '0.8rem',
     border: '1px solid #2A2A2A',
     borderRadius: '8px',
-    background: '
+    background: '#2A2A2A',
+    color: '#FFFFFF',
+    fontSize: '1rem',
+    outline: 'none',
+  },
+  button: {
+    padding: '0.8rem',
+    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+    border: 'none',
+    borderRadius: '8px',
+    color: '#121212',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: 'opacity 0.3s',
+  },
+  error: {
+    color: '#FF6B6B',
+    marginTop: '1rem',
+    fontSize: '0.9rem',
+  },
+  footerText: {
+    marginTop: '1rem',
+    color: '#AAAAAA',
+    fontSize: '0.9rem',
+  },
+  link: {
+    color: '#27E3DA',
+    textDecoration: 'none',
+  },
+};
