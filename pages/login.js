@@ -6,23 +6,29 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+
     if (error) {
       if (error.message.includes('Invalid login credentials')) {
         setError('Incorrect email or password. Please try again.');
       } else if (error.message.includes('Email not confirmed')) {
         setError('Your email is not confirmed. Please check your inbox.');
       } else {
-        setError('An unexpected error occurred. Please try again later.');
+        setError(error.message || 'An unexpected error occurred. Please try again.');
       }
     } else {
       router.push('/dashboard');
     }
+
+    setLoading(false);
   };
 
   return (
@@ -33,7 +39,9 @@ export default function Login() {
         <form onSubmit={handleLogin} style={styles.form}>
           <input type="email" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} style={styles.input} required />
           <input type="password" placeholder="Password" value={password} onChange={(e)=>setPassword(e.target.value)} style={styles.input} required />
-          <button type="submit" style={styles.button}>Sign In</button>
+          <button type="submit" style={{ ...styles.button, opacity: loading ? 0.6 : 1 }} disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
         </form>
         {error && <p style={styles.error}>{error}</p>}
         <p style={styles.footerText}>
