@@ -7,19 +7,44 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [passwordValid, setPasswordValid] = useState(false);
   const router = useRouter();
+
+  // ✅ Password validation regex
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+  const validatePassword = (pwd) => {
+    return passwordRegex.test(pwd);
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      if (error.message.includes('User already registered')) {
-        setError('This email is already registered. Please login or reset your password.');
-      } else {
-        setError('An unexpected error occurred. Please try again.');
-      }
+
+    // ✅ Check password policy
+    if (!validatePassword(password)) {
+      setError('Password must be at least 8 characters and include uppercase, lowercase, number, and special character.');
+      return;
+    }
+
+    // ✅ Check if email already exists
+    const { data: { users }, error: fetchError } = await supabase.auth.admin.listUsers();
+    if (fetchError) {
+      setError('Unable to verify email. Please try again.');
+      return;
+    }
+
+    const emailExists = users.some((user) => user.email === email);
+    if (emailExists) {
+      setError('This email is already registered. Please login or reset your password.');
+      return;
+    }
+
+    // ✅ Proceed with registration
+    const { error: signUpError } = await supabase.auth.signUp({ email, password });
+    if (signUpError) {
+      setError('An unexpected error occurred. Please try again.');
     } else {
       setSuccess('Registration successful! Please check your email to confirm your account.');
       setTimeout(() => router.push('/login'), 4000);
@@ -32,9 +57,36 @@ export default function Register() {
         <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
         <h2 style={styles.title}>Create your account</h2>
         <form onSubmit={handleRegister} style={styles.form}>
-          <input type="email" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} style={styles.input} required />
-          <input type="password" placeholder="Password" value={password} onChange={(e)=>setPassword(e.target.value)} style={styles.input} required />
-          <button type="submit" style={styles.button}>Register</button>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e)=>setEmail(e.target.value)}
+            style={styles.input}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e)=>{
+              setPassword(e.target.value);
+              setPasswordValid(validatePassword(e.target.value));
+            }}
+            style={styles.input}
+            required
+          />
+          {/* ✅ Password policy visual feedback */}
+          <div style={styles.passwordHints}>
+            <p style={{ color: password.length >= 8 ? '#27E3DA' : '#D9534F' }}>• At least 8 characters</p>
+            <p style={{ color: /[A-Z]/.test(password) ? '#27E3DA' : '#D9534F' }}>• Uppercase letter</p>
+            <p style={{ color: /[a-z]/.test(password) ? '#27E3DA' : '#D9534F' }}>• Lowercase letter</p>
+            <p style={{ color: /\d/.test(password) ? '#27E3DA' : '#D9534F' }}>• Number</p>
+            <p style={{ color: /[@$!%*?&]/.test(password) ? '#27E3DA' : '#D9534F' }}>• Special character (@$!%*?&)</p>
+          </div>
+          <button type="submit" style={{ ...styles.button, opacity: passwordValid ? 1 : 0.6 }} disabled={!passwordValid}>
+            Register
+          </button>
         </form>
         {error && <p style={styles.error}>{error}</p>}
         {success && <p style={styles.success}>{success}</p>}
@@ -53,6 +105,7 @@ const styles = {
   title: { color: '#000000', fontSize: '1.5rem', marginBottom: '1.5rem' },
   form: { display: 'flex', flexDirection: 'column', gap: '1rem' },
   input: { padding: '0.8rem', border: '1px solid #CCC', borderRadius: '8px', background: '#FFFFFF', color: '#000000', fontSize: '1rem' },
+  passwordHints: { textAlign: 'left', fontSize: '0.85rem', marginBottom: '1rem' },
   button: { padding: '0.8rem', background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', border: 'none', borderRadius: '8px', color: '#FFFFFF', fontWeight: 'bold', cursor: 'pointer' },
   error: { color: '#D9534F', marginTop: '1rem', fontSize: '0.9rem' },
   success: { color: '#27E3DA', marginTop: '1rem', fontSize: '0.9rem' },
