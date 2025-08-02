@@ -6,12 +6,11 @@ export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [passwordValid, setPasswordValid] = useState(false);
   const router = useRouter();
 
-  // ✅ Regex password policy
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-
   const validatePassword = (pwd) => passwordRegex.test(pwd);
 
   const handleUpdatePassword = async (e) => {
@@ -19,28 +18,28 @@ export default function ResetPassword() {
     setError('');
     setMessage('');
 
-    // ✅ Check password validity
     if (!validatePassword(password)) {
       setError('Password must be at least 8 characters and include uppercase, lowercase, number, and special character.');
       return;
     }
 
-    // ✅ Update password in Supabase
+    setLoading(true);
+
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
-      setError(error.message);
+      setError(error.message || 'An unexpected error occurred.');
     } else {
       setMessage('Password updated successfully. Redirecting to login...');
       setTimeout(() => router.push('/login'), 2000);
     }
+
+    setLoading(false);
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        {/* ✅ Logo TalentLix */}
         <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
-
         <h2 style={styles.title}>Reset Your Password</h2>
         <form onSubmit={handleUpdatePassword} style={styles.form}>
           <input
@@ -55,7 +54,7 @@ export default function ResetPassword() {
             required
           />
 
-          {/* ✅ Password hints */}
+          {/* Password hints */}
           <div style={styles.passwordHints}>
             <p style={{ color: password.length >= 8 ? '#27E3DA' : '#D9534F' }}>• At least 8 characters</p>
             <p style={{ color: /[A-Z]/.test(password) ? '#27E3DA' : '#D9534F' }}>• Uppercase letter</p>
@@ -64,8 +63,12 @@ export default function ResetPassword() {
             <p style={{ color: /[@$!%*?&]/.test(password) ? '#27E3DA' : '#D9534F' }}>• Special character (@$!%*?&)</p>
           </div>
 
-          <button type="submit" style={{ ...styles.button, opacity: passwordValid ? 1 : 0.6 }} disabled={!passwordValid}>
-            Update Password
+          <button
+            type="submit"
+            style={{ ...styles.button, opacity: passwordValid && !loading ? 1 : 0.6 }}
+            disabled={!passwordValid || loading}
+          >
+            {loading ? 'Updating...' : 'Update Password'}
           </button>
         </form>
 
