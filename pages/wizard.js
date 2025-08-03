@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../utils/supabaseClient';
@@ -76,7 +75,6 @@ export default function Wizard() {
     setErrorMessage('');
     try {
       if (step === 1) {
-        // Step 1: Save Personal Info
         const { error } = await supabase.from('athlete').upsert([{
           id: user.id,
           first_name: formData.first_name,
@@ -92,7 +90,6 @@ export default function Wizard() {
         if (error) throw error;
       }
       else if (step === 2) {
-        // Step 2: Save Contact Info
         const { error } = await supabase.from('athlete').update({
           phone: formData.phone,
           city: formData.city,
@@ -103,7 +100,6 @@ export default function Wizard() {
         if (error) throw error;
       }
       else if (step === 3) {
-        // Step 3: Save Sports Info
         const { error } = await supabase.from('sports_experiences').insert([{
           athlete_id: user.id,
           sport: formData.sport,
@@ -145,54 +141,72 @@ export default function Wizard() {
     }
   };
 
-  if (loading) return <div style={styles.loading}>🔄 Loading Wizard...</div>;
+  if (loading) {
+    return (
+      <div style={styles.background}>
+        <div style={styles.overlay}>
+          <div style={styles.container}>
+            <p style={styles.loading}>🔄 Loading Wizard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (step === null) {
     return (
-      <div style={styles.container}>
-        <div style={styles.card}>
-          <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
-          <h2>✅ Your profile is already complete</h2>
-          <p>You can go back to your Dashboard.</p>
-          <button style={styles.button} onClick={() => router.push('/dashboard')}>
-            Go to Dashboard
-          </button>
+      <div style={styles.background}>
+        <div style={styles.overlay}>
+          <div style={styles.container}>
+            <div style={styles.card}>
+              <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
+              <h2>✅ Your profile is already complete</h2>
+              <p>You can go back to your Dashboard.</p>
+              <button style={styles.button} onClick={() => router.push('/dashboard')}>
+                Go to Dashboard
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
-        <div style={styles.progressBar}>
-          <div style={{ ...styles.progressFill, width: `${(step / 4) * 100}%` }} />
-        </div>
-        <div style={styles.steps}>
-          {[1, 2, 3, 4].map((s) => (
-            <div key={s} style={{ ...styles.stepCircle, background: step === s ? '#27E3DA' : '#E0E0E0' }}>
-              {s}
+    <div style={styles.background}>
+      <div style={styles.overlay}>
+        <div style={styles.container}>
+          <div style={styles.card}>
+            <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
+            <div style={styles.progressBar}>
+              <div style={{ ...styles.progressFill, width: `${(step / 4) * 100}%` }} />
             </div>
-          ))}
+            <div style={styles.steps}>
+              {[1, 2, 3, 4].map((s) => (
+                <div key={s} style={{ ...styles.stepCircle, background: step === s ? '#27E3DA' : '#E0E0E0' }}>
+                  {s}
+                </div>
+              ))}
+            </div>
+
+            {errorMessage && <p style={styles.error}>{errorMessage}</p>}
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={step}
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                transition={{ duration: 0.4 }}
+              >
+                {step === 1 && <Step1 formData={formData} handleChange={handleChange} saveStep={() => saveStep(2)} />}
+                {step === 2 && <Step2 formData={formData} handleChange={handleChange} saveStep={() => saveStep(3)} />}
+                {step === 3 && <Step3 formData={formData} handleChange={handleChange} saveStep={() => saveStep(4)} />}
+                {step === 4 && <Step4 formData={formData} handleChange={handleChange} finalize={finalizeProfile} />}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
-
-        {errorMessage && <p style={styles.error}>{errorMessage}</p>}
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.4 }}
-          >
-            {step === 1 && <Step1 formData={formData} handleChange={handleChange} saveStep={() => saveStep(2)} />}
-            {step === 2 && <Step2 formData={formData} handleChange={handleChange} saveStep={() => saveStep(3)} />}
-            {step === 3 && <Step3 formData={formData} handleChange={handleChange} saveStep={() => saveStep(4)} />}
-            {step === 4 && <Step4 formData={formData} handleChange={handleChange} finalize={finalizeProfile} />}
-          </motion.div>
-        </AnimatePresence>
       </div>
     </div>
   );
@@ -276,12 +290,28 @@ const Step4 = ({ formData, handleChange, finalize }) => (
 );
 
 const styles = {
+  background: {
+    backgroundImage: "url('/BackG.png')",
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    width: '100%',
+    height: '100vh',
+    position: 'relative',
+  },
+  overlay: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
   container: {
     minHeight: '100vh',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    background: 'linear-gradient(rgba(39, 227, 218, 0.15), rgba(247, 184, 78, 0.15))',
     fontFamily: 'Inter, sans-serif',
     position: 'relative',
   },
@@ -293,6 +323,7 @@ const styles = {
     borderRadius: '16px',
     boxShadow: '0 6px 20px rgba(0,0,0,0.08)',
     textAlign: 'center',
+    zIndex: 2,
   },
   logo: { width: '80px', marginBottom: '1rem' },
   progressBar: { background: '#E0E0E0', height: '8px', borderRadius: '8px', marginBottom: '1rem' },
@@ -306,5 +337,5 @@ const styles = {
   buttonDisabled: { background: '#ccc', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '8px', width: '100%', cursor: 'not-allowed' },
   reviewList: { textAlign: 'left', marginBottom: '1.5rem', lineHeight: '1.6' },
   error: { color: 'red', fontSize: '0.9rem', marginBottom: '1rem' },
-  loading: { textAlign: 'center', marginTop: '50px', fontSize: '1.2rem' },
+  loading: { textAlign: 'center', fontSize: '1.2rem' },
 };
