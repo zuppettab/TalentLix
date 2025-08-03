@@ -5,31 +5,35 @@ import Link from 'next/link';
 export default function Home() {
   const [confirmationStatus, setConfirmationStatus] = useState(null); // null | success | expired
   const [message, setMessage] = useState('');
+  const [user, setUser] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const checkConfirmation = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+      const type = hashParams.get('type');
+      const errorCode = hashParams.get('error_code');
+      const errorDescription = hashParams.get('error_description');
 
-      // 1️⃣ Email confermata: messaggio successo
-      if (session?.user?.email_confirmed_at) {
+      // ✅ Caso conferma email (solo se arrivi dal link di conferma)
+      if (type === 'signup') {
         setConfirmationStatus('success');
         setMessage('✅ Your email has been successfully confirmed!');
-      } else {
-        // 2️⃣ Analizza parametri hash nell’URL (caso errore link scaduto)
-        const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-        const errorCode = hashParams.get('error_code');
-        const errorDescription = hashParams.get('error_description');
-
-        if (errorCode === 'otp_expired') {
-          setConfirmationStatus('expired');
-          setMessage(`❌ ${decodeURIComponent(errorDescription)}`);
-        }
+      }
+      // ❌ Caso link scaduto
+      else if (errorCode === 'otp_expired') {
+        setConfirmationStatus('expired');
+        setMessage(`❌ ${decodeURIComponent(errorDescription)}`);
       }
 
-      // 3️⃣ Pulisce l'hash dall'URL dopo l'analisi
+      // 🔄 Pulisce hash dopo analisi
       if (window.location.hash) {
         window.history.replaceState(null, '', window.location.pathname);
       }
+
+      // 🔑 Controlla sessione utente
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user || null);
     };
 
     checkConfirmation();
@@ -44,8 +48,32 @@ export default function Home() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
   return (
     <div style={styles.container}>
+      {/* 🔵 MENU UTENTE IN ALTO A DESTRA */}
+      <div style={styles.userMenuContainer}>
+        <div style={styles.menuIcon} onClick={() => setMenuOpen(!menuOpen)}>⋮</div>
+        {menuOpen && (
+          <div style={styles.dropdown}>
+            {!user ? (
+              <>
+                <Link href="/login" style={styles.dropdownItem}>Login</Link>
+              </>
+            ) : (
+              <>
+                <div style={styles.dropdownUser}>👤 {user.email}</div>
+                <button onClick={handleLogout} style={styles.dropdownButton}>Logout</button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
       <div style={styles.card}>
         {/* Logo TalentLix */}
         <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
@@ -82,6 +110,60 @@ const styles = {
     alignItems: 'center',
     background: '#FFFFFF',
     fontFamily: 'Inter, sans-serif',
+    position: 'relative',
+  },
+  userMenuContainer: {
+    position: 'absolute',
+    top: '20px',
+    right: '20px',
+  },
+  menuIcon: {
+    background: '#27E3DA',
+    color: '#fff',
+    width: '35px',
+    height: '35px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '20px',
+    cursor: 'pointer',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+  },
+  dropdown: {
+    position: 'absolute',
+    top: '45px',
+    right: '0',
+    background: '#FFF',
+    border: '1px solid #E0E0E0',
+    borderRadius: '8px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    minWidth: '180px',
+    zIndex: 100,
+    padding: '0.5rem',
+  },
+  dropdownItem: {
+    display: 'block',
+    padding: '0.5rem',
+    textDecoration: 'none',
+    color: '#333',
+    cursor: 'pointer',
+  },
+  dropdownUser: {
+    padding: '0.5rem',
+    fontSize: '0.9rem',
+    color: '#555',
+    borderBottom: '1px solid #eee',
+    marginBottom: '0.5rem',
+  },
+  dropdownButton: {
+    background: '#DD5555',
+    color: '#FFF',
+    border: 'none',
+    padding: '0.5rem',
+    width: '100%',
+    borderRadius: '6px',
+    cursor: 'pointer',
   },
   card: {
     textAlign: 'center',
