@@ -1,54 +1,78 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../utils/supabaseClient';
 import { useRouter } from 'next/router';
+import { supabase } from '../utils/supabaseClient';
 
 export default function Dashboard() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [athlete, setAthlete] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [publishLoading, setPublishLoading] = useState(false);
 
+  // 🔐 Controllo sessione e caricamento profilo
   useEffect(() => {
-    const checkUserAndProfile = async () => {
-      // ✅ 1. Ottieni utente loggato
+    const initDashboard = async () => {
+      // 1️⃣ Recupera utente autenticato
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.push('/login');
+        router.push('/login'); 
         return;
       }
       setUser(user);
 
-      // ✅ 2. Controlla se esiste il record in "athlete"
-      const { data: athlete, error } = await supabase
+      // 2️⃣ Recupera profilo atleta
+      const { data: athleteData, error } = await supabase
         .from('athlete')
-        .select('completion_percentage, profile_published')
-        .eq('id', user.id)
+        .select('*')
+        .eq('id', user.id) // FK collegata a auth.users.id
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
-        console.error('Error fetching athlete profile:', error);
+      if (error && error.code === 'PGRST116') {
+        // Nessun record trovato → primo login → Wizard step 1
+        router.push('/wizard?step=1');
         return;
       }
 
-      // ✅ 3. Se non esiste record → primo accesso → vai al Wizard
-      if (!athlete) {
-        router.push('/onboarding-wizard');
+      if (error) {
+        console.error('Errore caricamento profilo:', error);
         return;
       }
 
-      // ✅ 4. Se profilo incompleto (< es. 40%) → vai al Wizard
-      const MIN_COMPLETION = 40; // soglia minima per considerare "base completato"
-      if (athlete.completion_percentage < MIN_COMPLETION || !athlete.profile_published) {
-        router.push('/onboarding-wizard');
+      // 3️⃣ Controllo completamento
+      if (!athleteData || athleteData.completion_percentage < 40) {
+        const redirectStep = athleteData?.current_step || 1;
+        router.push(`/wizard?step=${redirectStep}`);
         return;
       }
 
-      // ✅ 5. Altrimenti resta sulla Dashboard
+      setAthlete(athleteData);
       setLoading(false);
     };
 
-    checkUserAndProfile();
+    initDashboard();
   }, [router]);
 
+  // 🔄 Switch Pubblicazione
+  const togglePublish = async () => {
+    if (!athlete) return;
+    setPublishLoading(true);
+
+    const newStatus = !athlete.profile_published;
+    const { error } = await supabase
+      .from('athlete')
+      .update({ profile_published: newStatus })
+      .eq('id', athlete.id);
+
+    if (!error) {
+      setAthlete({ ...athlete, profile_published: newStatus });
+    } else {
+      console.error('Errore aggiornamento pubblicazione:', error);
+    }
+
+    setPublishLoading(false);
+  };
+
+  // 🔓 Logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
@@ -58,7 +82,7 @@ export default function Dashboard() {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <p style={styles.text}>Checking your profile...</p>
+          <p>🔄 Caricamento Dashboard...</p>
         </div>
       </div>
     );
@@ -67,18 +91,111 @@ export default function Dashboard() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <h2 style={styles.title}>Welcome to your Dashboard</h2>
-        {user && <p style={styles.text}>Logged in as: {user.email}</p>}
-        <button onClick={handleLogout} style={styles.button}>Logout</button>
+        {/* Logo TalentLix */}
+        <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
+        <h1 style={styles.title}>Ciao, {athlete.first_name}!</h1>
+        <p style={styles.subtitle}>Benvenuto nella tua Dashboard personale.</p>
+
+        {/* Stato profilo */}
+        <div style={styles.section}>
+          <h2 style={styles.sectionTitle}>📊 Stato del tuo profilo</h2>
+          <p><strong>Completamento:</strong> {athlete.completion_percentage}%</p>
+          <p>
+            <strong>Pubblicazione:</strong> {athlete.profile_published ? '✅ Pubblicato' : '❌ Non pubblicato'}
+          </p>
+
+          {/* Switch pubblicazione */}
+          <button 
+            onClick={togglePublish} 
+            disabled={publishLoading} 
+            style={athlete.profile_published ? styles.buttonOff : styles.buttonOn}
+          >
+            {publishLoading 
+              ? '⏳ Aggiornamento...' 
+              : athlete.profile_published 
+                ? 'Depubblica profilo' 
+                : 'Pubblica profilo'}
+          </button>
+        </div>
+
+        {/* Pulsanti navigazione */}
+        <div style={styles.buttonGroup}>
+          <button style={styles.buttonOutline} onClick={() => router.push('/wizard')}>
+            ✏️ Completa o modifica il tuo profilo
+          </button>
+          <button style={styles.buttonLogout} onClick={handleLogout}>
+            🚪 Logout
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 const styles = {
-  container: { minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#FFFFFF', fontFamily: 'Inter, sans-serif' },
-  card: { background: '#F8F9FA', padding: '2rem', borderRadius: '12px', textAlign: 'center', width: '100%', maxWidth: '400px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid #E0E0E0' },
-  title: { color: '#000000', fontSize: '1.5rem', marginBottom: '1rem' },
-  text: { color: '#555555', marginBottom: '2rem' },
-  button: { padding: '0.8rem', background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', border: 'none', borderRadius: '8px', color: '#FFFFFF', fontWeight: 'bold', cursor: 'pointer' }
+  container: {
+    minHeight: '100vh',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    background: '#FFFFFF',
+    fontFamily: 'Inter, sans-serif',
+  },
+  card: {
+    textAlign: 'center',
+    maxWidth: '500px',
+    width: '100%',
+    padding: '2rem',
+    borderRadius: '12px',
+    background: '#F8F9FA',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+    border: '1px solid #E0E0E0',
+  },
+  logo: { width: '100px', marginBottom: '1rem' },
+  title: { color: '#000000', fontSize: '2rem', marginBottom: '0.5rem' },
+  subtitle: { color: '#555555', fontSize: '1rem', marginBottom: '1.5rem' },
+  section: { marginBottom: '2rem' },
+  sectionTitle: { fontSize: '1.2rem', color: '#333', marginBottom: '0.5rem' },
+  buttonOn: {
+    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+    color: '#FFFFFF',
+    padding: '0.8rem 1.2rem',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    marginTop: '0.8rem',
+  },
+  buttonOff: {
+    background: '#DD5555',
+    color: '#FFFFFF',
+    padding: '0.8rem 1.2rem',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    marginTop: '0.8rem',
+  },
+  buttonOutline: {
+    border: '2px solid #27E3DA',
+    color: '#27E3DA',
+    padding: '0.8rem 1.2rem',
+    borderRadius: '8px',
+    background: 'transparent',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    marginRight: '0.8rem',
+  },
+  buttonLogout: {
+    background: '#F44336',
+    color: '#FFF',
+    padding: '0.8rem 1.2rem',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+  },
+  buttonGroup: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '1rem',
+  },
 };
