@@ -7,16 +7,16 @@ export default function Wizard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [athlete, setAthlete] = useState(null);
-  const [step, setStep] = useState(1); 
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  // Form state
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
     date_of_birth: '',
     gender: '',
     nationality: '',
+    native_language: 'English',
     profile_picture_url: '',
     phone: '',
     city: '',
@@ -28,7 +28,8 @@ export default function Wizard() {
     profile_published: false,
   });
 
-  // ✅ Check login and fetch profile data
+  const [errorMessage, setErrorMessage] = useState('');
+
   useEffect(() => {
     const initWizard = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -44,22 +45,19 @@ export default function Wizard() {
         .eq('id', user.id)
         .single();
 
-      // Case 1: No record → new user → Step 1
       if (!athleteData) {
         setStep(1);
         setLoading(false);
         return;
       }
 
-      // Case 2: Profile complete → show message and redirect option
       if (athleteData.completion_percentage >= 40) {
         setAthlete(athleteData);
-        setStep(null); 
+        setStep(null);
         setLoading(false);
         return;
       }
 
-      // Case 3: Incomplete profile → load partial data and resume from saved step
       setAthlete(athleteData);
       setFormData(prev => ({ ...prev, ...athleteData }));
       setStep(athleteData.current_step || 1);
@@ -74,11 +72,20 @@ export default function Wizard() {
   };
 
   const saveStep = async (nextStep) => {
+    setErrorMessage('');
     const updatedData = { ...formData, current_step: nextStep };
+
     const { error } = await supabase
       .from('athlete')
       .upsert([{ id: user.id, ...updatedData, completion_percentage: calcCompletion(nextStep) }]);
-    if (!error) setStep(nextStep);
+
+    if (error) {
+      console.error('Supabase error:', error);
+      setErrorMessage(`Error saving data: ${error.message}`);
+      return;
+    }
+
+    setStep(nextStep);
   };
 
   const calcCompletion = (nextStep) => {
@@ -103,14 +110,13 @@ export default function Wizard() {
     if (!error) router.push('/dashboard');
   };
 
-  // Loading UI
   if (loading) return <div style={styles.loading}>🔄 Loading Wizard...</div>;
 
-  // Case: Profile already complete
   if (step === null) {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
+          <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
           <h2>✅ Your profile is already complete</h2>
           <p>You can go back to your Dashboard.</p>
           <button style={styles.button} onClick={() => router.push('/dashboard')}>
@@ -124,12 +130,12 @@ export default function Wizard() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        {/* Progress Bar */}
+        <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
+
         <div style={styles.progressBar}>
           <div style={{ ...styles.progressFill, width: `${(step / 4) * 100}%` }} />
         </div>
 
-        {/* Step Indicators */}
         <div style={styles.steps}>
           {[1, 2, 3, 4].map((s) => (
             <div key={s} style={{ ...styles.stepCircle, background: step === s ? '#27E3DA' : '#E0E0E0' }}>
@@ -138,7 +144,8 @@ export default function Wizard() {
           ))}
         </div>
 
-        {/* Step Content */}
+        {errorMessage && <p style={styles.error}>{errorMessage}</p>}
+
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -147,10 +154,18 @@ export default function Wizard() {
             exit={{ opacity: 0, x: -50 }}
             transition={{ duration: 0.4 }}
           >
-            {step === 1 && <Step1 formData={formData} handleChange={handleChange} saveStep={() => saveStep(2)} />}
-            {step === 2 && <Step2 formData={formData} handleChange={handleChange} saveStep={() => saveStep(3)} />}
-            {step === 3 && <Step3 formData={formData} handleChange={handleChange} saveStep={() => saveStep(4)} />}
-            {step === 4 && <Step4 formData={formData} handleChange={handleChange} finalize={finalizeProfile} />}
+            {step === 1 && (
+              <Step1 formData={formData} handleChange={handleChange} saveStep={() => saveStep(2)} />
+            )}
+            {step === 2 && (
+              <Step2 formData={formData} handleChange={handleChange} saveStep={() => saveStep(3)} />
+            )}
+            {step === 3 && (
+              <Step3 formData={formData} handleChange={handleChange} saveStep={() => saveStep(4)} />
+            )}
+            {step === 4 && (
+              <Step4 formData={formData} handleChange={handleChange} finalize={finalizeProfile} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -158,24 +173,39 @@ export default function Wizard() {
   );
 }
 
-/* -------------------- STEP COMPONENTS -------------------- */
-const Step1 = ({ formData, handleChange, saveStep }) => (
-  <>
-    <h2 style={styles.title}>👤 Personal Information</h2>
-    <input style={styles.input} name="first_name" placeholder="First Name" value={formData.first_name} onChange={handleChange} />
-    <input style={styles.input} name="last_name" placeholder="Last Name" value={formData.last_name} onChange={handleChange} />
-    <input style={styles.input} type="date" name="date_of_birth" value={formData.date_of_birth || ''} onChange={handleChange} />
-    <select style={styles.input} name="gender" value={formData.gender} onChange={handleChange}>
-      <option value="">Select Gender</option>
-      <option value="M">Male</option>
-      <option value="F">Female</option>
-      <option value="Other">Other</option>
-    </select>
-    <input style={styles.input} name="nationality" placeholder="Nationality" value={formData.nationality} onChange={handleChange} />
-    <button style={styles.button} onClick={saveStep}>Next ➡️</button>
-  </>
-);
+/* ---------- STEP 1 with validation ---------- */
+const Step1 = ({ formData, handleChange, saveStep }) => {
+  const isStepValid =
+    formData.first_name.trim() &&
+    formData.last_name.trim() &&
+    formData.date_of_birth.trim() &&
+    formData.gender.trim() &&
+    formData.nationality.trim();
 
+  return (
+    <>
+      <h2 style={styles.title}>👤 Personal Information</h2>
+      <input style={styles.input} name="first_name" placeholder="First Name" value={formData.first_name} onChange={handleChange} />
+      <input style={styles.input} name="last_name" placeholder="Last Name" value={formData.last_name} onChange={handleChange} />
+      <input style={styles.input} type="date" name="date_of_birth" value={formData.date_of_birth || ''} onChange={handleChange} />
+      <select style={styles.input} name="gender" value={formData.gender} onChange={handleChange}>
+        <option value="">Select Gender</option>
+        <option value="M">Male</option>
+        <option value="F">Female</option>
+      </select>
+      <input style={styles.input} name="nationality" placeholder="Nationality" value={formData.nationality} onChange={handleChange} />
+      <button 
+        style={isStepValid ? styles.button : styles.buttonDisabled} 
+        onClick={saveStep} 
+        disabled={!isStepValid}
+      >
+        Next ➡️
+      </button>
+    </>
+  );
+};
+
+/* Other Steps unchanged */
 const Step2 = ({ formData, handleChange, saveStep }) => (
   <>
     <h2 style={styles.title}>📞 Contact Information</h2>
@@ -213,25 +243,10 @@ const Step4 = ({ formData, handleChange, finalize }) => (
   </>
 );
 
-/* -------------------- STYLES -------------------- */
 const styles = {
-  container: {
-    minHeight: '100vh',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    background: '#FFFFFF',
-    fontFamily: 'Inter, sans-serif',
-  },
-  card: {
-    width: '100%',
-    maxWidth: '600px',
-    background: '#F8F9FA',
-    padding: '2rem',
-    borderRadius: '16px',
-    boxShadow: '0 6px 20px rgba(0,0,0,0.08)',
-    textAlign: 'center',
-  },
+  container: { minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#FFFFFF', fontFamily: 'Inter, sans-serif' },
+  card: { width: '100%', maxWidth: '600px', background: '#F8F9FA', padding: '2rem', borderRadius: '16px', boxShadow: '0 6px 20px rgba(0,0,0,0.08)', textAlign: 'center' },
+  logo: { width: '80px', marginBottom: '1rem' },
   progressBar: { background: '#E0E0E0', height: '8px', borderRadius: '8px', marginBottom: '1rem' },
   progressFill: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', height: '100%', borderRadius: '8px' },
   steps: { display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem' },
@@ -239,6 +254,8 @@ const styles = {
   title: { fontSize: '1.5rem', marginBottom: '1rem' },
   input: { width: '100%', padding: '0.8rem', marginBottom: '1rem', borderRadius: '8px', border: '1px solid #ccc' },
   button: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', width: '100%', fontWeight: 'bold' },
+  buttonDisabled: { background: '#ccc', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '8px', width: '100%', cursor: 'not-allowed' },
   reviewList: { textAlign: 'left', marginBottom: '1.5rem', lineHeight: '1.6' },
-  loading: { textAlign: 'center', marginTop: '50px', fontSize: '1.2rem' }
+  error: { color: 'red', fontSize: '0.9rem', marginBottom: '1rem' },
+  loading: { textAlign: 'center', marginTop: '50px', fontSize: '1.2rem' },
 };
