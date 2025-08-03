@@ -7,10 +7,10 @@ export default function Wizard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [athlete, setAthlete] = useState(null);
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(1); // step corrente (1-4) oppure null se profilo già completo
   const [loading, setLoading] = useState(true);
 
-  // 🔑 Form state
+  // Stato form
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -28,7 +28,7 @@ export default function Wizard() {
     profile_published: false,
   });
 
-  // 🔐 Controllo login e caricamento profilo
+  // ✅ Controllo login e recupero dati profilo
   useEffect(() => {
     const initWizard = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -38,77 +38,103 @@ export default function Wizard() {
       }
       setUser(user);
 
-      // Carica profilo atleta
       const { data: athleteData } = await supabase
         .from('athlete')
         .select('*')
         .eq('id', user.id)
         .single();
 
-      if (athleteData) {
-        setAthlete(athleteData);
-        setStep(athleteData.current_step || 1);
-        setFormData(prev => ({ ...prev, ...athleteData })); // Precompila
+      // Caso 1: Nessun record → nuovo utente → Step 1
+      if (!athleteData) {
+        setStep(1);
+        setLoading(false);
+        return;
       }
+
+      // Caso 2: Profilo completo → messaggio e link Dashboard
+      if (athleteData.completion_percentage >= 40) {
+        setAthlete(athleteData);
+        setStep(null); // Segnale per mostrare messaggio "già completo"
+        setLoading(false);
+        return;
+      }
+
+      // Caso 3: Profilo incompleto → carica dati parziali e step corrente
+      setAthlete(athleteData);
+      setFormData(prev => ({ ...prev, ...athleteData }));
+      setStep(athleteData.current_step || 1);
       setLoading(false);
     };
     initWizard();
   }, [router]);
 
-  // 📥 Handle input change
+  // Gestione input
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
   };
 
-  // 💾 Salvataggio step parziale
+  // Salvataggio step parziale
   const saveStep = async (nextStep) => {
     const updatedData = { ...formData, current_step: nextStep };
-
-    // Aggiorna atleta (o inserisce se primo step)
     const { error } = await supabase
       .from('athlete')
       .upsert([{ id: user.id, ...updatedData, completion_percentage: calcCompletion(nextStep) }]);
-
-    if (error) console.error('Errore salvataggio:', error);
-    else setStep(nextStep);
+    if (!error) setStep(nextStep);
   };
 
-  // 🎯 Completamento %
+  // Percentuale di completamento
   const calcCompletion = (nextStep) => {
     switch (nextStep) {
       case 2: return 10;
       case 3: return 20;
       case 4: return 30;
-      default: return 40; // Profilo base completo
+      default: return 40;
     }
   };
 
-  // ✅ Conferma e pubblicazione
+  // Conferma finale e pubblicazione
   const finalizeProfile = async () => {
     const { error } = await supabase
       .from('athlete')
-      .update({ 
-        completion_percentage: 40, 
+      .update({
+        completion_percentage: 40,
         current_step: null,
-        profile_published: formData.profile_published 
+        profile_published: formData.profile_published,
       })
       .eq('id', user.id);
 
     if (!error) router.push('/dashboard');
   };
 
-  if (loading) return <div style={styles.loading}>Caricamento Wizard...</div>;
+  // UI caricamento
+  if (loading) return <div style={styles.loading}>🔄 Caricamento Wizard...</div>;
 
+  // Caso profilo già completo
+  if (step === null) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <h2>✅ Il tuo profilo base è già completo</h2>
+          <p>Vuoi tornare alla Dashboard?</p>
+          <button style={styles.button} onClick={() => router.push('/dashboard')}>
+            Vai alla Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // UI Wizard
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        {/* Progress bar */}
+        {/* Barra di progresso */}
         <div style={styles.progressBar}>
           <div style={{ ...styles.progressFill, width: `${(step / 4) * 100}%` }} />
         </div>
 
-        {/* Step indicator */}
+        {/* Indicatori step */}
         <div style={styles.steps}>
           {[1, 2, 3, 4].map((s) => (
             <div key={s} style={{ ...styles.stepCircle, background: step === s ? '#27E3DA' : '#E0E0E0' }}>
@@ -117,6 +143,7 @@ export default function Wizard() {
           ))}
         </div>
 
+        {/* Contenuto step con animazione */}
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -125,18 +152,10 @@ export default function Wizard() {
             exit={{ opacity: 0, x: -50 }}
             transition={{ duration: 0.4 }}
           >
-            {step === 1 && (
-              <Step1 formData={formData} handleChange={handleChange} saveStep={() => saveStep(2)} />
-            )}
-            {step === 2 && (
-              <Step2 formData={formData} handleChange={handleChange} saveStep={() => saveStep(3)} />
-            )}
-            {step === 3 && (
-              <Step3 formData={formData} handleChange={handleChange} saveStep={() => saveStep(4)} />
-            )}
-            {step === 4 && (
-              <Step4 formData={formData} handleChange={handleChange} finalize={finalizeProfile} />
-            )}
+            {step === 1 && <Step1 formData={formData} handleChange={handleChange} saveStep={() => saveStep(2)} />}
+            {step === 2 && <Step2 formData={formData} handleChange={handleChange} saveStep={() => saveStep(3)} />}
+            {step === 3 && <Step3 formData={formData} handleChange={handleChange} saveStep={() => saveStep(4)} />}
+            {step === 4 && <Step4 formData={formData} handleChange={handleChange} finalize={finalizeProfile} />}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -144,13 +163,13 @@ export default function Wizard() {
   );
 }
 
-/* -------------------- STEP COMPONENTS -------------------- */
+/* -------------------- COMPONENTI STEP -------------------- */
 const Step1 = ({ formData, handleChange, saveStep }) => (
   <>
     <h2 style={styles.title}>👤 Dati Personali</h2>
     <input style={styles.input} name="first_name" placeholder="Nome" value={formData.first_name} onChange={handleChange} />
     <input style={styles.input} name="last_name" placeholder="Cognome" value={formData.last_name} onChange={handleChange} />
-    <input style={styles.input} type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} />
+    <input style={styles.input} type="date" name="date_of_birth" value={formData.date_of_birth || ''} onChange={handleChange} />
     <select style={styles.input} name="gender" value={formData.gender} onChange={handleChange}>
       <option value="">Seleziona genere</option>
       <option value="M">Maschio</option>
@@ -190,7 +209,8 @@ const Step4 = ({ formData, handleChange, finalize }) => (
       <li><strong>Nome:</strong> {formData.first_name} {formData.last_name}</li>
       <li><strong>Sport:</strong> {formData.sport} ({formData.main_role})</li>
       <li><strong>Squadra:</strong> {formData.team_name}</li>
-      <li><strong>Pubblica subito?:</strong>
+      <li>
+        <strong>Pubblica subito?:</strong>
         <input type="checkbox" name="profile_published" checked={formData.profile_published} onChange={handleChange} />
       </li>
     </ul>
@@ -198,7 +218,7 @@ const Step4 = ({ formData, handleChange, finalize }) => (
   </>
 );
 
-/* -------------------- STYLES -------------------- */
+/* -------------------- STILI -------------------- */
 const styles = {
   container: {
     minHeight: '100vh',
