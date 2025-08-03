@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useRouter } from 'next/router';
 
@@ -8,6 +8,17 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  // 👇 Redirect automatico se già loggato
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        router.push('/dashboard'); // se loggato, vai su Dashboard
+      }
+    };
+    checkUser();
+  }, [router]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -25,38 +36,66 @@ export default function Login() {
         setError(error.message || 'An unexpected error occurred. Please try again.');
       }
     } else {
-      router.push('/dashboard');
+      router.push('/dashboard'); // login riuscito → vai su Dashboard
     }
 
     setLoading(false);
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
-        <h2 style={styles.title}>Sign in to TalentLix</h2>
-        <form onSubmit={handleLogin} style={styles.form}>
-          <input type="email" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} style={styles.input} required />
-          <input type="password" placeholder="Password" value={password} onChange={(e)=>setPassword(e.target.value)} style={styles.input} required />
-          <button type="submit" style={{ ...styles.button, opacity: loading ? 0.6 : 1 }} disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-        {error && <p style={styles.error}>{error}</p>}
-        <p style={styles.footerText}>
-          Forgot your password? <a href="/forgot-password" style={styles.link}>Reset it here</a>
-        </p>
-        <p style={styles.footerText}>
-          Don’t have an account? <a href="/register" style={styles.link}>Register</a>
-        </p>
+    <div style={styles.background}> {/* 👈 Sfondo aggiunto */}
+      <div style={styles.overlay}> {/* 👈 Overlay semi-trasparente */}
+        <div style={styles.container}>
+          <div style={styles.card}>
+            <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
+            <h2 style={styles.title}>Sign in to TalentLix</h2>
+            <form onSubmit={handleLogin} style={styles.form}>
+              <input type="email" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} style={styles.input} required />
+              <input type="password" placeholder="Password" value={password} onChange={(e)=>setPassword(e.target.value)} style={styles.input} required />
+              <button type="submit" style={{ ...styles.button, opacity: loading ? 0.6 : 1 }} disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign In'}
+              </button>
+            </form>
+            {error && <p style={styles.error}>{error}</p>}
+            <p style={styles.footerText}>
+              Forgot your password? <a href="/forgot-password" style={styles.link}>Reset it here</a>
+            </p>
+            <p style={styles.footerText}>
+              Don’t have an account? <a href="/register" style={styles.link}>Register</a>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
 const styles = {
-  container: { minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#FFFFFF', fontFamily: 'Inter, sans-serif' },
+  background: {
+    backgroundImage: "url('/BackG.png')", // 👈 Sfondo come index
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    width: '100%',
+    height: '100vh',
+    position: 'relative',
+  },
+  overlay: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)', // 👈 Overlay semi-trasparente
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  container: { 
+    minHeight: '100vh', 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    fontFamily: 'Inter, sans-serif',
+    position: 'relative',
+  },
   card: { background: '#F8F9FA', padding: '2rem', borderRadius: '12px', textAlign: 'center', width: '100%', maxWidth: '400px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid #E0E0E0' },
   logo: { width: '80px', marginBottom: '1rem' },
   title: { color: '#000000', fontSize: '1.5rem', marginBottom: '1.5rem' },
