@@ -9,36 +9,32 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [publishLoading, setPublishLoading] = useState(false);
 
-  // 🔐 Controllo sessione e caricamento profilo
+  // Check session and profile data
   useEffect(() => {
     const initDashboard = async () => {
-      // 1️⃣ Recupera utente autenticato
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.push('/login'); 
+        router.push('/login');
         return;
       }
       setUser(user);
 
-      // 2️⃣ Recupera profilo atleta
       const { data: athleteData, error } = await supabase
         .from('athlete')
         .select('*')
-        .eq('id', user.id) // FK collegata a auth.users.id
+        .eq('id', user.id)
         .single();
 
       if (error && error.code === 'PGRST116') {
-        // Nessun record trovato → primo login → Wizard step 1
         router.push('/wizard?step=1');
         return;
       }
 
       if (error) {
-        console.error('Errore caricamento profilo:', error);
+        console.error('Error loading profile:', error);
         return;
       }
 
-      // 3️⃣ Controllo completamento
       if (!athleteData || athleteData.completion_percentage < 40) {
         const redirectStep = athleteData?.current_step || 1;
         router.push(`/wizard?step=${redirectStep}`);
@@ -52,7 +48,6 @@ export default function Dashboard() {
     initDashboard();
   }, [router]);
 
-  // 🔄 Switch Pubblicazione
   const togglePublish = async () => {
     if (!athlete) return;
     setPublishLoading(true);
@@ -66,13 +61,12 @@ export default function Dashboard() {
     if (!error) {
       setAthlete({ ...athlete, profile_published: newStatus });
     } else {
-      console.error('Errore aggiornamento pubblicazione:', error);
+      console.error('Error updating publish status:', error);
     }
 
     setPublishLoading(false);
   };
 
-  // 🔓 Logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
@@ -82,7 +76,7 @@ export default function Dashboard() {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <p>🔄 Caricamento Dashboard...</p>
+          <p>🔄 Loading Dashboard...</p>
         </div>
       </div>
     );
@@ -91,37 +85,33 @@ export default function Dashboard() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        {/* Logo TalentLix */}
         <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
-        <h1 style={styles.title}>Ciao, {athlete.first_name}!</h1>
-        <p style={styles.subtitle}>Benvenuto nella tua Dashboard personale.</p>
+        <h1 style={styles.title}>Hello, {athlete.first_name}!</h1>
+        <p style={styles.subtitle}>Welcome to your personal Dashboard.</p>
 
-        {/* Stato profilo */}
         <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>📊 Stato del tuo profilo</h2>
-          <p><strong>Completamento:</strong> {athlete.completion_percentage}%</p>
+          <h2 style={styles.sectionTitle}>📊 Profile Status</h2>
+          <p><strong>Completion:</strong> {athlete.completion_percentage}%</p>
           <p>
-            <strong>Pubblicazione:</strong> {athlete.profile_published ? '✅ Pubblicato' : '❌ Non pubblicato'}
+            <strong>Publication:</strong> {athlete.profile_published ? '✅ Published' : '❌ Not Published'}
           </p>
 
-          {/* Switch pubblicazione */}
           <button 
             onClick={togglePublish} 
             disabled={publishLoading} 
             style={athlete.profile_published ? styles.buttonOff : styles.buttonOn}
           >
             {publishLoading 
-              ? '⏳ Aggiornamento...' 
+              ? '⏳ Updating...' 
               : athlete.profile_published 
-                ? 'Depubblica profilo' 
-                : 'Pubblica profilo'}
+                ? 'Unpublish Profile' 
+                : 'Publish Profile'}
           </button>
         </div>
 
-        {/* Pulsanti navigazione */}
         <div style={styles.buttonGroup}>
           <button style={styles.buttonOutline} onClick={() => router.push('/wizard')}>
-            ✏️ Completa o modifica il tuo profilo
+            ✏️ Edit or Complete Profile
           </button>
           <button style={styles.buttonLogout} onClick={handleLogout}>
             🚪 Logout
