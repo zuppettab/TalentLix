@@ -54,48 +54,52 @@ export default function Home() {
   };
 
   return (
-    <div style={styles.container}>
-      {/* 🔵 MENU UTENTE IN ALTO A DESTRA */}
-      <div style={styles.userMenuContainer}>
-        <div style={styles.menuIcon} onClick={() => setMenuOpen(!menuOpen)}>⋮</div>
-        {menuOpen && (
-          <div style={styles.dropdown}>
-            {!user ? (
-              <>
-                <Link href="/login" style={styles.dropdownItem}>Login</Link>
-              </>
-            ) : (
-              <>
-                <div style={styles.dropdownUser}>👤 {user.email}</div>
-                <button onClick={handleLogout} style={styles.dropdownButton}>Logout</button>
-              </>
+    <div style={styles.background}> {/* 👈 Sfondo applicato */}
+      <div style={styles.overlay}> {/* 👈 Overlay semi-trasparente */}
+        <div style={styles.container}>
+          {/* 🔵 MENU UTENTE IN ALTO A DESTRA */}
+          <div style={styles.userMenuContainer}>
+            <div style={styles.menuIcon} onClick={() => setMenuOpen(!menuOpen)}>⋮</div>
+            {menuOpen && (
+              <div style={styles.dropdown}>
+                {!user ? (
+                  <>
+                    <Link href="/login" style={styles.dropdownItem}>Login</Link>
+                  </>
+                ) : (
+                  <>
+                    <div style={styles.dropdownUser}>👤 {user.email}</div>
+                    <button onClick={handleLogout} style={styles.dropdownButton}>Logout</button>
+                  </>
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
 
-      <div style={styles.card}>
-        {/* Logo TalentLix */}
-        <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
-        <h1 style={styles.title}>Welcome to TalentLix</h1>
-        <p style={styles.subtitle}>The social platform for young athletes, built for sports.</p>
+          <div style={styles.card}>
+            {/* Logo TalentLix */}
+            <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
+            <h1 style={styles.title}>Welcome to TalentLix</h1>
+            <p style={styles.subtitle}>The social platform for young athletes, built for sports.</p>
 
-        {/* Messaggi conferma/scadenza */}
-        {confirmationStatus && (
-          <div style={styles.alert}>
-            <p>{message}</p>
-            {confirmationStatus === 'expired' && (
-              <button style={styles.button} onClick={resendConfirmation}>
-                Resend Confirmation Email
-              </button>
+            {/* Messaggi conferma/scadenza */}
+            {confirmationStatus && (
+              <div style={styles.alert}>
+                <p>{message}</p>
+                {confirmationStatus === 'expired' && (
+                  <button style={styles.button} onClick={resendConfirmation}>
+                    Resend Confirmation Email
+                  </button>
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {/* Pulsanti di navigazione */}
-        <div style={styles.buttonGroup}>
-          <Link href="/login" style={styles.button}>Login</Link>
-          <Link href="/register" style={styles.buttonOutline}>Register</Link>
+            {/* Pulsanti di navigazione */}
+            <div style={styles.buttonGroup}>
+              <Link href="/login" style={styles.button}>Login</Link>
+              <Link href="/register" style={styles.buttonOutline}>Register</Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -103,12 +107,28 @@ export default function Home() {
 }
 
 const styles = {
+  background: {
+    backgroundImage: "url('/BackG.png')", // 👈 Sfondo dal file in /public
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    width: '100%',
+    height: '100vh',
+    position: 'relative',
+  },
+  overlay: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)', // 👈 Schiarimento trasparente
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
   container: {
     minHeight: '100vh',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    background: '#FFFFFF',
     fontFamily: 'Inter, sans-serif',
     position: 'relative',
   },
@@ -116,6 +136,7 @@ const styles = {
     position: 'absolute',
     top: '20px',
     right: '20px',
+    zIndex: 10,
   },
   menuIcon: {
     background: '#27E3DA',
@@ -174,6 +195,8 @@ const styles = {
     background: '#F8F9FA',
     boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
     border: '1px solid #E0E0E0',
+    zIndex: 2,
+    position: 'relative',
   },
   logo: { width: '100px', marginBottom: '1rem' },
   title: { color: '#000000', fontSize: '2rem', marginBottom: '0.5rem' },
