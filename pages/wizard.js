@@ -20,8 +20,6 @@ export default function Wizard() {
     native_language: 'English',
     profile_picture_url: '',
     phone: '',
-    city: '',
-    residence_country: '',
     sport: '',
     main_role: '',
     team_name: '',
@@ -61,11 +59,6 @@ export default function Wizard() {
       setFormData(prev => ({
         ...prev,
         ...athleteData,
-        phone: '',
-        sport: '',
-        main_role: '',
-        team_name: '',
-        category: '',
       }));
       setStep(athleteData.current_step || 1);
       setLoading(false);
@@ -83,7 +76,7 @@ export default function Wizard() {
 
     try {
       if (step === 1) {
-        // Save to athlete
+        // Save Personal Info
         const { error } = await supabase.from('athlete').upsert([{
           id: user.id,
           first_name: formData.first_name,
@@ -99,21 +92,20 @@ export default function Wizard() {
         if (error) throw error;
       } 
       else if (step === 2) {
-        // Save to contacts_verification
+        // Save Contact Info
         const { error } = await supabase.from('contacts_verification').upsert([{
           athlete_id: user.id,
           phone: formData.phone,
         }]);
         if (error) throw error;
 
-        // Optionally update city/residence in athlete
         await supabase.from('athlete').update({
           current_step: nextStep,
           completion_percentage: calcCompletion(nextStep),
         }).eq('id', user.id);
       }
       else if (step === 3) {
-        // Save to sports_experiences
+        // Save Sports Info
         const { error } = await supabase.from('sports_experiences').insert([{
           athlete_id: user.id,
           sport: formData.sport,
