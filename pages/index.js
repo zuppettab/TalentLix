@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import Link from 'next/link';
+import { useRouter } from 'next/router'; // 👈 Import router per redirect
 
 export default function Home() {
   const [confirmationStatus, setConfirmationStatus] = useState(null); // null | success | expired
   const [message, setMessage] = useState('');
   const [user, setUser] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const router = useRouter(); // 👈 Hook router
 
   useEffect(() => {
     const checkConfirmation = async () => {
@@ -33,11 +35,17 @@ export default function Home() {
 
       // 🔑 Controlla sessione utente
       const { data: { user } } = await supabase.auth.getUser();
-      setUser(user || null);
+
+      if (user) {
+        // 👇 Se l'utente è loggato, reindirizza direttamente alla dashboard
+        router.push('/dashboard');
+      } else {
+        setUser(null);
+      }
     };
 
     checkConfirmation();
-  }, []);
+  }, [router]);
 
   const resendConfirmation = async () => {
     const email = prompt('Enter your email to resend confirmation:');
@@ -77,12 +85,10 @@ export default function Home() {
           </div>
 
           <div style={styles.card}>
-            {/* Logo TalentLix */}
             <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
             <h1 style={styles.title}>Welcome to TalentLix</h1>
             <p style={styles.subtitle}>The social platform for young athletes, built for sports.</p>
 
-            {/* Messaggi conferma/scadenza */}
             {confirmationStatus && (
               <div style={styles.alert}>
                 <p>{message}</p>
@@ -94,7 +100,6 @@ export default function Home() {
               </div>
             )}
 
-            {/* Pulsanti di navigazione */}
             <div style={styles.buttonGroup}>
               <Link href="/login" style={styles.button}>Login</Link>
               <Link href="/register" style={styles.buttonOutline}>Register</Link>
@@ -108,7 +113,7 @@ export default function Home() {
 
 const styles = {
   background: {
-    backgroundImage: "url('/BackG.png')", // 👈 Sfondo dal file in /public
+    backgroundImage: "url('/BackG.png')",
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
@@ -117,7 +122,7 @@ const styles = {
     position: 'relative',
   },
   overlay: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)', // 👈 Schiarimento trasparente
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     width: '100%',
     height: '100%',
     position: 'absolute',
