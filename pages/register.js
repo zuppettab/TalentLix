@@ -29,7 +29,10 @@ export default function Register() {
     }
 
     // ✅ Native Supabase sign-up
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+    const { data, error: signUpError } = await supabase.auth.signUp(
+      { email, password },
+      { emailRedirectTo: 'https://talent-lix.vercel.app/email-confirmed' }
+    );
 
     if (signUpError) {
       setError(signUpError.message || 'An unexpected error occurred. Please try again.');
