@@ -7,10 +7,10 @@ export default function Wizard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [athlete, setAthlete] = useState(null);
-  const [step, setStep] = useState(1); // step corrente (1-4) oppure null se profilo già completo
+  const [step, setStep] = useState(1); 
   const [loading, setLoading] = useState(true);
 
-  // Stato form
+  // Form state
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -28,7 +28,7 @@ export default function Wizard() {
     profile_published: false,
   });
 
-  // ✅ Controllo login e recupero dati profilo
+  // ✅ Check login and fetch profile data
   useEffect(() => {
     const initWizard = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -44,22 +44,22 @@ export default function Wizard() {
         .eq('id', user.id)
         .single();
 
-      // Caso 1: Nessun record → nuovo utente → Step 1
+      // Case 1: No record → new user → Step 1
       if (!athleteData) {
         setStep(1);
         setLoading(false);
         return;
       }
 
-      // Caso 2: Profilo completo → messaggio e link Dashboard
+      // Case 2: Profile complete → show message and redirect option
       if (athleteData.completion_percentage >= 40) {
         setAthlete(athleteData);
-        setStep(null); // Segnale per mostrare messaggio "già completo"
+        setStep(null); 
         setLoading(false);
         return;
       }
 
-      // Caso 3: Profilo incompleto → carica dati parziali e step corrente
+      // Case 3: Incomplete profile → load partial data and resume from saved step
       setAthlete(athleteData);
       setFormData(prev => ({ ...prev, ...athleteData }));
       setStep(athleteData.current_step || 1);
@@ -68,13 +68,11 @@ export default function Wizard() {
     initWizard();
   }, [router]);
 
-  // Gestione input
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
   };
 
-  // Salvataggio step parziale
   const saveStep = async (nextStep) => {
     const updatedData = { ...formData, current_step: nextStep };
     const { error } = await supabase
@@ -83,7 +81,6 @@ export default function Wizard() {
     if (!error) setStep(nextStep);
   };
 
-  // Percentuale di completamento
   const calcCompletion = (nextStep) => {
     switch (nextStep) {
       case 2: return 10;
@@ -93,7 +90,6 @@ export default function Wizard() {
     }
   };
 
-  // Conferma finale e pubblicazione
   const finalizeProfile = async () => {
     const { error } = await supabase
       .from('athlete')
@@ -107,34 +103,33 @@ export default function Wizard() {
     if (!error) router.push('/dashboard');
   };
 
-  // UI caricamento
-  if (loading) return <div style={styles.loading}>🔄 Caricamento Wizard...</div>;
+  // Loading UI
+  if (loading) return <div style={styles.loading}>🔄 Loading Wizard...</div>;
 
-  // Caso profilo già completo
+  // Case: Profile already complete
   if (step === null) {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <h2>✅ Il tuo profilo base è già completo</h2>
-          <p>Vuoi tornare alla Dashboard?</p>
+          <h2>✅ Your profile is already complete</h2>
+          <p>You can go back to your Dashboard.</p>
           <button style={styles.button} onClick={() => router.push('/dashboard')}>
-            Vai alla Dashboard
+            Go to Dashboard
           </button>
         </div>
       </div>
     );
   }
 
-  // UI Wizard
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        {/* Barra di progresso */}
+        {/* Progress Bar */}
         <div style={styles.progressBar}>
           <div style={{ ...styles.progressFill, width: `${(step / 4) * 100}%` }} />
         </div>
 
-        {/* Indicatori step */}
+        {/* Step Indicators */}
         <div style={styles.steps}>
           {[1, 2, 3, 4].map((s) => (
             <div key={s} style={{ ...styles.stepCircle, background: step === s ? '#27E3DA' : '#E0E0E0' }}>
@@ -143,7 +138,7 @@ export default function Wizard() {
           ))}
         </div>
 
-        {/* Contenuto step con animazione */}
+        {/* Step Content */}
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -163,42 +158,42 @@ export default function Wizard() {
   );
 }
 
-/* -------------------- COMPONENTI STEP -------------------- */
+/* -------------------- STEP COMPONENTS -------------------- */
 const Step1 = ({ formData, handleChange, saveStep }) => (
   <>
-    <h2 style={styles.title}>👤 Dati Personali</h2>
-    <input style={styles.input} name="first_name" placeholder="Nome" value={formData.first_name} onChange={handleChange} />
-    <input style={styles.input} name="last_name" placeholder="Cognome" value={formData.last_name} onChange={handleChange} />
+    <h2 style={styles.title}>👤 Personal Information</h2>
+    <input style={styles.input} name="first_name" placeholder="First Name" value={formData.first_name} onChange={handleChange} />
+    <input style={styles.input} name="last_name" placeholder="Last Name" value={formData.last_name} onChange={handleChange} />
     <input style={styles.input} type="date" name="date_of_birth" value={formData.date_of_birth || ''} onChange={handleChange} />
     <select style={styles.input} name="gender" value={formData.gender} onChange={handleChange}>
-      <option value="">Seleziona genere</option>
-      <option value="M">Maschio</option>
-      <option value="F">Femmina</option>
-      <option value="Altro">Altro</option>
+      <option value="">Select Gender</option>
+      <option value="M">Male</option>
+      <option value="F">Female</option>
+      <option value="Other">Other</option>
     </select>
-    <input style={styles.input} name="nationality" placeholder="Nazionalità" value={formData.nationality} onChange={handleChange} />
-    <button style={styles.button} onClick={saveStep}>Avanti ➡️</button>
+    <input style={styles.input} name="nationality" placeholder="Nationality" value={formData.nationality} onChange={handleChange} />
+    <button style={styles.button} onClick={saveStep}>Next ➡️</button>
   </>
 );
 
 const Step2 = ({ formData, handleChange, saveStep }) => (
   <>
-    <h2 style={styles.title}>📞 Contatti</h2>
-    <input style={styles.input} name="phone" placeholder="Telefono" value={formData.phone} onChange={handleChange} />
-    <input style={styles.input} name="city" placeholder="Città" value={formData.city} onChange={handleChange} />
-    <input style={styles.input} name="residence_country" placeholder="Paese di residenza" value={formData.residence_country} onChange={handleChange} />
-    <button style={styles.button} onClick={saveStep}>Avanti ➡️</button>
+    <h2 style={styles.title}>📞 Contact Information</h2>
+    <input style={styles.input} name="phone" placeholder="Phone Number" value={formData.phone} onChange={handleChange} />
+    <input style={styles.input} name="city" placeholder="City" value={formData.city} onChange={handleChange} />
+    <input style={styles.input} name="residence_country" placeholder="Country of Residence" value={formData.residence_country} onChange={handleChange} />
+    <button style={styles.button} onClick={saveStep}>Next ➡️</button>
   </>
 );
 
 const Step3 = ({ formData, handleChange, saveStep }) => (
   <>
-    <h2 style={styles.title}>🏀 Info Sportive</h2>
+    <h2 style={styles.title}>🏀 Sports Information</h2>
     <input style={styles.input} name="sport" placeholder="Sport" value={formData.sport} onChange={handleChange} />
-    <input style={styles.input} name="main_role" placeholder="Ruolo principale" value={formData.main_role} onChange={handleChange} />
-    <input style={styles.input} name="team_name" placeholder="Squadra attuale" value={formData.team_name} onChange={handleChange} />
-    <input style={styles.input} name="category" placeholder="Categoria" value={formData.category} onChange={handleChange} />
-    <button style={styles.button} onClick={saveStep}>Avanti ➡️</button>
+    <input style={styles.input} name="main_role" placeholder="Main Role" value={formData.main_role} onChange={handleChange} />
+    <input style={styles.input} name="team_name" placeholder="Current Team" value={formData.team_name} onChange={handleChange} />
+    <input style={styles.input} name="category" placeholder="Category" value={formData.category} onChange={handleChange} />
+    <button style={styles.button} onClick={saveStep}>Next ➡️</button>
   </>
 );
 
@@ -206,19 +201,19 @@ const Step4 = ({ formData, handleChange, finalize }) => (
   <>
     <h2 style={styles.title}>✅ Review & Publish</h2>
     <ul style={styles.reviewList}>
-      <li><strong>Nome:</strong> {formData.first_name} {formData.last_name}</li>
+      <li><strong>Name:</strong> {formData.first_name} {formData.last_name}</li>
       <li><strong>Sport:</strong> {formData.sport} ({formData.main_role})</li>
-      <li><strong>Squadra:</strong> {formData.team_name}</li>
+      <li><strong>Team:</strong> {formData.team_name}</li>
       <li>
-        <strong>Pubblica subito?:</strong>
+        <strong>Publish now?:</strong>
         <input type="checkbox" name="profile_published" checked={formData.profile_published} onChange={handleChange} />
       </li>
     </ul>
-    <button style={styles.button} onClick={finalize}>Conferma e vai in Dashboard</button>
+    <button style={styles.button} onClick={finalize}>Confirm and Go to Dashboard</button>
   </>
 );
 
-/* -------------------- STILI -------------------- */
+/* -------------------- STYLES -------------------- */
 const styles = {
   container: {
     minHeight: '100vh',
