@@ -20,6 +20,8 @@ export default function Wizard() {
     native_language: 'English',
     profile_picture_url: '',
     phone: '',
+    city: '',
+    residence_country: '',
     sport: '',
     main_role: '',
     team_name: '',
@@ -27,6 +29,7 @@ export default function Wizard() {
     profile_published: false,
   });
 
+  // Fetch user and athlete data
   useEffect(() => {
     const initWizard = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -56,10 +59,7 @@ export default function Wizard() {
       }
 
       setAthlete(athleteData);
-      setFormData(prev => ({
-        ...prev,
-        ...athleteData,
-      }));
+      setFormData(prev => ({ ...prev, ...athleteData }));
       setStep(athleteData.current_step || 1);
       setLoading(false);
     };
@@ -73,10 +73,9 @@ export default function Wizard() {
 
   const saveStep = async (nextStep) => {
     setErrorMessage('');
-
     try {
       if (step === 1) {
-        // Save Personal Info
+        // Step 1: Save Personal Info
         const { error } = await supabase.from('athlete').upsert([{
           id: user.id,
           first_name: formData.first_name,
@@ -90,22 +89,20 @@ export default function Wizard() {
           completion_percentage: calcCompletion(nextStep),
         }]);
         if (error) throw error;
-      } 
+      }
       else if (step === 2) {
-        // Save Contact Info
-        const { error } = await supabase.from('contacts_verification').upsert([{
-          athlete_id: user.id,
+        // Step 2: Save Contact Info
+        const { error } = await supabase.from('athlete').update({
           phone: formData.phone,
-        }]);
-        if (error) throw error;
-
-        await supabase.from('athlete').update({
+          city: formData.city,
+          residence_country: formData.residence_country,
           current_step: nextStep,
           completion_percentage: calcCompletion(nextStep),
         }).eq('id', user.id);
+        if (error) throw error;
       }
       else if (step === 3) {
-        // Save Sports Info
+        // Step 3: Save Sports Info
         const { error } = await supabase.from('sports_experiences').insert([{
           athlete_id: user.id,
           sport: formData.sport,
@@ -224,12 +221,14 @@ const Step1 = ({ formData, handleChange, saveStep }) => {
 
 /* STEP 2 */
 const Step2 = ({ formData, handleChange, saveStep }) => {
-  const isValid = formData.phone;
+  const isValid = formData.phone && formData.city && formData.residence_country;
   return (
     <>
       <h2 style={styles.title}>📞 Contact Information</h2>
       <div style={styles.formGroup}>
         <input style={styles.input} name="phone" placeholder="Phone Number" value={formData.phone} onChange={handleChange} />
+        <input style={styles.input} name="city" placeholder="City" value={formData.city} onChange={handleChange} />
+        <input style={styles.input} name="residence_country" placeholder="Country of Residence" value={formData.residence_country} onChange={handleChange} />
         <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
       </div>
     </>
@@ -263,6 +262,8 @@ const Step4 = ({ formData, handleChange, finalize }) => (
       <li><strong>Gender:</strong> {formData.gender === 'M' ? 'Male' : 'Female'}</li>
       <li><strong>Nationality:</strong> {formData.nationality}</li>
       <li><strong>Phone:</strong> {formData.phone}</li>
+      <li><strong>City:</strong> {formData.city}</li>
+      <li><strong>Country:</strong> {formData.residence_country}</li>
       <li><strong>Sport:</strong> {formData.sport} ({formData.main_role})</li>
       <li><strong>Team:</strong> {formData.team_name} - {formData.category}</li>
     </ul>
