@@ -15,7 +15,7 @@ export default function ForgotPassword() {
       redirectTo: 'https://talent-lix.vercel.app/reset-password',
     });
     if (error) setError(error.message);
-    else setMessage('Check your email for the password reset link.');
+    else setMessage('If an account exists for this email, you will receive a password reset link.');
   };
 
   return (
