@@ -10,17 +10,28 @@ export default function Home() {
     const checkConfirmation = async () => {
       const { data: { session } } = await supabase.auth.getSession();
 
+      // 1️⃣ Email confermata: messaggio successo
       if (session?.user?.email_confirmed_at) {
-        // Email confermata correttamente
         setConfirmationStatus('success');
         setMessage('✅ Your email has been successfully confirmed!');
-      } 
-      // Se nell'URL è presente "type=signup" ma l'email non è confermata, il link è scaduto
-      else if (window.location.href.includes('type=signup')) {
-        setConfirmationStatus('expired');
-        setMessage('❌ This confirmation link is invalid or has expired.');
+      } else {
+        // 2️⃣ Analizza parametri hash nell’URL (caso errore link scaduto)
+        const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+        const errorCode = hashParams.get('error_code');
+        const errorDescription = hashParams.get('error_description');
+
+        if (errorCode === 'otp_expired') {
+          setConfirmationStatus('expired');
+          setMessage(`❌ ${decodeURIComponent(errorDescription)}`);
+        }
+      }
+
+      // 3️⃣ Pulisce l'hash dall'URL dopo l'analisi
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname);
       }
     };
+
     checkConfirmation();
   }, []);
 
@@ -41,7 +52,7 @@ export default function Home() {
         <h1 style={styles.title}>Welcome to TalentLix</h1>
         <p style={styles.subtitle}>The social platform for young athletes, built for sports.</p>
 
-        {/* Blocco messaggi conferma/scadenza */}
+        {/* Messaggi conferma/scadenza */}
         {confirmationStatus && (
           <div style={styles.alert}>
             <p>{message}</p>
