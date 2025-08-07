@@ -274,8 +274,8 @@ const Step1 = ({ formData, handleChange, saveStep }) => {
             setFormData({ ...formData, nationality: selected?.value || '' })
           }
           filterOption={(option, inputValue) => {
-            // Mostra opzioni solo se ci sono almeno 2 caratteri
-            if (inputValue.length < 2) return false;
+            // Mostra opzioni solo se ci sono almeno 3 caratteri
+            if (inputValue.length < 3) return false;
             // Filtra le opzioni per match parziale case-insensitive
             return option.label.toLowerCase().includes(inputValue.toLowerCase());
           }}
