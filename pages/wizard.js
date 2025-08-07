@@ -253,7 +253,14 @@ const handleLogout = async () => {
                 exit={{ opacity: 0, x: -50 }}
                 transition={{ duration: 0.4 }}
               >
-                {step === 1 && <Step1 formData={formData} handleChange={handleChange} saveStep={() => saveStep(2)} />}
+                {step === 1 && (
+                    <Step1
+                      formData={formData}
+                      setFormData={setFormData}
+                      handleChange={handleChange}
+                      saveStep={() => saveStep(2)}
+                    />
+                  )}
                 {step === 2 && <Step2 formData={formData} handleChange={handleChange} saveStep={() => saveStep(3)} />}
                 {step === 3 && <Step3 formData={formData} handleChange={handleChange} saveStep={() => saveStep(4)} />}
                 {step === 4 && <Step4 formData={formData} handleChange={handleChange} finalize={finalizeProfile} />}
@@ -267,7 +274,7 @@ const handleLogout = async () => {
 }
 
 /* STEP 1 */
-const Step1 = ({ formData, handleChange, saveStep }) => {
+const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
   const [countryInput, setCountryInput] = useState('');
   const isValid = formData.first_name && formData.last_name && formData.date_of_birth && formData.gender && formData.nationality;
   return (
@@ -281,31 +288,30 @@ const Step1 = ({ formData, handleChange, saveStep }) => {
           <option value="">Select Gender</option>
           <option value="M">Male</option>
           <option value="F">Female</option>
-        </select>
-          <Select
-            name="nationality"
-            placeholder="Start typing nationality"
-            options={countries}
-            value={countries.find(opt => opt.value === formData.nationality) || null}
-            onChange={(selected) =>
-              setFormData({ ...formData, nationality: selected?.value || '' })
-            }
-            onInputChange={(inputValue) => {
-              setCountryInput(inputValue);
-            }}
-            filterOption={(option, inputValue) =>
-              inputValue.length >= 2 &&
-              option.label.toLowerCase().includes(inputValue.toLowerCase())
-            }
-            styles={{
-              control: (base) => ({
-                ...base,
-                padding: '2px',
-                borderRadius: '8px',
-                borderColor: '#ccc',
-              }),
-            }}
-          />
+       <Select
+          name="nationality"
+          placeholder="Start typing nationality"
+          options={countries}
+          value={countries.find(opt => opt.value === formData.nationality) || null}
+          onChange={(selected) =>
+            setFormData({ ...formData, nationality: selected?.value || '' })
+          }
+          onInputChange={(inputValue) => {
+            setCountryInput(inputValue);
+          }}
+          filterOption={(option, inputValue) =>
+            inputValue.length >= 2 &&
+            option.label.toLowerCase().includes(inputValue.toLowerCase())
+          }
+          styles={{
+            control: (base) => ({
+              ...base,
+              padding: '2px',
+              borderRadius: '8px',
+              borderColor: '#ccc',
+            }),
+          }}
+        />
         <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
       </div>
     </>
