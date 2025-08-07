@@ -320,7 +320,7 @@ userMenuContainer: {
   position: 'absolute',
   top: '20px',
   right: '20px',
-  zIndex: 10,
+  zIndex: 20,
 },
 menuIcon: {
   background: '#27E3DA',
@@ -379,6 +379,7 @@ dropdownButton: {
     position: 'absolute',
     top: 0,
     left: 0,
+    zIndex: 1,
   },
   container: {
     minHeight: '100vh',
