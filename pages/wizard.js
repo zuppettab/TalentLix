@@ -152,6 +152,16 @@ const handleLogout = async () => {
       <div style={styles.background}>
         <div style={styles.overlay}>
           <div style={styles.container}>
+        {/* 🔵 MENU UTENTE IN ALTO A DESTRA */}
+            <div style={styles.userMenuContainer}>
+              <div style={styles.menuIcon} onClick={() => setMenuOpen(!menuOpen)}>⋮</div>
+              {menuOpen && (
+                <div style={styles.dropdown}>
+                  <div style={styles.dropdownUser}>👤 {user?.email}</div>
+                  <button onClick={handleLogout} style={styles.dropdownButton}>Logout</button>
+                </div>
+              )}
+            </div>
             <p style={styles.loading}>Loading Wizard...</p>
           </div>
         </div>
