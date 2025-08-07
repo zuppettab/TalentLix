@@ -13,7 +13,6 @@ export default function Wizard() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [countryInput, setCountryInput] = useState('');
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -269,6 +268,7 @@ const handleLogout = async () => {
 
 /* STEP 1 */
 const Step1 = ({ formData, handleChange, saveStep }) => {
+  const [countryInput, setCountryInput] = useState('');
   const isValid = formData.first_name && formData.last_name && formData.date_of_birth && formData.gender && formData.nationality;
   return (
     <>
