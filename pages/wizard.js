@@ -13,6 +13,7 @@ export default function Wizard() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [countryInput, setCountryInput] = useState('');
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -284,17 +285,23 @@ const Step1 = ({ formData, handleChange, saveStep }) => {
         <Select
           name="nationality"
           placeholder="Start typing nationality"
-          options={countries}
-          value={countries.find(opt => opt.value === formData.nationality) || null}
+          options={
+            countryInput.length >= 2
+              ? countries.filter((c) =>
+                  c.label.toLowerCase().includes(countryInput.toLowerCase())
+                )
+              : []
+          }
+          value={
+            countries.find((opt) => opt.value === formData.nationality) || null
+          }
           onChange={(selected) =>
             setFormData({ ...formData, nationality: selected?.value || '' })
           }
-          filterOption={(option, inputValue) => {
-            // Mostra opzioni solo se ci sono almeno 3 caratteri
-            if (inputValue.length < 3) return false;
-            // Filtra le opzioni per match parziale case-insensitive
-            return option.label.toLowerCase().includes(inputValue.toLowerCase());
+          onInputChange={(inputValue) => {
+            setCountryInput(inputValue);
           }}
+          menuIsOpen={countryInput.length >= 2}
           styles={{
             control: (base) => ({
               ...base,
