@@ -281,6 +281,7 @@ const Step1 = ({ formData, handleChange, saveStep }) => {
           <option value="">Select Gender</option>
           <option value="M">Male</option>
           <option value="F">Female</option>
+        </select>
           <Select
             name="nationality"
             placeholder="Start typing nationality"
