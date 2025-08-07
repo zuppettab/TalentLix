@@ -10,6 +10,7 @@ export default function Wizard() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -131,6 +132,11 @@ export default function Wizard() {
       .eq('id', user.id);
     if (!error) router.push('/dashboard');
   };
+  
+const handleLogout = async () => {
+  await supabase.auth.signOut();
+  router.push('/login');
+};
 
   const calcCompletion = (nextStep) => {
     switch (nextStep) {
@@ -146,7 +152,7 @@ export default function Wizard() {
       <div style={styles.background}>
         <div style={styles.overlay}>
           <div style={styles.container}>
-            <p style={styles.loading}>🔄 Loading Wizard...</p>
+            <p style={styles.loading}>Loading Wizard...</p>
           </div>
         </div>
       </div>
@@ -158,6 +164,16 @@ export default function Wizard() {
       <div style={styles.background}>
         <div style={styles.overlay}>
           <div style={styles.container}>
+            {/* 🔵 MENU UTENTE IN ALTO A DESTRA */}
+                <div style={styles.userMenuContainer}>
+                  <div style={styles.menuIcon} onClick={() => setMenuOpen(!menuOpen)}>⋮</div>
+                  {menuOpen && (
+                    <div style={styles.dropdown}>
+                      <div style={styles.dropdownUser}>👤 {user?.email}</div>
+                      <button onClick={handleLogout} style={styles.dropdownButton}>Logout</button>
+                    </div>
+                  )}
+                </div>
             <div style={styles.card}>
               <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
               <h2>✅ Your profile is already complete</h2>
@@ -290,6 +306,53 @@ const Step4 = ({ formData, handleChange, finalize }) => (
 );
 
 const styles = {
+userMenuContainer: {
+  position: 'absolute',
+  top: '20px',
+  right: '20px',
+  zIndex: 10,
+},
+menuIcon: {
+  background: '#27E3DA',
+  color: '#fff',
+  width: '35px',
+  height: '35px',
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '20px',
+  cursor: 'pointer',
+  boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+},
+dropdown: {
+  position: 'absolute',
+  top: '45px',
+  right: '0',
+  background: '#FFF',
+  border: '1px solid #E0E0E0',
+  borderRadius: '8px',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+  minWidth: '180px',
+  zIndex: 100,
+  padding: '0.5rem',
+},
+dropdownUser: {
+  padding: '0.5rem',
+  fontSize: '0.9rem',
+  color: '#555',
+  borderBottom: '1px solid #eee',
+  marginBottom: '0.5rem',
+},
+dropdownButton: {
+  background: '#DD5555',
+  color: '#FFF',
+  border: 'none',
+  padding: '0.5rem',
+  width: '100%',
+  borderRadius: '6px',
+  cursor: 'pointer',
+},
   background: {
     backgroundImage: "url('/BackG.png')",
     backgroundSize: 'cover',
