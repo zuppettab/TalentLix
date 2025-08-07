@@ -281,34 +281,30 @@ const Step1 = ({ formData, handleChange, saveStep }) => {
           <option value="">Select Gender</option>
           <option value="M">Male</option>
           <option value="F">Female</option>
-        </select>
-          <Select
-            name="nationality"
-            placeholder="Start typing nationality"
-            options={
-              countryInput.length >= 2
-                ? countries.filter((c) =>
-                    c.label.toLowerCase().includes(countryInput.toLowerCase())
-                  )
-                : []
-            }
-            value={countries.find(opt => opt.value === formData.nationality) || null}
-            onChange={(selected) =>
-              setFormData({ ...formData, nationality: selected?.value || '' })
-            }
-            onInputChange={(inputValue) => {
-              setCountryInput(inputValue);
-            }}
-            menuIsOpen={countryInput.length >= 2}
-            styles={{
-              control: (base) => ({
-                ...base,
-                padding: '2px',
-                borderRadius: '8px',
-                borderColor: '#ccc',
-              }),
-            }}
-          />
+       <Select
+          name="nationality"
+          placeholder="Start typing nationality"
+          options={countries}
+          value={countries.find(opt => opt.value === formData.nationality) || null}
+          onChange={(selected) =>
+            setFormData({ ...formData, nationality: selected?.value || '' })
+          }
+          onInputChange={(inputValue) => {
+            setCountryInput(inputValue);
+          }}
+          filterOption={(option, inputValue) =>
+            inputValue.length >= 2 &&
+            option.label.toLowerCase().includes(inputValue.toLowerCase())
+          }
+          styles={{
+            control: (base) => ({
+              ...base,
+              padding: '2px',
+              borderRadius: '8px',
+              borderColor: '#ccc',
+            }),
+          }}
+        />
         <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
       </div>
     </>
