@@ -1,4 +1,3 @@
-// wizard.js COMPLETO con aggiunta del menu utente in alto a destra
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../utils/supabaseClient';
@@ -11,7 +10,6 @@ export default function Wizard() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
-  const [menuOpen, setMenuOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -31,6 +29,7 @@ export default function Wizard() {
     profile_published: false,
   });
 
+  // Fetch user and athlete data
   useEffect(() => {
     const initWizard = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -67,11 +66,6 @@ export default function Wizard() {
     initWizard();
   }, [router]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
-  };
-
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
@@ -94,7 +88,8 @@ export default function Wizard() {
           completion_percentage: calcCompletion(nextStep),
         }]);
         if (error) throw error;
-      } else if (step === 2) {
+      }
+      else if (step === 2) {
         const { error } = await supabase.from('athlete').update({
           phone: formData.phone,
           city: formData.city,
@@ -103,7 +98,8 @@ export default function Wizard() {
           completion_percentage: calcCompletion(nextStep),
         }).eq('id', user.id);
         if (error) throw error;
-      } else if (step === 3) {
+      }
+      else if (step === 3) {
         const { error } = await supabase.from('sports_experiences').insert([{
           athlete_id: user.id,
           sport: formData.sport,
@@ -157,64 +153,58 @@ export default function Wizard() {
     );
   }
 
+  if (step === null) {
+    return (
+      <div style={styles.background}>
+        <div style={styles.overlay}>
+          <div style={styles.container}>
+            <div style={styles.card}>
+              <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
+              <h2>✅ Your profile is already complete</h2>
+              <p>You can go back to your Dashboard.</p>
+              <button style={styles.button} onClick={() => router.push('/dashboard')}>
+                Go to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.background}>
       <div style={styles.overlay}>
         <div style={styles.container}>
-          {user && (
-            <div style={styles.userMenuContainer}>
-              <div style={styles.menuIcon} onClick={() => setMenuOpen(!menuOpen)}>⋮</div>
-              {menuOpen && (
-                <div style={styles.dropdown}>
-                  <div style={styles.dropdownUser}>👤 {user.email}</div>
-                  <button onClick={handleLogout} style={styles.dropdownButton}>Logout</button>
-                </div>
-              )}
-            </div>
-          )}
-
           <div style={styles.card}>
-            {step === null ? (
-              <>
-                <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
-                <h2>✅ Your profile is already complete</h2>
-                <p>You can go back to your Dashboard.</p>
-                <button style={styles.button} onClick={() => router.push('/dashboard')}>
-                  Go to Dashboard
-                </button>
-              </>
-            ) : (
-              <>
-                <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
-                <div style={styles.progressBar}>
-                  <div style={{ ...styles.progressFill, width: `${(step / 4) * 100}%` }} />
+            <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
+            <div style={styles.progressBar}>
+              <div style={{ ...styles.progressFill, width: `${(step / 4) * 100}%` }} />
+            </div>
+            <div style={styles.steps}>
+              {[1, 2, 3, 4].map((s) => (
+                <div key={s} style={{ ...styles.stepCircle, background: step === s ? '#27E3DA' : '#E0E0E0' }}>
+                  {s}
                 </div>
-                <div style={styles.steps}>
-                  {[1, 2, 3, 4].map((s) => (
-                    <div key={s} style={{ ...styles.stepCircle, background: step === s ? '#27E3DA' : '#E0E0E0' }}>
-                      {s}
-                    </div>
-                  ))}
-                </div>
+              ))}
+            </div>
 
-                {errorMessage && <p style={styles.error}>{errorMessage}</p>}
+            {errorMessage && <p style={styles.error}>{errorMessage}</p>}
 
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={step}
-                    initial={{ opacity: 0, x: 50 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -50 }}
-                    transition={{ duration: 0.4 }}
-                  >
-                    {step === 1 && <Step1 formData={formData} handleChange={handleChange} saveStep={() => saveStep(2)} />}
-                    {step === 2 && <Step2 formData={formData} handleChange={handleChange} saveStep={() => saveStep(3)} />}
-                    {step === 3 && <Step3 formData={formData} handleChange={handleChange} saveStep={() => saveStep(4)} />}
-                    {step === 4 && <Step4 formData={formData} handleChange={handleChange} finalize={finalizeProfile} />}
-                  </motion.div>
-                </AnimatePresence>
-              </>
-            )}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={step}
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                transition={{ duration: 0.4 }}
+              >
+                {step === 1 && <Step1 formData={formData} handleChange={handleChange} saveStep={() => saveStep(2)} />}
+                {step === 2 && <Step2 formData={formData} handleChange={handleChange} saveStep={() => saveStep(3)} />}
+                {step === 3 && <Step3 formData={formData} handleChange={handleChange} saveStep={() => saveStep(4)} />}
+                {step === 4 && <Step4 formData={formData} handleChange={handleChange} finalize={finalizeProfile} />}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </div>
@@ -222,57 +212,130 @@ export default function Wizard() {
   );
 }
 
-// 🔁 Step1, Step2, Step3, Step4 e styles sono identici al file originale
-// ✅ In fondo aggiungiamo i nuovi stili per il menu utente:
-
-styles.userMenuContainer = {
-  position: 'absolute',
-  top: '20px',
-  right: '20px',
-  zIndex: 10,
+/* STEP 1 */
+const Step1 = ({ formData, handleChange, saveStep }) => {
+  const isValid = formData.first_name && formData.last_name && formData.date_of_birth && formData.gender && formData.nationality;
+  return (
+    <>
+      <h2 style={styles.title}>👤 Personal Information</h2>
+      <div style={styles.formGroup}>
+        <input style={styles.input} name="first_name" placeholder="First Name" value={formData.first_name} onChange={handleChange} />
+        <input style={styles.input} name="last_name" placeholder="Last Name" value={formData.last_name} onChange={handleChange} />
+        <input style={styles.input} type="date" name="date_of_birth" value={formData.date_of_birth || ''} onChange={handleChange} />
+        <select style={styles.input} name="gender" value={formData.gender} onChange={handleChange}>
+          <option value="">Select Gender</option>
+          <option value="M">Male</option>
+          <option value="F">Female</option>
+        </select>
+        <input style={styles.input} name="nationality" placeholder="Nationality" value={formData.nationality} onChange={handleChange} />
+        <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
+      </div>
+    </>
+  );
 };
 
-styles.menuIcon = {
-  background: '#27E3DA',
-  color: '#fff',
-  width: '35px',
-  height: '35px',
-  borderRadius: '50%',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '20px',
-  cursor: 'pointer',
-  boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+/* STEP 2 */
+const Step2 = ({ formData, handleChange, saveStep }) => {
+  const isValid = formData.phone && formData.city && formData.residence_country;
+  return (
+    <>
+      <h2 style={styles.title}>📞 Contact Information</h2>
+      <div style={styles.formGroup}>
+        <input style={styles.input} name="phone" placeholder="Phone Number" value={formData.phone} onChange={handleChange} />
+        <input style={styles.input} name="city" placeholder="City" value={formData.city} onChange={handleChange} />
+        <input style={styles.input} name="residence_country" placeholder="Country of Residence" value={formData.residence_country} onChange={handleChange} />
+        <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
+      </div>
+    </>
+  );
 };
 
-styles.dropdown = {
-  position: 'absolute',
-  top: '45px',
-  right: '0',
-  background: '#FFF',
-  border: '1px solid #E0E0E0',
-  borderRadius: '8px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-  minWidth: '180px',
-  zIndex: 100,
-  padding: '0.5rem',
+/* STEP 3 */
+const Step3 = ({ formData, handleChange, saveStep }) => {
+  const isValid = formData.sport && formData.main_role && formData.team_name && formData.category;
+  return (
+    <>
+      <h2 style={styles.title}>🏀 Sports Information</h2>
+      <div style={styles.formGroup}>
+        <input style={styles.input} name="sport" placeholder="Sport" value={formData.sport} onChange={handleChange} />
+        <input style={styles.input} name="main_role" placeholder="Main Role" value={formData.main_role} onChange={handleChange} />
+        <input style={styles.input} name="team_name" placeholder="Current Team" value={formData.team_name} onChange={handleChange} />
+        <input style={styles.input} name="category" placeholder="Category" value={formData.category} onChange={handleChange} />
+        <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
+      </div>
+    </>
+  );
 };
 
-styles.dropdownUser = {
-  padding: '0.5rem',
-  fontSize: '0.9rem',
-  color: '#555',
-  borderBottom: '1px solid #eee',
-  marginBottom: '0.5rem',
-};
+/* STEP 4 */
+const Step4 = ({ formData, handleChange, finalize }) => (
+  <>
+    <h2 style={styles.title}>✅ Review & Publish</h2>
+    <ul style={styles.reviewList}>
+      <li><strong>Name:</strong> {formData.first_name} {formData.last_name}</li>
+      <li><strong>Date of Birth:</strong> {formData.date_of_birth}</li>
+      <li><strong>Gender:</strong> {formData.gender === 'M' ? 'Male' : 'Female'}</li>
+      <li><strong>Nationality:</strong> {formData.nationality}</li>
+      <li><strong>Phone:</strong> {formData.phone}</li>
+      <li><strong>City:</strong> {formData.city}</li>
+      <li><strong>Country:</strong> {formData.residence_country}</li>
+      <li><strong>Sport:</strong> {formData.sport} ({formData.main_role})</li>
+      <li><strong>Team:</strong> {formData.team_name} - {formData.category}</li>
+    </ul>
+    <label>
+      <input type="checkbox" name="profile_published" checked={formData.profile_published} onChange={handleChange} /> Publish Profile Now?
+    </label>
+    <button style={styles.button} onClick={finalize}>Confirm and Go to Dashboard</button>
+  </>
+);
 
-styles.dropdownButton = {
-  background: '#DD5555',
-  color: '#FFF',
-  border: 'none',
-  padding: '0.5rem',
-  width: '100%',
-  borderRadius: '6px',
-  cursor: 'pointer',
+const styles = {
+  background: {
+    backgroundImage: "url('/BackG.png')",
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    width: '100%',
+    height: '100vh',
+    position: 'relative',
+  },
+  overlay: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  container: {
+    minHeight: '100vh',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    fontFamily: 'Inter, sans-serif',
+    position: 'relative',
+  },
+  card: {
+    width: '100%',
+    maxWidth: '450px',
+    background: 'rgba(248, 249, 250, 0.95)',
+    padding: '2rem',
+    borderRadius: '16px',
+    boxShadow: '0 6px 20px rgba(0,0,0,0.08)',
+    textAlign: 'center',
+    zIndex: 2,
+  },
+  logo: { width: '80px', marginBottom: '1rem' },
+  progressBar: { background: '#E0E0E0', height: '8px', borderRadius: '8px', marginBottom: '1rem' },
+  progressFill: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', height: '100%', borderRadius: '8px' },
+  steps: { display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem' },
+  stepCircle: { width: '30px', height: '30px', borderRadius: '50%', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' },
+  title: { fontSize: '1.5rem', marginBottom: '1rem' },
+  formGroup: { display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' },
+  input: { width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' },
+  button: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', width: '100%', fontWeight: 'bold' },
+  buttonDisabled: { background: '#ccc', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '8px', width: '100%', cursor: 'not-allowed' },
+  reviewList: { textAlign: 'left', marginBottom: '1.5rem', lineHeight: '1.6' },
+  error: { color: 'red', fontSize: '0.9rem', marginBottom: '1rem' },
+  loading: { textAlign: 'center', fontSize: '1.2rem' },
 };
