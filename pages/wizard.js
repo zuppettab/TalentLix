@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../utils/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
+import Select from 'react-select';
+import countries from '../utils/countries';
 
 export default function Wizard() {
   const router = useRouter();
@@ -263,7 +265,23 @@ const Step1 = ({ formData, handleChange, saveStep }) => {
           <option value="M">Male</option>
           <option value="F">Female</option>
         </select>
-        <input style={styles.input} name="nationality" placeholder="Nationality" value={formData.nationality} onChange={handleChange} />
+        <Select
+          name="nationality"
+          placeholder="Select or type nationality"
+          options={countries}
+          value={countries.find(opt => opt.value === formData.nationality) || null}
+          onChange={(selected) =>
+            setFormData({ ...formData, nationality: selected?.value || '' })
+          }
+          styles={{
+            control: (base) => ({
+              ...base,
+              padding: '2px',
+              borderRadius: '8px',
+              borderColor: '#ccc',
+            }),
+          }}
+        />
         <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
       </div>
     </>
