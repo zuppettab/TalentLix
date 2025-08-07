@@ -92,6 +92,22 @@ export default function Wizard() {
         }]);
         if (error) throw error;
       }
+      // ✅ Rilevamento età per minori di 14 anni
+        const birthDate = new Date(formData.date_of_birth);
+        const today = new Date();
+        const age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        const dayDiff = today.getDate() - birthDate.getDate();
+        
+        const isUnder14 = age < 14 || (age === 14 && (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)));
+        
+        if (isUnder14) {
+          const { error: ageError } = await supabase
+            .from('athlete')
+            .update({ needs_parental_authorization: true })
+            .eq('id', user.id);
+          if (ageError) throw ageError;
+        }
       else if (step === 2) {
         const { error } = await supabase.from('athlete').update({
           phone: formData.phone,
