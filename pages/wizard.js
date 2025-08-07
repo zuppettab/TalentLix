@@ -267,12 +267,18 @@ const Step1 = ({ formData, handleChange, saveStep }) => {
         </select>
         <Select
           name="nationality"
-          placeholder="Select or type nationality"
+          placeholder="Start typing nationality"
           options={countries}
           value={countries.find(opt => opt.value === formData.nationality) || null}
           onChange={(selected) =>
             setFormData({ ...formData, nationality: selected?.value || '' })
           }
+          filterOption={(option, inputValue) => {
+            // Mostra opzioni solo se ci sono almeno 2 caratteri
+            if (inputValue.length < 2) return false;
+            // Filtra le opzioni per match parziale case-insensitive
+            return option.label.toLowerCase().includes(inputValue.toLowerCase());
+          }}
           styles={{
             control: (base) => ({
               ...base,
