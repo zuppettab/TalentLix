@@ -278,7 +278,12 @@ const handleLogout = async () => {
 /* STEP 1 */
 const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
   const [countryInput, setCountryInput] = useState('');
-  const isValid = formData.first_name && formData.last_name && formData.date_of_birth && formData.gender && formData.nationality;
+  const isValid = formData.first_name &&
+                  formData.last_name &&
+                  formData.date_of_birth &&
+                  formData.gender &&
+                  formData.nationality &&
+                  formData.birth_city;
   return (
     <>
       <h2 style={styles.title}>👤 Step 1</h2>
