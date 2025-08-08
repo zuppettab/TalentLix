@@ -20,6 +20,7 @@ export default function Wizard() {
     date_of_birth: '',
     gender: '',
     nationality: '',
+    birth_city: '',
     native_language: 'English',
     profile_picture_url: '',
     phone: '',
@@ -85,6 +86,7 @@ export default function Wizard() {
           date_of_birth: formData.date_of_birth,
           gender: formData.gender,
           nationality: formData.nationality,
+          birth_city: formData.birth_city,
           native_language: formData.native_language,
           profile_picture_url: formData.profile_picture_url,
           current_step: nextStep,
@@ -313,6 +315,13 @@ const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
             }),
           }}
         />
+        <input
+            style={styles.input}
+            name="birth_city"
+            placeholder="City of Birth"
+            value={formData.birth_city}
+            onChange={handleChange}
+          />
         <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
       </div>
     </>
@@ -361,6 +370,7 @@ const Step4 = ({ formData, handleChange, finalize }) => (
       <li><strong>Date of Birth:</strong> {formData.date_of_birth}</li>
       <li><strong>Gender:</strong> {formData.gender === 'M' ? 'Male' : 'Female'}</li>
       <li><strong>Nationality:</strong> {formData.nationality}</li>
+      <li><strong>City of Birth:</strong> {formData.birth_city}</li>
       <li><strong>Phone:</strong> {formData.phone}</li>
       <li><strong>City:</strong> {formData.city}</li>
       <li><strong>Country:</strong> {formData.residence_country}</li>
