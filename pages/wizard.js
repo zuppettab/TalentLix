@@ -279,7 +279,7 @@ const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
   const isValid = formData.first_name && formData.last_name && formData.date_of_birth && formData.gender && formData.nationality;
   return (
     <>
-      <h2 style={styles.title}>👤 Personal Information</h2>
+      <h2 style={styles.title}>👤 Step 1</h2>
       <div style={styles.formGroup}>
         <input style={styles.input} name="first_name" placeholder="First Name" value={formData.first_name} onChange={handleChange} />
         <input style={styles.input} name="last_name" placeholder="Last Name" value={formData.last_name} onChange={handleChange} />
@@ -324,7 +324,7 @@ const Step2 = ({ formData, handleChange, saveStep }) => {
   const isValid = formData.phone && formData.city && formData.residence_country;
   return (
     <>
-      <h2 style={styles.title}>📞 Contact Information</h2>
+      <h2 style={styles.title}>👤 Step 2</h2>
       <div style={styles.formGroup}>
         <input style={styles.input} name="phone" placeholder="Phone Number" value={formData.phone} onChange={handleChange} />
         <input style={styles.input} name="city" placeholder="City" value={formData.city} onChange={handleChange} />
@@ -340,7 +340,7 @@ const Step3 = ({ formData, handleChange, saveStep }) => {
   const isValid = formData.sport && formData.main_role && formData.team_name && formData.category;
   return (
     <>
-      <h2 style={styles.title}>🏀 Sports Information</h2>
+      <h2 style={styles.title}>👤 Step 3</h2>
       <div style={styles.formGroup}>
         <input style={styles.input} name="sport" placeholder="Sport" value={formData.sport} onChange={handleChange} />
         <input style={styles.input} name="main_role" placeholder="Main Role" value={formData.main_role} onChange={handleChange} />
@@ -355,7 +355,7 @@ const Step3 = ({ formData, handleChange, saveStep }) => {
 /* STEP 4 */
 const Step4 = ({ formData, handleChange, finalize }) => (
   <>
-    <h2 style={styles.title}>✅ Review & Publish</h2>
+    <h2 style={styles.title}>Review & Publish</h2>
     <ul style={styles.reviewList}>
       <li><strong>Name:</strong> {formData.first_name} {formData.last_name}</li>
       <li><strong>Date of Birth:</strong> {formData.date_of_birth}</li>
