@@ -111,7 +111,6 @@ export default function Wizard() {
             .eq('id', user.id);
           if (ageError) throw ageError;
         }
-      else if (step === 2) {
         else if (step === 2) {
           const { error } = await supabase.from('athlete').update({
             phone: formData.phone,
