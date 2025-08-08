@@ -22,9 +22,10 @@ export default function Wizard() {
     nationality: '',
     birth_city: '',
     native_language: 'English',
+    additional_language: '',
     profile_picture_url: '',
     phone: '',
-    city: '',
+    residence_city: '',
     residence_country: '',
     sport: '',
     main_role: '',
@@ -111,14 +112,18 @@ export default function Wizard() {
           if (ageError) throw ageError;
         }
       else if (step === 2) {
-        const { error } = await supabase.from('athlete').update({
-          phone: formData.phone,
-          city: formData.city,
-          residence_country: formData.residence_country,
-          current_step: nextStep,
-          completion_percentage: calcCompletion(nextStep),
-        }).eq('id', user.id);
-        if (error) throw error;
+        else if (step === 2) {
+          const { error } = await supabase.from('athlete').update({
+            phone: formData.phone,
+            residence_city: formData.residence_city,
+            residence_country: formData.residence_country,
+            native_language: formData.native_language,
+            additional_language: formData.additional_language,
+            profile_picture_url: formData.profile_picture_url,
+            current_step: nextStep,
+            completion_percentage: calcCompletion(nextStep),
+          }).eq('id', user.id);
+  if (error) throw error;
       }
       else if (step === 3) {
         const { error } = await supabase.from('sports_experiences').insert([{
@@ -337,13 +342,119 @@ const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
 const Step2 = ({ formData, handleChange, saveStep }) => {
   const isValid = formData.phone && formData.city && formData.residence_country;
   return (
-    <>
+   <>
       <h2 style={styles.title}>👤 Step 2</h2>
       <div style={styles.formGroup}>
-        <input style={styles.input} name="phone" placeholder="Phone Number" value={formData.phone} onChange={handleChange} />
-        <input style={styles.input} name="city" placeholder="City" value={formData.city} onChange={handleChange} />
-        <input style={styles.input} name="residence_country" placeholder="Country of Residence" value={formData.residence_country} onChange={handleChange} />
-        <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
+    
+      {/* 1️⃣ City of Residence */}
+        <input
+          style={styles.input}
+          name="residence_city"
+          placeholder="City of Residence"
+          value={formData.residence_city}
+          onChange={handleChange}
+        />
+        
+        {/* 2️⃣ Country of Residence */}
+        <input
+          style={styles.input}
+          name="residence_country"
+          placeholder="Country of Residence"
+          value={formData.residence_country}
+          onChange={handleChange}
+        />
+        
+        {/* 3️⃣ Native Language */}
+        <input
+          style={styles.input}
+          name="native_language"
+          placeholder="Native Language"
+          value={formData.native_language}
+          onChange={handleChange}
+        />
+        
+        {/* 4️⃣ Additional Language */}
+        <input
+          style={styles.input}
+          name="additional_language"
+          placeholder="Additional Language"
+          value={formData.additional_language}
+          onChange={handleChange}
+        />
+        
+        {/* 5️⃣ Phone Number */}
+        <input
+          style={styles.input}
+          name="phone"
+          placeholder="Phone Number"
+          value={formData.phone}
+          onChange={handleChange}
+        />
+        
+        {/* 6️⃣ Upload Profile Picture */}
+        <label style={{ textAlign: 'left', fontWeight: 'bold' }}>Upload Profile Picture</label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+        
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${user.id}.${fileExt}`;
+            const filePath = `${fileName}`;
+        
+            const { error: uploadError } = await supabase.storage
+              .from('avatars')
+              .upload(filePath, file, {
+                cacheControl: '3600',
+                upsert: true,
+              });
+        
+            if (uploadError) {
+              console.error('Upload error:', uploadError.message);
+              return;
+            }
+        
+            const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+            const publicUrl = data.publicUrl;
+        
+            setFormData((prev) => ({
+              ...prev,
+              profile_picture_url: publicUrl,
+            }));
+          }}
+          style={styles.input}
+        />
+        
+        {formData.profile_picture_url && (
+          <img
+            src={formData.profile_picture_url}
+            alt="Preview"
+            style={{ width: '100%', marginTop: '10px', borderRadius: '8px' }}
+          />
+        )}
+        
+        {/* 🔘 Bottone */}
+        <button
+          style={
+            formData.phone &&
+            formData.residence_city &&
+            formData.residence_country
+              ? styles.button
+              : styles.buttonDisabled
+          }
+          onClick={saveStep}
+          disabled={
+            !formData.phone ||
+            !formData.residence_city ||
+            !formData.residence_country
+          }
+        >
+          Next ➡️
+        </button>
+
+    
       </div>
     </>
   );
@@ -371,16 +482,18 @@ const Step4 = ({ formData, handleChange, finalize }) => (
   <>
     <h2 style={styles.title}>Review & Publish</h2>
     <ul style={styles.reviewList}>
-      <li><strong>Name:</strong> {formData.first_name} {formData.last_name}</li>
-      <li><strong>Date of Birth:</strong> {formData.date_of_birth}</li>
-      <li><strong>Gender:</strong> {formData.gender === 'M' ? 'Male' : 'Female'}</li>
-      <li><strong>Nationality:</strong> {formData.nationality}</li>
-      <li><strong>City of Birth:</strong> {formData.birth_city}</li>
-      <li><strong>Phone:</strong> {formData.phone}</li>
-      <li><strong>City:</strong> {formData.city}</li>
-      <li><strong>Country:</strong> {formData.residence_country}</li>
-      <li><strong>Sport:</strong> {formData.sport} ({formData.main_role})</li>
-      <li><strong>Team:</strong> {formData.team_name} - {formData.category}</li>
+          <li><strong>Name:</strong> {formData.first_name} {formData.last_name}</li>
+          <li><strong>Date of Birth:</strong> {formData.date_of_birth}</li>
+          <li><strong>Gender:</strong> {formData.gender === 'M' ? 'Male' : 'Female'}</li>
+          <li><strong>Nationality:</strong> {formData.nationality}</li>
+          <li><strong>City of Birth:</strong> {formData.birth_city}</li>
+          <li><strong>City of Residence:</strong> {formData.residence_city}</li>
+          <li><strong>Country of Residence:</strong> {formData.residence_country}</li>
+          <li><strong>Native Language:</strong> {formData.native_language}</li>
+          <li><strong>Additional Language:</strong> {formData.additional_language}</li>
+          <li><strong>Phone:</strong> {formData.phone}</li>
+          <li><strong>Sport:</strong> {formData.sport} ({formData.main_role})</li>
+          <li><strong>Team:</strong> {formData.team_name} - {formData.category}</li>
     </ul>
     <label>
       <input type="checkbox" name="profile_published" checked={formData.profile_published} onChange={handleChange} /> Publish Profile Now?
