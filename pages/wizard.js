@@ -552,20 +552,18 @@ dropdownButton: {
 },
   background: {
     backgroundImage: "url('/BackG.png')",
-    backgroundRepeat: 'repeat-y',
-    backgroundSize: 'auto',
-    backgroundPosition: 'center top',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
     width: '100%',
-    minHeight: '100vh',
+    minHeight: '100vh',    // <-- prima era height
     position: 'relative',
   },
   overlay: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     width: '100%',
-    height: '100%',
-    position: 'absolute',
-    top: 0,
-    left: 0,
+    minHeight: '100%',     // <-- prima era height
+    position: 'static',    // <-- toglie l’assoluto così il wrapper cresce
     zIndex: 1,
   },
   container: {
