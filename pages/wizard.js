@@ -398,34 +398,50 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
           onChange={handleChange}
         />
         
-        {/* 6️⃣ Upload Profile Picture */}
-        <label style={{ textAlign: 'left', fontWeight: 'bold' }}>Upload Profile Picture</label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file || !user?.id) return;
+       {/* 6️⃣ Upload Profile Picture */}
+          <label style={{ textAlign: 'left', fontWeight: 'bold' }}>Upload Profile Picture</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <label
+              htmlFor="profileFile"
+              style={{
+                background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '0.5rem 1rem',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              Choose file
+            </label>
+            <input
+              id="profileFile"
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file || !user?.id) return;
           
-            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-            const filePath = `${user.id}/profile.${ext}`;            // <— cartella utente + nome fisso
+                const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+                const filePath = `${user.id}/profile.${ext}`;
           
-            const { error: uploadError } = await supabase.storage
-              .from('avatars')
-              .upload(filePath, file, { cacheControl: '3600', upsert: true });
+                const { error: uploadError } = await supabase.storage
+                  .from('avatars')
+                  .upload(filePath, file, { cacheControl: '3600', upsert: true });
           
-            if (uploadError) {
-              console.error('Upload error:', uploadError.message);
-              return;
-            }
+                if (uploadError) {
+                  console.error('Upload error:', uploadError.message);
+                  return;
+                }
           
-            const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-            const publicUrl = data?.publicUrl || '';
-          
-            setFormData((prev) => ({ ...prev, profile_picture_url: publicUrl }));
-          }}
-          style={styles.input}
-        />
+                const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+                const publicUrl = data?.publicUrl || '';
+                setFormData((prev) => ({ ...prev, profile_picture_url: publicUrl }));
+              }}
+            />
+          </div>
         
         {formData.profile_picture_url && (
           <img
