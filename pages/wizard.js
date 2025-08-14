@@ -404,32 +404,25 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
           type="file"
           accept="image/*"
           onChange={async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-        
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${user.id}.${fileExt}`;
-            const filePath = `${fileName}`;
-        
+            const file = e.target.files?.[0];
+            if (!file || !user?.id) return;
+          
+            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+            const filePath = `${user.id}/profile.${ext}`;            // <— cartella utente + nome fisso
+          
             const { error: uploadError } = await supabase.storage
               .from('avatars')
-              .upload(filePath, file, {
-                cacheControl: '3600',
-                upsert: true,
-              });
-        
+              .upload(filePath, file, { cacheControl: '3600', upsert: true });
+          
             if (uploadError) {
               console.error('Upload error:', uploadError.message);
               return;
             }
-        
+          
             const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-            const publicUrl = data.publicUrl;
-        
-            setFormData((prev) => ({
-              ...prev,
-              profile_picture_url: publicUrl,
-            }));
+            const publicUrl = data?.publicUrl || '';
+          
+            setFormData((prev) => ({ ...prev, profile_picture_url: publicUrl }));
           }}
           style={styles.input}
         />
