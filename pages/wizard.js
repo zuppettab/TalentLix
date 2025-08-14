@@ -348,10 +348,6 @@ const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
 /* STEP 2 */
 const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
   const isValid = formData.phone && formData.city && formData.residence_country;
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [previewUrl, setPreviewUrl] = useState(formData.profile_picture_url || '');
-  const [selectedFileName, setSelectedFileName] = useState('No file selected');
   return (
    <>
       <h2 style={styles.title}>👤 Step 2</h2>
@@ -402,79 +398,34 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
           onChange={handleChange}
         />
         
-{/* 6️⃣ Upload Profile Picture */}
+        {/* 6️⃣ Upload Profile Picture */}
         <label style={{ textAlign: 'left', fontWeight: 'bold' }}>Upload Profile Picture</label>
-        
-        <div style={styles.fileRow}>
-          {/* bottone custom in inglese */}
-          <label htmlFor="profileFile" style={styles.fileButton}>Choose file</label>
-          <span style={styles.fileName}>{selectedFileName}</span>
-        
-          {/* input nativo nascosto */}
-          <input
-            id="profileFile"
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              if (!user?.id) {
-                console.error('Missing user id');
-                return;
-              }
-        
-              // anteprima immediata locale
-              setSelectedFileName(file.name);
-              try {
-                const localPreview = URL.createObjectURL(file);
-                setPreviewUrl(localPreview);
-              } catch {}
-        
-              // barra "indeterminata" (semplice e pulita)
-              setUploading(true);
-              setUploadProgress(15);
-        
-              const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-              const filePath = `${user.id}/profile.${ext}`;
-        
-              const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, file, { cacheControl: '3600', upsert: true });
-        
-              if (uploadError) {
-                console.error('Upload error:', uploadError.message);
-                setUploading(false);
-                setUploadProgress(0);
-                return;
-              }
-        
-              // URL pubblico e salvataggio
-              const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-              const publicUrl = data?.publicUrl || '';
-        
-              setFormData((prev) => ({ ...prev, profile_picture_url: publicUrl }));
-              setPreviewUrl(publicUrl);
-        
-              setUploadProgress(100);
-              setTimeout(() => setUploading(false), 300);
-            }}
-          />
-        </div>
-        
-        {/* barra di progresso */}
-        {uploading && (
-          <div style={styles.progressOuter}>
-            <div style={{ ...styles.progressInner, width: `${uploadProgress}%` }} />
-          </div>
-        )}
-        
-        {/* anteprima a misura fissa */}
-        {previewUrl && (
-          <div style={styles.previewBox}>
-            <img src={previewUrl} alt="Profile preview" style={styles.previewImg} />
-          </div>
-        )}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file || !user?.id) return;
+          
+            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+            const filePath = `${user.id}/profile.${ext}`;            // <— cartella utente + nome fisso
+          
+            const { error: uploadError } = await supabase.storage
+              .from('avatars')
+              .upload(filePath, file, { cacheControl: '3600', upsert: true });
+          
+            if (uploadError) {
+              console.error('Upload error:', uploadError.message);
+              return;
+            }
+          
+            const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+            const publicUrl = data?.publicUrl || '';
+          
+            setFormData((prev) => ({ ...prev, profile_picture_url: publicUrl }));
+          }}
+          style={styles.input}
+        />
         
         {formData.profile_picture_url && (
           <img
@@ -633,58 +584,6 @@ dropdownButton: {
     textAlign: 'center',
     zIndex: 2,
   },
-  fileRow: {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '10px',
-  background: '#f7f8fa',
-  border: '1px solid #ddd',
-  borderRadius: '10px',
-  padding: '10px 12px',
-  marginBottom: '8px',
-},
-fileButton: {
-  background: '#27E3DA',
-  color: '#fff',
-  border: 'none',
-  borderRadius: '6px',
-  padding: '8px 12px',
-  cursor: 'pointer',
-  fontWeight: 600,
-},
-fileName: {
-  flex: 1,
-  fontSize: '0.95rem',
-  color: '#333',
-},
-progressOuter: {
-  width: '100%',
-  height: '8px',
-  background: '#E0E0E0',
-  borderRadius: '8px',
-  overflow: 'hidden',
-  marginBottom: '12px',
-},
-progressInner: {
-  height: '100%',
-  background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
-  transition: 'width 0.25s ease',
-},
-previewBox: {
-  display: 'flex',
-  justifyContent: 'flex-start',
-  marginTop: '8px',
-  marginBottom: '16px',
-},
-previewImg: {
-  width: '140px',
-  height: '140px',
-  objectFit: 'cover',
-  borderRadius: '12px',
-  border: '1px solid #e5e5e5',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-},
-
   logo: { width: '80px', marginBottom: '1rem' },
   progressBar: { background: '#E0E0E0', height: '8px', borderRadius: '8px', marginBottom: '1rem' },
   progressFill: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', height: '100%', borderRadius: '8px' },
