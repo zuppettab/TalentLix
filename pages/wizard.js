@@ -552,11 +552,11 @@ dropdownButton: {
 },
   background: {
     backgroundImage: "url('/BackG.png')",
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundRepeat: 'no-repeat',
+    backgroundRepeat: 'repeat-y',
+    backgroundSize: 'auto',
+    backgroundPosition: 'center top',
     width: '100%',
-    height: '100vh',
+    minHeight: '100vh',
     position: 'relative',
   },
   overlay: {
