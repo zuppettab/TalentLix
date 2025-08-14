@@ -267,7 +267,15 @@ const handleLogout = async () => {
                       saveStep={() => saveStep(2)}
                     />
                   )}
-                {step === 2 && <Step2 formData={formData} handleChange={handleChange} saveStep={() => saveStep(3)} />}
+                {step === 2 && (
+                    <Step2
+                      user={user}
+                      formData={formData}
+                      setFormData={setFormData}
+                      handleChange={handleChange}
+                      saveStep={() => saveStep(3)}
+                    />
+                )}
                 {step === 3 && <Step3 formData={formData} handleChange={handleChange} saveStep={() => saveStep(4)} />}
                 {step === 4 && <Step4 formData={formData} handleChange={handleChange} finalize={finalizeProfile} />}
               </motion.div>
@@ -338,7 +346,7 @@ const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
 };
 
 /* STEP 2 */
-const Step2 = ({ formData, handleChange, saveStep }) => {
+const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
   const isValid = formData.phone && formData.city && formData.residence_country;
   return (
    <>
