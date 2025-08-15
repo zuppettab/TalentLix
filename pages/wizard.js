@@ -448,10 +448,11 @@ useEffect(() => {
 const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 const phoneRegex = /^\+\d{7,15}$/;
 const isValidPhone = phoneRegex.test(formData.phone);
-const isValid = isValidPhone &&
-                formData.residence_city &&
-                formData.residence_country &&
-                formData.profile_picture_url;
+const isValid =
+  isValidPhone &&
+  formData.residence_city &&
+  formData.residence_country &&
+  formData.profile_picture_url;
 
   return (
    <>
