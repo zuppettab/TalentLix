@@ -4,6 +4,8 @@ import { supabase } from '../utils/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select from 'react-select';
 import countries from '../utils/countries';
+import 'react-phone-input-2/lib/style.css';
+import PhoneInput from 'react-phone-input-2';
 
 export default function Wizard() {
   const router = useRouter();
@@ -487,14 +489,24 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         />
         
         {/* 5️⃣ Phone Number */}
-        <input
-          style={styles.input}
-          name="phone"
-          placeholder="Phone Number"
-          value={formData.phone}
-          onChange={handleChange}
-        />
-        
+          <PhoneInput
+            country={'it'}
+            value={formData.phone}
+            onChange={(phone) => setFormData((prev) => ({ ...prev, phone }))}
+            enableSearch={true}
+            inputStyle={{
+              width: '100%',
+              padding: '0.8rem',
+              borderRadius: '8px',
+              border: '1px solid #ccc',
+              boxSizing: 'border-box'
+            }}
+            buttonStyle={{
+              borderRadius: '8px 0 0 8px',
+              border: '1px solid #ccc',
+            }}
+          />
+
        {/* 6️⃣ Upload Profile Picture */}
           <label style={{ textAlign: 'left', fontWeight: 'bold' }}>Upload Profile Picture</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
