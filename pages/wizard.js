@@ -441,20 +441,6 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
                 const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
                 const publicUrl = data?.publicUrl || '';
                 setFormData((prev) => ({ ...prev, profile_picture_url: publicUrl }));
-                // 📌 PULIZIA: rimuove i file precedenti dello stesso utente
-                  try {
-                    const { data: files } = await supabase.storage.from('avatars').list(`${user.id}`, {
-                      search: 'Profile-'
-                    });
-                    const toDelete = (files || [])
-                      .filter(f => f.name !== `Profile-${ts}.${ext}`)
-                      .map(f => `${user.id}/${f.name}`);
-                    if (toDelete.length) {
-                      await supabase.storage.from('avatars').remove(toDelete);
-                    }
-                  } catch (e) {
-                    console.warn('Cleanup skipped:', e?.message);
-                  }
               }}
             />
           </div>
