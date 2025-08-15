@@ -456,8 +456,12 @@ useEffect(() => {
       const sendCode = async () => {
         try {
           setOtpMessage('');
-          // invia OTP via Supabase Auth (Twilio provider)
-          const { error } = await supabase.auth.updateUser({ phone: formData.phone });
+          const { error } = await supabase.auth.signInWithOtp({
+            phone: formData.phone,
+            options: {
+              shouldCreateUser: true, // accetta invio OTP anche se l’utente non esiste
+            },
+          });
           if (error) throw error;
           setOtpSent(true);
           setOtpMessage('Code sent via SMS.');
