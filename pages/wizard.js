@@ -461,7 +461,8 @@ const isValid =
   isValidPhone &&
   !!formData.residence_city &&
   !!formData.residence_country &&
-  !!formData.profile_picture_url;
+  !!formData.profile_picture_url &&
+  !!formData.native_language; // ← native language obbligatorio
 
 
   return (
