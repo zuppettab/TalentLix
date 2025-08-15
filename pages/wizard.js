@@ -447,6 +447,42 @@ useEffect(() => {
 
 /* STEP 2 */
   const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
+      // ── OTP state & handlers (ESSENZA)
+      const [otpSent, setOtpSent] = useState(false);
+      const [otpCode, setOtpCode] = useState('');
+      const [phoneVerified, setPhoneVerified] = useState(false);
+      const [otpMessage, setOtpMessage] = useState('');
+    
+      const sendCode = async () => {
+        try {
+          setOtpMessage('');
+          // invia OTP via Supabase Auth (Twilio provider)
+          const { error } = await supabase.auth.updateUser({ phone: formData.phone });
+          if (error) throw error;
+          setOtpSent(true);
+          setOtpMessage('Code sent via SMS.');
+        } catch (err) {
+          setOtpMessage(err.message || 'Failed to send code');
+        }
+      };
+    
+      const confirmCode = async () => {
+        try {
+          setOtpMessage('');
+          // verifica OTP (tipo SMS)
+          const { error } = await supabase.auth.verifyOtp({
+            phone: formData.phone,
+            token: otpCode,
+            type: 'sms',
+          });
+          if (error) throw error;
+          setPhoneVerified(true);
+          setOtpMessage('Phone verified ✔');
+        } catch (err) {
+          setOtpMessage('Invalid or expired code');
+        }
+      };
+
 // VALIDAZIONE Step 2 — telefono MOBILE con libphonenumber-js/max + città + paese + foto
 const normalizedPhone = (formData.phone || '').replace(/\s+/g, ''); // rimuovi spazi
 const parsed = parsePhoneNumberFromString(normalizedPhone);          // usa import da 'libphonenumber-js/max'
@@ -459,10 +495,11 @@ const isValidPhone = !!parsed && parsed.isValid() && isLikelyMobile && nationalL
 
 const isValid =
   isValidPhone &&
+  phoneVerified && // ← telefono deve essere verificato via OTP
   !!formData.residence_city &&
   !!formData.residence_country &&
   !!formData.profile_picture_url &&
-  !!formData.native_language; // ← native language obbligatorio
+  !!formData.native_language;
 
 
   return (
@@ -533,6 +570,70 @@ const isValid =
             dropdownStyle={{ borderRadius: '8px', zIndex: 1000 }}
           />
         </div>
+
+         {/* ── OTP UI (ESSENZA) */}
+            {!phoneVerified && (
+              <div style={{ display: 'grid', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={sendCode}
+                  disabled={!isValidPhone}  // usa la tua variabile già presente
+                  style={{
+                    background: isValidPhone ? 'linear-gradient(90deg, #27E3DA, #F7B84E)' : '#ccc',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '0.6rem',
+                    borderRadius: '8px',
+                    cursor: isValidPhone ? 'pointer' : 'not-allowed',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Send code
+                </button>
+    
+                {otpSent && (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="\d*"
+                      maxLength={6}
+                      placeholder="Enter 6-digit code"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      style={{ ...styles.input, flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={confirmCode}
+                      disabled={otpCode.length !== 6}
+                      style={{
+                        background: otpCode.length === 6 ? 'linear-gradient(90deg, #27E3DA, #F7B84E)' : '#ccc',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '0.6rem 0.8rem',
+                        borderRadius: '8px',
+                        cursor: otpCode.length === 6 ? 'pointer' : 'not-allowed',
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      Confirm
+                    </button>
+                  </div>
+                )}
+    
+                {otpMessage && (
+                  <div style={{ fontSize: '0.9rem', color: '#444' }}>{otpMessage}</div>
+                )}
+              </div>
+            )}
+    
+            {phoneVerified && (
+              <div style={{ textAlign: 'left', color: 'green', fontWeight: 600 }}>
+                Phone verified ✔
+              </div>
+            )}
 
        {/* 6️⃣ Upload Profile Picture */}
           <label style={{ textAlign: 'left', fontWeight: 'bold' }}>Upload Profile Picture</label>
