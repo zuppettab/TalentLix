@@ -6,7 +6,7 @@ import Select from 'react-select';
 import countries from '../utils/countries';
 import 'react-phone-input-2/lib/style.css';
 import PhoneInput from 'react-phone-input-2';
-import { isValidPhoneNumber } from 'libphonenumber-js';
+import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 
 export default function Wizard() {
   const router = useRouter();
@@ -447,15 +447,22 @@ useEffect(() => {
 
 /* STEP 2 */
   const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
-// VALIDAZIONE Step 2 — telefono E.164 (libphonenumber-js) + città + paese + foto
-const normalizedPhone = (formData.phone || '').replace(/\s+/g, ''); // niente spazi
-const isValidPhone = isValidPhoneNumber(normalizedPhone);           // true solo se E.164 valido
+// VALIDAZIONE Step 2 — telefono MOBILE con libphonenumber-js/max + città + paese + foto
+const normalizedPhone = (formData.phone || '').replace(/\s+/g, ''); // rimuovi spazi
+const parsed = parsePhoneNumberFromString(normalizedPhone);          // usa import da 'libphonenumber-js/max'
+const nationalLen = parsed?.nationalNumber ? String(parsed.nationalNumber).length : 0;
+const type = parsed?.getType ? parsed.getType() : undefined;
+
+// accetta solo numeri validi E.164 che risultino MOBILE (o FIXED_LINE_OR_MOBILE) e con almeno 10 cifre nazionali
+const isLikelyMobile = type === 'MOBILE' || type === 'FIXED_LINE_OR_MOBILE';
+const isValidPhone = !!parsed && parsed.isValid() && isLikelyMobile && nationalLen >= 10;
 
 const isValid =
   isValidPhone &&
   !!formData.residence_city &&
   !!formData.residence_country &&
   !!formData.profile_picture_url;
+
 
   return (
    <>
