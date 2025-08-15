@@ -510,8 +510,13 @@ const isValid =
         <div style={{ width: '100%' }}>
        <PhoneInput
             country={'it'}
-            value={formData.phone}
-            onChange={(phone) => setFormData((prev) => ({ ...prev, phone }))}
+            /* la UI vuole solo cifre; lo stato invece tiene E.164 (+...) */
+            value={formData.phone ? formData.phone.replace(/^\+/, '') : ''}
+            onChange={(value) => {
+              const digits = (value || '').replace(/\D/g, '');
+              const e164 = digits ? `+${digits}` : '';
+              setFormData((prev) => ({ ...prev, phone: e164 }));
+            }}
             enableSearch={true}
             placeholder="Mobile phone number"
             inputStyle={{
@@ -523,17 +528,9 @@ const isValid =
               border: '1px solid #ccc',
               boxSizing: 'border-box'
             }}
-            buttonStyle={{
-              border: 'none',
-              background: 'none',
-            }}
-            containerStyle={{
-              width: '100%',
-            }}
-            dropdownStyle={{
-              borderRadius: '8px',
-              zIndex: 1000,
-            }}
+            buttonStyle={{ border: 'none', background: 'none' }}
+            containerStyle={{ width: '100%' }}
+            dropdownStyle={{ borderRadius: '8px', zIndex: 1000 }}
           />
         </div>
 
