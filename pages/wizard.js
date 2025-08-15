@@ -330,22 +330,22 @@ const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
       <div style={styles.formGroup}>
         <input style={styles.input} name="first_name" placeholder="First Name" value={formData.first_name} onChange={handleChange} />
         <input style={styles.input} name="last_name" placeholder="Last Name" value={formData.last_name} onChange={handleChange} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              style={styles.input}
-              type="text"
-              name="date_of_birth"
-              placeholder="Date of Birth (dd/mm/yyyy)"   // chiaro dentro la textbox
-              pattern="\d{2}/\d{2}/\d{4}"                // 2-2-4 vincolato
-              inputMode="numeric"
-              maxLength={10}                             // 10 caratteri: 2+1+2+1+4
-              value={formData.date_of_birth || ''}
-              onChange={handleChange}
-            />
-            <span style={{ fontSize: '0.85rem', color: '#555', whiteSpace: 'nowrap' }}>
-              Format: dd/mm/yyyy
-            </span>
-        </div>
+          <input
+            style={styles.input}
+            type="text"
+            name="date_of_birth"
+            placeholder="Date of Birth (dd/mm/yyyy)"
+            inputMode="numeric"
+            maxLength={10}
+            value={formData.date_of_birth || ''}
+            onChange={(e) => {
+              let v = e.target.value.replace(/\D/g, ''); // solo numeri
+              if (v.length >= 5) v = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4, 8);
+              else if (v.length >= 3) v = v.slice(0, 2) + '/' + v.slice(2);
+              setFormData({ ...formData, date_of_birth: v });
+            }}
+          />
+
         <select style={styles.input} name="gender" value={formData.gender} onChange={handleChange}>
           <option value="">Select Gender</option>
           <option value="M">Male</option>
