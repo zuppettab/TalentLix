@@ -509,14 +509,10 @@ const isValid =
         <div style={{ width: '100%' }}>
        <PhoneInput
             country={'it'}
-            /* PhoneInput vuole solo cifre: gli passo lo stato SENZA + per la UI */
-            value={formData.phone ? formData.phone.replace(/^\+/, '') : ''}
-            onChange={(value) => {
-              const digits = (value || '').replace(/\D/g, '');
-              const e164 = digits ? `+${digits}` : '';
-              setFormData((prev) => ({ ...prev, phone: e164 }));
-            }}
+            value={formData.phone}
+            onChange={(phone) => setFormData((prev) => ({ ...prev, phone }))}
             enableSearch={true}
+            placeholder="Mobile phone number"
             inputStyle={{
               width: '100%',
               height: '48px',
