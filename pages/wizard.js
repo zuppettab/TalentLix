@@ -446,7 +446,9 @@ useEffect(() => {
 
 /* STEP 2 */
 const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
-  const isValid = formData.phone && formData.residence_city && formData.residence_country;
+const isValidPhone = formData.phone?.startsWith('+') && formData.phone.length >= 8;
+const isValid = isValidPhone && formData.residence_city && formData.residence_country;
+
   return (
    <>
       <h2 style={styles.title}>👤 Step 2</h2>
