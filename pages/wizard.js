@@ -445,14 +445,16 @@ useEffect(() => {
 };
 
 /* STEP 2 */
-const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
-const phoneRegex = /^\+\d{7,15}$/;
-const isValidPhone = phoneRegex.test(formData.phone);
-const isValid =
-  isValidPhone &&
-  formData.residence_city &&
-  formData.residence_country &&
-  formData.profile_picture_url;
+  const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
+  // VALIDAZIONE Step 2 — telefono E.164 + città + paese + foto obbligatoria
+  const phoneRegex = /^\+\d{7,15}$/;           // deve iniziare con + e avere 7–15 cifre
+  const isValidPhone = phoneRegex.test(formData.phone);
+
+  const isValid =
+    isValidPhone &&
+    !!formData.residence_city &&
+    !!formData.residence_country &&
+    !!formData.profile_picture_url;            // URL presente = foto caricata
 
   return (
    <>
@@ -497,10 +499,15 @@ const isValid =
         
         {/* 5️⃣ Phone Number */}
         <div style={{ width: '100%' }}>
-          <PhoneInput
+       <PhoneInput
             country={'it'}
-            value={formData.phone}
-            onChange={(phone) => setFormData((prev) => ({ ...prev, phone }))}
+            /* PhoneInput vuole solo cifre: gli passo lo stato SENZA + per la UI */
+            value={formData.phone ? formData.phone.replace(/^\+/, '') : ''}
+            onChange={(value) => {
+              const digits = (value || '').replace(/\D/g, '');
+              const e164 = digits ? `+${digits}` : '';
+              setFormData((prev) => ({ ...prev, phone: e164 }));
+            }}
             enableSearch={true}
             inputStyle={{
               width: '100%',
@@ -587,24 +594,12 @@ const isValid =
         
         {/* 🔘 Bottone */}
         <button
-          style={
-            formData.phone &&
-            formData.residence_city &&
-            formData.residence_country
-              ? styles.button
-              : styles.buttonDisabled
-          }
+          style={isValid ? styles.button : styles.buttonDisabled}
           onClick={saveStep}
-          disabled={
-            !formData.phone ||
-            !formData.residence_city ||
-            !formData.residence_country
-          }
+          disabled={!isValid}
         >
           Next ➡️
         </button>
-
-    
       </div>
     </>
   );
