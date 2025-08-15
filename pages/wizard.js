@@ -75,7 +75,7 @@ export default function Wizard() {
     const { name, value, type, checked } = e.target;
     setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
   };
-  const isE164 = (v) => typeof v === 'string' && /^\+\d{7,15}$/.test((v || '').trim());
+
         const saveStep = async (nextStep) => {
         setErrorMessage('');
         try {
@@ -119,40 +119,20 @@ export default function Wizard() {
                 .eq('id', user.id);
               if (ageError) throw ageError;
             }
-              
-                // ✅ Aggiorna dati contatto Step 2
-                  } else if (step === 2) {
-                  // 1) UI guard: E.164
-                  const e164 = /^\+\d{7,15}$/;
-                  const phone = (formData.phone || '').trim();
-                  if (!e164.test(phone)) {
-                    throw new Error('Telefono non valido. Usa formato internazionale: + e 7–15 cifre (es. +14155552671).');
-                  }
-                
-                  // 2) HARDGATE SERVER: richiedi verifica in DB prima di procedere
-                  const { data: cv, error: cvErr } = await supabase
-                    .from('contacts_verification')
-                    .select('phone_number, phone_verified')
-                    .eq('athlete_id', user.id)
-                    .maybeSingle();
-                  if (cvErr) throw cvErr;
-                
-                  if (!(cv?.phone_verified === true && cv?.phone_number === phone)) {
-                    throw new Error('Numero non verificato. Verifica via SMS prima di continuare.');
-                  }
-                
-                  // 3) OK: aggiorna i dati Step 2
-                  const { error } = await supabase.from('athlete').update({
-                    phone,
-                    residence_city: formData.residence_city,
-                    residence_country: formData.residence_country,
-                    native_language: formData.native_language,
-                    additional_language: formData.additional_language,
-                    profile_picture_url: formData.profile_picture_url,
-                    current_step: nextStep,
-                    completion_percentage: calcCompletion(nextStep),
-                  }).eq('id', user.id);
-                  if (error) throw error;
+      
+          } else if (step === 2) {
+            // Aggiorna dati contatto Step 2
+            const { error } = await supabase.from('athlete').update({
+              phone: formData.phone,
+              residence_city: formData.residence_city,
+              residence_country: formData.residence_country,
+              native_language: formData.native_language,
+              additional_language: formData.additional_language,
+              profile_picture_url: formData.profile_picture_url,
+              current_step: nextStep,
+              completion_percentage: calcCompletion(nextStep),
+            }).eq('id', user.id);
+            if (error) throw error;
       
           } else if (step === 3) {
             // Insert esperienza sportiva + avanzamento
@@ -464,130 +444,7 @@ useEffect(() => {
 
 /* STEP 2 */
 const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
-
-      const [otpOpen, setOtpOpen] = useState(false);
-      const [otp, setOtp] = useState('');
-      const [phoneVerified, setPhoneVerified] = useState(false);
-      const [cooldown, setCooldown] = useState(0); // secondi per RESEND
-      const e164 = /^\+\d{7,15}$/;
-      const [pendingOtp, setPendingOtp] = useState(false); // OTP inviato ma non (ancora) verificato
-
-      const [statusMsg, setStatusMsg] = useState('');  // messaggi positivi/info
-      const [errorMsg, setErrorMsg] = useState('');    // messaggi di errore
-
-      // timer semplice per cooldown resend
-      useEffect(() => {
-        if (cooldown <= 0) return;
-        const t = setInterval(() => setCooldown((s) => (s > 0 ? s - 1 : 0)), 1000);
-        return () => clearInterval(t);
-      }, [cooldown]);
-    
-      // invio OTP via Supabase (provider SMS già configurato)
-            const sendCode = async () => {
-              setErrorMsg('');
-              setStatusMsg('');
-              const phone = (formData.phone || '').trim();
-          
-              if (!e164.test(phone)) {
-                setErrorMsg('Inserisci un numero internazionale valido (+ e 7–15 cifre).');
-                return;
-              }
-              if (phoneVerified) {
-                setStatusMsg('Numero già verificato.');
-                return;
-              }
-          
-              try {
-                const { error } = await supabase.auth.signInWithOtp({ phone });
-                if (error) throw error;
-                setOtpOpen(true);
-                setCooldown(30); // resend in 30s
-                setPendingOtp(true);
-                setStatusMsg('Codice inviato via SMS. Controlla il telefono.');
-              } catch (e) {
-                setErrorMsg(e?.message || 'Errore durante l’invio dell’SMS. Riprova.');
-              }
-            };
-
-    
-      // verifica OTP e persistenza su DB
-          const confirmCode = async () => {
-            setErrorMsg('');
-            setStatusMsg('');
-            const phone = (formData.phone || '').trim();
-        
-            if (otp.length !== 6) {
-              setErrorMsg('Inserisci il codice a 6 cifre.');
-              return;
-            }
-        
-            try {
-              const { error } = await supabase.auth.verifyOtp({
-                phone,
-                token: otp,
-                type: 'sms',
-              });
-              if (error) throw error;
-        
-              setPhoneVerified(true);
-              setOtpOpen(false);
-              setPendingOtp(false);
-              setStatusMsg('Numero verificato con successo.');
-        
-              await supabase.from('athlete').update({ phone }).eq('id', user.id);
-              await supabase.from('contacts_verification').upsert(
-                [{ athlete_id: user.id, phone_number: phone, phone_verified: true }],
-                { onConflict: 'athlete_id' }
-              );
-            } catch (e) {
-              setErrorMsg(e?.message || 'Codice errato o scaduto. Richiedi un nuovo invio.');
-            }
-          };
-
-        if (error) throw error;
-    
-        // ✅ marcatura verificato in UI
-        setPhoneVerified(true);
-        setOtpOpen(false);
-    
-        // ✅ persisti: profilo + stato verifica
-        await supabase.from('athlete').update({ phone }).eq('id', user.id);
-        await supabase.from('contacts_verification').upsert(
-          [{ athlete_id: user.id, phone_number: phone, phone_verified: true }],
-          { onConflict: 'athlete_id' }
-        );
-      };
-
   const isValid = formData.phone && formData.residence_city && formData.residence_country;
-        // 👉 Init Verified su caricamento: se in DB risulta già verificato e combacia col profilo
-        useEffect(() => {
-          const run = async () => {
-            if (!user?.id) return;
-            const phone = (formData.phone || '').trim();
-        
-            // Leggi stato verifica per questo atleta
-            const { data: cv, error } = await supabase
-              .from('contacts_verification')
-              .select('phone_number, phone_verified')
-              .eq('athlete_id', user.id)
-              .maybeSingle();
-        
-            if (!error && cv?.phone_verified === true && cv?.phone_number && phone && cv.phone_number === phone) {
-              setPhoneVerified(true);     // <-- Verified
-              setOtpOpen(false);          // chiudi eventuale modale
-              setPendingOtp(false);       // azzera eventuale "in sospeso"
-            } else {
-              // Non è verificato ma c'è un numero inserito → segna “OTP in sospeso”
-              if (!error && phone) {
-                setPendingOtp(true);      // mostreremo il banner con “Resend code”
-              }
-            }
-          };
-          run();
-          // riesegui se cambia user o il telefono caricato nel form
-        }, [user?.id, formData.phone]);
-
-
   return (
    <>
       <h2 style={styles.title}>👤 Step 2</h2>
@@ -629,137 +486,15 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
           onChange={handleChange}
         />
         
-            {/* 5️⃣ Phone Number */}
-              <input
-                  style={styles.input}
-                  name="phone"
-                  placeholder="Phone Number (+123...)"
-                  value={formData.phone}
-                  onChange={(e) => {
-                    // aggiorna il form
-                    setFormData({ ...formData, phone: e.target.value });
-                    // resetta stati di verifica
-                    setPhoneVerified(false);
-                    setPendingOtp(false);
-                    setOtpOpen(false);
-                    // pulisci messaggi (se hai inserito status/error)
-                    if (typeof setStatusMsg === 'function') setStatusMsg('');
-                    if (typeof setErrorMsg === 'function') setErrorMsg('');
-                  }}
-                  disabled={phoneVerified}
-                />
-
-              {statusMsg && <div style={{ color: '#0a7', marginTop: 6 }}>{statusMsg}</div>}
-              {errorMsg && <div style={{ color: '#c00', marginTop: 6 }}>{errorMsg}</div>}
-
-        {phoneVerified && <div style={{ color:'green', fontWeight:600 }}>Phone verified ✔</div>}
-        {/* 🔔 OTP non completato (mostra solo se NON verificato) */}
-          {!phoneVerified && pendingOtp && (
-            <div style={{
-              marginTop: 8, padding: '8px 10px',
-              background: '#fff6e6', border: '1px solid #ffd387', borderRadius: 8,
-              textAlign: 'left'
-            }}>
-              <div style={{ marginBottom: 6 }}>
-                Non hai completato la verifica del numero. Puoi farti inviare un nuovo codice.
-              </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  // riusa la tua funzione esistente
-                  await sendCode();
-                  // se parte, resta pending ma aggiorna un messaggio
-                  setStatusMsg('Nuovo codice inviato. Controlla l’SMS.');
-                }}
-                disabled={!e164.test((formData.phone || '').trim()) || cooldown > 0}
-                style={
-                  !e164.test((formData.phone || '').trim()) || cooldown > 0
-                    ? styles.buttonDisabled
-                    : styles.button
-                }
-              >
-                {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
-              </button>
-            </div>
-          )}
-
-            {/* 🔄 Cambia numero (reset verifica) */}
-            {phoneVerified && (
-              <div style={{ marginTop: 6 }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPhoneVerified(false);   // ⬅️ torna “Not verified”
-                    setOtpOpen(false);         // chiudi eventuale modale
-                    setPendingOtp(false);      // ⬅️ azzera anche lo stato "OTP in sospeso"
-                    // (non tocchiamo il DB adesso; si aggiornerà solo quando l’OTP verrà confermato)
-                  }}
-                  style={styles.button}
-                >
-                  Change number
-                </button>
-              </div>
-            )}
-              {/* 🔐 Verifica telefono */}
-              {!phoneVerified && (
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: 6 }}>
-                  <button
-                    type="button"
-                    onClick={sendCode}
-                    disabled={!e164.test((formData.phone || '').trim()) || cooldown > 0}
-                    style={
-                      !e164.test((formData.phone || '').trim()) || cooldown > 0
-                        ? styles.buttonDisabled
-                        : styles.button
-                    }
-                  >
-                    {cooldown > 0 ? `Resend in ${cooldown}s` : 'Send code'}
-                  </button>
-              
-                  <button
-                    type="button"
-                    onClick={() => setOtpOpen(true)}
-                    disabled={!e164.test((formData.phone || '').trim())}
-                    style={
-                      !e164.test((formData.phone || '').trim())
-                        ? styles.buttonDisabled
-                        : styles.button
-                    }
-                  >
-                    Enter code
-                  </button>
-                </div>
-              )}
-
-          
-          {/* Modale OTP minimale */}
-          {otpOpen && (
-            <div style={{
-              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
-            }}>
-              <div style={{ background: '#fff', padding: '1rem', borderRadius: '8px', width: '320px' }}>
-                <h3>Enter the 6‑digit code</h3>
-                <input
-                  style={styles.input}
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\\D/g, '').slice(0,6))}
-                  placeholder="••••••"
-                />
-                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                  <button type="button" onClick={confirmCode} style={styles.button} disabled={otp.length !== 6}>
-                    Confirm
-                  </button>
-                  <button type="button" onClick={() => setOtpOpen(false)} style={styles.buttonDisabled}>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-    
+        {/* 5️⃣ Phone Number */}
+        <input
+          style={styles.input}
+          name="phone"
+          placeholder="Phone Number"
+          value={formData.phone}
+          onChange={handleChange}
+        />
+        
        {/* 6️⃣ Upload Profile Picture */}
           <label style={{ textAlign: 'left', fontWeight: 'bold' }}>Upload Profile Picture</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -820,26 +555,26 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
           />
         )}
         
-          {/* 🔘 Bottone (hardgate: deve essere E.164 + Verified) */}
-          <button
-            style={
-              e164.test((formData.phone || '').trim()) &&
-              phoneVerified &&
-              formData.residence_city &&
-              formData.residence_country
-                ? styles.button
-                : styles.buttonDisabled
-            }
-            onClick={saveStep}
-            disabled={
-              !e164.test((formData.phone || '').trim()) ||
-              !phoneVerified ||
-              !formData.residence_city ||
-              !formData.residence_country
-            }
-          >
-            Next ➡️
-          </button>
+        {/* 🔘 Bottone */}
+        <button
+          style={
+            formData.phone &&
+            formData.residence_city &&
+            formData.residence_country
+              ? styles.button
+              : styles.buttonDisabled
+          }
+          onClick={saveStep}
+          disabled={
+            !formData.phone ||
+            !formData.residence_city ||
+            !formData.residence_country
+          }
+        >
+          Next ➡️
+        </button>
+
+    
       </div>
     </>
   );
