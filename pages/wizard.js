@@ -6,6 +6,7 @@ import Select from 'react-select';
 import countries from '../utils/countries';
 import 'react-phone-input-2/lib/style.css';
 import PhoneInput from 'react-phone-input-2';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 
 export default function Wizard() {
   const router = useRouter();
@@ -446,15 +447,15 @@ useEffect(() => {
 
 /* STEP 2 */
   const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
-  // VALIDAZIONE Step 2 — telefono E.164 + città + paese + foto obbligatoria
-  const phoneRegex = /^\+\d{7,15}$/;           // deve iniziare con + e avere 7–15 cifre
-  const isValidPhone = phoneRegex.test(formData.phone);
+// VALIDAZIONE Step 2 — telefono E.164 (libphonenumber-js) + città + paese + foto
+const normalizedPhone = (formData.phone || '').replace(/\s+/g, ''); // niente spazi
+const isValidPhone = isValidPhoneNumber(normalizedPhone);           // true solo se E.164 valido
 
-  const isValid =
-    isValidPhone &&
-    !!formData.residence_city &&
-    !!formData.residence_country &&
-    !!formData.profile_picture_url;            // URL presente = foto caricata
+const isValid =
+  isValidPhone &&
+  !!formData.residence_city &&
+  !!formData.residence_country &&
+  !!formData.profile_picture_url;
 
   return (
    <>
