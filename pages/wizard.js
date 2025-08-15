@@ -425,11 +425,13 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
                 if (!file || !user?.id) return;
           
                 const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-                const filePath = `${user.id}/profile.${ext}`;
-          
+                const ts = Date.now();
+                const filePath = `${user.id}/Profile-${ts}.${ext}`;  // nome univoco anti-cache
+                
                 const { error: uploadError } = await supabase.storage
                   .from('avatars')
-                  .upload(filePath, file, { cacheControl: '3600', upsert: true });
+                  .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
           
                 if (uploadError) {
                   console.error('Upload error:', uploadError.message);
@@ -439,6 +441,20 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
                 const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
                 const publicUrl = data?.publicUrl || '';
                 setFormData((prev) => ({ ...prev, profile_picture_url: publicUrl }));
+                // 📌 PULIZIA: rimuove i file precedenti dello stesso utente
+                  try {
+                    const { data: files } = await supabase.storage.from('avatars').list(`${user.id}`, {
+                      search: 'Profile-'
+                    });
+                    const toDelete = (files || [])
+                      .filter(f => f.name !== `Profile-${ts}.${ext}`)
+                      .map(f => `${user.id}/${f.name}`);
+                    if (toDelete.length) {
+                      await supabase.storage.from('avatars').remove(toDelete);
+                    }
+                  } catch (e) {
+                    console.warn('Cleanup skipped:', e?.message);
+                  }
               }}
             />
           </div>
