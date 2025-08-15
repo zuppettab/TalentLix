@@ -470,22 +470,37 @@ useEffect(() => {
         }
       };
     
-      const confirmCode = async () => {
+     const confirmCode = async () => {
         try {
           setOtpMessage('');
-          // verifica OTP (tipo SMS)
           const { error } = await supabase.auth.verifyOtp({
             phone: formData.phone,
             token: otpCode,
             type: 'sms',
           });
           if (error) throw error;
+      
+          // se arrivi qui: OTP validata
           setPhoneVerified(true);
           setOtpMessage('Phone verified ✔');
+      
+          // aggiorna tabella contacts_verification
+          const { error: dbError } = await supabase
+            .from('contacts_verification')
+            .upsert({
+              athlete_id: user.id,         // lega all’atleta loggato
+              phone_number: formData.phone,
+              phone_verified: true,
+              updated_at: new Date().toISOString(),
+            });
+          if (dbError) {
+            console.error('DB error:', dbError.message);
+          }
         } catch (err) {
           setOtpMessage('Invalid or expired code');
         }
       };
+
 
 // VALIDAZIONE Step 2 — telefono MOBILE con libphonenumber-js/max + città + paese + foto
 const normalizedPhone = (formData.phone || '').replace(/\s+/g, ''); // rimuovi spazi
