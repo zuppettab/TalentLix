@@ -446,10 +446,15 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
           </div>
     
         {formData.profile_picture_url && (
-          <img
-            src={formData.profile_picture_url}
-            alt="Preview"
-            style={{ width: '100%', marginTop: '10px', borderRadius: '8px' }}
+           <img
+              src={formData.profile_picture_url}
+              alt="Preview"
+              style={{
+                width: '50%',         // o 40%, 60%, in base a quanto piccola vuoi la preview
+                height: 'auto',       // mantiene le proporzioni
+                marginTop: '10px',
+                borderRadius: '8px'
+              }}
           />
         )}
         
