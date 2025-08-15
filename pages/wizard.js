@@ -80,11 +80,13 @@ export default function Wizard() {
     setErrorMessage('');
     try {
       if (step === 1) {
+        const [dd, mm, yyyy] = (formData.date_of_birth || '').split('/');
+        const isoDob = `${yyyy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
         const { error } = await supabase.from('athlete').upsert([{
           id: user.id,
           first_name: formData.first_name,
           last_name: formData.last_name,
-          date_of_birth: formData.date_of_birth,
+          date_of_birth: isoDob,
           gender: formData.gender,
           nationality: formData.nationality,
           birth_city: formData.birth_city,
@@ -96,7 +98,7 @@ export default function Wizard() {
         if (error) throw error;
       }
       // ✅ Rilevamento età per minori di 14 anni
-        const birthDate = new Date(formData.date_of_birth);
+        const birthDate = new Date(isoDob);
         const today = new Date();
         const age = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -290,9 +292,30 @@ const handleLogout = async () => {
 /* STEP 1 */
 const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
   const [countryInput, setCountryInput] = useState('');
+            // Validazione data di nascita dd/mm/yyyy + età 10–60
+  const parseDob = (str) => {
+    const m = (str || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!m) return null;
+    const dd = parseInt(m[1], 10), mm = parseInt(m[2], 10) - 1, yyyy = parseInt(m[3], 10);
+    const d = new Date(yyyy, mm, dd);
+    if (d.getFullYear() !== yyyy || d.getMonth() !== mm || d.getDate() !== dd) return null; // data inesistente
+    return d;
+  };
+  const ageBetween10and60 = (d) => {
+    const today = new Date();
+    let age = today.getFullYear() - d.getFullYear();
+    const m = today.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+    return age >= 10 && age <= 60;
+  };
+  const validDob = (() => {
+    const d = parseDob(formData.date_of_birth);
+    return !!d && ageBetween10and60(d);
+  })();
+  
   const isValid = formData.first_name &&
                   formData.last_name &&
-                  formData.date_of_birth &&
+                  validDob &&
                   formData.gender &&
                   formData.nationality &&
                   formData.birth_city;
@@ -302,7 +325,21 @@ const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
       <div style={styles.formGroup}>
         <input style={styles.input} name="first_name" placeholder="First Name" value={formData.first_name} onChange={handleChange} />
         <input style={styles.input} name="last_name" placeholder="Last Name" value={formData.last_name} onChange={handleChange} />
-        <input style={styles.input} type="date" name="date_of_birth" value={formData.date_of_birth || ''} onChange={handleChange} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              style={styles.input}
+              type="text"
+              name="date_of_birth"
+              placeholder="dd/mm/yyyy"
+              pattern="\d{2}/\d{2}/\d{4}"
+              inputMode="numeric"
+              value={formData.date_of_birth || ''}
+              onChange={handleChange}
+            />
+            <span style={{ fontSize: '0.85rem', color: '#555', whiteSpace: 'nowrap' }}>
+              Format: dd/mm/yyyy
+            </span>
+        </div>
         <select style={styles.input} name="gender" value={formData.gender} onChange={handleChange}>
           <option value="">Select Gender</option>
           <option value="M">Male</option>
