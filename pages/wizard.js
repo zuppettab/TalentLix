@@ -446,8 +446,12 @@ useEffect(() => {
 
 /* STEP 2 */
 const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
-const isValidPhone = formData.phone?.startsWith('+') && formData.phone.length >= 8;
-const isValid = isValidPhone && formData.residence_city && formData.residence_country;
+const phoneRegex = /^\+\d{7,15}$/;
+const isValidPhone = phoneRegex.test(formData.phone);
+const isValid = isValidPhone &&
+                formData.residence_city &&
+                formData.residence_country &&
+                formData.profile_picture_url;
 
   return (
    <>
