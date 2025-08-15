@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../utils/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -81,8 +81,13 @@ export default function Wizard() {
         try {
           if (step === 1) {
             // 1) Converti dd/mm/yyyy -> yyyy-mm-dd (ISO) per il DB
-            const [dd, mm, yyyy] = (formData.date_of_birth || '').split('/');
-            const isoDob = `${yyyy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+            const rawDob = formData.date_of_birth || '';
+            const isoDob = rawDob.includes('-')
+              ? rawDob
+              : (() => {
+                  const [dd, mm, yyyy] = rawDob.split('/');
+                  return `${yyyy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+                })();
       
             // 2) Upsert athlete con ISO
             const { error } = await supabase.from('athlete').upsert([{
@@ -296,6 +301,23 @@ const handleLogout = async () => {
 
 /* STEP 1 */
 const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
+  // calendario & limiti età
+const dobRef = useRef(null);
+const today = new Date();
+const maxDateObj = new Date(today.getFullYear() - 10, today.getMonth(), today.getDate()); // massimo: 10 anni fa
+const minDateObj = new Date(today.getFullYear() - 60, today.getMonth(), today.getDate()); // minimo: 60 anni fa
+const toISO = (d) => d.toISOString().slice(0, 10);
+
+// se il valore in formData fosse nel vecchio formato dd/mm/yyyy, converti a ISO una volta
+useEffect(() => {
+        if (formData.date_of_birth && formData.date_of_birth.includes('/')) {
+          const [dd, mm, yyyy] = formData.date_of_birth.split('/');
+          const iso = `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+          setFormData({ ...formData, date_of_birth: iso });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
+
   const [countryInput, setCountryInput] = useState('');
             // Validazione data di nascita dd/mm/yyyy + età 10–60
   const parseDob = (str) => {
@@ -330,21 +352,34 @@ const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
       <div style={styles.formGroup}>
         <input style={styles.input} name="first_name" placeholder="First Name" value={formData.first_name} onChange={handleChange} />
         <input style={styles.input} name="last_name" placeholder="Last Name" value={formData.last_name} onChange={handleChange} />
-          <input
-            style={styles.input}
-            type="text"
-            name="date_of_birth"
-            placeholder="Date of Birth (dd/mm/yyyy)"
-            inputMode="numeric"
-            maxLength={10}
-            value={formData.date_of_birth || ''}
-            onChange={(e) => {
-              let v = e.target.value.replace(/\D/g, ''); // solo numeri
-              if (v.length >= 5) v = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4, 8);
-              else if (v.length >= 3) v = v.slice(0, 2) + '/' + v.slice(2);
-              setFormData({ ...formData, date_of_birth: v });
-            }}
-          />
+         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              ref={dobRef}
+              style={styles.input}
+              type="date"
+              name="date_of_birth"
+              placeholder="Date of Birth"
+              value={formData.date_of_birth || ''}
+              min={toISO(minDateObj)}  // limita a 60 anni fa
+              max={toISO(maxDateObj)}  // limita a 10 anni fa
+              onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+            />
+            {/* tastino calendario esplicito */}
+            <button
+              type="button"
+              onClick={() => {
+                // apre il datepicker nei browser che supportano showPicker(); fallback: focus
+                if (dobRef.current?.showPicker) dobRef.current.showPicker();
+                else dobRef.current?.focus();
+              }}
+              style={styles.calendarBtn}
+              aria-label="Open calendar"
+              title="Open calendar"
+            >
+              📅
+            </button>
+          </div>
+
 
         <select style={styles.input} name="gender" value={formData.gender} onChange={handleChange}>
           <option value="">Select Gender</option>
@@ -649,6 +684,16 @@ dropdownButton: {
     boxShadow: '0 6px 20px rgba(0,0,0,0.08)',
     textAlign: 'center',
     zIndex: 2,
+  },
+  calendarBtn: {
+  background: '#27E3DA',
+  color: '#fff',
+  border: 'none',
+  borderRadius: '8px',
+  padding: '0.5rem 0.75rem',
+  cursor: 'pointer',
+  fontWeight: 700,
+  lineHeight: 1,
   },
   logo: { width: '80px', marginBottom: '1rem' },
   progressBar: { background: '#E0E0E0', height: '8px', borderRadius: '8px', marginBottom: '1rem' },
