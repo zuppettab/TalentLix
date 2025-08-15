@@ -320,14 +320,27 @@ useEffect(() => {
 
   const [countryInput, setCountryInput] = useState('');
             // Validazione data di nascita dd/mm/yyyy + età 10–60
-  const parseDob = (str) => {
-    const m = (str || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (!m) return null;
-    const dd = parseInt(m[1], 10), mm = parseInt(m[2], 10) - 1, yyyy = parseInt(m[3], 10);
-    const d = new Date(yyyy, mm, dd);
-    if (d.getFullYear() !== yyyy || d.getMonth() !== mm || d.getDate() !== dd) return null; // data inesistente
-    return d;
-  };
+// Validazione data di nascita (accetta ISO yyyy-mm-dd o dd/mm/yyyy) + età 10–60
+    const parseDob = (str) => {
+      if (!str) return null;
+      let yyyy, mm, dd;
+    
+      if (str.includes('-')) {
+        // ISO: yyyy-mm-dd (prodotto da <input type="date">)
+        [yyyy, mm, dd] = str.split('-').map((v) => parseInt(v, 10));
+      } else {
+        // Legacy: dd/mm/yyyy
+        const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (!m) return null;
+        dd = parseInt(m[1], 10);
+        mm = parseInt(m[2], 10);
+        yyyy = parseInt(m[3], 10);
+      }
+    
+      const d = new Date(yyyy, (mm - 1), dd);
+      if (d.getFullYear() !== yyyy || (d.getMonth() + 1) !== mm || d.getDate() !== dd) return null;
+      return d;
+    };
   const ageBetween10and60 = (d) => {
     const today = new Date();
     let age = today.getFullYear() - d.getFullYear();
@@ -353,6 +366,12 @@ useEffect(() => {
         <input style={styles.input} name="first_name" placeholder="First Name" value={formData.first_name} onChange={handleChange} />
         <input style={styles.input} name="last_name" placeholder="Last Name" value={formData.last_name} onChange={handleChange} />
          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <style jsx global>{`
+            /* Chrome/Edge/Safari (WebKit/Blink): nasconde l'icona nativa del datepicker */
+            input[type="date"]::-webkit-calendar-picker-indicator { display: none; }
+            /* Rimuove lo stile nativo dove possibile */
+            input[type="date"] { -webkit-appearance: none; appearance: none; }
+          `}</style>
             <input
               ref={dobRef}
               style={styles.input}
@@ -425,7 +444,7 @@ useEffect(() => {
 
 /* STEP 2 */
 const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
-  const isValid = formData.phone && formData.city && formData.residence_country;
+  const isValid = formData.phone && formData.residence_city && formData.residence_country;
   return (
    <>
       <h2 style={styles.title}>👤 Step 2</h2>
