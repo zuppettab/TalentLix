@@ -489,6 +489,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         />
         
         {/* 5️⃣ Phone Number */}
+        <div style={{ width: '100%' }}>
           <PhoneInput
             country={'it'}
             value={formData.phone}
@@ -496,16 +497,26 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
             enableSearch={true}
             inputStyle={{
               width: '100%',
-              padding: '0.8rem',
+              height: '48px',
+              fontSize: '16px',
               borderRadius: '8px',
+              paddingLeft: '48px',
               border: '1px solid #ccc',
               boxSizing: 'border-box'
             }}
             buttonStyle={{
-              borderRadius: '8px 0 0 8px',
-              border: '1px solid #ccc',
+              border: 'none',
+              background: 'none',
+            }}
+            containerStyle={{
+              width: '100%',
+            }}
+            dropdownStyle={{
+              borderRadius: '8px',
+              zIndex: 1000,
             }}
           />
+        </div>
 
        {/* 6️⃣ Upload Profile Picture */}
           <label style={{ textAlign: 'left', fontWeight: 'bold' }}>Upload Profile Picture</label>
