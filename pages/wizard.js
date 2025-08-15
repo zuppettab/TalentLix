@@ -76,77 +76,82 @@ export default function Wizard() {
     setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
   };
 
-  const saveStep = async (nextStep) => {
-    setErrorMessage('');
-    try {
-      if (step === 1) {
-        const [dd, mm, yyyy] = (formData.date_of_birth || '').split('/');
-        const isoDob = `${yyyy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
-        const { error } = await supabase.from('athlete').upsert([{
-          id: user.id,
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          date_of_birth: isoDob,
-          gender: formData.gender,
-          nationality: formData.nationality,
-          birth_city: formData.birth_city,
-          native_language: formData.native_language,
-          profile_picture_url: formData.profile_picture_url,
-          current_step: nextStep,
-          completion_percentage: calcCompletion(nextStep),
-        }]);
-        if (error) throw error;
-      }
-      // ✅ Rilevamento età per minori di 14 anni
-        const birthDate = new Date(isoDob);
-        const today = new Date();
-        const age = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
-        const dayDiff = today.getDate() - birthDate.getDate();
-        
-        const isUnder14 = age < 14 || (age === 14 && (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)));
-        
-        if (isUnder14) {
-          const { error: ageError } = await supabase
-            .from('athlete')
-            .update({ needs_parental_authorization: true })
-            .eq('id', user.id);
-          if (ageError) throw ageError;
+        const saveStep = async (nextStep) => {
+        setErrorMessage('');
+        try {
+          if (step === 1) {
+            // 1) Converti dd/mm/yyyy -> yyyy-mm-dd (ISO) per il DB
+            const [dd, mm, yyyy] = (formData.date_of_birth || '').split('/');
+            const isoDob = `${yyyy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+      
+            // 2) Upsert athlete con ISO
+            const { error } = await supabase.from('athlete').upsert([{
+              id: user.id,
+              first_name: formData.first_name,
+              last_name: formData.last_name,
+              date_of_birth: isoDob,                  // <- ISO al DB
+              gender: formData.gender,
+              nationality: formData.nationality,
+              birth_city: formData.birth_city,
+              native_language: formData.native_language,
+              profile_picture_url: formData.profile_picture_url,
+              current_step: nextStep,
+              completion_percentage: calcCompletion(nextStep),
+            }]);
+            if (error) throw error;
+      
+            // 3) Flag minori di 14 anni (usa isoDob nello stesso scope)
+            const birthDate = new Date(isoDob);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+      
+            if (age < 14) {
+              const { error: ageError } = await supabase
+                .from('athlete')
+                .update({ needs_parental_authorization: true })
+                .eq('id', user.id);
+              if (ageError) throw ageError;
+            }
+      
+          } else if (step === 2) {
+            // Aggiorna dati contatto Step 2
+            const { error } = await supabase.from('athlete').update({
+              phone: formData.phone,
+              residence_city: formData.residence_city,
+              residence_country: formData.residence_country,
+              native_language: formData.native_language,
+              additional_language: formData.additional_language,
+              profile_picture_url: formData.profile_picture_url,
+              current_step: nextStep,
+              completion_percentage: calcCompletion(nextStep),
+            }).eq('id', user.id);
+            if (error) throw error;
+      
+          } else if (step === 3) {
+            // Insert esperienza sportiva + avanzamento
+            const { error } = await supabase.from('sports_experiences').insert([{
+              athlete_id: user.id,
+              sport: formData.sport,
+              role: formData.main_role,
+              team: formData.team_name,
+              category: formData.category,
+            }]);
+            if (error) throw error;
+      
+            await supabase.from('athlete').update({
+              current_step: nextStep,
+              completion_percentage: calcCompletion(nextStep),
+            }).eq('id', user.id);
+          }
+      
+          setStep(nextStep);
+        } catch (err) {
+          console.error(err);
+          setErrorMessage(`Error: ${err.message}`);
         }
-        else if (step === 2) {
-          const { error } = await supabase.from('athlete').update({
-            phone: formData.phone,
-            residence_city: formData.residence_city,
-            residence_country: formData.residence_country,
-            native_language: formData.native_language,
-            additional_language: formData.additional_language,
-            profile_picture_url: formData.profile_picture_url,
-            current_step: nextStep,
-            completion_percentage: calcCompletion(nextStep),
-          }).eq('id', user.id);
-  if (error) throw error;
-      }
-      else if (step === 3) {
-        const { error } = await supabase.from('sports_experiences').insert([{
-          athlete_id: user.id,
-          sport: formData.sport,
-          role: formData.main_role,
-          team: formData.team_name,
-          category: formData.category,
-        }]);
-        if (error) throw error;
-
-        await supabase.from('athlete').update({
-          current_step: nextStep,
-          completion_percentage: calcCompletion(nextStep),
-        }).eq('id', user.id);
-      }
-      setStep(nextStep);
-    } catch (err) {
-      console.error(err);
-      setErrorMessage(`Error: ${err.message}`);
-    }
-  };
+      };
 
   const finalizeProfile = async () => {
     const { error } = await supabase.from('athlete')
@@ -330,9 +335,10 @@ const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
               style={styles.input}
               type="text"
               name="date_of_birth"
-              placeholder="dd/mm/yyyy"
-              pattern="\d{2}/\d{2}/\d{4}"
+              placeholder="Date of Birth (dd/mm/yyyy)"   // chiaro dentro la textbox
+              pattern="\d{2}/\d{2}/\d{4}"                // 2-2-4 vincolato
               inputMode="numeric"
+              maxLength={10}                             // 10 caratteri: 2+1+2+1+4
               value={formData.date_of_birth || ''}
               onChange={handleChange}
             />
