@@ -515,21 +515,26 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
       const started = Date.now();
       const { data, error } = await supabase.auth.updateUser({ phone: formData.phone });
-      // Se Supabase mostra già il numero confermato, non serve OTP
-      if (data?.user?.phone_confirmed_at) {
-        setPhoneVerified(true);
-        setOtpMessage('Phone already verified ✔');
-      
-        await supabase
-          .from('contacts_verification')
-          .upsert(
-            { athlete_id: user.id, phone_number: formData.phone, phone_verified: true },
-            { onConflict: 'athlete_id' }
-          );
-      
-        setOtpSent(false); // chiudi la UI OTP
-        return;
-      }
+    // ✅ Auto-verified solo se Supabase conferma E il numero coincide davvero
+        const newAuthPhone = data?.user?.phone ? `+${String(data.user.phone).replace(/^\+?/, '')}` : '';
+        const sameAsForm = newAuthPhone && formData.phone &&
+          newAuthPhone.replace(/\D/g, '') === formData.phone.replace(/\D/g, '');
+        
+        if (data?.user?.phone_confirmed_at && sameAsForm) {
+          setPhoneVerified(true);
+          setOtpMessage('Phone already verified ✔');
+        
+          await supabase
+            .from('contacts_verification')
+            .upsert(
+              { athlete_id: user.id, phone_number: formData.phone, phone_verified: true },
+              { onConflict: 'athlete_id' }
+            );
+        
+          setOtpSent(false); // niente UI OTP
+          return;
+        }
+
 
       setOtpDebug({
         op: 'updateUser(phone_change)',
@@ -615,9 +620,9 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
   const normalizedPhone = (formData.phone || '').replace(/\s+/g, '');
   const parsed = parsePhoneNumberFromString(normalizedPhone);
   const nationalLen = parsed?.nationalNumber ? String(parsed.nationalNumber).length : 0;
-  const type = parsed?.getType ? parsed.getType() : undefined;
-  const isLikelyMobile = type === 'MOBILE' || type === 'FIXED_LINE_OR_MOBILE';
-  const isValidPhone = !!parsed && parsed.isValid() && isLikelyMobile && nationalLen >= 10;
+    // ✅ Basta che il numero sia valido in E.164; togliamo il gate sul "tipo" (MOBILE/FIXED_LINE_OR_MOBILE)
+    // perché per molti numeri libphonenumber non restituisce un type affidabile
+    const isValidPhone = !!parsed && parsed.isValid() && nationalLen >= 10;
 
   const isValid =
     isValidPhone &&
