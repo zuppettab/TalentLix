@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestione telefoni Supabase (protetta)</title>
+</head>
+<body>
+  <h2>Accesso protetto</h2>
+  <div id="login">
+    <input type="password" id="secret" placeholder="Inserisci codice segreto">
+    <button onclick="checkSecret()">Accedi</button>
+    <p id="loginMessage" style="color:red;"></p>
+  </div>
+
+  <div id="app" style="display:none;">
+    <h2>Utenti con telefono</h2>
+    <div id="users"></div>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    const PROJECT_URL = "https://evmwxyvnaumpjubkrxxx.supabase.co";
+    const SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2bXd4eXZuYXVtcGp1YmtyeHh4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDExMTU4MiwiZXhwIjoyMDY5Njg3NTgyfQ.xq0G7F8RATkg8iBaKIQaGjXwn2yi5VLJkNDkIgmJtaA";
+
+    const supabaseAdmin = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
+
+    const correctHash = "e379364bd8f53f37e7a3d3b9a8f0c3c748369d7964a122d1bde5426c28e2a463";
+
+    async function sha256(str) {
+      const buf = new TextEncoder().encode(str);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", buf);
+      return Array.from(new Uint8Array(hashBuffer))
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
+    }
+
+    async function checkSecret() {
+      const input = document.getElementById("secret").value;
+      const hash = await sha256(input);
+      if (hash === correctHash) {
+        document.getElementById("login").style.display = "none";
+        document.getElementById("app").style.display = "block";
+        loadUsers();
+      } else {
+        document.getElementById("loginMessage").innerText = "Codice segreto errato";
+      }
+    }
+
+    async function loadUsers() {
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers();
+      if (error) {
+        document.getElementById("users").innerText = "Errore: " + error.message;
+        return;
+      }
+      const container = document.getElementById("users");
+      container.innerHTML = "";
+      data.users.forEach(u => {
+        const phone = u.phone || "(nessun telefono)";
+        const div = document.createElement("div");
+        div.style.marginBottom = "10px";
+        div.innerHTML = `
+          <b>${u.email || "senza email"}</b><br>
+          Telefono: ${phone}<br>
+          <button>Rimuovi telefono</button>
+          <hr>
+        `;
+        div.querySelector("button").onclick = async () => {
+          const { error: updError } = await supabaseAdmin.auth.admin.updateUserById(u.id, {
+            phone: null
+          });
+          if (updError) {
+            alert("Errore: " + updError.message);
+          } else {
+            alert("Telefono rimosso per utente " + (u.email || u.id));
+            loadUsers();
+          }
+        };
+        container.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>
