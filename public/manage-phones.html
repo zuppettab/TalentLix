@@ -2,20 +2,11 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <title>Gestione telefoni Supabase (protetta)</title>
+  <title>Gestione telefoni Supabase</title>
 </head>
 <body>
-  <h2>Accesso protetto</h2>
-  <div id="login">
-    <input type="password" id="secret" placeholder="Inserisci codice segreto">
-    <button onclick="checkSecret()">Accedi</button>
-    <p id="loginMessage" style="color:red;"></p>
-  </div>
-
-  <div id="app" style="display:none;">
-    <h2>Utenti con telefono</h2>
-    <div id="users"></div>
-  </div>
+  <h2>Utenti con telefono</h2>
+  <div id="users"></div>
 
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -24,28 +15,6 @@
     const SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2bXd4eXZuYXVtcGp1YmtyeHh4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDExMTU4MiwiZXhwIjoyMDY5Njg3NTgyfQ.xq0G7F8RATkg8iBaKIQaGjXwn2yi5VLJkNDkIgmJtaA";
 
     const supabaseAdmin = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
-
-    const correctHash = "e379364bd8f53f37e7a3d3b9a8f0c3c748369d7964a122d1bde5426c28e2a463";
-
-    async function sha256(str) {
-      const buf = new TextEncoder().encode(str);
-      const hashBuffer = await crypto.subtle.digest("SHA-256", buf);
-      return Array.from(new Uint8Array(hashBuffer))
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join("");
-    }
-
-    async function checkSecret() {
-      const input = document.getElementById("secret").value;
-      const hash = await sha256(input);
-      if (hash === correctHash) {
-        document.getElementById("login").style.display = "none";
-        document.getElementById("app").style.display = "block";
-        loadUsers();
-      } else {
-        document.getElementById("loginMessage").innerText = "Codice segreto errato";
-      }
-    }
 
     async function loadUsers() {
       const { data, error } = await supabaseAdmin.auth.admin.listUsers();
@@ -79,6 +48,8 @@
         container.appendChild(div);
       });
     }
+
+    loadUsers();
   </script>
 </body>
 </html>
