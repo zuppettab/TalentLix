@@ -510,43 +510,22 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
   };
 
   // ── Invio OTP per AGGANCIARE il telefono all’utente loggato (phone_change)
-      const sendCode = async () => {
-        try {
-          setOtpMessage('');
-          const { data, error } = await supabase.auth.updateUser({ phone: formData.phone });
-          if (error) {
-            setOtpMessage(`Failed to request OTP: ${error.message}`);
-            return;
-          }
-          // No auto-verify here anymore.
-          setOtpSent(true);
-          setOtpMessage('OTP requested. Check your SMS (or use 999999 in dev).');
-        } catch (e) {
-          setOtpMessage(`Send error: ${e?.message || String(e)}`);
+    const sendCode = async () => {
+      try {
+        setOtpMessage('');
+        const { data, error } = await supabase.auth.updateUser({ phone: formData.phone });
+        if (error) {
+          setOtpMessage(`Failed to request OTP: ${error.message}`);
+          return;
         }
+        // No auto-verify here anymore.
+        setOtpSent(true);
+        setOtpMessage('OTP requested. Check your SMS (or use 999999 in dev).');
+      } catch (e) {
+        setOtpMessage(`Send error: ${e?.message || String(e)}`);
       }
+    };
 
-      setOtpDebug({
-        op: 'updateUser(phone_change)',
-        tookMs: Date.now() - started,
-        phone: formData.phone,
-        sessionUserId: user?.id || null,
-        error: error ? { message: error.message, status: error.status, name: error.name } : null,
-        data
-      });
-
-      if (error) {
-        setOtpMessage(`Invio fallito [${error.status ?? '?'}]: ${error.message}`);
-        return;
-      }
-
-      setOtpSent(true);
-      setOtpMessage('OTP richiesto (phone_change). Controlla i log in Twilio/Supabase.');
-    } catch (e) {
-      setOtpMessage(`Eccezione invio: ${e?.message || e}`);
-      setOtpDebug({ op: 'updateUser(phone_change)', exception: String(e) });
-    }
-  };
 
   // ── Conferma OTP (phone_change) + bypass 999999
   const confirmCode = async () => {
