@@ -833,12 +833,13 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         </button>
         {!isValid && (
           <ul style={{color:'#b00', fontSize:'12px', textAlign:'left', marginTop:'6px', paddingLeft:'18px' }}>
-            {!isValidPhone && <li>Telefono non valido</li>}
-            {!phoneVerified && <li>Telefono non verificato</li>}
-            {!formData.residence_city && <li>City of Residence mancante</li>}
-            {!formData.residence_country && <li>Country of Residence mancante</li>}
-            {!formData.profile_picture_url && <li>Profile Picture mancante</li>}
-            {!formData.native_language && <li>Native Language mancante</li>}
+              {!isValidPhone && <li>Invalid phone number</li>}
+              {!phoneVerified && <li>Phone not verified</li>}
+              {!formData.residence_city && <li>City of Residence missing</li>}
+              {!formData.residence_country && <li>Country of Residence missing</li>}
+              {!formData.profile_picture_url && <li>Profile Picture missing</li>}
+              {!formData.native_language && <li>Native Language missing</li>}
+
           </ul>
         )}
       </div>
