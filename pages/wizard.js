@@ -466,20 +466,41 @@ useEffect(() => {
         }
       };
 
-     const confirmCode = async () => {
+      const confirmCode = async () => {
         try {
           setOtpMessage('');
+      
+          // 🔑 Fallback dev-mode: se inserisci 999999, bypassa OTP
+          if (otpCode === "999999") {
+            setPhoneVerified(true);
+            setOtpMessage("Phone verified ✔ (bypass mode)");
+            // aggiorna anche il DB come se fosse verificato
+            const { error: dbError } = await supabase
+              .from('contacts_verification')
+              .upsert(
+                {
+                  athlete_id: user.id,
+                  phone_number: formData.phone,
+                  phone_verified: true
+                },
+                { onConflict: 'athlete_id' }
+              );
+            if (dbError) console.error('DB error:', dbError.message);
+            return; // esci qui, non chiamare verifyOtp
+          }
+      
+          // flusso normale con Supabase OTP
           const { data: verifyData, error } = await supabase.auth.verifyOtp({
             phone: formData.phone,
             token: otpCode,
             type: 'phone_change',
           });
-
+      
           if (error) throw error;
       
-          // se arrivi qui: OTP validata
           setPhoneVerified(true);
           setOtpMessage('Phone verified ✔');
+
       
         // aggiorna tabella contacts_verification (1:1 su athlete_id)
         const { data, error: dbError } = await supabase
