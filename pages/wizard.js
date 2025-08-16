@@ -476,6 +476,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
     if (confirmed && sameNumber && !phoneVerified) {
       setPhoneVerified(true);
       setOtpMessage('Phone already verified ✔');
+      setOtpSent(false);
 
       // Allinea anche la tabella applicativa
       await supabase
@@ -515,26 +516,25 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
       const started = Date.now();
       const { data, error } = await supabase.auth.updateUser({ phone: formData.phone });
-    // ✅ Auto-verified solo se Supabase conferma E il numero coincide davvero
-        const newAuthPhone = data?.user?.phone ? `+${String(data.user.phone).replace(/^\+?/, '')}` : '';
-        const sameAsForm = newAuthPhone && formData.phone &&
-          newAuthPhone.replace(/\D/g, '') === formData.phone.replace(/\D/g, '');
-        
-        if (data?.user?.phone_confirmed_at && sameAsForm) {
-          setPhoneVerified(true);
-          setOtpMessage('Phone already verified ✔');
-        
-          await supabase
-            .from('contacts_verification')
-            .upsert(
-              { athlete_id: user.id, phone_number: formData.phone, phone_verified: true },
-              { onConflict: 'athlete_id' }
-            );
-        
-          setOtpSent(false); // niente UI OTP
-          return;
-        }
-
+          // ✅ Auto-verified solo se Supabase conferma E il numero coincide davvero
+          const newAuthPhone = data?.user?.phone ? `+${String(data.user.phone).replace(/^\+?/, '')}` : '';
+          const sameAsForm = newAuthPhone && formData.phone &&
+            newAuthPhone.replace(/\D/g, '') === formData.phone.replace(/\D/g, '');
+          
+          if (data?.user?.phone_confirmed_at && sameAsForm) {
+            setPhoneVerified(true);
+            setOtpMessage('Phone already verified ✔');
+          
+            await supabase
+              .from('contacts_verification')
+              .upsert(
+                { athlete_id: user.id, phone_number: formData.phone, phone_verified: true },
+                { onConflict: 'athlete_id' }
+              );
+          
+            setOtpSent(false); // niente UI OTP
+            return;
+          }
 
       setOtpDebug({
         op: 'updateUser(phone_change)',
@@ -831,6 +831,16 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         >
           Next ➡️
         </button>
+        {!isValid && (
+          <ul style={{color:'#b00', fontSize:'12px', textAlign:'left', marginTop:'6px', paddingLeft:'18px' }}>
+            {!isValidPhone && <li>Telefono non valido</li>}
+            {!phoneVerified && <li>Telefono non verificato</li>}
+            {!formData.residence_city && <li>City of Residence mancante</li>}
+            {!formData.residence_country && <li>Country of Residence mancante</li>}
+            {!formData.profile_picture_url && <li>Profile Picture mancante</li>}
+            {!formData.native_language && <li>Native Language mancante</li>}
+          </ul>
+        )}
       </div>
     </>
   );
