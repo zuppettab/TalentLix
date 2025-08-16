@@ -466,60 +466,61 @@ useEffect(() => {
         }
       };
 
-      const confirmCode = async () => {
-          try {
-            setOtpMessage('');
-        
-            // 🔑 Fallback dev-mode: se inserisci 999999, bypassa OTP
-            if (otpCode === "999999") {
-              setPhoneVerified(true);
-              setOtpMessage("Phone verified ✔ (bypass mode)");
-        
-              // Aggiorna subito anche nel DB
-              const { error: dbError } = await supabase
-                .from('contacts_verification')
-                .upsert(
-                  {
-                    athlete_id: user.id,
-                    phone_number: formData.phone,
-                    phone_verified: true
-                  },
-                  { onConflict: 'athlete_id' }
-                );
-              if (dbError) {
-                console.error('DB error:', dbError.message);
-              }
-              return; // esci subito, non chiamare Supabase OTP
-            }
-        
-            // Flusso normale con Supabase OTP
-            const { error } = await supabase.auth.verifyOtp({
-              phone: formData.phone,
-              token: otpCode,
-              type: 'phone_change',
-            });
-        
-            if (error) throw error;
-        
-            setPhoneVerified(true);
-            setOtpMessage('Phone verified ✔');
-        
-            const { error: dbError } = await supabase
-              .from('contacts_verification')
-              .upsert(
-                {
-                  athlete_id: user.id,
-                  phone_number: formData.phone,
-                  phone_verified: true
-                },
-                { onConflict: 'athlete_id' }
-              );
-            if (dbError) console.error('DB error:', dbError.message);
-        
-          } catch (err) {
-            setOtpMessage('Invalid or expired code');
-          }
-        };
+     const confirmCode = async () => {
+  try {
+    setOtpMessage('');
+
+    // 🔑 Fallback dev-mode: se inserisci 999999, bypassa OTP
+    if (otpCode === "999999") {
+      setPhoneVerified(true);
+      setOtpMessage("Phone verified ✔ (bypass mode)");
+
+      // Aggiorna subito anche nel DB
+      const { error: dbError } = await supabase
+        .from('contacts_verification')
+        .upsert(
+          {
+            athlete_id: user.id,
+            phone_number: formData.phone,
+            phone_verified: true
+          },
+          { onConflict: 'athlete_id' }
+        );
+      if (dbError) {
+        console.error('DB error:', dbError.message);
+      }
+      return; // esci subito, non chiamare Supabase OTP
+    }
+
+    // Flusso normale con Supabase OTP
+    const { error } = await supabase.auth.verifyOtp({
+      phone: formData.phone,
+      token: otpCode,
+      type: 'phone_change',
+    });
+
+    if (error) throw error;
+
+    setPhoneVerified(true);
+    setOtpMessage('Phone verified ✔');
+
+    const { error: dbError } = await supabase
+      .from('contacts_verification')
+      .upsert(
+        {
+          athlete_id: user.id,
+          phone_number: formData.phone,
+          phone_verified: true
+        },
+        { onConflict: 'athlete_id' }
+      );
+    if (dbError) console.error('DB error:', dbError.message);
+
+  } catch (err) {
+    setOtpMessage('Invalid or expired code');
+  }
+};
+
 
 
       
