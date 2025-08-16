@@ -522,30 +522,6 @@ useEffect(() => {
 };
 
 
-
-      
-        // aggiorna tabella contacts_verification (1:1 su athlete_id)
-        const { data, error: dbError } = await supabase
-          .from('contacts_verification')
-          .upsert(
-            {
-              athlete_id: user.id,        // se preferisci, usa athlete.id se lo hai in stato
-              phone_number: formData.phone, // E.164 con +
-              phone_verified: true
-            },
-            { onConflict: 'athlete_id' }    // 🔑 usa il vincolo UNIQUE esistente
-          );
-        
-        if (dbError) {
-          console.error('DB error:', dbError.message);
-        } else {
-          console.log('contacts_verification upsert OK:', data);
-          }
-          } catch (err) {
-            setOtpMessage('Invalid or expired code');
-          }
-          };
-
 // VALIDAZIONE Step 2 — telefono MOBILE con libphonenumber-js/max + città + paese + foto
 const normalizedPhone = (formData.phone || '').replace(/\s+/g, ''); // rimuovi spazi
 const parsed = parsePhoneNumberFromString(normalizedPhone);          // usa import da 'libphonenumber-js/max'
