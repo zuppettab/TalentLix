@@ -6,7 +6,7 @@
 </head>
 <body>
   <h2>Utenti con telefono</h2>
-  <div id="users"></div>
+  <div id="users">Caricamento...</div>
 
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -17,20 +17,34 @@
     const supabaseAdmin = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
 
     async function loadUsers() {
+      const container = document.getElementById("users");
+      container.innerHTML = "Caricamento utenti...";
+
       const { data, error } = await supabaseAdmin.auth.admin.listUsers();
+
       if (error) {
-        document.getElementById("users").innerText = "Errore: " + error.message;
+        container.innerText = "Errore: " + error.message;
         return;
       }
-      const container = document.getElementById("users");
+
+      if (!data || !data.users || data.users.length === 0) {
+        container.innerText = "Nessun utente trovato in Supabase.";
+        return;
+      }
+
+      const withPhones = data.users.filter(u => u.phone);
+      if (withPhones.length === 0) {
+        container.innerText = "Utenti trovati, ma nessuno ha un telefono associato.";
+        return;
+      }
+
       container.innerHTML = "";
-      data.users.forEach(u => {
-        const phone = u.phone || "(nessun telefono)";
+      withPhones.forEach(u => {
         const div = document.createElement("div");
         div.style.marginBottom = "10px";
         div.innerHTML = `
           <b>${u.email || "senza email"}</b><br>
-          Telefono: ${phone}<br>
+          Telefono: ${u.phone}<br>
           <button>Rimuovi telefono</button>
           <hr>
         `;
@@ -42,7 +56,7 @@
             alert("Errore: " + updError.message);
           } else {
             alert("Telefono rimosso per utente " + (u.email || u.id));
-            loadUsers();
+            loadUsers(); // ricarica lista
           }
         };
         container.appendChild(div);
