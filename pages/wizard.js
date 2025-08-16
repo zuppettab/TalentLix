@@ -485,17 +485,22 @@ useEffect(() => {
           setOtpMessage('Phone verified ✔');
       
           // aggiorna tabella contacts_verification
-          const { error: dbError } = await supabase
-            .from('contacts_verification')
-            .upsert({
-              athlete_id: user.id,         // lega all’atleta loggato
-              phone_number: formData.phone,
-              phone_verified: true,
-              updated_at: new Date().toISOString(),
-            });
-          if (dbError) {
-            console.error('DB error:', dbError.message);
-          }
+            const { data, error: dbError } = await supabase
+              .from('contacts_verification')
+              .upsert(
+                {
+                  athlete_id: user.id,       // oppure athlete.id se preferisci usare quello
+                  phone_number: formData.phone,
+                  phone_verified: true
+                },
+                { onConflict: ['athlete_id'] }  // 🔑 usa il vincolo unique
+              );
+            
+            if (dbError) {
+              console.error('DB error:', dbError.message);
+            } else {
+              console.log('contacts_verification upsert OK:', data);
+            }
         } catch (err) {
           setOtpMessage('Invalid or expired code');
         }
