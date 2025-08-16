@@ -454,6 +454,48 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
   const [otpMessage, setOtpMessage] = useState('');
   const [otpDebug, setOtpDebug] = useState(null); // 👈 pannello debug
 
+  useEffect(() => {
+  (async () => {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+
+    // Supabase salva il phone SENZA “+” → normalizzo in E.164
+    const authPhone = authUser?.phone ? `+${String(authUser.phone).replace(/^\+?/, '')}` : '';
+    const confirmed = !!authUser?.phone_confirmed_at;
+
+    // Se il form non ha già un numero, precompila da Auth
+    if (!formData.phone && authPhone) {
+      setFormData(prev => ({ ...prev, phone: authPhone }));
+    }
+
+    // Se Auth dice che è già verificato e il numero combacia → stato Verified subito
+    const sameNumber =
+      formData.phone &&
+      authPhone &&
+      formData.phone.replace(/\D/g, '') === authPhone.replace(/\D/g, '');
+
+    if (confirmed && sameNumber && !phoneVerified) {
+      setPhoneVerified(true);
+      setOtpMessage('Phone already verified ✔');
+
+      // Allinea anche la tabella applicativa
+      await supabase
+        .from('contacts_verification')
+        .upsert(
+          { athlete_id: user.id, phone_number: formData.phone, phone_verified: true },
+          { onConflict: 'athlete_id' }
+        );
+    }
+
+    // Se l’utente cambia numero → torna non verificato
+    if (!sameNumber && phoneVerified) {
+      setPhoneVerified(false);
+      setOtpMessage('');
+    }
+  })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [user?.id, formData.phone]);
+
+  
   // ── Helper: controlla sessione valida (se scade, updateUser fallisce)
   const ensureSession = async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
@@ -473,6 +515,21 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
       const started = Date.now();
       const { data, error } = await supabase.auth.updateUser({ phone: formData.phone });
+      // Se Supabase mostra già il numero confermato, non serve OTP
+      if (data?.user?.phone_confirmed_at) {
+        setPhoneVerified(true);
+        setOtpMessage('Phone already verified ✔');
+      
+        await supabase
+          .from('contacts_verification')
+          .upsert(
+            { athlete_id: user.id, phone_number: formData.phone, phone_verified: true },
+            { onConflict: 'athlete_id' }
+          );
+      
+        setOtpSent(false); // chiudi la UI OTP
+        return;
+      }
 
       setOtpDebug({
         op: 'updateUser(phone_change)',
