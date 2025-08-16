@@ -456,12 +456,8 @@ useEffect(() => {
       const sendCode = async () => {
         try {
           setOtpMessage('');
-          const { error } = await supabase.auth.signInWithOtp({
-            phone: formData.phone,
-            options: {
-              shouldCreateUser: true, // accetta invio OTP anche se l’utente non esiste
-            },
-          });
+          // Flusso "phone change": invia OTP SENZA creare un nuovo utente
+          const { error } = await supabase.auth.updateUser({ phone: formData.phone });
           if (error) throw error;
           setOtpSent(true);
           setOtpMessage('Code sent via SMS.');
@@ -469,42 +465,39 @@ useEffect(() => {
           setOtpMessage(err.message || 'Failed to send code');
         }
       };
-    
+
      const confirmCode = async () => {
         try {
           setOtpMessage('');
-          const { error } = await supabase.auth.verifyOtp({
+          const { data: verifyData, error } = await supabase.auth.verifyOtp({
             phone: formData.phone,
             token: otpCode,
-            type: 'sms',
+            type: 'phone_change',
           });
+
           if (error) throw error;
       
           // se arrivi qui: OTP validata
           setPhoneVerified(true);
           setOtpMessage('Phone verified ✔');
       
-          // aggiorna tabella contacts_verification
-            const { data, error: dbError } = await supabase
-              .from('contacts_verification')
-              .upsert(
-                {
-                  athlete_id: user.id,       // oppure athlete.id se preferisci usare quello
-                  phone_number: formData.phone,
-                  phone_verified: true
-                },
-                { onConflict: ['athlete_id'] }  // 🔑 usa il vincolo unique
-              );
-            
-            if (dbError) {
-              console.error('DB error:', dbError.message);
-            } else {
-              console.log('contacts_verification upsert OK:', data);
-            }
-        } catch (err) {
-          setOtpMessage('Invalid or expired code');
+        // aggiorna tabella contacts_verification (1:1 su athlete_id)
+        const { data, error: dbError } = await supabase
+          .from('contacts_verification')
+          .upsert(
+            {
+              athlete_id: user.id,        // se preferisci, usa athlete.id se lo hai in stato
+              phone_number: formData.phone, // E.164 con +
+              phone_verified: true
+            },
+            { onConflict: 'athlete_id' }    // 🔑 usa il vincolo UNIQUE esistente
+          );
+        
+        if (dbError) {
+          console.error('DB error:', dbError.message);
+        } else {
+          console.log('contacts_verification upsert OK:', data);
         }
-      };
 
 
 // VALIDAZIONE Step 2 — telefono MOBILE con libphonenumber-js/max + città + paese + foto
