@@ -8,12 +8,16 @@ export default function TestPhone() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [message, setMessage] = useState('');
-  const [debug, setDebug] = useState(null);
+  const [debugLogs, setDebugLogs] = useState([]);
 
-  // 🔍 helper session check
+  const pushLog = (label, payload) => {
+    console.log(label, payload); // resta anche in console
+    setDebugLogs(prev => [...prev, { label, payload }]);
+  };
+
   const ensureSession = async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
-    console.log('[DEBUG][ensureSession]', { session, error });
+    pushLog('[ensureSession]', { session, error });
     if (error || !session) {
       setMessage('Session expired, login again.');
       return false;
@@ -21,12 +25,11 @@ export default function TestPhone() {
     return true;
   };
 
-  // 📲 invio codice via Supabase/Twilio
   const sendCode = async () => {
-    console.log('[DEBUG][sendCode:start]', { phone });
+    pushLog('[sendCode:start]', { phone });
     try {
       const { data, error } = await supabase.auth.updateUser({ phone });
-      console.log('[DEBUG][sendCode:response]', { phone, data, error });
+      pushLog('[sendCode:response]', { phone, data, error });
       if (error) {
         setMessage(`Send failed: ${error.message}`);
         return;
@@ -34,21 +37,19 @@ export default function TestPhone() {
       setOtpSent(true);
       setMessage('OTP sent (check SMS or use 999999 in dev).');
     } catch (e) {
-      console.log('[DEBUG][sendCode:exception]', e);
+      pushLog('[sendCode:exception]', { e: String(e) });
       setMessage(`Exception: ${String(e)}`);
     }
   };
 
-  // ✅ verifica codice OTP
   const confirmCode = async () => {
-    console.log('[DEBUG][confirmCode:start]', { phone, otpCode });
+    pushLog('[confirmCode:start]', { phone, otpCode });
     try {
       if (!(await ensureSession())) return;
 
-      // bypass dev
       if (otpCode === '999999') {
         setMessage('Phone verified ✔ (bypass mode)');
-        console.log('[DEBUG][confirmCode:bypass]', { phone });
+        pushLog('[confirmCode:bypass]', { phone });
         return;
       }
 
@@ -58,7 +59,7 @@ export default function TestPhone() {
         token: otpCode,
         type: 'phone_change',
       });
-      console.log('[DEBUG][confirmCode:verifyOtp]', {
+      pushLog('[confirmCode:verifyOtp]', {
         tookMs: Date.now() - started,
         phone,
         otpCode,
@@ -72,7 +73,7 @@ export default function TestPhone() {
       }
       setMessage('Phone verified ✔');
     } catch (e) {
-      console.log('[DEBUG][confirmCode:exception]', e);
+      pushLog('[confirmCode:exception]', { e: String(e) });
       setMessage(`Exception: ${String(e)}`);
     }
   };
@@ -112,15 +113,19 @@ export default function TestPhone() {
         </div>
       )}
 
-      {message && (
-        <p style={{ marginTop: '1rem', color: 'blue' }}>{message}</p>
-      )}
+      {message && <p style={{ marginTop: '1rem', color: 'blue' }}>{message}</p>}
 
-      {debug && (
+      {/* 🔍 log a video */}
+      <div style={{ marginTop: '2rem', textAlign: 'left' }}>
+        <h3>Debug logs:</h3>
         <pre style={{ background: '#f8f9fa', padding: '1rem', fontSize: '12px' }}>
-          {JSON.stringify(debug, null, 2)}
+          {debugLogs.map((log, i) => (
+            <div key={i}>
+              <strong>{log.label}</strong> {JSON.stringify(log.payload, null, 2)}
+            </div>
+          ))}
         </pre>
-      )}
+      </div>
     </div>
   );
 }
