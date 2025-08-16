@@ -672,7 +672,8 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         {/* Phone Number */}
         <div style={{ width: '100%' }}>
           <PhoneInput
-            country={'it'}
+            countryCodeEditable={false}
+            country={'uk'}
             value={formData.phone ? formData.phone.replace(/^\+/, '') : ''}
             onChange={(value) => {
               const digits = (value || '').replace(/\D/g, '');
