@@ -502,7 +502,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
   const ensureSession = async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session) {
-      setOtpMessage('Sessione scaduta. Effettua di nuovo il login.');
+      setOtpMessage('Session expired. Please sign in again.');
       setOtpDebug({ op: 'getSession', error: error?.message || 'no-session' });
       return false;
     }
@@ -564,7 +564,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
       });
 
       if (error) {
-        setOtpMessage(`Verifica fallita [${error.status ?? '?'}]: ${error.message}`);
+        setOtpMessage(`Verification failed${error.status ? ` [${error.status}]` : ''}: ${error.message}`);
         return;
       }
 
@@ -580,7 +580,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         );
       if (dbError) setOtpMessage(prev => `${prev} (DB warn: ${dbError.message})`);
     } catch (e) {
-      setOtpMessage(`Eccezione verifica: ${e?.message || e}`);
+      setOtpMessage(`Verification error: ${e?.message || String(e)}`);
       setOtpDebug({ op: 'verifyOtp(phone_change)', exception: String(e) });
     }
   };
