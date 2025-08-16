@@ -497,10 +497,11 @@ useEffect(() => {
           console.error('DB error:', dbError.message);
         } else {
           console.log('contacts_verification upsert OK:', data);
-                } catch (err) {
-          setOtpMessage('Invalid or expired code');
-        }
-      };
+          }
+          } catch (err) {
+            setOtpMessage('Invalid or expired code');
+          }
+          };
 
 // VALIDAZIONE Step 2 — telefono MOBILE con libphonenumber-js/max + città + paese + foto
 const normalizedPhone = (formData.phone || '').replace(/\s+/g, ''); // rimuovi spazi
