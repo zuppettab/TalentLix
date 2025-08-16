@@ -446,107 +446,135 @@ useEffect(() => {
 };
 
 /* STEP 2 */
-  const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
-      // ── OTP state & handlers (ESSENZA)
-      const [otpSent, setOtpSent] = useState(false);
-      const [otpCode, setOtpCode] = useState('');
-      const [phoneVerified, setPhoneVerified] = useState(false);
-      const [otpMessage, setOtpMessage] = useState('');
-    
-      const sendCode = async () => {
-        try {
-          setOtpMessage('');
-          // Flusso "phone change": invia OTP SENZA creare un nuovo utente
-          const { error } = await supabase.auth.updateUser({ phone: formData.phone });
-          if (error) throw error;
-          setOtpSent(true);
-          setOtpMessage('Code sent via SMS.');
-        } catch (err) {
-          setOtpMessage(err.message || 'Failed to send code');
-        }
-      };
+const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
+  // ── State
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [otpMessage, setOtpMessage] = useState('');
+  const [otpDebug, setOtpDebug] = useState(null); // 👈 pannello debug
 
-     const confirmCode = async () => {
-  try {
-    setOtpMessage('');
+  // ── Helper: controlla sessione valida (se scade, updateUser fallisce)
+  const ensureSession = async () => {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) {
+      setOtpMessage('Sessione scaduta. Effettua di nuovo il login.');
+      setOtpDebug({ op: 'getSession', error: error?.message || 'no-session' });
+      return false;
+    }
+    return true;
+  };
 
-    // 🔑 Fallback dev-mode: se inserisci 999999, bypassa OTP
-    if (otpCode === "999999") {
+  // ── Invio OTP per AGGANCIARE il telefono all’utente loggato (phone_change)
+  const sendCode = async () => {
+    try {
+      setOtpMessage('');
+      if (!(await ensureSession())) return;
+
+      const started = Date.now();
+      const { data, error } = await supabase.auth.updateUser({ phone: formData.phone });
+
+      setOtpDebug({
+        op: 'updateUser(phone_change)',
+        tookMs: Date.now() - started,
+        phone: formData.phone,
+        sessionUserId: user?.id || null,
+        error: error ? { message: error.message, status: error.status, name: error.name } : null,
+        data
+      });
+
+      if (error) {
+        setOtpMessage(`Invio fallito [${error.status ?? '?'}]: ${error.message}`);
+        return;
+      }
+
+      setOtpSent(true);
+      setOtpMessage('OTP richiesto (phone_change). Controlla i log in Twilio/Supabase.');
+    } catch (e) {
+      setOtpMessage(`Eccezione invio: ${e?.message || e}`);
+      setOtpDebug({ op: 'updateUser(phone_change)', exception: String(e) });
+    }
+  };
+
+  // ── Conferma OTP (phone_change) + bypass 999999
+  const confirmCode = async () => {
+    try {
+      setOtpMessage('');
+      if (!(await ensureSession())) return;
+
+      // 🔑 bypass dev
+      if (otpCode === '999999') {
+        setPhoneVerified(true);
+        setOtpMessage('Phone verified ✔ (bypass mode)');
+        const { error: dbError } = await supabase
+          .from('contacts_verification')
+          .upsert(
+            { athlete_id: user.id, phone_number: formData.phone, phone_verified: true },
+            { onConflict: 'athlete_id' }
+          );
+        setOtpDebug({ op: 'bypass-verify', dbError: dbError?.message || null });
+        return;
+      }
+
+      const started = Date.now();
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: formData.phone,
+        token: otpCode,
+        type: 'phone_change',
+      });
+
+      setOtpDebug({
+        op: 'verifyOtp(phone_change)',
+        tookMs: Date.now() - started,
+        phone: formData.phone,
+        tokenLen: otpCode?.length || 0,
+        error: error ? { message: error.message, status: error.status, name: error.name } : null,
+        data
+      });
+
+      if (error) {
+        setOtpMessage(`Verifica fallita [${error.status ?? '?'}]: ${error.message}`);
+        return;
+      }
+
       setPhoneVerified(true);
-      setOtpMessage("Phone verified ✔ (bypass mode)");
+      setOtpMessage('Phone verified ✔');
 
-      // Aggiorna subito anche nel DB
+      // Stato “affidabilità contatto” nel tuo schema applicativo
       const { error: dbError } = await supabase
         .from('contacts_verification')
         .upsert(
-          {
-            athlete_id: user.id,
-            phone_number: formData.phone,
-            phone_verified: true
-          },
+          { athlete_id: user.id, phone_number: formData.phone, phone_verified: true },
           { onConflict: 'athlete_id' }
         );
-      if (dbError) {
-        console.error('DB error:', dbError.message);
-      }
-      return; // esci subito, non chiamare Supabase OTP
+      if (dbError) setOtpMessage(prev => `${prev} (DB warn: ${dbError.message})`);
+    } catch (e) {
+      setOtpMessage(`Eccezione verifica: ${e?.message || e}`);
+      setOtpDebug({ op: 'verifyOtp(phone_change)', exception: String(e) });
     }
+  };
 
-    // Flusso normale con Supabase OTP
-    const { error } = await supabase.auth.verifyOtp({
-      phone: formData.phone,
-      token: otpCode,
-      type: 'phone_change',
-    });
+  // ── VALIDAZIONE telefono (E.164, mobile/fixed_line_or_mobile, >=10 cifre nazionali)
+  const normalizedPhone = (formData.phone || '').replace(/\s+/g, '');
+  const parsed = parsePhoneNumberFromString(normalizedPhone);
+  const nationalLen = parsed?.nationalNumber ? String(parsed.nationalNumber).length : 0;
+  const type = parsed?.getType ? parsed.getType() : undefined;
+  const isLikelyMobile = type === 'MOBILE' || type === 'FIXED_LINE_OR_MOBILE';
+  const isValidPhone = !!parsed && parsed.isValid() && isLikelyMobile && nationalLen >= 10;
 
-    if (error) throw error;
-
-    setPhoneVerified(true);
-    setOtpMessage('Phone verified ✔');
-
-    const { error: dbError } = await supabase
-      .from('contacts_verification')
-      .upsert(
-        {
-          athlete_id: user.id,
-          phone_number: formData.phone,
-          phone_verified: true
-        },
-        { onConflict: 'athlete_id' }
-      );
-    if (dbError) console.error('DB error:', dbError.message);
-
-  } catch (err) {
-    setOtpMessage('Invalid or expired code');
-  }
-};
-
-
-// VALIDAZIONE Step 2 — telefono MOBILE con libphonenumber-js/max + città + paese + foto
-const normalizedPhone = (formData.phone || '').replace(/\s+/g, ''); // rimuovi spazi
-const parsed = parsePhoneNumberFromString(normalizedPhone);          // usa import da 'libphonenumber-js/max'
-const nationalLen = parsed?.nationalNumber ? String(parsed.nationalNumber).length : 0;
-const type = parsed?.getType ? parsed.getType() : undefined;
-
-// accetta solo numeri validi E.164 che risultino MOBILE (o FIXED_LINE_OR_MOBILE) e con almeno 10 cifre nazionali
-const isLikelyMobile = type === 'MOBILE' || type === 'FIXED_LINE_OR_MOBILE';
-const isValidPhone = !!parsed && parsed.isValid() && isLikelyMobile && nationalLen >= 10;
-
-const isValid =
-  isValidPhone &&
-  phoneVerified && // ← telefono deve essere verificato via OTP
-  !!formData.residence_city &&
-  !!formData.residence_country &&
-  !!formData.profile_picture_url &&
-  !!formData.native_language;
-
+  const isValid =
+    isValidPhone &&
+    phoneVerified &&
+    !!formData.residence_city &&
+    !!formData.residence_country &&
+    !!formData.profile_picture_url &&
+    !!formData.native_language;
 
   return (
-   <>
+    <>
       <h2 style={styles.title}>👤 Step 2</h2>
       <div style={styles.formGroup}>
-    
-      {/* 1️⃣ City of Residence */}
+        {/* City of Residence */}
         <input
           style={styles.input}
           name="residence_city"
@@ -554,8 +582,7 @@ const isValid =
           value={formData.residence_city}
           onChange={handleChange}
         />
-        
-        {/* 2️⃣ Country of Residence */}
+        {/* Country of Residence */}
         <input
           style={styles.input}
           name="residence_country"
@@ -563,8 +590,7 @@ const isValid =
           value={formData.residence_country}
           onChange={handleChange}
         />
-        
-        {/* 3️⃣ Native Language */}
+        {/* Native Language */}
         <input
           style={styles.input}
           name="native_language"
@@ -572,8 +598,7 @@ const isValid =
           value={formData.native_language}
           onChange={handleChange}
         />
-        
-        {/* 4️⃣ Additional Language */}
+        {/* Additional Language */}
         <input
           style={styles.input}
           name="additional_language"
@@ -581,12 +606,11 @@ const isValid =
           value={formData.additional_language}
           onChange={handleChange}
         />
-        
-        {/* 5️⃣ Phone Number */}
+
+        {/* Phone Number */}
         <div style={{ width: '100%' }}>
-       <PhoneInput
+          <PhoneInput
             country={'it'}
-            /* la UI vuole solo cifre; lo stato invece tiene E.164 (+...) */
             value={formData.phone ? formData.phone.replace(/^\+/, '') : ''}
             onChange={(value) => {
               const digits = (value || '').replace(/\D/g, '');
@@ -610,131 +634,133 @@ const isValid =
           />
         </div>
 
-         {/* ── OTP UI (ESSENZA) */}
-            {!phoneVerified && (
-              <div style={{ display: 'grid', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={sendCode}
-                  disabled={!isValidPhone}  // usa la tua variabile già presente
-                  style={{
-                    background: isValidPhone ? 'linear-gradient(90deg, #27E3DA, #F7B84E)' : '#ccc',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '0.6rem',
-                    borderRadius: '8px',
-                    cursor: isValidPhone ? 'pointer' : 'not-allowed',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  Send code
-                </button>
-    
-                {otpSent && (
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="\d*"
-                      maxLength={6}
-                      placeholder="Enter 6-digit code"
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                      style={{ ...styles.input, flex: 1 }}
-                    />
-                    <button
-                      type="button"
-                      onClick={confirmCode}
-                      disabled={otpCode.length !== 6}
-                      style={{
-                        background: otpCode.length === 6 ? 'linear-gradient(90deg, #27E3DA, #F7B84E)' : '#ccc',
-                        color: '#fff',
-                        border: 'none',
-                        padding: '0.6rem 0.8rem',
-                        borderRadius: '8px',
-                        cursor: otpCode.length === 6 ? 'pointer' : 'not-allowed',
-                        fontWeight: 'bold',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      Confirm
-                    </button>
-                  </div>
-                )}
-    
-                {otpMessage && (
-                  <div style={{ fontSize: '0.9rem', color: '#444' }}>{otpMessage}</div>
-                )}
-              </div>
-            )}
-    
-            {phoneVerified && (
-              <div style={{ textAlign: 'left', color: 'green', fontWeight: 600 }}>
-                Phone verified ✔
-              </div>
-            )}
-
-       {/* 6️⃣ Upload Profile Picture */}
-          <label style={{ textAlign: 'left', fontWeight: 'bold' }}>Upload Profile Picture</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <label
-              htmlFor="profileFile"
+        {/* OTP UI */}
+        {!phoneVerified && (
+          <div style={{ display: 'grid', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={sendCode}
+              disabled={!isValidPhone}
               style={{
-                background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+                background: isValidPhone ? 'linear-gradient(90deg, #27E3DA, #F7B84E)' : '#ccc',
                 color: '#fff',
                 border: 'none',
+                padding: '0.6rem',
                 borderRadius: '8px',
-                padding: '0.5rem 1rem',
-                cursor: 'pointer',
+                cursor: isValidPhone ? 'pointer' : 'not-allowed',
                 fontWeight: 'bold'
               }}
             >
-              Choose file
-            </label>
-            <input
-              id="profileFile"
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file || !user?.id) return;
-          
-                const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-                const ts = Date.now();
-                const filePath = `${user.id}/Profile-${ts}.${ext}`;  // nome univoco anti-cache
-                
-                const { error: uploadError } = await supabase.storage
-                  .from('avatars')
-                  .upload(filePath, file, { cacheControl: '3600', upsert: false });
+              Send code
+            </button>
 
-          
-                if (uploadError) {
-                  console.error('Upload error:', uploadError.message);
-                  return;
-                }
-          
-                const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-                const publicUrl = data?.publicUrl || '';
-                setFormData((prev) => ({ ...prev, profile_picture_url: publicUrl }));
-              }}
-            />
+            {otpSent && (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d*"
+                  maxLength={6}
+                  placeholder="Enter 6-digit code"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  style={{ ...styles.input, flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={confirmCode}
+                  disabled={otpCode.length !== 6}
+                  style={{
+                    background: otpCode.length === 6 ? 'linear-gradient(90deg, #27E3DA, #F7B84E)' : '#ccc',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '0.6rem 0.8rem',
+                    borderRadius: '8px',
+                    cursor: otpCode.length === 6 ? 'pointer' : 'not-allowed',
+                    fontWeight: 'bold',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
+            )}
+
+            {otpMessage && (
+              <div style={{ fontSize: '0.9rem', color: '#444' }}>{otpMessage}</div>
+            )}
+
+            {/* 🔍 Pannellino debug */}
+            {otpDebug && (
+              <details style={{ textAlign: 'left', fontSize: '12px', background:'#f8f9fa', padding:'8px', borderRadius:'6px' }} open>
+                <summary style={{ cursor: 'pointer', fontWeight: 600 }}>OTP debug</summary>
+                <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{JSON.stringify(otpDebug, null, 2)}</pre>
+              </details>
+            )}
           </div>
-    
+        )}
+
+        {phoneVerified && (
+          <div style={{ textAlign: 'left', color: 'green', fontWeight: 600 }}>
+            Phone verified ✔
+          </div>
+        )}
+
+        {/* Upload immagine */}
+        <label style={{ textAlign: 'left', fontWeight: 'bold' }}>Upload Profile Picture</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <label
+            htmlFor="profileFile"
+            style={{
+              background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '0.5rem 1rem',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            Choose file
+          </label>
+          <input
+            id="profileFile"
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file || !user?.id) return;
+
+              const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+              const ts = Date.now();
+              const filePath = `${user.id}/Profile-${ts}.${ext}`;
+
+              const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+              if (uploadError) {
+                console.error('Upload error:', uploadError.message);
+                return;
+              }
+
+              const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+              const publicUrl = data?.publicUrl || '';
+              setFormData((prev) => ({ ...prev, profile_picture_url: publicUrl }));
+            }}
+          />
+        </div>
+
         {formData.profile_picture_url && (
-           <img
-              src={formData.profile_picture_url}
-              alt="Preview"
-              style={{
-                width: '50%',         // o 40%, 60%, in base a quanto piccola vuoi la preview
-                height: 'auto',       // mantiene le proporzioni
-                marginTop: '10px',
-                borderRadius: '8px'
-              }}
+          <img
+            src={formData.profile_picture_url}
+            alt="Preview"
+            style={{ width: '50%', height: 'auto', marginTop: '10px', borderRadius: '8px' }}
           />
         )}
-        
-        {/* 🔘 Bottone */}
+
+        {/* Next */}
         <button
           style={isValid ? styles.button : styles.buttonDisabled}
           onClick={saveStep}
@@ -746,6 +772,7 @@ const isValid =
     </>
   );
 };
+
 
 /* STEP 3 */
 const Step3 = ({ formData, handleChange, saveStep }) => {
