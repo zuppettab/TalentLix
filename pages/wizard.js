@@ -796,11 +796,50 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         </div>
 
         {formData.profile_picture_url && (
-          <img
-            src={formData.profile_picture_url}
-            alt="Preview"
-            style={{ width: '50%', height: 'auto', marginTop: '10px', borderRadius: '8px' }}
-          />
+          <div style={{ position: 'relative', display: 'inline-block', width: '50%', marginTop: '10px' }}>
+            <img
+              src={formData.profile_picture_url}
+              alt="Preview"
+              style={{ width: '100%', height: 'auto', borderRadius: '8px' }}
+            />
+            {/* ❌ Pulsante X tondo in alto a destra */}
+            <button
+              type="button"
+              onClick={() => setFormData((prev) => ({ ...prev, profile_picture_url: '' }))}
+              style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: 'rgba(255,255,255,0.8)',
+                border: '1px solid #ccc',
+                borderRadius: '50%',
+                width: '28px',
+                height: '28px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+              }}
+              aria-label="Remove picture"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="black"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="11" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+              </svg>
+            </button>
+          </div>
         )}
 
         {/* Next */}
