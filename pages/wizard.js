@@ -983,9 +983,15 @@ const Step4 = ({ formData, handleChange, finalize }) => (
           <li><strong>Sport:</strong> {formData.sport} ({formData.main_role})</li>
 
     </ul>
-    <label>
-      <input type="checkbox" name="profile_published" checked={formData.profile_published} onChange={handleChange} /> Publish Profile Now?
-    </label>
+      <label style={{ textAlign: 'left', display: 'block', marginTop: 12 }}>
+        <input
+          type="checkbox"
+          name="profile_published"
+          checked={!!formData.profile_published}
+          onChange={(e) => setFormData({ ...formData, profile_published: e.target.checked })}
+        />{' '}
+        Publish Profile Now?
+      </label>
     <button style={styles.button} onClick={finalize}>Confirm and Go to Dashboard</button>
   </>
 );
