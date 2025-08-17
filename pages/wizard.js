@@ -883,7 +883,10 @@ const Step3 = ({ formData, handleChange, saveStep }) => {
           options={sports}
           value={sports.find(opt => opt.value === formData.sport) || null}
           onChange={(selected) =>
-            setFormData({ ...formData, sport: selected?.value || '' })
+            setFormData({
+              ...formData,
+              sport: selected ? selected.value : ''
+            })
           }
           filterOption={(option, inputValue) =>
             inputValue.length >= 2 &&
@@ -898,8 +901,7 @@ const Step3 = ({ formData, handleChange, saveStep }) => {
             }),
           }}
         />
-        
-          
+
         <input style={styles.input} name="main_role" placeholder="Main Role" value={formData.main_role} onChange={handleChange} />
         <input style={styles.input} name="team_name" placeholder="Current Team" value={formData.team_name} onChange={handleChange} />
         <input style={styles.input} name="category" placeholder="Category" value={formData.category} onChange={handleChange} />
