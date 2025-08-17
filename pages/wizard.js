@@ -292,7 +292,7 @@ const handleLogout = async () => {
                       saveStep={() => saveStep(3)}
                     />
                 )}
-                {step === 3 && <Step3 formData={formData} handleChange={handleChange} saveStep={() => saveStep(4)} />}
+                {step === 3 && <Step3 formData={formData} setFormData={setFormData} handleChange={handleChange} saveStep={() => saveStep(4)} />}
                 {step === 4 && <Step4 formData={formData} handleChange={handleChange} finalize={finalizeProfile} />}
               </motion.div>
             </AnimatePresence>
@@ -870,41 +870,34 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
 
 /* STEP 3 */
-const Step3 = ({ formData, handleChange, saveStep }) => {
+const Step3 = ({ formData, setFormData, handleChange, saveStep }) => {
   const isValid = formData.sport && formData.main_role && formData.team_name && formData.category;
   return (
     <>
       <h2 style={styles.title}>👤 Step 3</h2>
       <div style={styles.formGroup}>
         
-       <Select
-          name="sport"
-          placeholder="Start typing sport"
-          options={sports}
-          value={
-            formData.sport
-              ? { value: formData.sport, label: sports.find(opt => opt.value === formData.sport)?.label || formData.sport }
-              : null
-          }
-          onChange={(selected) =>
-            setFormData({
-              ...formData,
-              sport: selected ? selected.value : ''
-            })
-          }
-          filterOption={(option, inputValue) =>
-            inputValue.length >= 2 &&
-            option.label.toLowerCase().includes(inputValue.toLowerCase())
-          }
-          styles={{
-            control: (base) => ({
-              ...base,
-              padding: '2px',
-              borderRadius: '8px',
-              borderColor: '#ccc',
-            }),
-          }}
-        />
+         <Select
+            name="sport"
+            placeholder="Start typing sport"
+            options={sports}
+            value={sports.find(opt => opt.value === formData.sport) || null}
+            onChange={(selected) =>
+              setFormData({ ...formData, sport: selected?.value || '' })
+            }
+            filterOption={(option, inputValue) =>
+              inputValue.length >= 2 &&
+              option.label.toLowerCase().includes(inputValue.toLowerCase())
+            }
+            styles={{
+              control: (base) => ({
+                ...base,
+                padding: '2px',
+                borderRadius: '8px',
+                borderColor: '#ccc',
+              }),
+            }}
+          />
 
         <input style={styles.input} name="main_role" placeholder="Main Role" value={formData.main_role} onChange={handleChange} />
         <input style={styles.input} name="team_name" placeholder="Current Team" value={formData.team_name} onChange={handleChange} />
