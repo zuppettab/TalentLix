@@ -308,7 +308,7 @@ const handleLogout = async () => {
                     />
                 )}
                 {step === 3 && <Step3 formData={formData} setFormData={setFormData} handleChange={handleChange} saveStep={() => saveStep(4)} />}
-                {step === 4 && <Step4 formData={formData} handleChange={handleChange} finalize={finalizeProfile} />}
+                {step === 4 && <Step4 formData={formData} setFormData={setFormData} finalize={finalizeProfile} />}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -968,7 +968,7 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep }) => {
 };
 
 /* STEP 4 */
-const Step4 = ({ formData, handleChange, finalize }) => (
+const Step4 = ({ formData, setFormData, finalize }) => (
   <>
     <h2 style={styles.title}>Review & Publish</h2>
     <ul style={styles.reviewList}>
