@@ -398,8 +398,8 @@ useEffect(() => {
               name="date_of_birth"
               placeholder="Date of Birth"
               value={formData.date_of_birth || ''}
-              min={toISO(minDateObj)}  {/* limita a 60 anni fa */}
-              max={toISO(maxDateObj)}  {/* limita a 10 anni fa */}
+              min={toISO(minDateObj)}  // limita a 60 anni fa
+              max={toISO(maxDateObj)}  // limita a 10 anni fa
               onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
             />
             {/* tastino calendario esplicito */}
