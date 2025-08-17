@@ -441,14 +441,16 @@ useEffect(() => {
           />
         <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
         {!isValid && (
-            <ul style={{ color:'#b00', fontSize:'12px', textAlign:'left', marginTop:'6px', paddingLeft:'18px' }}>
-              {!formData.sport && <li>Sport missing</li>}
-              {!formData.main_role && <li>Main Role missing</li>}
-              {!formData.team_name && <li>Current Team missing</li>}
-              {!formData.category && <li>Category missing</li>}
-            </ul>
-          )}
-
+          <ul style={{ color:'#b00', fontSize:'12px', textAlign:'left', marginTop:'6px', paddingLeft:'18px' }}>
+            {!formData.first_name && <li>First Name missing</li>}
+            {!formData.last_name && <li>Last Name missing</li>}
+            {!validDob && <li>Date of Birth invalid or out of range (10–60y)</li>}
+            {!formData.gender && <li>Gender missing</li>}
+            {!formData.nationality && <li>Nationality missing</li>}
+            {!formData.birth_city && <li>City of Birth missing</li>}
+          </ul>
+        )}
+   
       </div>
     </>
   );
@@ -840,14 +842,13 @@ const Step3 = ({ formData, handleChange, saveStep }) => {
         <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
         {!isValid && (
           <ul style={{ color:'#b00', fontSize:'12px', textAlign:'left', marginTop:'6px', paddingLeft:'18px' }}>
-            {!formData.first_name && <li>First Name missing</li>}
-            {!formData.last_name && <li>Last Name missing</li>}
-            {!validDob && <li>Date of Birth invalid or out of range (10–60y)</li>}
-            {!formData.gender && <li>Gender missing</li>}
-            {!formData.nationality && <li>Nationality missing</li>}
-            {!formData.birth_city && <li>City of Birth missing</li>}
+            {!formData.sport && <li>Sport missing</li>}
+            {!formData.main_role && <li>Main Role missing</li>}
+            {!formData.team_name && <li>Current Team missing</li>}
+            {!formData.category && <li>Category missing</li>}
           </ul>
-)}
+        )}
+
 
       </div>
     </>
