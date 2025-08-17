@@ -934,6 +934,13 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep }) => {
           value={formData.previous_team}
           onChange={handleChange}
         />
+        <input
+          style={styles.input}
+          name="team_name"
+          placeholder="Current Team (optional)"
+          value={formData.team_name}
+          onChange={handleChange}
+        />
         <label style={{ textAlign: 'left' }}>
           <input
             type="checkbox"
