@@ -7,6 +7,7 @@ import countries from '../utils/countries';
 import 'react-phone-input-2/lib/style.css';
 import PhoneInput from 'react-phone-input-2';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
+import sports from '../utils/sports';
 
 export default function Wizard() {
   const router = useRouter();
@@ -875,7 +876,30 @@ const Step3 = ({ formData, handleChange, saveStep }) => {
     <>
       <h2 style={styles.title}>👤 Step 3</h2>
       <div style={styles.formGroup}>
-        <input style={styles.input} name="sport" placeholder="Sport" value={formData.sport} onChange={handleChange} />
+        
+        <Select
+          name="sport"
+          placeholder="Start typing sport"
+          options={sports}
+          value={sports.find(opt => opt.value === formData.sport) || null}
+          onChange={(selected) =>
+            setFormData({ ...formData, sport: selected?.value || '' })
+          }
+          filterOption={(option, inputValue) =>
+            inputValue.length >= 2 &&
+            option.label.toLowerCase().includes(inputValue.toLowerCase())
+          }
+          styles={{
+            control: (base) => ({
+              ...base,
+              padding: '2px',
+              borderRadius: '8px',
+              borderColor: '#ccc',
+            }),
+          }}
+        />
+        
+          
         <input style={styles.input} name="main_role" placeholder="Main Role" value={formData.main_role} onChange={handleChange} />
         <input style={styles.input} name="team_name" placeholder="Current Team" value={formData.team_name} onChange={handleChange} />
         <input style={styles.input} name="category" placeholder="Category" value={formData.category} onChange={handleChange} />
