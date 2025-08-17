@@ -18,25 +18,30 @@ export default function Wizard() {
   const [errorMessage, setErrorMessage] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    date_of_birth: '',
-    gender: '',
-    nationality: '',
-    birth_city: '',
-    native_language: 'English',
-    additional_language: '',
-    profile_picture_url: '',
-    phone: '',
-    residence_city: '',
-    residence_country: '',
-    sport: '',
-    main_role: '',
-    team_name: '',
-    category: '',
-    profile_published: false,
-  });
+const [formData, setFormData] = useState({
+  first_name: '',
+  last_name: '',
+  date_of_birth: '',
+  gender: '',
+  nationality: '',
+  birth_city: '',
+  native_language: 'English',
+  additional_language: '',
+  profile_picture_url: '',
+  phone: '',
+  residence_city: '',
+  residence_country: '',
+  // —— STEP 3
+  sport: '',
+  main_role: '',
+  team_name: '',           // facoltativo
+  previous_team: '',       // NUOVO (facoltativo)
+  years_experience: '',    // NUOVO (0–60) — mostrato solo dopo scelta sport
+  category: '',
+  seeking_team: false,     // NUOVO (checkbox)
+  // ——
+  profile_published: false,
+});
 
   // Fetch user and athlete data
   useEffect(() => {
@@ -139,21 +144,31 @@ export default function Wizard() {
             if (error) throw error;
       
           } else if (step === 3) {
-            // Insert esperienza sportiva + avanzamento
+            // Insert esperienza sportiva (con previous_team + years_experience) + avanzamento
+            const years =
+              formData.years_experience === '' || formData.years_experience == null
+                ? null
+                : Math.max(0, Math.min(60, parseInt(formData.years_experience, 10)));
+          
             const { error } = await supabase.from('sports_experiences').insert([{
               athlete_id: user.id,
               sport: formData.sport,
               role: formData.main_role,
-              team: formData.team_name,
+              team: formData.team_name || null,      // facoltativo
+              previous_team: formData.previous_team || null, // NUOVO
               category: formData.category,
+              years_experience: years,               // NUOVO (0–60 o NULL)
             }]);
             if (error) throw error;
-      
-            await supabase.from('athlete').update({
+          
+            const { error: upErr } = await supabase.from('athlete').update({
+              seeking_team: !!formData.seeking_team, // NUOVO flag profilo
               current_step: nextStep,
               completion_percentage: calcCompletion(nextStep),
             }).eq('id', user.id);
+            if (upErr) throw upErr;
           }
+
       
           setStep(nextStep);
         } catch (err) {
@@ -871,13 +886,13 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
 /* STEP 3 */
 const Step3 = ({ formData, setFormData, handleChange, saveStep }) => {
-  const isValid = formData.sport && formData.main_role && formData.team_name && formData.category;
+  const isValid = formData.sport && formData.main_role && formData.category;
   return (
     <>
       <h2 style={styles.title}>👤 Step 3</h2>
       <div style={styles.formGroup}>
         
-         <Select
+          <Select
             name="sport"
             placeholder="Start typing sport"
             options={sports}
@@ -898,16 +913,43 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep }) => {
               }),
             }}
           />
+          {formData.sport && (
+            <input
+              style={styles.input}
+              type="number"
+              name="years_experience"
+              placeholder="Years of Experience (0–60)"
+              min={0}
+              max={60}
+              value={formData.years_experience}
+              onChange={(e) => setFormData({ ...formData, years_experience: e.target.value })}
+            />
+          )}
 
         <input style={styles.input} name="main_role" placeholder="Main Role" value={formData.main_role} onChange={handleChange} />
-        <input style={styles.input} name="team_name" placeholder="Current Team" value={formData.team_name} onChange={handleChange} />
+        <input
+          style={styles.input}
+          name="previous_team"
+          placeholder="Previous Team (optional)"
+          value={formData.previous_team}
+          onChange={handleChange}
+        />
+        <label style={{ textAlign: 'left' }}>
+          <input
+            type="checkbox"
+            name="seeking_team"
+            checked={!!formData.seeking_team}
+            onChange={(e) => setFormData({ ...formData, seeking_team: e.target.checked })}
+          />{' '}
+          Seeking Team
+        </label>
+
         <input style={styles.input} name="category" placeholder="Category" value={formData.category} onChange={handleChange} />
         <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
         {!isValid && (
           <ul style={{ color:'#b00', fontSize:'12px', textAlign:'left', marginTop:'6px', paddingLeft:'18px' }}>
             {!formData.sport && <li>Sport missing</li>}
             {!formData.main_role && <li>Main Role missing</li>}
-            {!formData.team_name && <li>Current Team missing</li>}
             {!formData.category && <li>Category missing</li>}
           </ul>
         )}
@@ -933,8 +975,13 @@ const Step4 = ({ formData, handleChange, finalize }) => (
           <li><strong>Native Language:</strong> {formData.native_language}</li>
           <li><strong>Additional Language:</strong> {formData.additional_language}</li>
           <li><strong>Phone:</strong> {formData.phone}</li>
+          <li><strong>Team (current):</strong> {formData.team_name || '—'}</li>
+          <li><strong>Previous Team:</strong> {formData.previous_team || '—'}</li>
+          <li><strong>Years of Experience:</strong> {formData.years_experience || '—'}</li>
+          <li><strong>Seeking Team:</strong> {formData.seeking_team ? 'Yes' : 'No'}</li>
+          <li><strong>Category:</strong> {formData.category}</li>
           <li><strong>Sport:</strong> {formData.sport} ({formData.main_role})</li>
-          <li><strong>Team:</strong> {formData.team_name} - {formData.category}</li>
+
     </ul>
     <label>
       <input type="checkbox" name="profile_published" checked={formData.profile_published} onChange={handleChange} /> Publish Profile Now?
