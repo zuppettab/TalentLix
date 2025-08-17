@@ -877,11 +877,15 @@ const Step3 = ({ formData, handleChange, saveStep }) => {
       <h2 style={styles.title}>👤 Step 3</h2>
       <div style={styles.formGroup}>
         
-        <Select
+       <Select
           name="sport"
           placeholder="Start typing sport"
           options={sports}
-          value={sports.find(opt => opt.value === formData.sport) || null}
+          value={
+            formData.sport
+              ? { value: formData.sport, label: sports.find(opt => opt.value === formData.sport)?.label || formData.sport }
+              : null
+          }
           onChange={(selected) =>
             setFormData({
               ...formData,
