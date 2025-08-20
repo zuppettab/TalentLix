@@ -267,7 +267,7 @@ const handleLogout = async () => {
                 </div>
               )}
             </div>
-          <div style={styles.card}>
+          <div className="tlx-card" style={{ ...styles.card, maxWidth: step === 4 ? '960px' : '450px' }}> Eva Fabio
             <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
             <div style={styles.progressBar}>
               <div style={{ ...styles.progressFill, width: `${(step / 4) * 100}%` }} />
@@ -968,29 +968,131 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep }) => {
 };
 
 /* STEP 4 */
-const Step4 = ({ formData, setFormData, finalize }) => (
-  <>
-    <h2 style={styles.title}>Review & Publish</h2>
-    <ul style={styles.reviewList}>
-          <li><strong>Name:</strong> {formData.first_name} {formData.last_name}</li>
-          <li><strong>Date of Birth:</strong> {formData.date_of_birth}</li>
-          <li><strong>Gender:</strong> {formData.gender === 'M' ? 'Male' : 'Female'}</li>
-          <li><strong>Nationality:</strong> {formData.nationality}</li>
-          <li><strong>City of Birth:</strong> {formData.birth_city}</li>
-          <li><strong>City of Residence:</strong> {formData.residence_city}</li>
-          <li><strong>Country of Residence:</strong> {formData.residence_country}</li>
-          <li><strong>Native Language:</strong> {formData.native_language}</li>
-          <li><strong>Additional Language:</strong> {formData.additional_language}</li>
-          <li><strong>Phone:</strong> {formData.phone}</li>
-          <li><strong>Team (current):</strong> {formData.team_name || '—'}</li>
-          <li><strong>Previous Team:</strong> {formData.previous_team || '—'}</li>
-          <li><strong>Years of Experience:</strong> {formData.years_experience || '—'}</li>
-          <li><strong>Seeking Team:</strong> {formData.seeking_team ? 'Yes' : 'No'}</li>
-          <li><strong>Category:</strong> {formData.category}</li>
-          <li><strong>Sport:</strong> {formData.sport} ({formData.main_role})</li>
+const Step4 = ({ formData, setFormData, finalize }) => {
+  // — calcolo età sicuro (accetta yyyy-mm-dd o dd/mm/yyyy)
+  const parseDob = (str) => {
+    if (!str) return null;
+    let y, m, d;
+    if (str.includes('-')) {
+      [y, m, d] = str.split('-').map(v => parseInt(v, 10));
+    } else {
+      const mm = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (!mm) return null;
+      d = parseInt(mm[1], 10);
+      m = parseInt(mm[2], 10);
+      y = parseInt(mm[3], 10);
+    }
+    const dt = new Date(y, (m - 1), d);
+    return (dt.getFullYear() === y && dt.getMonth() + 1 === m && dt.getDate() === d) ? dt : null;
+  };
 
-    </ul>
-      <label style={{ textAlign: 'left', display: 'block', marginTop: 12 }}>
+  const dobDate = parseDob(formData.date_of_birth);
+  const age = (() => {
+    if (!dobDate) return null;
+    const t = new Date();
+    let a = t.getFullYear() - dobDate.getFullYear();
+    const mm = t.getMonth() - dobDate.getMonth();
+    if (mm < 0 || (mm === 0 && t.getDate() < dobDate.getDate())) a--;
+    return a;
+  })();
+
+  // avatar responsivo (non serve toccare gli styles globali)
+  const avatarSize = 'clamp(96px, 40vw, 160px)';
+
+  return (
+    <>
+      {/* griglia mobile-first: 1 colonna, da 700px → 2 colonne */}
+      <style jsx>{`
+        .tlx-review-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        @media (min-width: 700px) { .tlx-review-grid { grid-template-columns: 1fr 1fr; } }
+      `}</style>
+
+      <h2 style={styles.title}>Review & Publish</h2>
+
+      {/* HERO / INTESTAZIONE */}
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{
+          width: avatarSize, height: avatarSize, borderRadius: 16, overflow: 'hidden',
+          boxShadow: '0 6px 14px rgba(0,0,0,0.08)', background: '#eee'
+        }}>
+          <img
+            src={formData.profile_picture_url || '/avatar-placeholder.png'}
+            alt="Profile"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        </div>
+
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>
+            {formData.first_name} {formData.last_name}
+          </div>
+          <div style={{ marginTop: 6, color: '#555' }}>
+            {formData.sport
+              ? `${formData.sport}${formData.main_role ? ' • ' + formData.main_role : ''}`
+              : 'Sport not set'}
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+            {formData.category && (
+              <span style={{
+                background: '#ECF5FF', color: '#0B5ED7',
+                padding: '6px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700
+              }}>
+                {formData.category}
+              </span>
+            )}
+            {formData.seeking_team && (
+              <span style={{
+                background: '#FFECE6', color: '#D9480F',
+                padding: '6px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700
+              }}>
+                Seeking team
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* GRID DATI */}
+      <div className="tlx-review-grid">
+        {/* Colonna 1 - Personal */}
+        <div style={{
+          background: '#fff', border: '1px solid #eee', borderRadius: 12,
+          padding: 16, boxShadow: '0 6px 14px rgba(0,0,0,0.04)'
+        }}>
+          <div style={{ fontWeight: 800, marginBottom: 8 }}>Personal</div>
+          <div style={{ display: 'grid', rowGap: 8 }}>
+            <Row label="Date of Birth" value={`${formData.date_of_birth}${age ? `  (${age}y)` : ''}`} />
+            <Row label="Gender" value={formData.gender === 'M' ? 'Male' : formData.gender === 'F' ? 'Female' : '—'} />
+            <Row label="Nationality" value={formData.nationality || '—'} />
+            <Row label="Birth City" value={formData.birth_city || '—'} />
+            <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
+              <span style={{ color: '#777', minWidth: 120 }}>Languages</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {formData.native_language && <span style={chipStyle}>{formData.native_language}</span>}
+                {formData.additional_language && <span style={chipStyle}>{formData.additional_language}</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Colonna 2 - Contacts & Team */}
+        <div style={{
+          background: '#fff', border: '1px solid #eee', borderRadius: 12,
+          padding: 16, boxShadow: '0 6px 14px rgba(0,0,0,0.04)'
+        }}>
+          <div style={{ fontWeight: 800, marginBottom: 8 }}>Contacts & Team</div>
+          <div style={{ display: 'grid', rowGap: 8 }}>
+            <Row label="Phone" value={formData.phone || '—'} />
+            <Row label="Residence" value={[formData.residence_city, formData.residence_country].filter(Boolean).join(', ') || '—'} />
+            <Row label="Current Team" value={formData.team_name || '—'} />
+            <Row label="Previous Team" value={formData.previous_team || '—'} />
+            <Row label="Experience" value={formData.years_experience ? `${formData.years_experience} years` : '—'} />
+          </div>
+        </div>
+      </div>
+
+      {/* Publish */}
+      <label style={{ textAlign: 'left', display: 'block', marginTop: 16 }}>
         <input
           type="checkbox"
           name="profile_published"
@@ -999,9 +1101,30 @@ const Step4 = ({ formData, setFormData, finalize }) => (
         />{' '}
         Publish Profile Now?
       </label>
-    <button style={styles.button} onClick={finalize}>Confirm and Go to Dashboard</button>
-  </>
+
+      <button style={styles.button} onClick={finalize} aria-label="Confirm and go to dashboard">
+        Confirm and Go to Dashboard
+      </button>
+    </>
+  );
+};
+
+// — sottocomponenti per il layout del riepilogo
+const Row = ({ label, value }) => (
+  <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
+    <span style={{ color: '#777', minWidth: 120 }}>{label}</span>
+    <span style={{ fontWeight: 600, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{value}</span>
+  </div>
 );
+
+const chipStyle = {
+  background: '#F1F3F5',
+  border: '1px solid #E9ECEF',
+  borderRadius: 999,
+  padding: '4px 10px',
+  fontSize: 12,
+  fontWeight: 700
+};
 
 const styles = {
 userMenuContainer: {
