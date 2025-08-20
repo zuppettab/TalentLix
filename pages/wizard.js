@@ -969,7 +969,7 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep }) => {
 
 /* STEP 4 */
 const Step4 = ({ formData, setFormData, finalize }) => {
-  // — calcolo età sicuro (accetta yyyy-mm-dd o dd/mm/yyyy)
+  // --- DOB → age (robusto con ISO o dd/mm/yyyy)
   const parseDob = (str) => {
     if (!str) return null;
     let y, m, d;
@@ -985,7 +985,6 @@ const Step4 = ({ formData, setFormData, finalize }) => {
     const dt = new Date(y, (m - 1), d);
     return (dt.getFullYear() === y && dt.getMonth() + 1 === m && dt.getDate() === d) ? dt : null;
   };
-
   const dobDate = parseDob(formData.date_of_birth);
   const age = (() => {
     if (!dobDate) return null;
@@ -996,29 +995,49 @@ const Step4 = ({ formData, setFormData, finalize }) => {
     return a;
   })();
 
-  // avatar responsivo (non serve toccare gli styles globali)
-  const avatarSize = 'clamp(96px, 40vw, 160px)';
+  // avatar più "accorciato" e responsivo
+  const avatarSize = 'clamp(110px, 28vw, 140px)';
 
   return (
     <>
-      {/* griglia mobile-first: 1 colonna, da 700px → 2 colonne */}
+      {/* Responsive: hero centrato su mobile, 2 colonne da 700px */}
       <style jsx>{`
+        .tlx-hero {
+          display: flex;
+          gap: 16px;
+          align-items: center;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+          justify-content: center;   /* MOBILE: centrato */
+          text-align: center;        /* MOBILE: testo centrato */
+        }
+        @media (min-width: 700px) {
+          .tlx-hero {
+            justify-content: flex-start; /* DESKTOP: allineato a sinistra */
+            text-align: left;
+          }
+        }
         .tlx-review-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
         @media (min-width: 700px) { .tlx-review-grid { grid-template-columns: 1fr 1fr; } }
       `}</style>
 
       <h2 style={styles.title}>Review & Publish</h2>
 
-      {/* HERO / INTESTAZIONE */}
-      <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+      {/* HERO */}
+      <div className="tlx-hero">
         <div style={{
-          width: avatarSize, height: avatarSize, borderRadius: 16, overflow: 'hidden',
+          width: avatarSize, height: avatarSize,
+          borderRadius: 16, overflow: 'hidden',
           boxShadow: '0 6px 14px rgba(0,0,0,0.08)', background: '#eee'
         }}>
           <img
             src={formData.profile_picture_url || '/avatar-placeholder.png'}
             alt="Profile"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            style={{
+              width: '100%', height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center 20%' // leggero crop verso l'alto
+            }}
           />
         </div>
 
@@ -1031,7 +1050,7 @@ const Step4 = ({ formData, setFormData, finalize }) => {
               ? `${formData.sport}${formData.main_role ? ' • ' + formData.main_role : ''}`
               : 'Sport not set'}
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10, justifyContent: 'center' }}>
             {formData.category && (
               <span style={{
                 background: '#ECF5FF', color: '#0B5ED7',
@@ -1061,11 +1080,11 @@ const Step4 = ({ formData, setFormData, finalize }) => {
         }}>
           <div style={{ fontWeight: 800, marginBottom: 8 }}>Personal</div>
           <div style={{ display: 'grid', rowGap: 8 }}>
-            <Row label="Date of Birth" value={`${formData.date_of_birth}${age ? `  (${age}y)` : ''}`} />
+            <Row label="Date of Birth" value={`${formData.date_of_birth}${age ? ` (${age}y)` : ''}`} />
             <Row label="Gender" value={formData.gender === 'M' ? 'Male' : formData.gender === 'F' ? 'Female' : '—'} />
             <Row label="Nationality" value={formData.nationality || '—'} />
             <Row label="Birth City" value={formData.birth_city || '—'} />
-            <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap', justifyContent: 'center' }}>
               <span style={{ color: '#777', minWidth: 120 }}>Languages</span>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {formData.native_language && <span style={chipStyle}>{formData.native_language}</span>}
@@ -1091,8 +1110,8 @@ const Step4 = ({ formData, setFormData, finalize }) => {
         </div>
       </div>
 
-      {/* Publish */}
-      <label style={{ textAlign: 'left', display: 'block', marginTop: 16 }}>
+      {/* Publish (più staccato dal bottone) */}
+      <label style={{ textAlign: 'left', display: 'block', marginTop: 20, marginBottom: 10 }}>
         <input
           type="checkbox"
           name="profile_published"
@@ -1102,14 +1121,14 @@ const Step4 = ({ formData, setFormData, finalize }) => {
         Publish Profile Now?
       </label>
 
-      <button style={styles.button} onClick={finalize} aria-label="Confirm and go to dashboard">
+      <button style={{ ...styles.button, marginTop: 4 }} onClick={finalize} aria-label="Confirm and go to dashboard">
         Confirm and Go to Dashboard
       </button>
     </>
   );
 };
 
-// — sottocomponenti per il layout del riepilogo
+// helper UI
 const Row = ({ label, value }) => (
   <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
     <span style={{ color: '#777', minWidth: 120 }}>{label}</span>
