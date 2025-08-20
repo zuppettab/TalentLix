@@ -1031,12 +1031,24 @@ const Step4 = ({ formData, setFormData, finalize }) => {
       {/* CSS responsive */}
       <style jsx>{`
         .tlx-hero{
-          display:flex;gap:16px;align-items:center;margin-bottom:16px;flex-wrap:wrap;
-          justify-content:center;text-align:center;
+          display:flex;
+          gap:16px;
+          align-items:center;
+          margin-bottom:16px;
+          flex-wrap:wrap;
+          justify-content:center;
+          text-align:center;
         }
-        @media (min-width:700px){ .tlx-hero{ justify-content:flex-start; text-align:left; } }
-        .tlx-review-grid{ display:grid; grid-template-columns:1fr; gap:16px; }
-        @media (min-width:700px){ .tlx-review-grid{ grid-template-columns:1fr 1fr; } }
+        .tlx-hero-name{
+          font-size:24px;
+          font-weight:800;
+          text-align:center;
+          flex:1;
+        }
+        @media (min-width:700px){
+          .tlx-hero{ justify-content:flex-start; text-align:left; }
+          .tlx-hero-name{ text-align:left; flex:unset; }
+        }
       `}</style>
 
       <h2 style={styles.title}>Review & Publish</h2>
@@ -1056,11 +1068,9 @@ const Step4 = ({ formData, setFormData, finalize }) => {
           />
         </div>
 
-        <div style={{ flex:1, minWidth:240 }}>
-          <div style={{ fontSize:24, fontWeight:800, textAlign:'center' }}>
-            {formData.first_name} {formData.last_name}
-          </div>
-        </div>
+       <div className="tlx-hero-name">
+        {formData.first_name} {formData.last_name}
+      </div>
       </div>
 
       {/* GRID DATI */}
