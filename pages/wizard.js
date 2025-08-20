@@ -998,7 +998,7 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep }) => {
 
 /* STEP 4 */
 const Step4 = ({ formData, setFormData, finalize }) => {
-  // --- DOB → age (robusto con ISO o dd/mm/yyyy)
+  // parse DOB → age
   const parseDob = (str) => {
     if (!str) return null;
     let y, m, d;
@@ -1011,7 +1011,7 @@ const Step4 = ({ formData, setFormData, finalize }) => {
       m = parseInt(mm[2], 10);
       y = parseInt(mm[3], 10);
     }
-    const dt = new Date(y, (m - 1), d);
+    const dt = new Date(y, m - 1, d);
     return (dt.getFullYear() === y && dt.getMonth() + 1 === m && dt.getDate() === d) ? dt : null;
   };
   const dobDate = parseDob(formData.date_of_birth);
@@ -1024,97 +1024,54 @@ const Step4 = ({ formData, setFormData, finalize }) => {
     return a;
   })();
 
-  // avatar più "accorciato" e responsivo
   const avatarSize = 'clamp(110px, 28vw, 140px)';
 
   return (
     <>
-      {/* Responsive: hero centrato su mobile, 2 colonne da 700px */}
+      {/* CSS responsive */}
       <style jsx>{`
-        .tlx-hero {
-          display: flex;
-          gap: 16px;
-          align-items: center;
-          margin-bottom: 16px;
-          flex-wrap: wrap;
-          justify-content: center;   /* MOBILE: centrato */
-          text-align: center;        /* MOBILE: testo centrato */
+        .tlx-hero{
+          display:flex;gap:16px;align-items:center;margin-bottom:16px;flex-wrap:wrap;
+          justify-content:center;text-align:center;
         }
-        @media (min-width: 700px) {
-          .tlx-hero {
-            justify-content: flex-start; /* DESKTOP: allineato a sinistra */
-            text-align: left;
-          }
-        }
-        .tlx-review-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
-        @media (min-width: 700px) { .tlx-review-grid { grid-template-columns: 1fr 1fr; } }
+        @media (min-width:700px){ .tlx-hero{ justify-content:flex-start; text-align:left; } }
+        .tlx-review-grid{ display:grid; grid-template-columns:1fr; gap:16px; }
+        @media (min-width:700px){ .tlx-review-grid{ grid-template-columns:1fr 1fr; } }
       `}</style>
 
       <h2 style={styles.title}>Review & Publish</h2>
 
-      {/* HERO */}
-        <div className="tlx-hero">
-          <div style={{
-            width: avatarSize,
-            borderRadius: 16,
-            boxShadow: '0 6px 14px rgba(0,0,0,0.08)',
-            background: '#eee'
-          }}>
-            <img
-              src={formData.profile_picture_url || '/avatar-placeholder.png'}
-              alt="Profile"
-              style={{ display:'block', width:'100%', height:'auto', borderRadius:16 }}
-            />
-          </div>
-        
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <div style={{ fontSize: 24, fontWeight: 800, textAlign:'center' }}>
-              {formData.first_name} {formData.last_name}
-            </div>
-          </div>
+      {/* HERO: foto + nome */}
+      <div className="tlx-hero">
+        <div style={{
+          width: avatarSize,
+          borderRadius: 16,
+          boxShadow: '0 6px 14px rgba(0,0,0,0.08)',
+          background: '#eee'
+        }}>
+          <img
+            src={formData.profile_picture_url || '/avatar-placeholder.png'}
+            alt="Profile"
+            style={{ display:'block', width:'100%', height:'auto', borderRadius:16 }}
+          />
         </div>
 
-
-
-        <div style={{ flex: 1, minWidth: 240 }}>
-          <div style={{ fontSize: 24, fontWeight: 800 }}>
+        <div style={{ flex:1, minWidth:240 }}>
+          <div style={{ fontSize:24, fontWeight:800, textAlign:'center' }}>
             {formData.first_name} {formData.last_name}
-          </div>
-          <div style={{ marginTop: 6, color: '#555' }}>
-            {formData.sport
-              ? `${formData.sport}${formData.main_role ? ' • ' + formData.main_role : ''}`
-              : 'Sport not set'}
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10, justifyContent: 'center' }}>
-            {formData.category && (
-              <span style={{
-                background: '#ECF5FF', color: '#0B5ED7',
-                padding: '6px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700
-              }}>
-                {formData.category}
-              </span>
-            )}
-            {formData.seeking_team && (
-              <span style={{
-                background: '#FFECE6', color: '#D9480F',
-                padding: '6px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700
-              }}>
-                Seeking team
-              </span>
-            )}
           </div>
         </div>
       </div>
 
       {/* GRID DATI */}
       <div className="tlx-review-grid">
-        {/* Colonna 1 - Personal */}
+        {/* Colonna 1 - Personal (ora include Phone & Residence) */}
         <div style={{
-          background: '#fff', border: '1px solid #eee', borderRadius: 12,
-          padding: 16, boxShadow: '0 6px 14px rgba(0,0,0,0.04)'
+          background:'#fff', border:'1px solid #eee', borderRadius:12,
+          padding:16, boxShadow:'0 6px 14px rgba(0,0,0,0.04)'
         }}>
-          <div style={{ fontWeight: 800, marginBottom: 8 }}>Personal</div>
-          <div style={{ display: 'grid', rowGap: 8 }}>
+          <div style={{ fontWeight:800, marginBottom:8 }}>Personal</div>
+          <div style={{ display:'grid', rowGap:8 }}>
             <Row label="Date of Birth" value={`${formData.date_of_birth}${age ? ` (${age}y)` : ''}`} />
             <Row label="Gender" value={formData.gender === 'M' ? 'Male' : formData.gender === 'F' ? 'Female' : '—'} />
             <Row label="Nationality" value={formData.nationality || '—'} />
@@ -1134,13 +1091,13 @@ const Step4 = ({ formData, setFormData, finalize }) => {
           </div>
         </div>
 
-        {/* Colonna 2 - Contacts & Team */}
+        {/* Colonna 2 - Contacts & Team (spostati sport/ruolo/categoria ecc.) */}
         <div style={{
-          background: '#fff', border: '1px solid #eee', borderRadius: 12,
-          padding: 16, boxShadow: '0 6px 14px rgba(0,0,0,0.04)'
+          background:'#fff', border:'1px solid #eee', borderRadius:12,
+          padding:16, boxShadow:'0 6px 14px rgba(0,0,0,0.04)'
         }}>
-          <div style={{ fontWeight: 800, marginBottom: 8 }}>Contacts & Team</div>
-          <div style={{ display: 'grid', rowGap: 8 }}>
+          <div style={{ fontWeight:800, marginBottom:8 }}>Contacts & Team</div>
+          <div style={{ display:'grid', rowGap:8 }}>
             <Row label="Sport" value={formData.sport || '—'} />
             <Row label="Role" value={formData.main_role || '—'} />
             <Row label="Category" value={formData.category || '—'} />
@@ -1150,9 +1107,10 @@ const Step4 = ({ formData, setFormData, finalize }) => {
             <Row label="Experience" value={formData.years_experience ? `${formData.years_experience} years` : '—'} />
           </div>
         </div>
+      </div>
 
-      {/* Publish (più staccato dal bottone) */}
-      <label style={{ textAlign: 'left', display: 'block', marginTop: 20, marginBottom: 10 }}>
+      {/* Publish distanziato dal bottone */}
+      <label style={{ textAlign:'left', display:'block', marginTop:20, marginBottom:10 }}>
         <input
           type="checkbox"
           name="profile_published"
@@ -1162,28 +1120,28 @@ const Step4 = ({ formData, setFormData, finalize }) => {
         Publish Profile Now?
       </label>
 
-      <button style={{ ...styles.button, marginTop: 4 }} onClick={finalize} aria-label="Confirm and go to dashboard">
+      <button style={{ ...styles.button, marginTop:4 }} onClick={finalize} aria-label="Confirm and go to dashboard">
         Confirm and Go to Dashboard
       </button>
     </>
   );
 };
 
-// helper UI
+// helper UI locali
 const Row = ({ label, value }) => (
-  <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
-    <span style={{ color: '#777', minWidth: 120 }}>{label}</span>
-    <span style={{ fontWeight: 600, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{value}</span>
+  <div style={{ display:'flex', gap:6, alignItems:'baseline', flexWrap:'wrap' }}>
+    <span style={{ color:'#777', minWidth:120 }}>{label}</span>
+    <span style={{ fontWeight:600, wordBreak:'break-word', overflowWrap:'anywhere' }}>{value}</span>
   </div>
 );
 
 const chipStyle = {
-  background: '#F1F3F5',
-  border: '1px solid #E9ECEF',
-  borderRadius: 999,
-  padding: '4px 10px',
-  fontSize: 12,
-  fontWeight: 700
+  background:'#F1F3F5',
+  border:'1px solid #E9ECEF',
+  borderRadius:999,
+  padding:'4px 10px',
+  fontSize:12,
+  fontWeight:700
 };
 
 const styles = {
