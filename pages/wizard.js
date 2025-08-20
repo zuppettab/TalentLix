@@ -1042,8 +1042,13 @@ const Step4 = ({ formData, setFormData, finalize }) => {
     <>
       <style jsx>{`
         .tlx-hero{
-          display:flex;gap:16px;align-items:center;margin-bottom:16px;flex-wrap:wrap;
-          justify-content:center;text-align:center;
+          display:flex;
+          gap:16px;
+          align-items:center;
+          margin-bottom:16px;
+          flex-wrap:nowrap;
+          justify-content:flex-start;
+          text-align:left;
         }
         @media (min-width:700px){ .tlx-hero{ justify-content:flex-start; text-align:left; } }
         .tlx-review-grid{ display:grid; grid-template-columns:1fr; gap:16px; }
@@ -1164,10 +1169,16 @@ const Step4 = ({ formData, setFormData, finalize }) => {
         Publish Profile Now?
       </label>
 
-      {/* Final button */}
+   {/* Final button */}
       <button
         style={{ ...styles.button, marginTop:4 }}
-        onClick={finalize}
+        onClick={() => {
+          if (gdprAccepted) {
+            finalize();
+          } else {
+            alert("You must read and accept the GDPR policy before proceeding.");
+          }
+        }}
         disabled={!gdprAccepted}
         aria-label="Confirm and go to dashboard"
       >
