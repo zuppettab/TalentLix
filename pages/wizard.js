@@ -998,7 +998,19 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep }) => {
 
 /* STEP 4 */
 const Step4 = ({ formData, setFormData, finalize }) => {
-  // parse DOB → age
+  const [gdprHtml, setGdprHtml] = useState('');
+  const [hasScrolled, setHasScrolled] = useState(false);
+  const [gdprAccepted, setGdprAccepted] = useState(false);
+
+  // fetch GDPR HTML
+  useEffect(() => {
+    fetch('/gdpr_policy_en.html')
+      .then(res => res.text())
+      .then(setGdprHtml)
+      .catch(err => console.error('Failed to load GDPR policy', err));
+  }, []);
+
+  // DOB → age (uguale a prima)
   const parseDob = (str) => {
     if (!str) return null;
     let y, m, d;
@@ -1028,32 +1040,28 @@ const Step4 = ({ formData, setFormData, finalize }) => {
 
   return (
     <>
-      {/* CSS responsive */}
       <style jsx>{`
         .tlx-hero{
-          display:flex;
-          gap:16px;
-          align-items:center;
-          margin-bottom:16px;
-          flex-wrap:wrap;
-          justify-content:center;
-          text-align:center;
+          display:flex;gap:16px;align-items:center;margin-bottom:16px;flex-wrap:wrap;
+          justify-content:center;text-align:center;
         }
-        .tlx-hero-name{
-          font-size:24px;
-          font-weight:800;
-          text-align:center;
-          flex:1;
-        }
-        @media (min-width:700px){
-          .tlx-hero{ justify-content:flex-start; text-align:left; }
-          .tlx-hero-name{ text-align:left; flex:unset; }
+        @media (min-width:700px){ .tlx-hero{ justify-content:flex-start; text-align:left; } }
+        .tlx-review-grid{ display:grid; grid-template-columns:1fr; gap:16px; }
+        @media (min-width:700px){ .tlx-review-grid{ grid-template-columns:1fr 1fr; } }
+        .gdpr-box {
+          border:1px solid #ccc;
+          border-radius:8px;
+          padding:12px;
+          max-height:200px;
+          overflow-y:auto;
+          background:#fafafa;
+          font-size:14px;
         }
       `}</style>
 
       <h2 style={styles.title}>Review & Publish</h2>
 
-      {/* HERO: foto + nome */}
+      {/* HERO */}
       <div className="tlx-hero">
         <div style={{
           width: avatarSize,
@@ -1068,14 +1076,16 @@ const Step4 = ({ formData, setFormData, finalize }) => {
           />
         </div>
 
-       <div className="tlx-hero-name">
-        {formData.first_name} {formData.last_name}
-      </div>
+        <div style={{ flex:1, minWidth:240 }}>
+          <div style={{ fontSize:24, fontWeight:800, textAlign:'center' }}>
+            {formData.first_name} {formData.last_name}
+          </div>
+        </div>
       </div>
 
       {/* GRID DATI */}
       <div className="tlx-review-grid">
-        {/* Colonna 1 - Personal (ora include Phone & Residence) */}
+        {/* Personal */}
         <div style={{
           background:'#fff', border:'1px solid #eee', borderRadius:12,
           padding:16, boxShadow:'0 6px 14px rgba(0,0,0,0.04)'
@@ -1101,12 +1111,12 @@ const Step4 = ({ formData, setFormData, finalize }) => {
           </div>
         </div>
 
-        {/* Colonna 2 - Contacts & Team (spostati sport/ruolo/categoria ecc.) */}
+        {/* Sport & Team */}
         <div style={{
           background:'#fff', border:'1px solid #eee', borderRadius:12,
           padding:16, boxShadow:'0 6px 14px rgba(0,0,0,0.04)'
         }}>
-          <div style={{ fontWeight:800, marginBottom:8 }}>Contacts & Team</div>
+          <div style={{ fontWeight:800, marginBottom:8 }}>Sport & Team</div>
           <div style={{ display:'grid', rowGap:8 }}>
             <Row label="Sport" value={formData.sport || '—'} />
             <Row label="Role" value={formData.main_role || '—'} />
@@ -1119,7 +1129,30 @@ const Step4 = ({ formData, setFormData, finalize }) => {
         </div>
       </div>
 
-      {/* Publish distanziato dal bottone */}
+      {/* GDPR BOX */}
+      <div
+        className="gdpr-box"
+        onScroll={(e) => {
+          const target = e.target;
+          if (target.scrollTop + target.clientHeight >= target.scrollHeight - 5) {
+            setHasScrolled(true);
+          }
+        }}
+        dangerouslySetInnerHTML={{ __html: gdprHtml }}
+      />
+
+      {/* Checkbox GDPR */}
+      <label style={{ display:'block', marginTop:12 }}>
+        <input
+          type="checkbox"
+          disabled={!hasScrolled}
+          checked={gdprAccepted}
+          onChange={(e) => setGdprAccepted(e.target.checked)}
+        />{' '}
+        I have read and agree to the GDPR Compliance Policy
+      </label>
+
+      {/* Publish (opzionale) */}
       <label style={{ textAlign:'left', display:'block', marginTop:20, marginBottom:10 }}>
         <input
           type="checkbox"
@@ -1130,14 +1163,20 @@ const Step4 = ({ formData, setFormData, finalize }) => {
         Publish Profile Now?
       </label>
 
-      <button style={{ ...styles.button, marginTop:4 }} onClick={finalize} aria-label="Confirm and go to dashboard">
+      {/* Final button */}
+      <button
+        style={{ ...styles.button, marginTop:4 }}
+        onClick={finalize}
+        disabled={!gdprAccepted}
+        aria-label="Confirm and go to dashboard"
+      >
         Confirm and Go to Dashboard
       </button>
     </>
   );
 };
 
-// helper UI locali
+// helper UI
 const Row = ({ label, value }) => (
   <div style={{ display:'flex', gap:6, alignItems:'baseline', flexWrap:'wrap' }}>
     <span style={{ color:'#777', minWidth:120 }}>{label}</span>
@@ -1153,6 +1192,7 @@ const chipStyle = {
   fontSize:12,
   fontWeight:700
 };
+
 
 const styles = {
 userMenuContainer: {
