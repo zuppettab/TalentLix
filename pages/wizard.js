@@ -43,42 +43,71 @@ const [formData, setFormData] = useState({
   profile_published: false,
 });
 
-  // Fetch user and athlete data
-  useEffect(() => {
-    const initWizard = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-      setUser(user);
+// Fetch user and athlete data
+useEffect(() => {
+  const initWizard = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    setUser(user);
 
-      const { data: athleteData } = await supabase
-        .from('athlete')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+    // 1) Carica ATHLETE
+    const { data: athleteData } = await supabase
+      .from('athlete')
+      .select('*')
+      .eq('id', user.id)
+      .single();
 
-      if (!athleteData) {
-        setStep(1);
-        setLoading(false);
-        return;
-      }
-
-      if (athleteData.completion_percentage >= 40) {
-        setAthlete(athleteData);
-        setStep(null);
-        setLoading(false);
-        return;
-      }
-
-      setAthlete(athleteData);
-      setFormData(prev => ({ ...prev, ...athleteData }));
-      setStep(athleteData.current_step || 1);
+    if (!athleteData) {
+      setStep(1);
       setLoading(false);
-    };
-    initWizard();
-  }, [router]);
+      return;
+    }
+
+    // Se già completato (>=40) esci come prima
+    if (athleteData.completion_percentage >= 40) {
+      setAthlete(athleteData);
+      setStep(null);
+      setLoading(false);
+      return;
+    }
+
+    // 2) Base form: merge ATHLETE (come facevi prima)
+    setAthlete(athleteData);
+    let nextForm = { ...formData, ...athleteData };
+
+    // 3) Idrata anche l’ULTIMA sports_experiences (Step 3)
+    const { data: expRows, error: expErr } = await supabase
+      .from('sports_experiences')
+      .select('sport, role, team, previous_team, category, years_experience')
+      .eq('athlete_id', user.id)
+      .order('id', { ascending: false })
+      .limit(1);
+
+    if (!expErr && Array.isArray(expRows) && expRows.length > 0) {
+      const exp = expRows[0];
+      nextForm = {
+        ...nextForm,
+        sport: exp?.sport || '',
+        main_role: exp?.role || '',
+        team_name: exp?.team || '',
+        previous_team: exp?.previous_team || '',
+        category: exp?.category || '',
+        years_experience: exp?.years_experience ?? ''
+      };
+    }
+
+    setFormData(nextForm);
+    setStep(athleteData.current_step || 1);
+    setLoading(false);
+  };
+
+  initWizard();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [router]);
+
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
