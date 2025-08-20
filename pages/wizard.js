@@ -1024,21 +1024,27 @@ const Step4 = ({ formData, setFormData, finalize }) => {
       <h2 style={styles.title}>Review & Publish</h2>
 
       {/* HERO */}
-        <div style={{
-          width: avatarSize,               // lascia invariato
-          borderRadius: 16,                // NIENTE height, NIENTE overflow
-          boxShadow: '0 6px 14px rgba(0,0,0,0.08)', background: '#eee'
-        }}>
-          <img
-            src={formData.profile_picture_url || '/avatar-placeholder.png'}
-            alt="Profile"
-            style={{
-              display: 'block',
-              width: '100%', height: 'auto',   // come nello step di upload
-              borderRadius: 16                  // togli objectFit/objectPosition
-            }}
-          />
+        <div className="tlx-hero">
+          <div style={{
+            width: avatarSize,
+            borderRadius: 16,
+            boxShadow: '0 6px 14px rgba(0,0,0,0.08)',
+            background: '#eee'
+          }}>
+            <img
+              src={formData.profile_picture_url || '/avatar-placeholder.png'}
+              alt="Profile"
+              style={{ display:'block', width:'100%', height:'auto', borderRadius:16 }}
+            />
+          </div>
+        
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <div style={{ fontSize: 24, fontWeight: 800, textAlign:'center' }}>
+              {formData.first_name} {formData.last_name}
+            </div>
+          </div>
         </div>
+
 
 
         <div style={{ flex: 1, minWidth: 240 }}>
@@ -1084,9 +1090,14 @@ const Step4 = ({ formData, setFormData, finalize }) => {
             <Row label="Gender" value={formData.gender === 'M' ? 'Male' : formData.gender === 'F' ? 'Female' : '—'} />
             <Row label="Nationality" value={formData.nationality || '—'} />
             <Row label="Birth City" value={formData.birth_city || '—'} />
-            <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap'}}>
-              <span style={{ color: '#777', minWidth: 120 }}>Languages</span>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <Row label="Phone" value={formData.phone || '—'} />
+            <Row
+              label="Residence"
+              value={[formData.residence_city, formData.residence_country].filter(Boolean).join(', ') || '—'}
+            />
+            <div style={{ display:'flex', gap:6, alignItems:'baseline', flexWrap:'wrap' }}>
+              <span style={{ color:'#777', minWidth:120 }}>Languages</span>
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
                 {formData.native_language && <span style={chipStyle}>{formData.native_language}</span>}
                 {formData.additional_language && <span style={chipStyle}>{formData.additional_language}</span>}
               </div>
@@ -1101,14 +1112,15 @@ const Step4 = ({ formData, setFormData, finalize }) => {
         }}>
           <div style={{ fontWeight: 800, marginBottom: 8 }}>Contacts & Team</div>
           <div style={{ display: 'grid', rowGap: 8 }}>
-            <Row label="Phone" value={formData.phone || '—'} />
-            <Row label="Residence" value={[formData.residence_city, formData.residence_country].filter(Boolean).join(', ') || '—'} />
+            <Row label="Sport" value={formData.sport || '—'} />
+            <Row label="Role" value={formData.main_role || '—'} />
+            <Row label="Category" value={formData.category || '—'} />
+            <Row label="Seeking Team" value={formData.seeking_team ? 'Yes' : 'No'} />
             <Row label="Current Team" value={formData.team_name || '—'} />
             <Row label="Previous Team" value={formData.previous_team || '—'} />
             <Row label="Experience" value={formData.years_experience ? `${formData.years_experience} years` : '—'} />
           </div>
         </div>
-      </div>
 
       {/* Publish (più staccato dal bottone) */}
       <label style={{ textAlign: 'left', display: 'block', marginTop: 20, marginBottom: 10 }}>
