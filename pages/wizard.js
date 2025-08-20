@@ -1024,22 +1024,22 @@ const Step4 = ({ formData, setFormData, finalize }) => {
       <h2 style={styles.title}>Review & Publish</h2>
 
       {/* HERO */}
-      <div className="tlx-hero">
         <div style={{
-          width: avatarSize, height: avatarSize,
-          borderRadius: 16, overflow: 'hidden',
+          width: avatarSize,               // lascia invariato
+          borderRadius: 16,                // NIENTE height, NIENTE overflow
           boxShadow: '0 6px 14px rgba(0,0,0,0.08)', background: '#eee'
         }}>
           <img
             src={formData.profile_picture_url || '/avatar-placeholder.png'}
             alt="Profile"
             style={{
-              width: '100%', height: '100%',
-              objectFit: 'cover',
-              objectPosition: 'center 20%' // leggero crop verso l'alto
+              display: 'block',
+              width: '100%', height: 'auto',   // come nello step di upload
+              borderRadius: 16                  // togli objectFit/objectPosition
             }}
           />
         </div>
+
 
         <div style={{ flex: 1, minWidth: 240 }}>
           <div style={{ fontSize: 24, fontWeight: 800 }}>
@@ -1084,7 +1084,7 @@ const Step4 = ({ formData, setFormData, finalize }) => {
             <Row label="Gender" value={formData.gender === 'M' ? 'Male' : formData.gender === 'F' ? 'Female' : '—'} />
             <Row label="Nationality" value={formData.nationality || '—'} />
             <Row label="Birth City" value={formData.birth_city || '—'} />
-            <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap'}}>
               <span style={{ color: '#777', minWidth: 120 }}>Languages</span>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {formData.native_language && <span style={chipStyle}>{formData.native_language}</span>}
