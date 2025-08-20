@@ -1055,7 +1055,8 @@ const Step4 = ({ formData, setFormData, finalize }) => {
           max-height:200px;
           overflow-y:auto;
           background:#fafafa;
-          font-size:14px;
+          font-size:10px;
+          text-align:left;
         }
       `}</style>
 
