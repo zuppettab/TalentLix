@@ -267,7 +267,7 @@ const handleLogout = async () => {
                 </div>
               )}
             </div>
-          <div className="tlx-card" style={{ ...styles.card, maxWidth: step === 4 ? '960px' : '450px' }}> Eva Fabio
+          <div className="tlx-card" style={{ ...styles.card, maxWidth: step === 4 ? '960px' : '450px' }}>
             <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
             <div style={styles.progressBar}>
               <div style={{ ...styles.progressFill, width: `${(step / 4) * 100}%` }} />
