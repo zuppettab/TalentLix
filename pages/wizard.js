@@ -1083,7 +1083,7 @@ const Step4 = ({ formData, setFormData, finalize }) => {
         </div>
 
         <div style={{ flex:1, minWidth:240 }}>
-          <div style={{ fontSize:24, fontWeight:800, textAlign:'center' }}>
+          <div style={{ fontSize:24, fontWeight:800, textAlign:'left' }}>
             {formData.first_name} {formData.last_name}
           </div>
         </div>
@@ -1171,7 +1171,7 @@ const Step4 = ({ formData, setFormData, finalize }) => {
 
    {/* Final button */}
       <button
-        style={{ ...styles.button, marginTop:4 }}
+        style={gdprAccepted ? { ...styles.button, marginTop:4 } : { ...styles.buttonDisabled, marginTop:4 }}
         onClick={() => {
           if (gdprAccepted) {
             finalize();
