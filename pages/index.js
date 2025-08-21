@@ -1,141 +1,166 @@
 import Link from 'next/link';
 
-/**
- * HOME — minimal, modern, brand‑coherent.
- * No photos. Abstract, CSS‑generated backgrounds in brand palette.
- * Link/CTA colors match the brand (as in login): #27E3DA + gradient to #F7B84E.
- */
-export default function HomeAbstractMinimal() {
+export default function Home() {
   return (
-    <div className="page">
-      {/* TOP (logo + claim) */}
-      <header className="top">
-        <img src="/logo-talentlix.png" alt="TalentLix" className="logo" />
-        <p className="claim">The place where talent gets discovered</p>
+    <div style={styles.page}>
+      <header style={styles.header}>
+        <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo}/>
+        <h1 style={styles.claim}>The place where talent gets discovered</h1>
       </header>
 
-      {/* TWO BIG TILES */}
-      <main className="tiles" aria-label="Choose your area">
-        {/* ATHLETE */}
-        <section className="tile" aria-labelledby="athlete-title">
-          <div className="bg athlete" aria-hidden="true" />
-          <div className="inner">
-            <h2 id="athlete-title" className="title">Athlete</h2>
-            <div className="cta">
-              <Link href="/login?role=athlete" className="btn outline" aria-label="Athlete login">Login</Link>
-              <Link href="/register?role=athlete" className="btn fill" aria-label="Athlete register">Register</Link>
-            </div>
+      <main style={styles.main}>
+        {/* ATHLETES PANEL */}
+        <section style={styles.panel}>
+          <div style={styles.panelHeader}>
+            <span style={styles.badge}>Athletes</span>
+            <h2 style={styles.title}>Start your journey</h2>
+            <p style={styles.text}>
+              Create your profile, upload media and get discovered by clubs and agents.
+            </p>
+          </div>
+
+          <div style={styles.ctaRow}>
+            <Link href="/login?as=athlete" legacyBehavior>
+              <a aria-label="Athlete Login" style={{...styles.button, ...styles.buttonPrimary}}>Login</a>
+            </Link>
+            <Link href="/register?as=athlete" legacyBehavior>
+              <a aria-label="Athlete Register" style={{...styles.button, ...styles.buttonSecondary}}>Register</a>
+            </Link>
           </div>
         </section>
 
-        {/* CLUBS & AGENTS */}
-        <section className="tile" aria-labelledby="operator-title">
-          <div className="bg operator" aria-hidden="true" />
-          <div className="inner">
-            <h2 id="operator-title" className="title">Clubs & Agents</h2>
-            <div className="cta">
-              <Link href="/login?role=operator" className="btn outline" aria-label="Operator login">Login</Link>
-              <Link href="/register?role=operator" className="btn fill" aria-label="Operator register">Register</Link>
-            </div>
+        {/* CLUB & AGENTS PANEL */}
+        <section style={styles.panel}>
+          <div style={styles.panelHeader}>
+            <span style={styles.badge}>Club & Agents Center</span>
+            <h2 style={styles.title}>Find verified talent</h2>
+            <p style={styles.text}>
+              Access powerful search and connect directly with athletes.
+            </p>
+          </div>
+
+          <div style={styles.ctaRow}>
+            <Link href="/login?as=operator" legacyBehavior>
+              <a aria-label="Club & Agents Login" style={{...styles.button, ...styles.buttonPrimary}}>Login</a>
+            </Link>
+            <Link href="/register?as=operator" legacyBehavior>
+              <a aria-label="Club & Agents Register" style={{...styles.button, ...styles.buttonSecondary}}>Register</a>
+            </Link>
           </div>
         </section>
       </main>
 
-      {/* FOOTER — typographic */}
-      <footer className="footer" role="contentinfo">
-        <div className="fwrap">
-          <div className="mantra" aria-label="Mantra">
-            <span className="w">TALENT</span>
-            <span className="dot">·</span>
-            <span className="w">VISIBILITY</span>
-            <span className="dot">·</span>
-            <span className="w">OPPORTUNITY</span>
-          </div>
-          <div className="meta">© {new Date().getFullYear()} TalentLix — Made for athletes, clubs & agents worldwide</div>
-        </div>
+      <footer style={styles.footer}>
+        <p style={styles.footerText}>© {new Date().getFullYear()} TalentLix</p>
       </footer>
-
-      <style jsx>{`
-        /* BRAND TOKENS */
-        :root { --brand-a:#27E3DA; --brand-b:#F7B84E; --text:#0b0b0b; --muted:#555; --card:#F8F9FA; --border:#E0E0E0; }
-        :global(html, body, #__next){ height:100%; }
-        .page{ min-height:100%; display:grid; grid-template-rows:auto 1fr auto; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: var(--text); }
-        .page::before{ content:""; position:fixed; inset:0; background:url('/BackG.png') center/cover no-repeat; z-index:-2; }
-        .page::after{ content:""; position:fixed; inset:0; background:rgba(255,255,255,0.75); z-index:-1; }
-
-        /* TOP */
-        .top{ text-align:center; padding:28px 16px 10px; }
-        .logo{ width:118px; height:auto; display:block; margin:0 auto 8px; }
-        .claim{ font-size:clamp(16px,2.2vw,22px); font-weight:800; letter-spacing:.2px; }
-
-        /* TILES LAYOUT */
-        .tiles{ display:grid; gap:22px; max-width:1320px; margin:20px auto 30px; padding:0 16px; grid-template-columns:1fr; }
-        @media (min-width: 980px){ .tiles{ grid-template-columns:1fr 1fr; } }
-        .tile{ position:relative; border-radius:22px; overflow:hidden; min-height:clamp(50vh, 62vh, 680px); background:#111; box-shadow:0 18px 42px rgba(0,0,0,.18); }
-        .inner{ position:relative; z-index:2; height:100%; display:grid; align-content:end; padding:clamp(18px,4vw,32px); gap:12px; }
-        .title{ margin:0; color:#fff; font-weight:1000; letter-spacing:.5px; text-transform:uppercase; font-size:clamp(22px,3.4vw,36px); }
-        .cta{ display:flex; gap:12px; flex-wrap:wrap; }
-
-        /* BUTTONS (aligned to login.js) */
-        .btn{ text-decoration:none; border-radius:8px; padding:12px 18px; font-weight:900; letter-spacing:.2px; box-shadow:0 2px 8px rgba(0,0,0,.06); transition:transform .12s ease, box-shadow .12s ease, filter .12s ease; }
-        .btn.fill{ background:linear-gradient(90deg,var(--brand-a),var(--brand-b)); color:#FFFFFF; border:0; }
-        .btn.outline{ border:2px solid var(--brand-a); color:var(--brand-a); background:#fff; }
-        .btn:hover{ filter:brightness(.97); transform:translateY(-1px); box-shadow:0 6px 18px rgba(0,0,0,.12); }
-        .btn:active{ transform:translateY(0); box-shadow:0 2px 8px rgba(0,0,0,.06); }
-        .btn:focus-visible{ outline:3px solid var(--brand-a); outline-offset:2px; }
-
-        /* LINKS GENERAL (match brand) */
-        :global(a){ color: var(--brand-a); text-decoration:none; }
-        :global(a:hover){ filter:brightness(0.9); }
-
-        /* ABSTRACT BACKGROUNDS */
-        .bg{ position:absolute; inset:0; }
-        .bg::before, .bg::after{ content:""; position:absolute; inset:0; }
-
-        /* Athlete: turquoise‑first, amber accents, subtle grain */
-        .bg.athlete::before{
-          background:
-            radial-gradient(1200px 600px at 15% 15%, rgba(39,227,218,0.65), rgba(39,227,218,0.0) 60%),
-            radial-gradient(900px 500px at 80% 30%, rgba(247,184,78,0.55), rgba(247,184,78,0.0) 65%),
-            radial-gradient(1200px 1200px at 50% 95%, rgba(0,0,0,0.7), rgba(0,0,0,0.85));
-          filter: saturate(1.05) contrast(1.15) brightness(0.85);
-        }
-        .bg.athlete::after{ background: conic-gradient(from 210deg at 60% 40%, rgba(255,255,255,0.06), rgba(0,0,0,0.08), rgba(255,255,255,0.04)); mix-blend-mode: overlay; opacity:.5; }
-
-        /* Operator: inverse palette with deep authority green */
-        .bg.operator::before{
-          background:
-            radial-gradient(1100px 700px at 80% 20%, rgba(16,90,54,0.7), rgba(16,90,54,0.0) 62%),
-            radial-gradient(900px 500px at 20% 30%, rgba(247,184,78,0.45), rgba(247,184,78,0.0) 65%),
-            radial-gradient(1200px 1200px at 50% 95%, rgba(0,0,0,0.78), rgba(0,0,0,0.92));
-          filter: saturate(1.05) contrast(1.15) brightness(0.88);
-        }
-        .bg.operator::after{ background: conic-gradient(from 30deg at 40% 40%, rgba(255,255,255,0.06), rgba(0,0,0,0.08), rgba(255,255,255,0.04)); mix-blend-mode: overlay; opacity:.5; }
-
-        /* Optional texture (very light noise) */
-        @media (min-width:0px){
-          .bg::after{ background-image:
-            radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.03) 0, transparent 100%),
-            radial-gradient(1px 1px at 80% 60%, rgba(0,0,0,0.03) 0, transparent 100%);
-            background-size: 180px 180px, 220px 220px;
-          }
-        }
-
-        /* Reduce motion */
-        @media (prefers-reduced-motion: no-preference){
-          .tile:hover{ transform: translateY(-2px); transition: transform .25s ease; }
-          .tile:hover .tile{ box-shadow:0 22px 60px rgba(0,0,0,.22); }
-        }
-
-        /* FOOTER */
-        .footer{ background:#0d0e0e; color:#e9ecef; border-top:1px solid rgba(255,255,255,0.08); }
-        .footer::before{ content:""; display:block; height:3px; background:linear-gradient(90deg,var(--brand-a),var(--brand-b)); }
-        .fwrap{ max-width:1320px; margin:0 auto; padding: clamp(22px,5vw,48px) 16px; display:grid; gap:10px; }
-        .mantra{ display:flex; gap:12px; flex-wrap:wrap; align-items:baseline; letter-spacing:.06em; text-transform:uppercase; }
-        .w{ font-weight:1000; font-size: clamp(22px,3.2vw,40px); }
-        .dot{ opacity:.5; font-size: clamp(20px,3vw,36px); transform: translateY(-2px); }
-        .meta{ color:#cfd4da; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:700; }
-      `}</style>
     </div>
   );
 }
+
+const styles = {
+  page: {
+    minHeight: '100vh',
+    background: '#FFFFFF', // stesso background delle altre pagine
+    fontFamily: 'Inter, sans-serif',
+    color: '#000000',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  header: {
+    padding: '2rem 1.5rem 1rem',
+    textAlign: 'center',
+  },
+  logo: {
+    width: 84,
+    height: 'auto',
+    marginBottom: '0.75rem',
+  },
+  claim: {
+    fontSize: '1.6rem',
+    lineHeight: 1.25,
+    margin: 0,
+    fontWeight: 700,
+  },
+  main: {
+    flex: 1,
+    display: 'flex',
+    gap: '1.5rem',
+    padding: '1.5rem',
+    maxWidth: 1080,
+    width: '100%',
+    margin: '0 auto',
+    flexWrap: 'wrap',
+    alignItems: 'stretch',
+    justifyContent: 'center',
+  },
+  panel: {
+    flex: '1 1 380px',
+    maxWidth: 520,
+    background: '#F8F9FA',
+    border: '1px solid #E0E0E0',
+    borderRadius: 14,
+    padding: '1.5rem',
+    boxShadow: '0 6px 18px rgba(0,0,0,0.06)',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+  },
+  panelHeader: {
+    marginBottom: '1rem',
+  },
+  badge: {
+    display: 'inline-block',
+    fontSize: '0.78rem',
+    padding: '0.25rem 0.55rem',
+    borderRadius: 999,
+    border: '1px solid #E0E0E0',
+    background: '#FFFFFF',
+    marginBottom: 10,
+  },
+  title: {
+    margin: '0.25rem 0 0.5rem',
+    fontSize: '1.35rem',
+    fontWeight: 700,
+  },
+  text: {
+    margin: 0,
+    color: '#555555',
+    fontSize: '0.98rem',
+  },
+  ctaRow: {
+    display: 'flex',
+    gap: '0.75rem',
+    marginTop: '1.25rem',
+    flexWrap: 'wrap',
+  },
+  button: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0.85rem 1.1rem',
+    borderRadius: 10,
+    fontWeight: 700,
+    textDecoration: 'none',
+    transition: 'transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease',
+    border: '1px solid transparent',
+    boxShadow: '0 3px 10px rgba(0,0,0,0.08)',
+  },
+  buttonPrimary: {
+    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+    color: '#FFFFFF',
+  },
+  buttonSecondary: {
+    background: '#FFFFFF',
+    color: '#000000',
+    border: '1px solid #E0E0E0',
+  },
+  footer: {
+    padding: '1rem 1.5rem',
+    textAlign: 'center',
+  },
+  footerText: {
+    margin: 0,
+    color: '#777',
+    fontSize: '0.9rem',
+  }
+};
