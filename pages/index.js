@@ -77,13 +77,16 @@ const styles = {
     marginBottom: '0.9rem',
     filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.15))', // look più “massiccio”
   },
-  claim: {
-    fontSize: '1.7rem',
-    lineHeight: 1.25,
-    margin: 0,
-    fontWeight: 800,
-    letterSpacing: '-0.01em',
-  },
+claim: {
+  fontSize: '1.7rem',
+  lineHeight: 1.25,
+  margin: 0,
+  fontWeight: 800,
+  letterSpacing: '-0.01em',
+  background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+},
   main: {
     flex: 1,
     display: 'flex',
