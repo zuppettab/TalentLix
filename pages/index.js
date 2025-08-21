@@ -78,7 +78,7 @@ const styles = {
     filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.15))', // look più “massiccio”
   },
 claim: {
-  fontSize: '1.7rem',
+  fontSize: '2rem',
   lineHeight: 1.25,
   margin: 0,
   fontWeight: 800,
@@ -129,11 +129,14 @@ claim: {
     background: '#FFFFFF',
     marginBottom: 12,
   },
-  title: {
-    margin: '0.25rem 0 0.4rem',
-    fontSize: '1.5rem',        // ↑ leggermente
-    fontWeight: 800,
-  },
+title: {
+  margin: '0.25rem 0 0.4rem',
+  fontSize: '1.5rem',
+  fontWeight: 800,
+  background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+},
   text: {
     margin: 0,
     color: '#555555',
