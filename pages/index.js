@@ -76,10 +76,12 @@ export default function HomeAbstractMinimal() {
         .title{ margin:0; color:#fff; font-weight:1000; letter-spacing:.5px; text-transform:uppercase; font-size:clamp(22px,3.4vw,36px); }
         .cta{ display:flex; gap:12px; flex-wrap:wrap; }
 
-        /* BUTTONS (coherent with login) */
-        .btn{ text-decoration:none; border-radius:14px; padding:12px 18px; font-weight:900; letter-spacing:.3px; }
-        .btn.fill{ background:linear-gradient(90deg,var(--brand-a),var(--brand-b)); color:#111; }
-        .btn.outline{ border:2px solid var(--brand-a); color:var(--brand-a); background:transparent; }
+        /* BUTTONS (aligned to login.js) */
+        .btn{ text-decoration:none; border-radius:8px; padding:12px 18px; font-weight:900; letter-spacing:.2px; box-shadow:0 2px 8px rgba(0,0,0,.06); transition:transform .12s ease, box-shadow .12s ease, filter .12s ease; }
+        .btn.fill{ background:linear-gradient(90deg,var(--brand-a),var(--brand-b)); color:#FFFFFF; border:0; }
+        .btn.outline{ border:2px solid var(--brand-a); color:var(--brand-a); background:#fff; }
+        .btn:hover{ filter:brightness(.97); transform:translateY(-1px); box-shadow:0 6px 18px rgba(0,0,0,.12); }
+        .btn:active{ transform:translateY(0); box-shadow:0 2px 8px rgba(0,0,0,.06); }
         .btn:focus-visible{ outline:3px solid var(--brand-a); outline-offset:2px; }
 
         /* LINKS GENERAL (match brand) */
