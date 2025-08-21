@@ -3,8 +3,8 @@ import Link from 'next/link';
 /**
  * Minimal, two-tile home with brand claim and chiaroscuro photos.
  * Place these files in /public/media/ with exact names:
- *  - /public/media/Tardelli.jpeg
- *  - /public/media/Moggi.jpg
+ *  - /public/Tardelli.jpeg
+ *  - /public/Moggi.jpg
  */
 export default function HomeMinimalChiaroscuro() {
   return (
@@ -72,10 +72,10 @@ export default function HomeMinimalChiaroscuro() {
         .imgBG { position: relative; height: 320px; border-radius: 14px; overflow: hidden; }
         .imgBG::before, .imgBG::after { content: ""; position: absolute; inset: 0; }
         /* Athlete photo */
-        .imgBG.athlete::before { background: center/cover no-repeat url('/media/Tardelli.jpeg'); filter: grayscale(1) contrast(1.25) brightness(0.55) saturate(0.8); transform: scale(1.04); }
+        .imgBG.athlete::before { background: center/cover no-repeat url('/Tardelli.jpeg'); filter: grayscale(1) contrast(1.25) brightness(0.55) saturate(0.8); transform: scale(1.04); }
         .imgBG.athlete::after { background: radial-gradient(60% 60% at 30% 25%, rgba(39,227,218,0.30) 0%, rgba(39,227,218,0.00) 70%), linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 100%); mix-blend-mode: multiply; }
         /* Operator photo with authoritative green tint */
-        .imgBG.operator::before { background: center/cover no-repeat url('/media/Moggi.jpg'); filter: grayscale(0.15) contrast(1.1) brightness(0.85) saturate(1.05); transform: scale(1.02); }
+        .imgBG.operator::before { background: center/cover no-repeat url('/Moggi.jpg'); filter: grayscale(0.15) contrast(1.1) brightness(0.85) saturate(1.05); transform: scale(1.02); }
         .imgBG.operator::after { background: linear-gradient(180deg, rgba(16,90,54,0.45) 0%, rgba(0,0,0,0.25) 100%); }
 
         .tileTitle { margin: 0; font-size: 22px; font-weight: 900; text-align: center; }
