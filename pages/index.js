@@ -40,10 +40,10 @@ export default function Home() {
           </div>
 
           <div style={styles.ctaRow}>
-            <Link href="/login?as=operator" legacyBehavior>
+            <Link href="/login-operator" legacyBehavior>
               <a aria-label="Clubs & Agents Login" style={{...styles.button, ...styles.buttonPrimary}}>Login</a>
             </Link>
-            <Link href="/register?as=operator" legacyBehavior>
+            <Link href="/register-operator" legacyBehavior>
               <a aria-label="Clubs & Agents Register" style={{...styles.button, ...styles.buttonSecondary}}>Register</a>
             </Link>
           </div>
