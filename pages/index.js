@@ -98,11 +98,13 @@ claim: {
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
+    boxSizing: 'border-box',     // aggiungi questa riga
   },
   // CARD più piccole e contenuto centrato
   panel: {
     flex: '1 1 320px',         // ↓ base più compatta
     maxWidth: 420,             // ↓ da 520 → 420
+    width: '100%',               // forza full width su mobile
     background: '#F8F9FA',
     border: '1px solid #E0E0E0',
     borderRadius: 16,
