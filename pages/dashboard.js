@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-// Dashboard v1.2 — ENGLISH UI. Reads from /api/dashboard (no mock data)
-// Visual style consistent with Home.
+// Dashboard v1.3 — ENGLISH UI, PURE JS (no TS annotations)
+// Reads from /api/dashboard. Drop-in for /pages/dashboard.js
 
 export default function Dashboard() {
   // ====== STATE ======
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState(null);
 
   // Real data (GET /api/dashboard)
-  const [athlete, setAthlete] = useState<any | null>(null);
-  const [physicalData, setPhysicalData] = useState<any | null>(null);
-  const [verif, setVerif] = useState<any | null>(null);
+  const [athlete, setAthlete] = useState(null);
+  const [physicalData, setPhysicalData] = useState(null);
+  const [verif, setVerif] = useState(null);
 
   // ====== FETCH REAL DATA ======
   useEffect(() => {
@@ -24,12 +24,12 @@ export default function Dashboard() {
         if (!res.ok) throw new Error(`GET /api/dashboard ${res.status}`);
         const data = await res.json();
         if (!alive) return;
-        setAthlete(data.athlete);
+        setAthlete(data.athlete || {});
         setPhysicalData(data.physical_data || {});
         setVerif(data.contacts_verification || {});
         setErr(null);
-      } catch (e: any) {
-        setErr(e?.message || "Load error");
+      } catch (e) {
+        setErr(e && e.message ? e.message : "Load error");
       } finally {
         if (alive) setLoading(false);
       }
@@ -41,25 +41,24 @@ export default function Dashboard() {
 
   // ====== HELPERS ======
   const age = useMemo(() => {
-    if (!athlete?.date_of_birth) return "-";
+    if (!athlete || !athlete.date_of_birth) return "-";
     const d = new Date(athlete.date_of_birth);
     const today = new Date();
     let a = today.getFullYear() - d.getFullYear();
     const m = today.getMonth() - d.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < d.getDate())) a--;
     return a;
-  }, [athlete?.date_of_birth]);
+  }, [athlete && athlete.date_of_birth]);
 
   const completion = useMemo(() => {
-    // Minimal weights aligned with schema (athlete + physical_data + phone verify)
     let v = 0;
-    const base = athlete?.first_name && athlete?.last_name && athlete?.date_of_birth && athlete?.nationality && athlete?.native_language && athlete?.profile_picture_url;
+    const base = athlete && athlete.first_name && athlete.last_name && athlete.date_of_birth && athlete.nationality && athlete.native_language && athlete.profile_picture_url;
     if (base) v += 40;
-    const cont = athlete?.residence_city && athlete?.residence_country && athlete?.phone;
+    const cont = athlete && athlete.residence_city && athlete.residence_country && athlete.phone;
     if (cont) v += 30;
-    const phys = physicalData?.height_cm && physicalData?.weight_kg && physicalData?.dominant_hand;
+    const phys = physicalData && physicalData.height_cm && physicalData.weight_kg && physicalData.dominant_hand;
     if (phys) v += 20;
-    if (verif?.phone_verified) v += 10;
+    if (verif && verif.phone_verified) v += 10;
     return v;
   }, [athlete, physicalData, verif]);
 
@@ -68,7 +67,7 @@ export default function Dashboard() {
   // ====== UI STATE ======
   const [editing, setEditing] = useState({ contacts: false, physical: false });
   const [otpUI, setOtpUI] = useState({ sending: false, sent: false, code: "" });
-  const [toast, setToast] = useState<{ message: string; type?: "ok" | "error" } | null>(null);
+  const [toast, setToast] = useState(null);
 
   // ====== ACTIONS (REAL API CALLS) ======
   async function saveContacts() {
@@ -87,8 +86,8 @@ export default function Dashboard() {
       if (!res.ok) throw new Error("Failed to save contacts");
       setEditing((e) => ({ ...e, contacts: false }));
       pingToast("Contacts updated");
-    } catch (e: any) {
-      pingToast(e?.message || "Save error", "error");
+    } catch (e) {
+      pingToast((e && e.message) || "Save error", "error");
     }
   }
 
@@ -103,8 +102,8 @@ export default function Dashboard() {
       if (!res.ok) throw new Error("Failed to save measurements");
       setEditing((e) => ({ ...e, physical: false }));
       pingToast("Measurements updated");
-    } catch (e: any) {
-      pingToast(e?.message || "Save error", "error");
+    } catch (e) {
+      pingToast((e && e.message) || "Save error", "error");
     }
   }
 
@@ -119,9 +118,9 @@ export default function Dashboard() {
       });
       if (!res.ok) throw new Error("OTP send failed");
       setOtpUI({ sending: false, sent: true, code: "" });
-    } catch (e: any) {
+    } catch (e) {
       setOtpUI({ sending: false, sent: false, code: "" });
-      pingToast(e?.message || "OTP error", "error");
+      pingToast((e && e.message) || "OTP error", "error");
     }
   }
 
@@ -134,11 +133,11 @@ export default function Dashboard() {
         body: JSON.stringify({ code: otpUI.code, phone: athlete.phone }),
       });
       if (!res.ok) throw new Error("Invalid code");
-      setVerif((v: any) => ({ ...(v || {}), phone_verified: true, phone_number: athlete.phone }));
+      setVerif((v) => ({ ...(v || {}), phone_verified: true, phone_number: athlete.phone }));
       setOtpUI({ sending: false, sent: false, code: "" });
       pingToast("Phone verified");
-    } catch (e: any) {
-      pingToast(e?.message || "OTP invalid/expired", "error");
+    } catch (e) {
+      pingToast((e && e.message) || "OTP invalid/expired", "error");
     }
   }
 
@@ -153,14 +152,14 @@ export default function Dashboard() {
         body: JSON.stringify({ profile_published: next }),
       });
       if (!res.ok) throw new Error("Failed to update publish state");
-      setAthlete((a: any) => ({ ...a, profile_published: next }));
+      setAthlete((a) => ({ ...a, profile_published: next }));
       pingToast(next ? "Profile published" : "Profile set to Private");
-    } catch (e: any) {
-      pingToast(e?.message || "Publish error", "error");
+    } catch (e) {
+      pingToast((e && e.message) || "Publish error", "error");
     }
   }
 
-  function pingToast(message: string, type: "ok" | "error" = "ok") {
+  function pingToast(message, type = "ok") {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2200);
   }
@@ -168,7 +167,7 @@ export default function Dashboard() {
   // ====== RENDER ======
   return (
     <div style={sx.page}>
-      <Topbar fullName={athlete ? `${athlete.first_name} ${athlete.last_name}` : ""} avatar={athlete?.profile_picture_url || "/avatar-placeholder.png"} />
+      <Topbar fullName={athlete ? `${athlete.first_name} ${athlete.last_name}` : ""} avatar={(athlete && athlete.profile_picture_url) || "/avatar-placeholder.png"} />
 
       <div style={sx.shell}>
         <Sidebar />
@@ -201,13 +200,13 @@ export default function Dashboard() {
                 <Card style={sx.card}>
                   <CardHeader label="Verification" title="Status & Publishing" />
                   <div style={{ display: "grid", gap: 10 }}>
-                    <BadgeRow label="Email" ok={!!verif?.email_verified} />
+                    <BadgeRow label="Email" ok={!!(verif && verif.email_verified)} />
                     <div>
-                      <BadgeRow label="Phone" ok={!!verif?.phone_verified} />
-                      {!verif?.phone_verified && (
+                      <BadgeRow label="Phone" ok={!!(verif && verif.phone_verified)} />
+                      {!(verif && verif.phone_verified) && (
                         <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
                           {!otpUI.sent ? (
-                            <button onClick={sendOTP} disabled={otpUI.sending || !athlete.phone} style={{ ...sx.button, ...sx.buttonPrimary }}>
+                            <button onClick={sendOTP} disabled={otpUI.sending || !(athlete && athlete.phone)} style={{ ...sx.button, ...sx.buttonPrimary }}>
                               {otpUI.sending ? "Sending…" : "Send OTP"}
                             </button>
                           ) : (
@@ -250,9 +249,9 @@ export default function Dashboard() {
                     </div>
                   ) : (
                     <div style={sx.grid2}>
-                      <LabeledInput label="City" value={athlete.residence_city || ""} onChange={(v) => setAthlete((a: any) => ({ ...a, residence_city: v }))} />
-                      <LabeledInput label="Country" value={athlete.residence_country || ""} onChange={(v) => setAthlete((a: any) => ({ ...a, residence_country: v }))} />
-                      <LabeledInput label="Phone" value={athlete.phone || ""} onChange={(v) => setAthlete((a: any) => ({ ...a, phone: v }))} placeholder="E.164 format" />
+                      <LabeledInput label="City" value={athlete.residence_city || ""} onChange={(v) => setAthlete((a) => ({ ...a, residence_city: v }))} />
+                      <LabeledInput label="Country" value={athlete.residence_country || ""} onChange={(v) => setAthlete((a) => ({ ...a, residence_country: v }))} />
+                      <LabeledInput label="Phone" value={athlete.phone || ""} onChange={(v) => setAthlete((a) => ({ ...a, phone: v }))} placeholder="E.164 format" />
                       <div />
                       <div />
                       <div style={{ textAlign: "right", display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -267,18 +266,18 @@ export default function Dashboard() {
                   <CardHeader label="Physical data" title="Key measurements" />
                   {!editing.physical ? (
                     <div style={{ display: "grid", gap: 8 }}>
-                      <KV k="Height" v={physicalData?.height_cm ? `${physicalData.height_cm} cm` : "—"} />
-                      <KV k="Weight" v={physicalData?.weight_kg ? `${physicalData.weight_kg} kg` : "—"} />
-                      <KV k="Dominant hand" v={physicalData?.dominant_hand || "—"} />
+                      <KV k="Height" v={physicalData && physicalData.height_cm ? `${physicalData.height_cm} cm` : "—"} />
+                      <KV k="Weight" v={physicalData && physicalData.weight_kg ? `${physicalData.weight_kg} kg` : "—"} />
+                      <KV k="Dominant hand" v={(physicalData && physicalData.dominant_hand) || "—"} />
                       <div style={{ textAlign: "right" }}>
                         <button onClick={() => setEditing((e) => ({ ...e, physical: true }))} style={{ ...sx.button, ...sx.buttonSecondary }}>Edit</button>
                       </div>
                     </div>
                   ) : (
                     <div style={sx.grid2}>
-                      <LabeledInput label="Height (cm)" type="number" value={physicalData?.height_cm ?? ""} onChange={(v) => setPhysicalData((p: any) => ({ ...p, height_cm: Number(v) }))} />
-                      <LabeledInput label="Weight (kg)" type="number" value={physicalData?.weight_kg ?? ""} onChange={(v) => setPhysicalData((p: any) => ({ ...p, weight_kg: Number(v) }))} />
-                      <LabeledInput label="Dominant hand" value={physicalData?.dominant_hand ?? ""} onChange={(v) => setPhysicalData((p: any) => ({ ...p, dominant_hand: v }))} placeholder="Right/Left" />
+                      <LabeledInput label="Height (cm)" type="number" value={(physicalData && physicalData.height_cm) ?? ""} onChange={(v) => setPhysicalData((p) => ({ ...p, height_cm: Number(v) }))} />
+                      <LabeledInput label="Weight (kg)" type="number" value={(physicalData && physicalData.weight_kg) ?? ""} onChange={(v) => setPhysicalData((p) => ({ ...p, weight_kg: Number(v) }))} />
+                      <LabeledInput label="Dominant hand" value={(physicalData && physicalData.dominant_hand) ?? ""} onChange={(v) => setPhysicalData((p) => ({ ...p, dominant_hand: v }))} placeholder="Right/Left" />
                       <div />
                       <div style={{ textAlign: "right", display: "flex", gap: 8, justifyContent: "flex-end" }}>
                         <button onClick={() => setEditing((e) => ({ ...e, physical: false }))} style={{ ...sx.button, ...sx.buttonSecondary }}>Cancel</button>
@@ -441,7 +440,7 @@ function ErrorBox({ message }) {
 }
 
 // ====== STYLES ======
-const sx: any = {
+const sx = {
   page: { minHeight: "100vh", background: "#FFFFFF", fontFamily: "Inter, sans-serif", color: "#000", display: "flex", flexDirection: "column" },
   header: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", borderBottom: "1px solid #EAEAEA", position: "sticky", top: 0, background: "#FFFFFF", zIndex: 10 },
   headerLeft: { display: "flex", alignItems: "center", gap: 12 },
