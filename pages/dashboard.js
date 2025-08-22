@@ -511,3 +511,187 @@ PUT   /api/physical-data → accepts: { athlete_id, height_cm?, weight_kg?, domi
 POST  /api/verify/phone/send-otp  → { phone }
 POST  /api/verify/phone/check-otp → { code, phone }
 */
+
+
+// ==========================
+// FILE: /pages/api/dashboard.js
+// ==========================
+import { Pool } from "pg";
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.PGSSLMODE ? { rejectUnauthorized: false } : false,
+});
+
+async function resolveAthleteId(client, req) {
+  const q = req.query?.athleteId;
+  const h = req.headers["x-athlete-id"]; // optional header if you want to pass it from client
+  const c = req.cookies?.athleteId;
+  const cand = Number(q || h || c);
+  if (cand && Number.isFinite(cand)) return cand;
+  // fallback: first athlete in DB (dev only)
+  const r = await client.query("SELECT id FROM athlete ORDER BY id ASC LIMIT 1");
+  return r.rows?.[0]?.id || null;
+}
+
+export default async function handler(req, res) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", ["GET"]);
+    return res.status(405).end();
+  }
+  const client = await pool.connect();
+  try {
+    const athleteId = await resolveAthleteId(client, req);
+    if (!athleteId) return res.status(404).json({ error: "No athlete found" });
+
+    const aQ = `SELECT id, first_name, last_name, date_of_birth, nationality, native_language,
+                       additional_language, residence_city, residence_country, phone,
+                       profile_picture_url, profile_published, completion_percentage
+                FROM athlete WHERE id = $1`;
+    const pQ = `SELECT height_cm, weight_kg, dominant_hand, wingspan_cm
+                FROM physical_data WHERE athlete_id = $1 LIMIT 1`;
+    const vQ = `SELECT email_verified, phone_verified, phone_number
+                FROM contacts_verification WHERE athlete_id = $1 LIMIT 1`;
+
+    const [aR, pR, vR] = await Promise.all([
+      client.query(aQ, [athleteId]),
+      client.query(pQ, [athleteId]),
+      client.query(vQ, [athleteId]),
+    ]);
+
+    return res.status(200).json({
+      athlete: aR.rows?.[0] || null,
+      physical_data: pR.rows?.[0] || {},
+      contacts_verification: vR.rows?.[0] || {},
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Server error" });
+  } finally {
+    client.release();
+  }
+}
+
+// =====================================
+// FILE: /pages/api/athlete/[id].js (PATCH)
+// =====================================
+import { Pool as Pool2 } from "pg";
+const pool2 = new Pool2({ connectionString: process.env.DATABASE_URL, ssl: process.env.PGSSLMODE ? { rejectUnauthorized: false } : false });
+
+export default async function handlerAthlete(req, res) {
+  if (req.method !== "PATCH") {
+    res.setHeader("Allow", ["PATCH"]);
+    return res.status(405).end();
+  }
+  const { id } = req.query;
+  const { residence_city, residence_country, phone, profile_published } = req.body || {};
+  const fields = [];
+  const values = [];
+  let i = 1;
+  if (residence_city !== undefined) { fields.push(`residence_city=$${i++}`); values.push(residence_city); }
+  if (residence_country !== undefined) { fields.push(`residence_country=$${i++}`); values.push(residence_country); }
+  if (phone !== undefined) { fields.push(`phone=$${i++}`); values.push(phone); }
+  if (profile_published !== undefined) { fields.push(`profile_published=$${i++}`); values.push(!!profile_published); }
+  if (!fields.length) return res.status(400).json({ error: "No fields to update" });
+
+  const client = await pool2.connect();
+  try {
+    const q = `UPDATE athlete SET ${fields.join(", ")} WHERE id=$${i} RETURNING id`;
+    values.push(Number(id));
+    await client.query(q, values);
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Update failed" });
+  } finally {
+    client.release();
+  }
+}
+
+// =====================================
+// FILE: /pages/api/physical-data.js (PUT upsert 1:1)
+// =====================================
+import { Pool as Pool3 } from "pg";
+const pool3 = new Pool3({ connectionString: process.env.DATABASE_URL, ssl: process.env.PGSSLMODE ? { rejectUnauthorized: false } : false });
+
+export default async function handlerPhysical(req, res) {
+  if (req.method !== "PUT") {
+    res.setHeader("Allow", ["PUT"]);
+    return res.status(405).end();
+  }
+  const { athlete_id, height_cm, weight_kg, dominant_hand, wingspan_cm } = req.body || {};
+  if (!athlete_id) return res.status(400).json({ error: "athlete_id required" });
+  const client = await pool3.connect();
+  try {
+    // Try update first
+    const u = await client.query(
+      `UPDATE physical_data SET height_cm=$1, weight_kg=$2, dominant_hand=$3, wingspan_cm=$4 WHERE athlete_id=$5`,
+      [height_cm || null, weight_kg || null, dominant_hand || null, wingspan_cm || null, athlete_id]
+    );
+    if (u.rowCount === 0) {
+      await client.query(
+        `INSERT INTO physical_data (athlete_id, height_cm, weight_kg, dominant_hand, wingspan_cm) VALUES ($1,$2,$3,$4,$5)`,
+        [athlete_id, height_cm || null, weight_kg || null, dominant_hand || null, wingspan_cm || null]
+      );
+    }
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Upsert failed" });
+  } finally {
+    client.release();
+  }
+}
+
+// =====================================================
+// FILE: /pages/api/verify/phone/send-otp.js  (DEV STUB)
+// =====================================================
+export default async function handlerSendOTP(req, res) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", ["POST"]);
+    return res.status(405).end();
+  }
+  // TODO: integrate real SMS provider. Dev stub responds OK.
+  return res.status(200).json({ ok: true });
+}
+
+// =====================================================
+// FILE: /pages/api/verify/phone/check-otp.js (marks verified)
+// =====================================================
+import { Pool as Pool4 } from "pg";
+const pool4 = new Pool4({ connectionString: process.env.DATABASE_URL, ssl: process.env.PGSSLMODE ? { rejectUnauthorized: false } : false });
+
+export default async function handlerCheckOTP(req, res) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", ["POST"]);
+    return res.status(405).end();
+  }
+  const { phone, athleteId } = req.body || {};
+  const client = await pool4.connect();
+  try {
+    // Resolve athlete id (same logic as dashboard)
+    let id = athleteId;
+    if (!id) {
+      const r = await client.query("SELECT id FROM athlete ORDER BY id ASC LIMIT 1");
+      id = r.rows?.[0]?.id || null;
+    }
+    if (!id) return res.status(400).json({ error: "athleteId required" });
+
+    // Update or insert verification row
+    const u = await client.query(
+      `UPDATE contacts_verification SET phone_number=$1, phone_verified=true WHERE athlete_id=$2`,
+      [phone || null, id]
+    );
+    if (u.rowCount === 0) {
+      await client.query(
+        `INSERT INTO contacts_verification (athlete_id, phone_number, phone_verified) VALUES ($1,$2,true)`,
+        [id, phone || null]
+      );
+    }
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Verify failed" });
+  } finally {
+    client.release();
+  }
+}
