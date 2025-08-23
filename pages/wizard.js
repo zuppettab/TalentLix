@@ -510,6 +510,31 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
   const [otpMessage, setOtpMessage] = useState('');
   const [otpDebug, setOtpDebug] = useState(null); // 👈 pannello debug
 
+  // ⏱️ Countdown resend & TTL codice
+  const [cooldown, setCooldown] = useState(0);
+  const [expiresIn, setExpiresIn] = useState(0);
+  const COOLDOWN_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_RESEND_COOLDOWN || 60);
+  const OTP_TTL_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_OTP_TTL || 600);
+  
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setInterval(() => setCooldown((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(id);
+  }, [cooldown]);
+  
+  useEffect(() => {
+    if (expiresIn <= 0) return;
+    const id = setInterval(() => setExpiresIn((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(id);
+  }, [expiresIn]);
+  
+  const fmtSecs = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  };
+
+
   useEffect(() => {
     (async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -568,26 +593,41 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
   // ── Invio OTP per AGGANCIARE il telefono all’utente loggato (phone_change)
     const sendCode = async () => {
       try {
+        // Se siamo in cooldown, non inviare
+        if (cooldown > 0) {
+          setOtpMessage(`Please wait ${cooldown}s before requesting a new code.`);
+          return;
+        }
+    
         setOtpMessage('');
+        if (!(await ensureSession())) return;
+    
+        // Richiesta OTP via Supabase (phone_change)
         const { data, error } = await supabase.auth.updateUser({ phone: formData.phone });
         if (error) {
           setOtpMessage(`Failed to request OTP: ${error.message}`);
           return;
         }
-        // No auto-verify here anymore.
-        setOtpSent(true);
-        setOtpMessage('OTP requested. Check your SMS (or use 999999 in dev).');
-      } catch (e) {
-        setOtpMessage(`Send error: ${e?.message || String(e)}`);
-      }
-    };
+
+    // Avvia countdown e ttl locali (coerenti con env)
+    setOtpSent(true);
+    setCooldown(COOLDOWN_SECONDS);
+    setExpiresIn(OTP_TTL_SECONDS);
+    setOtpMessage('OTP requested. Check your SMS (or use 999999 in dev).');
+  } catch (e) {
+    setOtpMessage(`Send error: ${e?.message || String(e)}`);
+  }
+};
+
 
 
   // ── Conferma OTP (phone_change) + bypass 999999
   const confirmCode = async () => {
     try {
-      setOtpMessage('');
-      if (!(await ensureSession())) return;
+          if (expiresIn <= 0) {
+          setOtpMessage('The code has expired. Please request a new one.');
+          return;
+        }
 
       // 🔑 bypass dev
       if (otpCode === '999999') {
@@ -725,22 +765,32 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         {/* OTP UI */}
         {!phoneVerified && (
           <div style={{ display: 'grid', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={sendCode}
-              disabled={!isValidPhone}
-              style={{
-                background: isValidPhone ? 'linear-gradient(90deg, #27E3DA, #F7B84E)' : '#ccc',
-                color: '#fff',
-                border: 'none',
-                padding: '0.6rem',
-                borderRadius: '8px',
-                cursor: isValidPhone ? 'pointer' : 'not-allowed',
-                fontWeight: 'bold'
-              }}
-            >
-              Send code
-            </button>
+          <button
+            type="button"
+            onClick={sendCode}
+            disabled={!isValidPhone || cooldown > 0}
+            style={{
+              background: (!isValidPhone || cooldown > 0) ? '#ccc' : 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+              color: '#fff',
+              border: 'none',
+              padding: '0.6rem',
+              borderRadius: '8px',
+              cursor: (!isValidPhone || cooldown > 0) ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            {otpSent ? 'Resend code' : 'Send code'}
+          </button>
+          <div style={{ marginTop: '6px', fontSize: '12px', color: '#555', textAlign: 'left' }}>
+            {cooldown > 0 ? (
+              <span>Reinvia tra {fmtSecs(cooldown)}</span>
+            ) : (
+              otpSent && <span>Puoi reinviare ora</span>
+            )}
+            {expiresIn > 0 && (
+              <span style={{ marginLeft: 8 }}>• Code expires in {fmtSecs(expiresIn)}</span>
+            )}
+          </div>
 
             {otpSent && (
               <div style={{ display: 'flex', gap: '8px' }}>
