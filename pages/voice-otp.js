@@ -4,8 +4,8 @@
 
 /** >>>> PUT YOUR TWILIO CREDENTIALS HERE (REAL VALUES) <<<< **/
   const TWILIO_ACCOUNT_SID = 'AC4d924fcc26814702d0aa1f7c275ccbd6';
-  const TWILIO_AUTH_TOKEN  = '8697c18cc42e6155f3ceb707392f120a';
-  const TWILIO_VERIFY_SID  = 'MG806d198c78ebc16cc832a5a0bd679e4e';
+  const TWILIO_AUTH_TOKEN  = '5989f810afbdada3015db4ab592403e5';
+  const TWILIO_VERIFY_SID  = 'VA6f5779c66742d2c6ee00c39e1356ada0';
 
 export default function VoiceOtpPage({ initialPhone = '', statusMsg = '', approved = null, debug = null }) {
   return (
