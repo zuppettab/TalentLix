@@ -138,7 +138,7 @@ export default function Dashboard() {
       await supabase.auth.signOut();
       router.replace('/login');
     } catch (e) {
-      console.error(e);
+    console.error(e);
       alert('Logout error');
     }
   };
@@ -238,25 +238,60 @@ export default function Dashboard() {
 
         {/* CONTENT PANEL */}
         <section style={styles.panel}>
-          {/* Fix globali per mobile: niente tagli a destra dentro la card */}
+          {/* FIX MOBILE (Save visibile + date input allineato) */}
           <style>{`
             @media (max-width: 480px) {
-              /* tutti i campi di form e bottoni dentro il pannello si adattano al 100% */
+              /* tutto dentro il pannello si adatta e non deborda */
+              .panel-body-mobile-fix * { min-width: 0 !important; }
+
               .panel-body-mobile-fix input,
               .panel-body-mobile-fix select,
               .panel-body-mobile-fix textarea,
-              .panel-body-mobile-fix button {
+              .panel-body-mobile-fix button,
+              .panel-body-mobile-fix [type="submit"] {
                 width: 100% !important;
                 max-width: 100% !important;
                 box-sizing: border-box !important;
                 white-space: normal !important;
                 font-size: 14px !important;
+                line-height: 1.2 !important;
               }
+
+              /* testo Save sempre visibile */
+              .panel-body-mobile-fix button,
+              .panel-body-mobile-fix [type="submit"] {
+                color: #111 !important;
+                font-weight: 600 !important;
+                text-indent: 0 !important;
+                text-shadow: none !important;
+                overflow: visible !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+              }
+              .panel-body-mobile-fix button > * { display: inline !important; }
+              .panel-body-mobile-fix button::before,
+              .panel-body-mobile-fix button::after { display: none !important; }
+
+              /* righe/colonne in stack su mobile */
               .panel-body-mobile-fix .row, 
               .panel-body-mobile-fix .col,
               .panel-body-mobile-fix .two-col {
                 display: block !important;
                 width: 100% !important;
+              }
+
+              /* input date allineato e senza overflow */
+              .panel-body-mobile-fix input[type="date"] {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                -webkit-appearance: none;
+                appearance: none;
+                padding-right: 8px !important;
+                box-sizing: border-box !important;
               }
             }
           `}</style>
@@ -266,7 +301,6 @@ export default function Dashboard() {
           ) : (
             <>
               <h2 style={styles.panelTitle}>{sectionObj?.title}</h2>
-              {/* wrapper che impedisce overflow e consente clamp a 100% */}
               <div className="panel-body-mobile-fix" style={styles.panelBody}>
                 {current === 'personal' ? (
                   <PersonalPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
@@ -302,7 +336,7 @@ function AuthControl({ email, avatarUrl, onLogout, compact }) {
   );
 }
 
-/** Nastro tabs mobile con frecce grandi e fade laterali */
+/** Nastro tabs mobile con frecce grandi e 3 bottoni visibili */
 function MobileScrollableTabs({ sections, current, onSelect }) {
   const scrollerRef = useRef(null);
   const [atStart, setAtStart] = useState(true);
@@ -330,13 +364,11 @@ function MobileScrollableTabs({ sections, current, onSelect }) {
   const nudge = (dir) => {
     const el = scrollerRef.current;
     if (!el) return;
-    // scorrimento a "pagina" ~ 90% della larghezza visibile
     el.scrollBy({ left: dir * Math.round(el.clientWidth * 0.9), behavior: 'smooth' });
   };
 
   return (
     <div style={styles.mobileTabsWrap}>
-      {/* frecce grandi */}
       {!atStart && (
         <button aria-label="Scroll left" onClick={() => nudge(-1)} style={{ ...styles.nudgeBtn, left: 6 }}>
           ‹
@@ -348,7 +380,6 @@ function MobileScrollableTabs({ sections, current, onSelect }) {
         </button>
       )}
 
-      {/* fade laterali per indicare scorrimento */}
       {!atStart && <div style={{ ...styles.edgeFade, left: 0, background: 'linear-gradient(90deg, rgba(255,255,255,1) 15%, rgba(255,255,255,0) 85%)' }} />}
       {!atEnd && <div style={{ ...styles.edgeFade, right: 0, background: 'linear-gradient(270deg, rgba(255,255,255,1) 15%, rgba(255,255,255,0) 85%)' }} />}
 
@@ -441,7 +472,7 @@ const styles = {
   },
   mobileTabsScroller: {
     display: 'flex',
-    gap: 6, // piccolo gap per farcene stare 3
+    gap: 6,
     overflowX: 'auto',
     WebkitOverflowScrolling: 'touch',
     padding: '4px 8px',
@@ -466,7 +497,7 @@ const styles = {
     boxShadow: '0 0 0 2px rgba(39,227,218,0.15)',
     background: 'linear-gradient(90deg, rgba(39,227,218,0.08), rgba(247,184,78,0.08))'
   },
-  // Frecce più grandi
+  // Frecce grandi
   nudgeBtn: {
     position: 'absolute',
     top: '50%',
@@ -501,7 +532,7 @@ const styles = {
   navBtn: { textAlign: 'left', padding: '12px 14px', border: '1px solid #E0E0E0', background: '#FFFFFF', borderRadius: 10, cursor: 'pointer', fontSize: 14, minHeight: 44 },
   navBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.15)', background: 'linear-gradient(90deg, rgba(39,227,218,0.08), rgba(247,184,78,0.08))' },
 
-  // panel (evita overflow a destra)
+  // panel
   panel: { 
     background: '#FFFFFF', 
     border: '1px solid #E0E0E0', 
@@ -510,7 +541,7 @@ const styles = {
     minHeight: 360, 
     boxShadow: '0 4px 12px rgba(0,0,0,0.05)', 
     boxSizing: 'border-box',
-    minWidth: 0,             // <- chiave per prevenire overflow in grid
+    minWidth: 0,
     maxWidth: '100%'
   },
   panelTitle: { fontSize: 18, margin: '4px 0 12px 0' },
