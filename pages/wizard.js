@@ -114,6 +114,41 @@ useEffect(() => {
     setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
   };
 
+      // Helper: verifica se il numero in formData.phone risulta verificato
+    const digitsOnly = (v) => (v ? String(v).replace(/\D/g, '') : '');
+    
+    const isPhoneVerifiedForCurrentNumber = async () => {
+      // 1) guarda la tabella applicativa
+      const { data: cvRows } = await supabase
+        .from('contacts_verification')
+        .select('phone_number, phone_verified')
+        .eq('athlete_id', user.id)
+        .limit(1);
+    
+      const cv = Array.isArray(cvRows) && cvRows[0];
+      if (cv?.phone_verified === true &&
+          digitsOnly(cv.phone_number) &&
+          digitsOnly(formData.phone) &&
+          digitsOnly(cv.phone_number) === digitsOnly(formData.phone)) {
+        return true;
+      }
+    
+      // 2) guarda Supabase Auth (phone confermato + stesso numero)
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const authPhone = authUser?.phone ? `+${String(authUser.phone).replace(/^\+?/, '')}` : '';
+      if (digitsOnly(authPhone) === digitsOnly(formData.phone) &&
+          !!authUser?.phone_confirmed_at) {
+        return true;
+      }
+    
+      // 3) guarda il profilo athlete (numero già committato)
+      if (digitsOnly(athlete?.phone) === digitsOnly(formData.phone)) {
+        return true;
+      }
+    
+      return false;
+    };
+
         const saveStep = async (nextStep) => {
         setErrorMessage('');
         try {
@@ -177,10 +212,11 @@ useEffect(() => {
               if (digits(formData.phone) === digits(currentDbPhone)) {
                 updatePayload.phone = currentDbPhone;
               }
-              // Se l’utente ha cambiato e il numero è VERIFICATO, salva il nuovo
-              else if (phoneVerified) {
+              // Se l’utente ha cambiato e il numero risulta VERIFICATO (CV/Auth/Athlete), salva il nuovo
+              else if (await isPhoneVerifiedForCurrentNumber()) {
                 updatePayload.phone = formData.phone;
               }
+
               // Altrimenti NON mettere `phone` nel payload → il DB resta col numero verificato precedente
             
               const { error } = await supabase
