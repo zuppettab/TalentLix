@@ -540,6 +540,9 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
   
       const authPhone = authUser?.phone ? `+${String(authUser.phone).replace(/^\+?/, '')}` : '';
+      if (!formData.phone && authPhone) {
+        setFormData(prev => ({ ...prev, phone: authPhone }));
+      }
       const sameNumber =
         formData.phone &&
         authPhone &&
@@ -555,7 +558,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         );
   
       // ✅ Auto-verify ONLY if: same number + confirmed + phone identity verified
-      if (sameNumber && confirmed && phoneIdVerified && !phoneVerified) {
+     if (sameNumber && (confirmed || phoneIdVerified) && !phoneVerified) {
         setPhoneVerified(true);
         setOtpMessage('Phone already verified ✔');
         setOtpSent(false);
