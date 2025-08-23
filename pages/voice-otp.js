@@ -1,129 +1,143 @@
 // pages/voice-otp.js
-// Unica pagina: UI + chiamate a Twilio Verify (voice) dal server via getServerSideProps.
-// Nessun DB, nessuna API route, nessuna env. SOLO per test (le chiavi sono nel file!).
-// Consiglio: repo privato o subaccount Twilio temporaneo.
+// Single page: UI + Twilio Verify (voice) calls from the server (SSR).
+// No env, no API routes, no DB. For testing only — your Twilio credentials are in this file.
 
-export default function VoiceOtpPage({ initialPhone = '', statusMsg = '', approved = null }) {
+/** >>>> PUT YOUR TWILIO CREDENTIALS HERE (REAL VALUES) <<<< **/
+  const TWILIO_ACCOUNT_SID = 'AC4d924fcc26814702d0aa1f7c275ccbd6';
+  const TWILIO_AUTH_TOKEN  = '8697c18cc42e6155f3ceb707392f120a';
+  const TWILIO_VERIFY_SID  = 'MG806d198c78ebc16cc832a5a0bd679e4e';
+
+export default function VoiceOtpPage({ initialPhone = '', statusMsg = '', approved = null, debug = null }) {
   return (
     <div style={s.wrap}>
       <div style={s.card}>
-        <h2 style={{marginTop:0}}>Voice OTP Test (Twilio Verify)</h2>
+        <h1 style={{marginTop:0}}>Voice OTP Test (Twilio Verify)</h1>
 
-        {/* Form invio chiamata */}
-        <form method="GET" style={{marginBottom:12}}>
+        <form method="GET" style={{marginBottom:16}}>
           <div style={s.row}>
-            <label style={s.label}>Telefono (E.164)</label>
+            <label style={s.label}>Phone (E.164)</label>
             <input
               name="phone"
               defaultValue={initialPhone}
               placeholder="+393401234567"
-              pattern="^\+[1-9]\d{6,14}$"
+              pattern="^\\+[1-9]\\d{6,14}$"
               required
               style={s.input}
             />
             <input type="hidden" name="action" value="send" />
           </div>
-          <button type="submit" style={s.btn}>Chiama e leggi codice</button>
-          <div style={{fontSize:12, color:'#777', marginTop:6}}>
-            Trial Twilio: puoi chiamare solo numeri “Verified Caller IDs”. Formato E.164 obbligatorio.
-          </div>
+          <button type="submit" style={s.btn}>Call me and read the code</button>
+          <div style={s.hint}>Make sure your Verify Service has the <strong>Voice</strong> channel enabled.</div>
         </form>
 
-        {/* Form verifica codice */}
-        <form method="GET">
+        <form method="GET" style={{marginBottom:8}}>
           <input type="hidden" name="phone" value={initialPhone} />
           <input type="hidden" name="action" value="check" />
           <div style={s.row}>
-            <label style={s.label}>Codice (6 cifre)</label>
+            <label style={s.label}>Code (6 digits)</label>
             <input
               name="code"
               placeholder="------"
               inputMode="numeric"
               maxLength={8}
-              pattern="^\d{4,8}$"
+              pattern="^\\d{4,8}$"
               required
               style={s.input}
             />
           </div>
-          <button type="submit" style={s.btn}>Verifica codice</button>
+          <button type="submit" style={s.btn}>Verify code</button>
         </form>
 
-        {statusMsg ? <p style={{marginTop:14, color: approved===true ? '#0a0' : '#333'}}>{statusMsg}</p> : null}
+        {statusMsg ? (
+          <p style={{marginTop:14, color: approved === true ? '#0a0' : '#333'}}>{statusMsg}</p>
+        ) : null}
+
+        {debug ? (
+          <pre style={s.debug}>
+{JSON.stringify(debug, null, 2)}
+          </pre>
+        ) : null}
       </div>
     </div>
   );
 }
 
 const s = {
-  wrap: { minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f6f7f9', padding:'24px' },
-  card: { width:'100%', maxWidth:520, background:'#fff', border:'1px solid #eee', borderRadius:12, padding:20, boxShadow:'0 6px 18px rgba(0,0,0,0.06)' },
+  wrap: { minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f3f5f7', padding:'24px' },
+  card: { width:'100%', maxWidth:640, background:'#fff', border:'1px solid #eee', borderRadius:16, padding:'24px', boxShadow:'0 8px 20px rgba(0,0,0,.06)' },
   row: { display:'flex', flexDirection:'column', gap:6, marginBottom:12 },
-  label: { fontSize:14, color:'#555', fontWeight:600 },
-  input: { height:44, border:'1px solid #ccc', borderRadius:8, padding:'0 12px', fontSize:16 },
-  btn: { height:44, border:'none', borderRadius:8, background:'linear-gradient(90deg,#27E3DA,#F7B84E)', color:'#fff', fontWeight:700, cursor:'pointer' },
+  label: { fontSize:15, color:'#444', fontWeight:700 },
+  input: { height:48, border:'2px solid #111', borderRadius:12, padding:'0 14px', fontSize:18 },
+  btn: { height:46, border:'none', borderRadius:10, background:'linear-gradient(90deg,#27E3DA,#F7B84E)', color:'#fff', fontWeight:800, cursor:'pointer', padding:'0 16px' },
+  hint: { fontSize:12, color:'#777', marginTop:6 },
+  debug: { marginTop:16, padding:12, background:'#fafafa', border:'1px solid #eee', borderRadius:8, fontSize:12, color:'#333', maxHeight:260, overflow:'auto' }
 };
 
-// ---------- SERVER SIDE (Twilio calls) ----------
+// ---------- SERVER SIDE ----------
 export async function getServerSideProps(ctx) {
-  const query = ctx.query || {};
-  const action = (query.action || '').toString();
-  const phone  = (query.phone  || '').toString().trim();
-  const code   = (query.code   || '').toString().trim();
+  const q = ctx.query || {};
+  const action = String(q.action || '');
+  const phone  = String(q.phone || '').trim();
+  const code   = String(q.code  || '').trim();
 
   let statusMsg = '';
   let approved = null;
-
-  // ⛔️ Metti qui le TUE credenziali Twilio (solo test!)
-  const TWILIO_ACCOUNT_SID = 'AC4d924fcc26814702d0aa1f7c275ccbd6';
-  const TWILIO_AUTH_TOKEN  = '8697c18cc42e6155f3ceb707392f120a';
-  const TWILIO_VERIFY_SID  = 'MG806d198c78ebc16cc832a5a0bd679e4e';
+  let debug = null;
 
   const isE164 = (p) => /^\+[1-9]\d{6,14}$/.test(p);
-  const basicAuth = 'Basic ' + Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
+  const auth = 'Basic ' + Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
+
+  const postForm = async (url, params) => {
+    const body = new URLSearchParams(params);
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': auth,
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      },
+      body,
+    });
+    const text = await resp.text();
+    let json; try { json = JSON.parse(text); } catch { json = { raw: text }; }
+    return { ok: resp.ok, status: resp.status, json };
+  };
 
   try {
     if (action === 'send') {
       if (!isE164(phone)) {
-        statusMsg = 'Inserisci numero valido in formato E.164 (es. +393401234567).';
+        statusMsg = 'Enter a valid E.164 number (e.g. +393401234567).';
       } else {
         const url = `https://verify.twilio.com/v2/Services/${encodeURIComponent(TWILIO_VERIFY_SID)}/Verifications`;
-        const body = new URLSearchParams({ To: phone, Channel: 'call' });
-        const r = await fetch(url, {
-          method: 'POST',
-          headers: { 'Authorization': basicAuth, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-          body
-        });
-        const j = await safeJson(r);
-        if (!r.ok) throw new Error(j?.message || `Twilio HTTP ${r.status}`);
-        statusMsg = 'Chiamata inviata. Rispondi e ascolta il codice a 6 cifre.';
+        const r = await postForm(url, { To: phone, Channel: 'call' }); // Voice OTP
+        debug = { when: 'send', httpStatus: r.status, twilio: r.json };
+        if (!r.ok) {
+          statusMsg = `Error: ${r.json?.message || 'Twilio error'}`;
+        } else {
+          statusMsg = 'Call sent. Answer and listen to the 6-digit code.';
+        }
       }
-    } else if (action === 'check') {
+    }
+
+    if (action === 'check') {
       if (!isE164(phone)) {
-        statusMsg = 'Telefono non valido.';
+        statusMsg = 'Phone is invalid.';
       } else if (!/^\d{4,8}$/.test(code)) {
-        statusMsg = 'Codice non valido (usa 6 cifre).';
+        statusMsg = 'Code is invalid (use 6 digits).';
       } else {
         const url = `https://verify.twilio.com/v2/Services/${encodeURIComponent(TWILIO_VERIFY_SID)}/VerificationCheck`;
-        const body = new URLSearchParams({ To: phone, Code: code });
-        const r = await fetch(url, {
-          method: 'POST',
-          headers: { 'Authorization': basicAuth, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-          body
-        });
-        const j = await safeJson(r);
-        if (!r.ok) throw new Error(j?.message || `Twilio HTTP ${r.status}`);
-        approved = j?.status === 'approved';
-        statusMsg = approved ? '✅ Numero verificato correttamente!' : 'Codice errato o scaduto.';
+        const r = await postForm(url, { To: phone, Code: code });
+        debug = { when: 'check', httpStatus: r.status, twilio: r.json };
+        if (!r.ok) {
+          statusMsg = `Error: ${r.json?.message || 'Twilio error'}`;
+        } else {
+          approved = r.json?.status === 'approved';
+          statusMsg = approved ? '✅ Verified successfully.' : 'Code is wrong or expired.';
+        }
       }
     }
   } catch (e) {
-    statusMsg = 'Errore: ' + (e?.message || String(e));
+    statusMsg = 'Error: ' + (e?.message || String(e));
   }
 
-  return { props: { initialPhone: phone, statusMsg, approved } };
-}
-
-async function safeJson(resp) {
-  const text = await resp.text();
-  try { return JSON.parse(text); } catch { return { message: text }; }
+  return { props: { initialPhone: phone, statusMsg, approved, debug } };
 }
