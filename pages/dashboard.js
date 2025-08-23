@@ -238,14 +238,38 @@ export default function Dashboard() {
 
         {/* CONTENT PANEL */}
         <section style={styles.panel}>
+          {/* Fix globali per mobile: niente tagli a destra dentro la card */}
+          <style>{`
+            @media (max-width: 480px) {
+              /* tutti i campi di form e bottoni dentro il pannello si adattano al 100% */
+              .panel-body-mobile-fix input,
+              .panel-body-mobile-fix select,
+              .panel-body-mobile-fix textarea,
+              .panel-body-mobile-fix button {
+                width: 100% !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+                white-space: normal !important;
+                font-size: 14px !important;
+              }
+              .panel-body-mobile-fix .row, 
+              .panel-body-mobile-fix .col,
+              .panel-body-mobile-fix .two-col {
+                display: block !important;
+                width: 100% !important;
+              }
+            }
+          `}</style>
+
           {loading ? (
             <div style={styles.skeleton}>Loading…</div>
           ) : (
             <>
               <h2 style={styles.panelTitle}>{sectionObj?.title}</h2>
-              <div style={styles.panelBody}>
+              {/* wrapper che impedisce overflow e consente clamp a 100% */}
+              <div className="panel-body-mobile-fix" style={styles.panelBody}>
                 {current === 'personal' ? (
-                  <PersonalPanel athlete={athlete} onSaved={setAthlete} />
+                  <PersonalPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
                 ) : (
                   <p style={styles.placeholder}>
                     TODO — fields and Save for “{sectionObj?.title}” will render here.
@@ -278,7 +302,7 @@ function AuthControl({ email, avatarUrl, onLogout, compact }) {
   );
 }
 
-/** Nastro tabs mobile con frecce e fade laterali */
+/** Nastro tabs mobile con frecce grandi e fade laterali */
 function MobileScrollableTabs({ sections, current, onSelect }) {
   const scrollerRef = useRef(null);
   const [atStart, setAtStart] = useState(true);
@@ -306,33 +330,37 @@ function MobileScrollableTabs({ sections, current, onSelect }) {
   const nudge = (dir) => {
     const el = scrollerRef.current;
     if (!el) return;
-    el.scrollBy({ left: dir * 220, behavior: 'smooth' });
+    // scorrimento a "pagina" ~ 90% della larghezza visibile
+    el.scrollBy({ left: dir * Math.round(el.clientWidth * 0.9), behavior: 'smooth' });
   };
 
   return (
     <div style={styles.mobileTabsWrap}>
-      {/* frecce */}
+      {/* frecce grandi */}
       {!atStart && (
-        <button aria-label="Scroll left" onClick={() => nudge(-1)} style={{ ...styles.nudgeBtn, left: 4 }}>
+        <button aria-label="Scroll left" onClick={() => nudge(-1)} style={{ ...styles.nudgeBtn, left: 6 }}>
           ‹
         </button>
       )}
       {!atEnd && (
-        <button aria-label="Scroll right" onClick={() => nudge(1)} style={{ ...styles.nudgeBtn, right: 4 }}>
+        <button aria-label="Scroll right" onClick={() => nudge(1)} style={{ ...styles.nudgeBtn, right: 6 }}>
           ›
         </button>
       )}
 
-      {/* fade laterali per “frecciatina” visiva */}
-      {!atStart && <div style={{ ...styles.edgeFade, left: 0, background: 'linear-gradient(90deg, rgba(255,255,255,1) 10%, rgba(255,255,255,0) 90%)' }} />}
-      {!atEnd && <div style={{ ...styles.edgeFade, right: 0, background: 'linear-gradient(270deg, rgba(255,255,255,1) 10%, rgba(255,255,255,0) 90%)' }} />}
+      {/* fade laterali per indicare scorrimento */}
+      {!atStart && <div style={{ ...styles.edgeFade, left: 0, background: 'linear-gradient(90deg, rgba(255,255,255,1) 15%, rgba(255,255,255,0) 85%)' }} />}
+      {!atEnd && <div style={{ ...styles.edgeFade, right: 0, background: 'linear-gradient(270deg, rgba(255,255,255,1) 15%, rgba(255,255,255,0) 85%)' }} />}
 
       <div ref={scrollerRef} style={styles.mobileTabsScroller}>
         {sections.map(s => (
           <button
             key={s.id}
             onClick={() => onSelect(s.id)}
-            style={{ ...styles.mobileTabBtn, ...(current === s.id ? styles.mobileTabBtnActive : null) }}
+            style={{ 
+              ...styles.mobileTabBtn, 
+              ...(current === s.id ? styles.mobileTabBtnActive : null) 
+            }}
             title={s.title}
           >
             {s.title}
@@ -356,15 +384,11 @@ const styles = {
     position: 'sticky',
     top: 0,
     zIndex: 10,
-    // per evitare tagli su device piccoli
     boxSizing: 'border-box'
   },
-  headerMobile: {
-    flexWrap: 'wrap',
-    rowGap: 8
-  },
+  headerMobile: { flexWrap: 'wrap', rowGap: 8 },
   headerLeft: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
-  headerLeftMobile: { flex: '1 1 100%' }, // occupa la riga, auth va sotto
+  headerLeftMobile: { flex: '1 1 100%' },
   logo: { width: 40, height: 'auto' },
   headerTitle: { fontSize: 18, fontWeight: 700, lineHeight: 1.1 },
   headerName: { fontSize: 14, opacity: 0.7, lineHeight: 1.1 },
@@ -381,7 +405,7 @@ const styles = {
 
   link: { color: '#27E3DA', textDecoration: 'none' },
 
-  // --- Sub-header (più spazio su mobile)
+  // --- Sub-header
   subHeader: {
     display: 'flex',
     alignItems: 'center',
@@ -391,12 +415,7 @@ const styles = {
     background: '#FFFFFF',
     boxSizing: 'border-box'
   },
-  subHeaderMobile: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
-    gap: 14,
-    padding: '16px 16px'
-  },
+  subHeaderMobile: { flexDirection: 'column', alignItems: 'stretch', gap: 14, padding: '16px 16px' },
   avatar: { width: 56, height: 56, borderRadius: '50%', background: '#EEE' },
 
   publishRow: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
@@ -412,7 +431,7 @@ const styles = {
   progressFill: { height: '100%', background: 'linear-gradient(90deg, #27E3DA 0%, #F7B84E 100%)', borderRadius: 999 },
   progressPct: { fontSize: 12, opacity: 0.8, minWidth: 32, textAlign: 'right' },
 
-  // --- Nastro tabs mobile
+  // --- Nastro tabs mobile (3 bottoni in primo piano)
   mobileTabsWrap: {
     position: 'relative',
     borderBottom: '1px solid #E0E0E0',
@@ -422,27 +441,32 @@ const styles = {
   },
   mobileTabsScroller: {
     display: 'flex',
-    gap: 8,
+    gap: 6, // piccolo gap per farcene stare 3
     overflowX: 'auto',
     WebkitOverflowScrolling: 'touch',
     padding: '4px 8px',
     scrollbarWidth: 'none'
   },
   mobileTabBtn: {
-    flex: '0 0 auto',
-    padding: '10px 12px',
+    flex: '0 0 33.33%', // ~3 visibili
+    textAlign: 'center',
+    padding: '10px 8px',
     border: '1px solid #E0E0E0',
     background: '#FFFFFF',
     borderRadius: 999,
     fontSize: 14,
     cursor: 'pointer',
-    minHeight: 40
+    minHeight: 40,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
   },
   mobileTabBtnActive: {
     borderColor: '#27E3DA',
     boxShadow: '0 0 0 2px rgba(39,227,218,0.15)',
     background: 'linear-gradient(90deg, rgba(39,227,218,0.08), rgba(247,184,78,0.08))'
   },
+  // Frecce più grandi
   nudgeBtn: {
     position: 'absolute',
     top: '50%',
@@ -451,25 +475,25 @@ const styles = {
     border: '1px solid #E0E0E0',
     background: '#FFF',
     borderRadius: '999px',
-    width: 28,
-    height: 28,
-    lineHeight: '26px',
+    width: 40,
+    height: 40,
+    lineHeight: '38px',
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: 24,
     cursor: 'pointer',
-    boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
+    boxShadow: '0 2px 8px rgba(0,0,0,0.10)'
   },
   edgeFade: {
     position: 'absolute',
     top: 0,
-    width: 28,
+    width: 36,
     height: '100%',
     zIndex: 1,
     pointerEvents: 'none'
   },
 
   // --- Main
-  main: { display: 'grid', gridTemplateColumns: '240px 1fr', gap: 24, padding: 24, boxSizing: 'border-box' },
+  main: { display: 'grid', gridTemplateColumns: '240px 1fr', gap: 24, padding: 24, boxSizing: 'border-box', minWidth: 0 },
   mainMobile: { gridTemplateColumns: '1fr', gap: 12, padding: 12 },
 
   // left nav (desktop/tablet)
@@ -477,10 +501,20 @@ const styles = {
   navBtn: { textAlign: 'left', padding: '12px 14px', border: '1px solid #E0E0E0', background: '#FFFFFF', borderRadius: 10, cursor: 'pointer', fontSize: 14, minHeight: 44 },
   navBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.15)', background: 'linear-gradient(90deg, rgba(39,227,218,0.08), rgba(247,184,78,0.08))' },
 
-  // panel
-  panel: { background: '#FFFFFF', border: '1px solid #E0E0E0', borderRadius: 12, padding: 16, minHeight: 360, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', boxSizing: 'border-box' },
+  // panel (evita overflow a destra)
+  panel: { 
+    background: '#FFFFFF', 
+    border: '1px solid #E0E0E0', 
+    borderRadius: 12, 
+    padding: 16, 
+    minHeight: 360, 
+    boxShadow: '0 4px 12px rgba(0,0,0,0.05)', 
+    boxSizing: 'border-box',
+    minWidth: 0,             // <- chiave per prevenire overflow in grid
+    maxWidth: '100%'
+  },
   panelTitle: { fontSize: 18, margin: '4px 0 12px 0' },
-  panelBody: { padding: 8 },
+  panelBody: { padding: 8, minWidth: 0, maxWidth: '100%', overflowX: 'visible', wordBreak: 'break-word' },
   placeholder: { color: '#666' },
 
   skeleton: { padding: 16, color: '#666', fontStyle: 'italic' },
