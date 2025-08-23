@@ -1,10 +1,14 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { SECTIONS, DEFAULT_SECTION, isValidSection } from '../utils/dashboardSections';
+import { supabase } from '../utils/supabaseClient';
+
+const ATHLETE_TABLE = 'athlete'; // usa il nome reale della tabella
 
 export default function Dashboard() {
   const router = useRouter();
 
+  // ---- URL state: sezione attiva
   const current = useMemo(() => {
     const raw = Array.isArray(router.query.section) ? router.query.section[0] : router.query.section;
     return isValidSection(raw) ? raw : DEFAULT_SECTION;
@@ -12,6 +16,67 @@ export default function Dashboard() {
 
   const setSection = (id) => {
     router.push({ pathname: '/dashboard', query: { ...router.query, section: id } }, undefined, { shallow: true });
+  };
+
+  // ---- Stato atleta
+  const [athlete, setAthlete] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [savingPublish, setSavingPublish] = useState(false);
+
+  // Carica utente e profilo atleta
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data: userResp, error: userErr } = await supabase.auth.getUser();
+        if (userErr) throw userErr;
+        const user = userResp?.user;
+        if (!user) {
+          // non loggato → vai al login
+          router.replace('/login');
+          return;
+        }
+        const { data, error } = await supabase
+          .from(ATHLETE_TABLE)
+          .select('id, first_name, last_name, profile_picture_url, profile_published, completion_percentage')
+          .eq('id', user.id)
+          .single();
+        if (error) throw error;
+        if (mounted) setAthlete(data || null);
+      } catch (e) {
+        console.error(e);
+        if (mounted) setAthlete(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [router]);
+
+  const fullName =
+    [athlete?.first_name, athlete?.last_name].filter(Boolean).join(' ') || 'Full Name';
+
+  const isPublished = !!athlete?.profile_published;
+  const completion = Math.min(100, Math.max(0, Number(athlete?.completion_percentage ?? 40)));
+
+  const togglePublish = async () => {
+    if (!athlete) return;
+    try {
+      setSavingPublish(true);
+      const { data, error } = await supabase
+        .from(ATHLETE_TABLE)
+        .update({ profile_published: !isPublished })
+        .eq('id', athlete.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setAthlete(data);
+    } catch (e) {
+      console.error(e);
+      alert('Error updating publish status');
+    } finally {
+      setSavingPublish(false);
+    }
   };
 
   const sectionObj = SECTIONS.find(s => s.id === current);
@@ -24,30 +89,42 @@ export default function Dashboard() {
           <img src="/logo-talentlix.png" alt="TalentLix" style={styles.logo} />
           <div>
             <div style={styles.headerTitle}>Athlete Dashboard</div>
-            <div style={styles.headerName}>Full Name</div>
+            <div style={styles.headerName}>{fullName}</div>
           </div>
         </div>
         <div style={styles.headerRight}>
-          {/* Placeholder account actions */}
-          <a href="/login" style={styles.link}>Login</a>
-          <span style={{ margin: '0 8px' }}>|</span>
           <a href="/index" style={styles.link}>Home</a>
         </div>
       </header>
 
       {/* SUB-HEADER: avatar + publish + completion */}
       <div style={styles.subHeader}>
-        <div style={styles.avatar} />
+        {athlete?.profile_picture_url
+          ? <img src={athlete.profile_picture_url} alt="Avatar" style={{ ...styles.avatar, objectFit: 'cover' }} />
+          : <div style={styles.avatar} />
+        }
+
         <div style={styles.publishRow}>
-          <div style={styles.publishDot} />
-          <span style={styles.publishText}>Profile status: Unpublished</span>
+          <div style={{ ...styles.publishDot, background: isPublished ? '#2ECC71' : '#D9534F' }} />
+          <span style={styles.publishText}>
+            Profile status: {isPublished ? 'Published' : 'Unpublished'}
+          </span>
+          <button
+            onClick={togglePublish}
+            disabled={!athlete || savingPublish}
+            style={styles.publishBtn}
+            title={isPublished ? 'Unpublish profile' : 'Publish profile'}
+          >
+            {savingPublish ? 'Saving…' : (isPublished ? 'Unpublish' : 'Publish')}
+          </button>
         </div>
+
         <div style={styles.progressWrap}>
           <div style={styles.progressLabel}>Profile completion</div>
           <div style={styles.progressBar}>
-            <div style={{ ...styles.progressFill, width: '40%' }} />
+            <div style={{ ...styles.progressFill, width: `${completion}%` }} />
           </div>
-          <div style={styles.progressPct}>40%</div>
+          <div style={styles.progressPct}>{completion}%</div>
         </div>
       </div>
 
@@ -68,12 +145,18 @@ export default function Dashboard() {
 
         {/* CONTENT PANEL (placeholder) */}
         <section style={styles.panel}>
-          <h2 style={styles.panelTitle}>{sectionObj?.title}</h2>
-          <div style={styles.panelBody}>
-            <p style={styles.placeholder}>
-              TODO — fields and Save for “{sectionObj?.title}” will render here.
-            </p>
-          </div>
+          {loading ? (
+            <div style={styles.skeleton}>Loading…</div>
+          ) : (
+            <>
+              <h2 style={styles.panelTitle}>{sectionObj?.title}</h2>
+              <div style={styles.panelBody}>
+                <p style={styles.placeholder}>
+                  TODO — fields and Save for “{sectionObj?.title}” will render here.
+                </p>
+              </div>
+            </>
+          )}
         </section>
       </main>
     </div>
@@ -96,9 +179,14 @@ const styles = {
   subHeader: { display: 'flex', alignItems: 'center', gap: 24, padding: '12px 24px',
     borderBottom: '1px solid #E0E0E0', background: '#FFFFFF' },
   avatar: { width: 56, height: 56, borderRadius: '50%', background: '#EEE' },
-  publishRow: { display: 'flex', alignItems: 'center', gap: 8 },
-  publishDot: { width: 10, height: 10, borderRadius: '50%', background: '#D9534F' },
+
+  publishRow: { display: 'flex', alignItems: 'center', gap: 10 },
+  publishDot: { width: 10, height: 10, borderRadius: '50%' },
   publishText: { fontSize: 12, opacity: 0.8 },
+  publishBtn: {
+    fontSize: 12, padding: '6px 10px', borderRadius: 8,
+    border: '1px solid #E0E0E0', background: '#FFF', cursor: 'pointer'
+  },
 
   progressWrap: { display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' },
   progressLabel: { fontSize: 12, opacity: 0.7 },
@@ -137,5 +225,7 @@ const styles = {
   },
   panelTitle: { fontSize: 18, margin: '4px 0 12px 0' },
   panelBody: { padding: 8 },
-  placeholder: { color: '#666' }
+  placeholder: { color: '#666' },
+
+  skeleton: { padding: 16, color: '#666', fontStyle: 'italic' }
 };
