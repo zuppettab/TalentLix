@@ -23,58 +23,73 @@ export default function Dashboard() {
   const [athlete, setAthlete] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingPublish, setSavingPublish] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
 
   // Carica utente e profilo atleta
   useEffect(() => {
     let mounted = true;
+  
     (async () => {
       try {
+        // 1) Controllo sessione locale (evita flicker)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          if (mounted) setAuthReady(true);
+          router.replace('/login');
+          return;
+        }
+  
+        // 2) Verifica utente lato server
         const { data: { user: u }, error: userErr } = await supabase.auth.getUser();
-        if (userErr) throw userErr;
-        if (!u) {
+        if (userErr || !u) {
+          if (mounted) setAuthReady(true);
           router.replace('/login');
           return;
         }
         if (mounted) setUser(u);
-
+  
+        // 3) Carico profilo atleta
         const { data, error } = await supabase
           .from(ATHLETE_TABLE)
           .select('id, first_name, last_name, profile_picture_url, profile_published, completion_percentage, current_step')
           .eq('id', u.id)
           .single();
-        // --- REDIRECT: profilo base non completo → Wizard ---
-          if (!data) {
-            // Nessun record athlete: prima volta → Wizard Step 1
-            router.replace('/wizard');
-            return;
-          }
-          // Se il Wizard non è completato (current_step > 0) oppure completion < 40 → Wizard
-          const completionVal = Number(data?.completion_percentage ?? 0);
-          if ((data?.current_step && data.current_step > 0) || completionVal < 40) {
-            const step = (data?.current_step && data.current_step > 0) ? String(data.current_step) : null;
-            router.replace(step ? `/wizard?step=${step}` : '/wizard');
-            return;
-          }
-
-        if (error) throw error;
+  
+        // Se tabella vuota (prima volta) → Wizard
+        if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
+        if (!data) {
+          if (mounted) setAuthReady(true);
+          router.replace('/wizard');
+          return;
+        }
+  
+        // 4) Base profile incompleto → Wizard (allo step giusto se presente)
+        const completionVal = Number(data?.completion_percentage ?? 0);
+        if ((data?.current_step && data.current_step > 0) || completionVal < 40) {
+          const step = (data?.current_step && data.current_step > 0) ? String(data.current_step) : null;
+          if (mounted) setAuthReady(true);
+          router.replace(step ? `/wizard?step=${step}` : '/wizard');
+          return;
+        }
+  
         if (mounted) setAthlete(data || null);
       } catch (e) {
         console.error(e);
-        if (mounted) setAthlete(null);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) setAuthReady(true);
       }
     })();
-
-    // aggiorna UI quando cambia lo stato di auth (login/logout in altre pagine)
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+  
+    // Reagisci ai cambi di auth (logout/login da altre pagine)
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = session?.user || null;
       setUser(u);
       if (!u) router.replace('/login');
     });
-
+  
     return () => { mounted = false; sub.subscription?.unsubscribe?.(); };
   }, [router]);
+
 
   const fullName =
     [athlete?.first_name, athlete?.last_name].filter(Boolean).join(' ') || 'Full Name';
