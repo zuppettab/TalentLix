@@ -18,7 +18,8 @@ export default function Dashboard() {
     router.push({ pathname: '/dashboard', query: { ...router.query, section: id } }, undefined, { shallow: true });
   };
 
-  // ---- Stato atleta
+  // ---- Stato auth + atleta
+  const [user, setUser] = useState(null);
   const [athlete, setAthlete] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingPublish, setSavingPublish] = useState(false);
@@ -28,18 +29,18 @@ export default function Dashboard() {
     let mounted = true;
     (async () => {
       try {
-        const { data: userResp, error: userErr } = await supabase.auth.getUser();
+        const { data: { user: u }, error: userErr } = await supabase.auth.getUser();
         if (userErr) throw userErr;
-        const user = userResp?.user;
-        if (!user) {
-          // non loggato → vai al login
+        if (!u) {
           router.replace('/login');
           return;
         }
+        if (mounted) setUser(u);
+
         const { data, error } = await supabase
           .from(ATHLETE_TABLE)
           .select('id, first_name, last_name, profile_picture_url, profile_published, completion_percentage')
-          .eq('id', user.id)
+          .eq('id', u.id)
           .single();
         if (error) throw error;
         if (mounted) setAthlete(data || null);
@@ -50,7 +51,15 @@ export default function Dashboard() {
         if (mounted) setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+
+    // aggiorna UI quando cambia lo stato di auth (login/logout in altre pagine)
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const u = session?.user || null;
+      setUser(u);
+      if (!u) router.replace('/login');
+    });
+
+    return () => { mounted = false; sub.subscription?.unsubscribe?.(); };
   }, [router]);
 
   const fullName =
@@ -79,6 +88,16 @@ export default function Dashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      router.replace('/login');
+    } catch (e) {
+      console.error(e);
+      alert('Logout error');
+    }
+  };
+
   const sectionObj = SECTIONS.find(s => s.id === current);
 
   return (
@@ -92,9 +111,13 @@ export default function Dashboard() {
             <div style={styles.headerName}>{fullName}</div>
           </div>
         </div>
-        <div style={styles.headerRight}>
-          <a href="/index" style={styles.link}>Home</a>
-        </div>
+
+        {/* AUTH CONTROL a destra */}
+        <AuthControl
+          email={user?.email}
+          avatarUrl={athlete?.profile_picture_url}
+          onLogout={handleLogout}
+        />
       </header>
 
       {/* SUB-HEADER: avatar + publish + completion */}
@@ -163,6 +186,24 @@ export default function Dashboard() {
   );
 }
 
+/** Piccolo componente riutilizzabile per login/logout in alto a destra */
+function AuthControl({ email, avatarUrl, onLogout }) {
+  return (
+    <div style={styles.authWrap}>
+      <a href="/index" style={styles.link}>Home</a>
+      <span style={{ margin: '0 8px' }}>|</span>
+      <div style={styles.authBox}>
+        {avatarUrl
+          ? <img src={avatarUrl} alt="Avatar" style={styles.authAvatar} />
+          : <div style={styles.authAvatarPlaceholder} />
+        }
+        <span style={styles.authEmail}>{email || '—'}</span>
+        <button onClick={onLogout} style={styles.logoutBtn} title="Logout">Logout</button>
+      </div>
+    </div>
+  );
+}
+
 const styles = {
   page: { fontFamily: 'Inter, sans-serif', background: '#F8F9FA', minHeight: '100vh', color: '#000' },
 
@@ -173,7 +214,14 @@ const styles = {
   logo: { width: 40, height: 'auto' },
   headerTitle: { fontSize: 18, fontWeight: 700, lineHeight: 1.1 },
   headerName: { fontSize: 14, opacity: 0.7 },
-  headerRight: { display: 'flex', alignItems: 'center' },
+
+  authWrap: { display: 'flex', alignItems: 'center', gap: 12 },
+  authBox: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', border: '1px solid #E0E0E0', borderRadius: 8, background: '#FFF' },
+  authAvatar: { width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' },
+  authAvatarPlaceholder: { width: 28, height: 28, borderRadius: '50%', background: '#EEE' },
+  authEmail: { fontSize: 12, opacity: 0.8 },
+  logoutBtn: { fontSize: 12, padding: '6px 10px', borderRadius: 8, border: '1px solid #E0E0E0', background: '#FFF', cursor: 'pointer' },
+
   link: { color: '#27E3DA', textDecoration: 'none' },
 
   subHeader: { display: 'flex', alignItems: 'center', gap: 24, padding: '12px 24px',
@@ -183,46 +231,20 @@ const styles = {
   publishRow: { display: 'flex', alignItems: 'center', gap: 10 },
   publishDot: { width: 10, height: 10, borderRadius: '50%' },
   publishText: { fontSize: 12, opacity: 0.8 },
-  publishBtn: {
-    fontSize: 12, padding: '6px 10px', borderRadius: 8,
-    border: '1px solid #E0E0E0', background: '#FFF', cursor: 'pointer'
-  },
+  publishBtn: { fontSize: 12, padding: '6px 10px', borderRadius: 8, border: '1px solid #E0E0E0', background: '#FFF', cursor: 'pointer' },
 
   progressWrap: { display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' },
   progressLabel: { fontSize: 12, opacity: 0.7 },
   progressBar: { width: 180, height: 8, background: '#EEE', borderRadius: 999 },
-  progressFill: {
-    height: '100%',
-    background: 'linear-gradient(90deg, #27E3DA 0%, #F7B84E 100%)',
-    borderRadius: 999
-  },
+  progressFill: { height: '100%', background: 'linear-gradient(90deg, #27E3DA 0%, #F7B84E 100%)', borderRadius: 999 },
   progressPct: { fontSize: 12, opacity: 0.8, minWidth: 32, textAlign: 'right' },
 
   main: { display: 'grid', gridTemplateColumns: '240px 1fr', gap: 24, padding: 24 },
   leftNav: { display: 'flex', flexDirection: 'column', gap: 8, position: 'sticky', top: 100, alignSelf: 'start' },
-  navBtn: {
-    textAlign: 'left',
-    padding: '10px 12px',
-    border: '1px solid #E0E0E0',
-    background: '#FFFFFF',
-    borderRadius: 8,
-    cursor: 'pointer',
-    fontSize: 14
-  },
-  navBtnActive: {
-    borderColor: '#27E3DA',
-    boxShadow: '0 0 0 2px rgba(39,227,218,0.15)',
-    background: 'linear-gradient(90deg, rgba(39,227,218,0.08), rgba(247,184,78,0.08))'
-  },
+  navBtn: { textAlign: 'left', padding: '10px 12px', border: '1px solid #E0E0E0', background: '#FFFFFF', borderRadius: 8, cursor: 'pointer', fontSize: 14 },
+  navBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.15)', background: 'linear-gradient(90deg, rgba(39,227,218,0.08), rgba(247,184,78,0.08))' },
 
-  panel: {
-    background: '#FFFFFF',
-    border: '1px solid #E0E0E0',
-    borderRadius: 12,
-    padding: 16,
-    minHeight: 360,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-  },
+  panel: { background: '#FFFFFF', border: '1px solid #E0E0E0', borderRadius: 12, padding: 16, minHeight: 360, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' },
   panelTitle: { fontSize: 18, margin: '4px 0 12px 0' },
   panelBody: { padding: 8 },
   placeholder: { color: '#666' },
