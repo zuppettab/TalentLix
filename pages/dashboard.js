@@ -39,9 +39,23 @@ export default function Dashboard() {
 
         const { data, error } = await supabase
           .from(ATHLETE_TABLE)
-          .select('id, first_name, last_name, profile_picture_url, profile_published, completion_percentage')
+          .select('id, first_name, last_name, profile_picture_url, profile_published, completion_percentage, current_step')
           .eq('id', u.id)
           .single();
+        // --- REDIRECT: profilo base non completo → Wizard ---
+          if (!data) {
+            // Nessun record athlete: prima volta → Wizard Step 1
+            router.replace('/wizard');
+            return;
+          }
+          // Se il Wizard non è completato (current_step > 0) oppure completion < 40 → Wizard
+          const completionVal = Number(data?.completion_percentage ?? 0);
+          if ((data?.current_step && data.current_step > 0) || completionVal < 40) {
+            const step = (data?.current_step && data.current_step > 0) ? String(data.current_step) : null;
+            router.replace(step ? `/wizard?step=${step}` : '/wizard');
+            return;
+          }
+
         if (error) throw error;
         if (mounted) setAthlete(data || null);
       } catch (e) {
@@ -69,7 +83,14 @@ export default function Dashboard() {
   const completion = Math.min(100, Math.max(0, Number(athlete?.completion_percentage ?? 40)));
 
   const togglePublish = async () => {
-    if (!athlete) return;
+            if (!athlete) return;
+        const completionVal = Number(athlete?.completion_percentage ?? 0);
+        // Non permettere publish se il profilo base non è completo
+        if (completionVal < 40 || (athlete?.current_step && athlete.current_step > 0)) {
+          alert('Complete your base profile in the Wizard before publishing.');
+          router.replace('/wizard');
+          return;
+        }
     try {
       setSavingPublish(true);
       const { data, error } = await supabase
