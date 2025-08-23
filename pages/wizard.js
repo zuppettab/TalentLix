@@ -158,19 +158,37 @@ useEffect(() => {
               if (ageError) throw ageError;
             }
       
-          } else if (step === 2) {
-            // Aggiorna dati contatto Step 2
-            const { error } = await supabase.from('athlete').update({
-              phone: formData.phone,
-              residence_city: formData.residence_city,
-              residence_country: formData.residence_country,
-              native_language: formData.native_language,
-              additional_language: formData.additional_language,
-              profile_picture_url: formData.profile_picture_url,
-              current_step: nextStep,
-              completion_percentage: calcCompletion(nextStep),
-            }).eq('id', user.id);
-            if (error) throw error;
+            } else if (step === 2) {
+              // Aggiorna dati contatto Step 2 — NON toccare phone se non verified
+              const updatePayload = {
+                residence_city: formData.residence_city,
+                residence_country: formData.residence_country,
+                native_language: formData.native_language,
+                additional_language: formData.additional_language,
+                profile_picture_url: formData.profile_picture_url,
+                current_step: nextStep,
+                completion_percentage: calcCompletion(nextStep),
+              };
+            
+              const digits = (v) => (v ? String(v).replace(/\D/g, '') : '');
+              const currentDbPhone = athlete?.phone || '';
+            
+              // Se l’utente NON ha cambiato il numero, mantieni quello DB
+              if (digits(formData.phone) === digits(currentDbPhone)) {
+                updatePayload.phone = currentDbPhone;
+              }
+              // Se l’utente ha cambiato e il numero è VERIFICATO, salva il nuovo
+              else if (phoneVerified) {
+                updatePayload.phone = formData.phone;
+              }
+              // Altrimenti NON mettere `phone` nel payload → il DB resta col numero verificato precedente
+            
+              const { error } = await supabase
+                .from('athlete')
+                .update(updatePayload)
+                .eq('id', user.id);
+              if (error) throw error;
+
       
           } else if (step === 3) {
             // Insert esperienza sportiva (con previous_team + years_experience) + avanzamento
@@ -558,6 +576,29 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         );
   
       // ✅ Auto-verify ONLY if: same number + confirmed + phone identity verified
+      // 🔎 App-level verification (contacts_verification)
+          const { data: cvRows } = await supabase
+            .from('contacts_verification')
+            .select('phone_number, phone_verified')
+            .eq('athlete_id', authUser.id)
+            .limit(1);
+          
+          const cv = Array.isArray(cvRows) && cvRows[0];
+          const digits = (v) => (v ? String(v).replace(/\D/g, '') : '');
+          const cvOk =
+            cv?.phone_verified === true &&
+            formData.phone &&
+            cv?.phone_number &&
+            digits(formData.phone) === digits(cv.phone_number);
+          
+          // Se risulta verified a livello applicativo, allinea subito la UI e termina qui
+          if (cvOk && !phoneVerified) {
+            setPhoneVerified(true);
+            setOtpMessage('Phone already verified ✔');
+            setOtpSent(false);
+            return;
+          }
+
      if (sameNumber && (confirmed || phoneIdVerified) && !phoneVerified) {
         setPhoneVerified(true);
         setOtpMessage('Phone already verified ✔');
@@ -633,19 +674,28 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         }
 
       // 🔑 bypass dev
-      if (otpCode === '999999') {
-        setPhoneVerified(true);
-        setOtpMessage('Phone verified ✔ (bypass mode)');
-        const { error: dbError } = await supabase
-          .from('contacts_verification')
-          .upsert(
-            { athlete_id: user.id, phone_number: formData.phone, phone_verified: true },
-            { onConflict: 'athlete_id' }
-          );
-        setOtpDebug({ op: 'bypass-verify', dbError: dbError?.message || null });
-        return;
-      }
-
+        if (otpCode === '999999') {
+          setPhoneVerified(true);
+          setOtpMessage('Phone verified ✔ (bypass mode)');
+        
+          // 1) Stato applicativo
+          const { error: dbError } = await supabase
+            .from('contacts_verification')
+            .upsert(
+              { athlete_id: user.id, phone_number: formData.phone, phone_verified: true },
+              { onConflict: 'athlete_id' }
+            );
+        
+          // 2) Commit su ATHLETE (fonte “numero verificato”)
+          await supabase
+            .from('athlete')
+            .update({ phone: formData.phone })
+            .eq('id', user.id);
+        
+          setOtpDebug({ op: 'bypass-verify', dbError: dbError?.message || null });
+          return;
+        }
+      
       const started = Date.now();
       const { data, error } = await supabase.auth.verifyOtp({
         phone: formData.phone,
@@ -669,6 +719,10 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
       setPhoneVerified(true);
       setOtpMessage('Phone verified ✔');
+      await supabase
+        .from('athlete')
+        .update({ phone: formData.phone })
+        .eq('id', user.id);
 
       // Stato “affidabilità contatto” nel tuo schema applicativo
       const { error: dbError } = await supabase
