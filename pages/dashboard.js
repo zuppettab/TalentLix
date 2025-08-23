@@ -8,9 +8,6 @@ const ATHLETE_TABLE = 'athlete'; // usa il nome reale della tabella
 export default function Dashboard() {
   const router = useRouter();
   
-if (!authReady) {
-  return <div style={{ padding: 24, fontFamily: 'Inter, sans-serif' }}>Checking session…</div>;
-}
   // ---- URL state: sezione attiva
   const current = useMemo(() => {
     const raw = Array.isArray(router.query.section) ? router.query.section[0] : router.query.section;
