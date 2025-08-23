@@ -562,7 +562,6 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
   const [otpCode, setOtpCode] = useState('');
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [otpMessage, setOtpMessage] = useState('');
-  const [otpDebug, setOtpDebug] = useState(null); // 👈 pannello debug
 
   // ⏱️ Countdown resend & TTL codice
   const [cooldown, setCooldown] = useState(0);
@@ -664,7 +663,6 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session) {
       setOtpMessage('Session expired. Please sign in again.');
-      setOtpDebug({ op: 'getSession', error: error?.message || 'no-session' });
       return false;
     }
     return true;
@@ -693,7 +691,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
     setOtpSent(true);
     setCooldown(COOLDOWN_SECONDS);
     setExpiresIn(OTP_TTL_SECONDS);
-    setOtpMessage('OTP requested. Check your SMS (or use 999999 in dev).');
+    setOtpMessage('OTP requested. Check your SMS.');
   } catch (e) {
     setOtpMessage(`Send error: ${e?.message || String(e)}`);
   }
@@ -701,34 +699,11 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
 
 
-  // ── Conferma OTP (phone_change) + bypass 999999
+  // ── Conferma OTP (phone_change)
   const confirmCode = async () => {
     try {
           if (expiresIn <= 0) {
           setOtpMessage('The code has expired. Please request a new one.');
-          return;
-        }
-
-      // 🔑 bypass dev
-        if (otpCode === '999999') {
-          setPhoneVerified(true);
-          setOtpMessage('Phone verified ✔ (bypass mode)');
-        
-          // 1) Stato applicativo
-          const { error: dbError } = await supabase
-            .from('contacts_verification')
-            .upsert(
-              { athlete_id: user.id, phone_number: formData.phone, phone_verified: true },
-              { onConflict: 'athlete_id' }
-            );
-        
-          // 2) Commit su ATHLETE (fonte “numero verificato”)
-          await supabase
-            .from('athlete')
-            .update({ phone: formData.phone })
-            .eq('id', user.id);
-        
-          setOtpDebug({ op: 'bypass-verify', dbError: dbError?.message || null });
           return;
         }
       
@@ -737,15 +712,6 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         phone: formData.phone,
         token: otpCode,
         type: 'phone_change',
-      });
-
-      setOtpDebug({
-        op: 'verifyOtp(phone_change)',
-        tookMs: Date.now() - started,
-        phone: formData.phone,
-        tokenLen: otpCode?.length || 0,
-        error: error ? { message: error.message, status: error.status, name: error.name } : null,
-        data
       });
 
       if (error) {
@@ -770,7 +736,6 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
       if (dbError) setOtpMessage(prev => `${prev} (DB warn: ${dbError.message})`);
     } catch (e) {
       setOtpMessage(`Verification error: ${e?.message || String(e)}`);
-      setOtpDebug({ op: 'verifyOtp(phone_change)', exception: String(e) });
     }
   };
 
@@ -919,14 +884,6 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
             {otpMessage && (
               <div style={{ fontSize: '0.9rem', color: '#444' }}>{otpMessage}</div>
-            )}
-
-            {/* 🔍 Pannellino debug */}
-            {otpDebug && (
-              <details style={{ textAlign: 'left', fontSize: '12px', background:'#f8f9fa', padding:'8px', borderRadius:'6px' }} open>
-                <summary style={{ cursor: 'pointer', fontWeight: 600 }}>OTP debug</summary>
-                <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{JSON.stringify(otpDebug, null, 2)}</pre>
-              </details>
             )}
           </div>
         )}
