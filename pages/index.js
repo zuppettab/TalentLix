@@ -133,11 +133,11 @@ const styles = {
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
-    boxSizing: 'border-box',     // aggiungi questa riga
+    boxSizing: 'border-box',
   },
   // CARD più piccole e contenuto centrato
   panel: {
-    flex: '1 1 320px',         // ↓ base più compatta
+    flex: '1 1 320px',
     maxWidth: 420,
     width: '100%',
     background: '#F8F9FA',
@@ -206,7 +206,7 @@ const styles = {
   buttonSecondary: {
     background: '#FFFFFF',
     color: '#000000',
-    border: '1px solid '#E0E0E0',
+    border: '1px solid #E0E0E0',   // ← fixed
   },
   footer: {
     padding: '1rem 1.5rem',
