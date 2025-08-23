@@ -783,9 +783,9 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
           </button>
           <div style={{ marginTop: '6px', fontSize: '12px', color: '#555', textAlign: 'left' }}>
             {cooldown > 0 ? (
-              <span>Reinvia tra {fmtSecs(cooldown)}</span>
+              <span>Resend in {fmtSecs(cooldown)}</span>
             ) : (
-              otpSent && <span>Puoi reinviare ora</span>
+              otpSent && <span>You can resend now</span>
             )}
             {expiresIn > 0 && (
               <span style={{ marginLeft: 8 }}>• Code expires in {fmtSecs(expiresIn)}</span>
