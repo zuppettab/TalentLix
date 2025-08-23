@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { SECTIONS, DEFAULT_SECTION, isValidSection } from '../utils/dashboardSections';
-import { supabase } from '../utils/supabaseClient';import PersonalPanel from '../sections/personal/PersonalPanel';
+import { supabase } from '../utils/supabaseClient';
+import PersonalPanel from '../sections/personal/PersonalPanel';
 
 const ATHLETE_TABLE = 'athlete'; // usa il nome reale della tabella
 
@@ -28,7 +29,7 @@ export default function Dashboard() {
   // Carica utente e profilo atleta
   useEffect(() => {
     let mounted = true;
-  
+    setLoading(true);
     (async () => {
       try {
         // 1) Controllo sessione locale (evita flicker)
@@ -75,9 +76,13 @@ export default function Dashboard() {
         if (mounted) setAthlete(data || null);
       } catch (e) {
         console.error(e);
-      } finally {
-        if (mounted) setAuthReady(true);
+   } finally {
+      if (mounted) {
+        setLoading(false);   // <-- mancava!
+        setAuthReady(true);
       }
+    }
+
     })();
   
     // Reagisci ai cambi di auth (logout/login da altre pagine)
