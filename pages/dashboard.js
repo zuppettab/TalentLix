@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { SECTIONS, DEFAULT_SECTION, isValidSection } from '../utils/dashboardSections';
-import { supabase } from '../utils/supabaseClient';
+import { supabase } from '../utils/supabaseClient';import PersonalPanel from '../sections/personal/PersonalPanel';
 
 const ATHLETE_TABLE = 'athlete'; // usa il nome reale della tabella
 
@@ -202,21 +202,26 @@ export default function Dashboard() {
           ))}
         </nav>
 
-        {/* CONTENT PANEL (placeholder) */}
-        <section style={styles.panel}>
-          {loading ? (
-            <div style={styles.skeleton}>Loading…</div>
-          ) : (
-            <>
-              <h2 style={styles.panelTitle}>{sectionObj?.title}</h2>
-              <div style={styles.panelBody}>
+      {/* CONTENT PANEL */}
+      <section style={styles.panel}>
+        {loading ? (
+          <div style={styles.skeleton}>Loading…</div>
+        ) : (
+          <>
+            <h2 style={styles.panelTitle}>{sectionObj?.title}</h2>
+            <div style={styles.panelBody}>
+              {current === 'personal' ? (
+                <PersonalPanel athlete={athlete} onSaved={setAthlete} />
+              ) : (
                 <p style={styles.placeholder}>
                   TODO — fields and Save for “{sectionObj?.title}” will render here.
                 </p>
-              </div>
-            </>
-          )}
-        </section>
+              )}
+            </div>
+          </>
+        )}
+      </section>
+
       </main>
     </div>
   );
