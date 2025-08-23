@@ -140,7 +140,10 @@ export default function Dashboard() {
   };
 
   const sectionObj = SECTIONS.find(s => s.id === current);
-
+  // blocca il render finché non abbiamo verificato la sessione
+    if (!authReady) {
+      return <div style={{ padding: 24, fontFamily: 'Inter, sans-serif' }}>Checking session…</div>;
+    }
   return (
     <div style={styles.page}>
       {/* HEADER */}
