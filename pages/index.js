@@ -1,6 +1,41 @@
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { supabase } from '../utils/supabaseClient';
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const hash = (typeof window !== 'undefined' ? window.location.hash : '') || '';
+        const params = new URLSearchParams(hash.replace('#',''));
+        const type = params.get('type');
+        const errorCode = params.get('error_code');
+        const errorDescription = params.get('error_description');
+
+        if (type === 'signup') {
+          try { alert('Email confirmed ✅'); } catch (e) {}
+        } else if (errorCode === 'otp_expired') {
+          const msg = errorDescription ? decodeURIComponent(errorDescription) : 'Confirmation link expired.';
+          try { alert(`Confirmation failed ❌\n${msg}`); } catch (e) {}
+        }
+
+        // Clean URL hash
+        if (typeof window !== 'undefined' && window.location.hash) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+
+        // Already logged in → dashboard
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) router.push('/dashboard');
+      } catch (e) {
+        // fail silently, do not affect UI
+      }
+    })();
+  }, [router]);
+
   return (
     <div style={styles.page}>
       <header style={styles.header}>
@@ -77,16 +112,16 @@ const styles = {
     marginBottom: '0.9rem',
     filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.15))', // look più “massiccio”
   },
-claim: {
-  fontSize: '2rem',
-  lineHeight: 1.25,
-  margin: 0,
-  fontWeight: 800,
-  letterSpacing: '-0.01em',
-  background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-},
+  claim: {
+    fontSize: '2rem',
+    lineHeight: 1.25,
+    margin: 0,
+    fontWeight: 800,
+    letterSpacing: '-0.01em',
+    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+  },
   main: {
     flex: 1,
     display: 'flex',
@@ -103,17 +138,17 @@ claim: {
   // CARD più piccole e contenuto centrato
   panel: {
     flex: '1 1 320px',         // ↓ base più compatta
-    maxWidth: 420,             // ↓ da 520 → 420
-    width: '100%',               // forza full width su mobile
+    maxWidth: 420,
+    width: '100%',
     background: '#F8F9FA',
     border: '1px solid #E0E0E0',
     borderRadius: 16,
-    padding: '1.25rem',        // ↓ padding più stretto
+    padding: '1.25rem',
     boxShadow: '0 6px 18px rgba(0,0,0,0.06)',
     display: 'flex',
     flexDirection: 'column',
-    textAlign: 'center',       // ← tutto centrato
-    alignItems: 'center',      // ← tutto centrato
+    textAlign: 'center',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
   panelHeader: {
@@ -123,7 +158,7 @@ claim: {
   // ETICHETTA più grande
   badge: {
     display: 'inline-block',
-    fontSize: '0.95rem',       // ↑ da 0.78 → 0.95
+    fontSize: '0.95rem',
     fontWeight: 800,
     padding: '0.35rem 0.75rem',
     borderRadius: 999,
@@ -131,14 +166,14 @@ claim: {
     background: '#FFFFFF',
     marginBottom: 12,
   },
-title: {
-  margin: '0.25rem 0 0.4rem',
-  fontSize: '1.5rem',
-  fontWeight: 800,
-  background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-},
+  title: {
+    margin: '0.25rem 0 0.4rem',
+    fontSize: '1.5rem',
+    fontWeight: 800,
+    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+  },
   text: {
     margin: 0,
     color: '#555555',
@@ -149,7 +184,7 @@ title: {
     gap: '0.6rem',
     marginTop: '1rem',
     flexWrap: 'wrap',
-    justifyContent: 'center',  // ← centrati
+    justifyContent: 'center',
   },
   button: {
     display: 'inline-flex',
@@ -171,7 +206,7 @@ title: {
   buttonSecondary: {
     background: '#FFFFFF',
     color: '#000000',
-    border: '1px solid #E0E0E0',
+    border: '1px solid '#E0E0E0',
   },
   footer: {
     padding: '1rem 1.5rem',
