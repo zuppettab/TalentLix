@@ -16,14 +16,17 @@ export default function VoiceOtpPage({ initialPhone = '', statusMsg = '', approv
         <form method="GET" style={{marginBottom:16}}>
           <div style={s.row}>
             <label style={s.label}>Phone (E.164)</label>
-            <input
+  
+           <input
               name="phone"
               defaultValue={initialPhone}
               placeholder="+393401234567"
-              pattern="^\\+[1-9]\\d{6,14}$"
+              autoComplete="tel"
+              inputMode="tel"
               required
               style={s.input}
             />
+
             <input type="hidden" name="action" value="send" />
           </div>
           <button type="submit" style={s.btn}>Call me and read the code</button>
