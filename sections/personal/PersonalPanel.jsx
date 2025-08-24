@@ -13,7 +13,10 @@ export default function PersonalPanel({ athlete, onSaved }) {
     gender: '',
     nationality: '',
     birth_city: '',
-    native_language: ''
+    native_language: '',
+    additional_language: '',
+    residence_city: '',
+    residence_country: ''
   });
   const [saving, setSaving] = useState(false);
 
@@ -30,7 +33,10 @@ export default function PersonalPanel({ athlete, onSaved }) {
       gender: athlete.gender || '',
       nationality: athlete.nationality || '',
       birth_city: athlete.birth_city || '',
-      native_language: athlete.native_language || ''
+      native_language: athlete.native_language || '',
+      additional_language: athlete.additional_language || '',
+      residence_city: athlete.residence_city || '',
+      residence_country: athlete.residence_country || ''
     });
   }, [athlete]);
 
@@ -78,6 +84,9 @@ export default function PersonalPanel({ athlete, onSaved }) {
         nationality: form.nationality || null,
         birth_city: form.birth_city || null,
         native_language: form.native_language || null,
+        additional_language: form.additional_language || null,
+        residence_city: form.residence_city || null,
+        residence_country: form.residence_country || null,
         ...(parental !== null ? { needs_parental_authorization: parental } : {})
       };
 
@@ -139,6 +148,21 @@ export default function PersonalPanel({ athlete, onSaved }) {
       <div style={styles.field}>
         <label style={styles.label}>Native language</label>
         <input name="native_language" value={form.native_language} onChange={onChange} style={styles.input} />
+      </div>
+
+      <div style={styles.field}>
+        <label style={styles.label}>Additional language</label>
+        <input name="additional_language" value={form.additional_language} onChange={onChange} style={styles.input} />
+      </div>
+
+      <div style={styles.field}>
+        <label style={styles.label}>City of residence</label>
+        <input name="residence_city" value={form.residence_city} onChange={onChange} style={styles.input} />
+      </div>
+
+      <div style={styles.field}>
+        <label style={styles.label}>Country of residence</label>
+        <input name="residence_country" value={form.residence_country} onChange={onChange} style={styles.input} />
       </div>
 
       <div style={styles.saveBar}>
