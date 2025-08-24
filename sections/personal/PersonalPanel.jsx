@@ -1,12 +1,12 @@
 // @ts-check
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase as sb } from '../../utils/supabaseClient';
 const supabase = sb;
 
 const ATHLETE_TABLE = 'athlete';
 
-// Campi obbligatori + messaggi in inglese
+// Required fields + messages (EN)
 const REQUIRED = [
   'first_name',
   'last_name',
@@ -54,6 +54,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
+  const [isMobile, setIsMobile] = useState(false);
 
   const dobRef = useRef(null);
   const today = new Date();
@@ -84,6 +85,15 @@ export default function PersonalPanel({ athlete, onSaved }) {
     setErrors({});
     setStatus({ type: '', msg: '' });
   }, [athlete]);
+
+  // Detect mobile (<=480px)
+  useEffect(() => {
+    const check = () =>
+      setIsMobile(typeof window !== 'undefined' && window.matchMedia('(max-width: 480px)').matches);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Prompt (EN) se lasci con modifiche non salvate
   useEffect(() => {
@@ -150,10 +160,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
   // Live validation onChange + onBlur
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => {
-      const next = { ...prev, [name]: value };
-      return next;
-    });
+    setForm((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }));
     setDirty(true);
     setStatus({ type: '', msg: '' });
@@ -175,7 +182,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
   const isSaveDisabled = saving || !dirty || hasErrors || !allRequiredFilled;
 
   const onSave = async () => {
-    // validazione finale (inline, niente alert)
+    // validazione finale inline
     const newErrors = validateAll();
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
@@ -306,7 +313,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
         </div>
 
         {form.profile_picture_url && (
-          <div style={{ position: 'relative', width: '140px', marginTop: '10px' }}>
+          <div style={{ position: 'relative', width: isMobile ? '120px' : '140px', marginTop: '10px' }}>
             <button
               type="button"
               onClick={() => {
@@ -315,12 +322,12 @@ export default function PersonalPanel({ athlete, onSaved }) {
                 setErrors((prev) => ({ ...prev, profile_picture_url: validateField('profile_picture_url', v) }));
                 setDirty(true);
               }}
-              style={styles.removeBtn}
+              style={{ ...styles.removeBtn, ...(isMobile ? styles.removeBtnMobile : {}) }}
               aria-label="Remove picture"
               title="Remove picture"
             >
               {/* Stile X come Wizard: cerchio + croce */}
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={isMobile ? 14 : 18} height={isMobile ? 14 : 18} fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="11" />
                 <line x1="9" y1="9" x2="15" y2="15" />
                 <line x1="15" y1="9" x2="9" y2="15" />
@@ -395,7 +402,16 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 0
+    padding: 0,
+    zIndex: 2
+  },
+  removeBtnMobile: {
+    top: '-12px',
+    right: '-12px',
+    width: '22px',
+    height: '22px',
+    borderWidth: '1px',
+    zIndex: 2
   },
   saveBar: { gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8 },
   saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8, border: '1px solid #E0E0E0', background: '#FFF', cursor: 'pointer' }
