@@ -132,7 +132,6 @@ export default function PersonalPanel({ athlete, onSaved }) {
           <option value="M">M</option>
           <option value="F">F</option>
         </select>
-        <div style={styles.hint}>Allowed values: M/F.</div>
       </div>
 
       <div style={styles.field}>
