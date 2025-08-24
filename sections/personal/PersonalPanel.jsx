@@ -55,6 +55,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
   const [afterSavePrompt, setAfterSavePrompt] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const dobRef = useRef(null);
   const today = new Date();
@@ -86,6 +87,15 @@ export default function PersonalPanel({ athlete, onSaved }) {
     setStatus({ type: '', msg: '' });
     setAfterSavePrompt(false);
   }, [athlete]);
+
+  // Detect mobile (<=480px)
+  useEffect(() => {
+    const check = () =>
+      setIsMobile(typeof window !== 'undefined' && window.matchMedia('(max-width: 480px)').matches);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Prompt (EN) se lasci con modifiche non salvate
   useEffect(() => {
@@ -164,7 +174,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
     setErrors((prev) => ({ ...prev, [name]: validateField(name, form[name]) }));
   };
 
-  // Stato del pulsante Save
+  // Stato del pulsante Save (robusto anche su iOS)
   const allRequiredFilled = useMemo(() => {
     for (const k of REQUIRED) {
       const err = validateField(k, form[k]);
@@ -217,7 +227,10 @@ export default function PersonalPanel({ athlete, onSaved }) {
       onSaved?.(data);
       setDirty(false);
       setStatus({ type: 'success', msg: 'Saved ✓' });
-      setAfterSavePrompt(true); // mostra CTA Leave/Stay
+      setAfterSavePrompt(true);
+
+      // auto-hide del banner dopo 5s
+      setTimeout(() => setAfterSavePrompt(false), 5000);
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Save failed. Please try again.' });
@@ -226,6 +239,25 @@ export default function PersonalPanel({ athlete, onSaved }) {
       setSaving(false);
     }
   };
+
+  // Stile dinamico del bottone Save (contrasto forte)
+  const saveBtnStyle = isSaveDisabled
+    ? {
+        ...styles.saveBtn,
+        background: '#EEE',
+        color: '#999',
+        border: '1px solid #E0E0E0',
+        opacity: 1,
+        cursor: 'not-allowed',
+        pointerEvents: 'none'
+      }
+    : {
+        ...styles.saveBtn,
+        background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+        color: '#fff',
+        border: 'none',
+        cursor: 'pointer'
+      };
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSave(); }} style={styles.formGrid}>
@@ -273,7 +305,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
         {errors.gender && <div style={styles.error}>{errors.gender}</div>}
       </div>
 
-      {/* Profile picture (stile Wizard: X in header sopra l’immagine, senza cerchio grigio) */}
+      {/* Profile picture */}
       <div style={styles.field}>
         <label style={styles.label}>Profile picture *</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -313,9 +345,16 @@ export default function PersonalPanel({ athlete, onSaved }) {
         </div>
 
         {form.profile_picture_url && (
-          <div style={{ position: 'relative', width: '50%', minWidth: 120, maxWidth: 220, marginTop: '10px' }}>
-            {/* Header con pulsante X (niente border grigio, niente sfondo) */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
+          <div
+            style={{
+              position: 'relative',
+              width: isMobile ? '100%' : '220px',
+              maxWidth: '100%',
+              marginTop: '10px'
+            }}
+          >
+            {/* MOBILE: X assoluta fuori dall’angolo destro alto (non copre l’immagine) */}
+            {isMobile ? (
               <button
                 type="button"
                 onClick={() => {
@@ -325,26 +364,37 @@ export default function PersonalPanel({ athlete, onSaved }) {
                   setDirty(true);
                   setAfterSavePrompt(false);
                 }}
-                style={styles.removeBtnHeader}
+                style={styles.removeBtnMobileAbsolute}
                 aria-label="Remove picture"
                 title="Remove picture"
               >
-                {/* Identico al Wizard: cerchio nero + X */}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                     width="18" height="18" fill="none" stroke="black"
-                     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="11" />
-                  <line x1="9" y1="9" x2="15" y2="15" />
-                  <line x1="15" y1="9" x2="9" y2="15" />
-                </svg>
+                <IconX small />
               </button>
-            </div>
+            ) : (
+              // DESKTOP: X in header (come Wizard)
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const v = '';
+                    setForm((prev) => ({ ...prev, profile_picture_url: v }));
+                    setErrors((prev) => ({ ...prev, profile_picture_url: validateField('profile_picture_url', v) }));
+                    setDirty(true);
+                    setAfterSavePrompt(false);
+                  }}
+                  style={styles.removeBtnHeader}
+                  aria-label="Remove picture"
+                  title="Remove picture"
+                >
+                  <IconX />
+                </button>
+              </div>
+            )}
 
-            {/* Immagine */}
             <img
               src={form.profile_picture_url}
               alt="Profile"
-              style={{ width: '100%', height: 'auto', borderRadius: '8px' }}
+              style={{ width: '100%', height: 'auto', borderRadius: 8 }}
             />
           </div>
         )}
@@ -353,43 +403,31 @@ export default function PersonalPanel({ athlete, onSaved }) {
 
       {/* Status + Save */}
       <div style={styles.saveBar}>
-        <div aria-live="polite" style={{ marginRight: 'auto', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-          {status.msg && (
-            <span style={{ color: status.type === 'success' ? '#0a7' : '#b00', fontWeight: 600 }}>
-              {status.msg}
-            </span>
-          )}
-          {/* Prompt post-salvataggio: Leave / Stay */}
-          {afterSavePrompt && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <span>— Leave this page?</span>
-              <button
-                type="button"
-                onClick={() => router.back()}
-                style={{ ...styles.linkBtn, color: '#0a7' }}
-              >
+        <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {status.type === 'success' && (
+            <div role="status" aria-live="polite" style={styles.toastSuccess}>
+              <strong>Saved ✓</strong>
+              <span style={{ marginLeft: 8 }}>— Leave this page?</span>
+              <button type="button" onClick={() => router.back()} style={{ ...styles.linkBtn, color: '#0a7' }}>
                 Leave
               </button>
-              <button
-                type="button"
-                onClick={() => setAfterSavePrompt(false)}
-                style={styles.linkBtn}
-              >
+              <button type="button" onClick={() => setAfterSavePrompt(false)} style={styles.linkBtn}>
                 Stay
               </button>
-            </span>
+            </div>
+          )}
+          {status.type === 'error' && (
+            <div role="status" aria-live="polite" style={styles.toastError}>
+              {status.msg}
+            </div>
           )}
         </div>
+
         <button
           type="submit"
           disabled={isSaveDisabled}
           onClick={(e) => { if (isSaveDisabled) e.preventDefault(); }}
-          style={{
-            ...styles.saveBtn,
-            opacity: isSaveDisabled ? 0.5 : 1,
-            cursor: isSaveDisabled ? 'not-allowed' : 'pointer',
-            pointerEvents: isSaveDisabled ? 'none' : 'auto'
-          }}
+          style={saveBtnStyle}
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
@@ -415,6 +453,19 @@ function Field({ label, name, value, onChange, onBlur, error }) {
   );
 }
 
+function IconX({ small }) {
+  const s = small ? 14 : 18;
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+         width={s} height={s} fill="none" stroke="black"
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="11" />
+      <line x1="9" y1="9" x2="15" y2="15" />
+      <line x1="15" y1="9" x2="9" y2="15" />
+    </svg>
+  );
+}
+
 const styles = {
   formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' },
   field: { display: 'flex', flexDirection: 'column', gap: 6 },
@@ -427,25 +478,69 @@ const styles = {
     background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
     color: '#fff',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: 8,
     padding: '0.5rem 1rem',
     cursor: 'pointer',
     fontWeight: 'bold'
   },
 
-  // X come nel Wizard ma SENZA cerchio grigio (niente border/sfondo sul bottone)
+  // X header (desktop): solo icona, niente bordo/sfondo
   removeBtnHeader: {
     background: 'transparent',
     border: 'none',
-    borderRadius: '0',
-    width: '28px',
-    height: '28px',
+    width: 28,
+    height: 28,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 0,
     WebkitTapHighlightColor: 'transparent'
+  },
+
+  // X mobile: posizionata nell'angolo in alto a destra dell'immagine, leggermente FUORI
+  removeBtnMobileAbsolute: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    transform: 'translate(70%, -70%)', // spinge ancora un po’ più a destra/su
+    background: 'transparent',
+    border: 'none',
+    width: 24,
+    height: 24,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
+    zIndex: 3,
+    WebkitTapHighlightColor: 'transparent'
+  },
+
+  // Toasts
+  toastSuccess: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    background: '#E6FAF0',
+    color: '#0a7',
+    border: '1px solid #B7F0CF',
+    borderRadius: 8,
+    padding: '6px 10px',
+    fontSize: 12,
+    fontWeight: 600
+  },
+  toastError: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    background: '#FFECEC',
+    color: '#b00',
+    border: '1px solid #FFB3B3',
+    borderRadius: 8,
+    padding: '6px 10px',
+    fontSize: 12,
+    fontWeight: 600
   },
 
   linkBtn: {
@@ -460,5 +555,5 @@ const styles = {
   },
 
   saveBar: { gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8 },
-  saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8, border: '1px solid #E0E0E0', background: '#FFF' }
+  saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8 }
 };
