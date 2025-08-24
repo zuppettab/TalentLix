@@ -64,7 +64,27 @@ export default function Dashboard() {
 
         const { data, error } = await supabase
           .from(ATHLETE_TABLE)
-          .select('id, first_name, last_name, profile_picture_url, profile_published, completion_percentage, current_step')
+          .select(`
+              id,
+              first_name,
+              last_name,
+              date_of_birth,
+              gender,
+              nationality,
+              birth_city,
+              native_language,
+              additional_language,
+              residence_city,
+              residence_country,
+              phone,
+              profile_picture_url,
+              profile_published,
+              completion_percentage,
+              current_step,
+              needs_parental_authorization,
+              seeking_team
+            `)
+
           .eq('id', u.id)
           .single();
 
