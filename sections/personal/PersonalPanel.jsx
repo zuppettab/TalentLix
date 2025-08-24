@@ -20,14 +20,15 @@ export default function PersonalPanel({ athlete, onSaved }) {
     profile_picture_url: ''
   });
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const dobRef = useRef(null);
   const today = new Date();
-  const maxDateObj = new Date(today.getFullYear() - 10, today.getMonth(), today.getDate()); // max 10 anni fa
-  const minDateObj = new Date(today.getFullYear() - 60, today.getMonth(), today.getDate()); // min 60 anni fa
+  const maxDateObj = new Date(today.getFullYear() - 10, today.getMonth(), today.getDate());
+  const minDateObj = new Date(today.getFullYear() - 60, today.getMonth(), today.getDate());
   const toISO = (d) => d.toISOString().slice(0, 10);
 
-  // Prefill dati esistenti
+  // Prefill
   useEffect(() => {
     if (!athlete) return;
     const isoDOB = athlete.date_of_birth
@@ -51,6 +52,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
   const onChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: '' })); // reset errore su change
   };
 
   const getAge = (yyyy_mm_dd) => {
@@ -64,20 +66,25 @@ export default function PersonalPanel({ athlete, onSaved }) {
     return age;
   };
 
-  const onSave = async () => {
-    if (!athlete) return;
+  const validate = () => {
+    const newErrors = {};
+    if (!form.first_name?.trim()) newErrors.first_name = "First name is required";
+    if (!form.last_name?.trim()) newErrors.last_name = "Last name is required";
+    if (!form.date_of_birth) newErrors.date_of_birth = "Date of birth is required";
+    if (!form.gender) newErrors.gender = "Gender is required";
+    if (!form.nationality) newErrors.nationality = "Nationality is required";
+    if (!form.birth_city) newErrors.birth_city = "City of birth is required";
+    if (!form.native_language) newErrors.native_language = "Native language is required";
+    if (!form.residence_city) newErrors.residence_city = "City of residence is required";
+    if (!form.residence_country) newErrors.residence_country = "Country of residence is required";
+    if (!form.profile_picture_url) newErrors.profile_picture_url = "Profile picture is required";
+    return newErrors;
+  };
 
-    // Validazioni obbligatorie
-    if (!form.first_name?.trim()) return alert("First name is required.");
-    if (!form.last_name?.trim()) return alert("Last name is required.");
-    if (!form.date_of_birth) return alert("Date of birth is required.");
-    if (!form.gender) return alert("Gender is required.");
-    if (!form.nationality) return alert("Nationality is required.");
-    if (!form.birth_city) return alert("Birth city is required.");
-    if (!form.native_language) return alert("Native language is required.");
-    if (!form.residence_city) return alert("Residence city is required.");
-    if (!form.residence_country) return alert("Residence country is required.");
-    if (!form.profile_picture_url) return alert("Profile picture is required.");
+  const onSave = async () => {
+    const newErrors = validate();
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
 
     try {
       setSaving(true);
@@ -119,15 +126,27 @@ export default function PersonalPanel({ athlete, onSaved }) {
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSave(); }} style={styles.formGrid}>
-      <div style={styles.field}>
-        <label style={styles.label}>First name *</label>
-        <input name="first_name" value={form.first_name} onChange={onChange} style={styles.input} />
-      </div>
-
-      <div style={styles.field}>
-        <label style={styles.label}>Last name *</label>
-        <input name="last_name" value={form.last_name} onChange={onChange} style={styles.input} />
-      </div>
+      {[
+        { name: 'first_name', label: 'First name *' },
+        { name: 'last_name', label: 'Last name *' },
+        { name: 'nationality', label: 'Nationality *' },
+        { name: 'birth_city', label: 'City of birth *' },
+        { name: 'native_language', label: 'Native language *' },
+        { name: 'additional_language', label: 'Additional language (optional)' },
+        { name: 'residence_city', label: 'City of residence *' },
+        { name: 'residence_country', label: 'Country of residence *' }
+      ].map(field => (
+        <div style={styles.field} key={field.name}>
+          <label style={styles.label}>{field.label}</label>
+          <input
+            name={field.name}
+            value={form[field.name]}
+            onChange={onChange}
+            style={{ ...styles.input, borderColor: errors[field.name] ? '#b00' : '#E0E0E0' }}
+          />
+          {errors[field.name] && <div style={styles.error}>{errors[field.name]}</div>}
+        </div>
+      ))}
 
       <div style={styles.field}>
         <label style={styles.label}>Date of birth *</label>
@@ -139,47 +158,24 @@ export default function PersonalPanel({ athlete, onSaved }) {
           onChange={onChange}
           min={toISO(minDateObj)}
           max={toISO(maxDateObj)}
-          style={styles.input}
+          style={{ ...styles.input, borderColor: errors.date_of_birth ? '#b00' : '#E0E0E0' }}
         />
+        {errors.date_of_birth && <div style={styles.error}>{errors.date_of_birth}</div>}
       </div>
 
       <div style={styles.field}>
         <label style={styles.label}>Gender *</label>
-        <select name="gender" value={form.gender} onChange={onChange} style={styles.select}>
+        <select
+          name="gender"
+          value={form.gender}
+          onChange={onChange}
+          style={{ ...styles.select, borderColor: errors.gender ? '#b00' : '#E0E0E0' }}
+        >
           <option value="">—</option>
           <option value="M">M</option>
           <option value="F">F</option>
         </select>
-      </div>
-
-      <div style={styles.field}>
-        <label style={styles.label}>Nationality *</label>
-        <input name="nationality" value={form.nationality} onChange={onChange} style={styles.input} />
-      </div>
-
-      <div style={styles.field}>
-        <label style={styles.label}>City of birth *</label>
-        <input name="birth_city" value={form.birth_city} onChange={onChange} style={styles.input} />
-      </div>
-
-      <div style={styles.field}>
-        <label style={styles.label}>Native language *</label>
-        <input name="native_language" value={form.native_language} onChange={onChange} style={styles.input} />
-      </div>
-
-      <div style={styles.field}>
-        <label style={styles.label}>Additional language</label>
-        <input name="additional_language" value={form.additional_language} onChange={onChange} style={styles.input} />
-      </div>
-
-      <div style={styles.field}>
-        <label style={styles.label}>City of residence *</label>
-        <input name="residence_city" value={form.residence_city} onChange={onChange} style={styles.input} />
-      </div>
-
-      <div style={styles.field}>
-        <label style={styles.label}>Country of residence *</label>
-        <input name="residence_country" value={form.residence_country} onChange={onChange} style={styles.input} />
+        {errors.gender && <div style={styles.error}>{errors.gender}</div>}
       </div>
 
       <div style={styles.field}>
@@ -224,19 +220,41 @@ export default function PersonalPanel({ athlete, onSaved }) {
               const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
               const publicUrl = data?.publicUrl || '';
               setForm((prev) => ({ ...prev, profile_picture_url: publicUrl }));
+              setErrors((prev) => ({ ...prev, profile_picture_url: '' }));
             }}
           />
         </div>
 
         {form.profile_picture_url && (
-          <div style={{ marginTop: '10px' }}>
+          <div style={{ position: 'relative', width: '140px', marginTop: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, profile_picture_url: '' }))}
+                style={{
+                  background: 'rgba(255,255,255,0.9)',
+                  border: '1px solid #ccc',
+                  borderRadius: '50%',
+                  width: '28px',
+                  height: '28px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0,
+                }}
+              >
+                ❌
+              </button>
+            </div>
             <img
               src={form.profile_picture_url}
               alt="Profile"
-              style={{ width: '140px', height: 'auto', borderRadius: '8px' }}
+              style={{ width: '100%', height: 'auto', borderRadius: '8px' }}
             />
           </div>
         )}
+        {errors.profile_picture_url && <div style={styles.error}>{errors.profile_picture_url}</div>}
       </div>
 
       <div style={styles.saveBar}>
@@ -254,6 +272,7 @@ const styles = {
   label: { fontSize: 12, opacity: 0.8 },
   input: { padding: '10px 12px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 14, background: '#FFF' },
   select: { padding: '10px 12px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 14, background: '#FFF' },
+  error: { fontSize: 11, color: '#b00', marginTop: 2 },
   saveBar: { gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', paddingTop: 8 },
   saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8, border: '1px solid #E0E0E0', background: '#FFF', cursor: 'pointer' }
 };
