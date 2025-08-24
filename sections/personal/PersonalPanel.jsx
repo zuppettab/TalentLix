@@ -1,10 +1,38 @@
 // @ts-check
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { supabase as sb } from '../../utils/supabaseClient';
 const supabase = sb;
 
 const ATHLETE_TABLE = 'athlete';
+
+// Campi obbligatori + messaggi in inglese
+const REQUIRED = [
+  'first_name',
+  'last_name',
+  'date_of_birth',
+  'gender',
+  'nationality',
+  'birth_city',
+  'native_language',
+  'residence_city',
+  'residence_country',
+  'profile_picture_url'
+];
+
+const MSG = {
+  first_name: 'First name is required',
+  last_name: 'Last name is required',
+  date_of_birth_required: 'Date of birth is required',
+  date_of_birth_range: 'Date of birth invalid or out of range (10–60y)',
+  gender: 'Gender is required',
+  nationality: 'Nationality is required',
+  birth_city: 'City of birth is required',
+  native_language: 'Native language is required',
+  residence_city: 'City of residence is required',
+  residence_country: 'Country of residence is required',
+  profile_picture_url: 'Profile picture is required',
+};
 
 export default function PersonalPanel({ athlete, onSaved }) {
   const router = useRouter();
@@ -22,10 +50,10 @@ export default function PersonalPanel({ athlete, onSaved }) {
     residence_country: '',
     profile_picture_url: ''
   });
-  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [status, setStatus] = useState({ type: '', msg: '' }); // {type:'success'|'error'|'', msg:''}
+  const [status, setStatus] = useState({ type: '', msg: '' });
 
   const dobRef = useRef(null);
   const today = new Date();
@@ -33,7 +61,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
   const minDateObj = new Date(today.getFullYear() - 60, today.getMonth(), today.getDate());
   const toISO = (d) => d.toISOString().slice(0, 10);
 
-  // Prefill
+  // Prefill dal record athlete
   useEffect(() => {
     if (!athlete) return;
     const isoDOB = athlete.date_of_birth
@@ -57,25 +85,22 @@ export default function PersonalPanel({ athlete, onSaved }) {
     setStatus({ type: '', msg: '' });
   }, [athlete]);
 
-  // Warn on leaving the page with unsaved changes
+  // Prompt (EN) se lasci con modifiche non salvate
   useEffect(() => {
-    // Browser/tab close or hard refresh
     const beforeUnload = (e) => {
       if (!dirty) return;
       e.preventDefault();
-      e.returnValue = ''; // required for Chrome to show the prompt
+      e.returnValue = '';
     };
     window.addEventListener('beforeunload', beforeUnload);
 
-    // In-app route change (Next.js) with custom EN message
-    const onRouteChangeStart = (url) => {
+    const onRouteChangeStart = () => {
       if (!dirty) return;
       const ok = window.confirm('You have unsaved changes. Leave without saving?');
       if (!ok) {
         router.events.emit('routeChangeError');
-        // Throw to cancel the navigation in Next.js
         // eslint-disable-next-line no-throw-literal
-        throw 'Route change aborted by user due to unsaved changes';
+        throw 'Route change aborted due to unsaved changes';
       }
     };
     router.events.on('routeChangeStart', onRouteChangeStart);
@@ -86,31 +111,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
     };
   }, [dirty, router.events]);
 
-  const setField = (name, value) => {
-    setForm((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: '' }));
-    setDirty(true);
-    setStatus({ type: '', msg: '' });
-  };
-
-  const onChange = (e) => {
-    const { name, value } = e.target;
-    setField(name, value);
-
-    // Live validate DOB range to show inline error immediately
-    if (name === 'date_of_birth') {
-      const age = getAge(value);
-      if (age == null || age < 10 || age > 60) {
-        setErrors((prev) => ({
-          ...prev,
-          date_of_birth: 'Date of birth invalid or out of range (10–60y)'
-        }));
-      } else {
-        setErrors((prev) => ({ ...prev, date_of_birth: '' }));
-      }
-    }
-  };
-
+  // Helpers
   const getAge = (yyyy_mm_dd) => {
     if (!yyyy_mm_dd) return null;
     const [y, m, d] = yyyy_mm_dd.split('-').map((n) => parseInt(n, 10));
@@ -123,32 +124,59 @@ export default function PersonalPanel({ athlete, onSaved }) {
     return age;
   };
 
-  const validate = () => {
-    const newErrors = {};
-    if (!form.first_name?.trim()) newErrors.first_name = 'First name is required';
-    if (!form.last_name?.trim()) newErrors.last_name = 'Last name is required';
-
-    if (!form.date_of_birth) {
-      newErrors.date_of_birth = 'Date of birth is required';
-    } else {
-      const age = getAge(form.date_of_birth);
-      if (age == null || age < 10 || age > 60) {
-        newErrors.date_of_birth = 'Date of birth invalid or out of range (10–60y)';
-      }
+  const validateField = (name, value) => {
+    if (name === 'date_of_birth') {
+      if (!value) return MSG.date_of_birth_required;
+      const age = getAge(value);
+      if (age == null || age < 10 || age > 60) return MSG.date_of_birth_range;
+      return '';
     }
-
-    if (!form.gender) newErrors.gender = 'Gender is required';
-    if (!form.nationality) newErrors.nationality = 'Nationality is required';
-    if (!form.birth_city) newErrors.birth_city = 'City of birth is required';
-    if (!form.native_language) newErrors.native_language = 'Native language is required';
-    if (!form.residence_city) newErrors.residence_city = 'City of residence is required';
-    if (!form.residence_country) newErrors.residence_country = 'Country of residence is required';
-    if (!form.profile_picture_url) newErrors.profile_picture_url = 'Profile picture is required';
-    return newErrors;
+    if (REQUIRED.includes(name)) {
+      const v = (value ?? '').toString().trim();
+      if (!v) return MSG[name] || 'This field is required';
+    }
+    return '';
   };
 
+  const validateAll = (state = form) => {
+    const out = {};
+    for (const key of REQUIRED) {
+      const err = validateField(key, state[key]);
+      if (err) out[key] = err;
+    }
+    return out;
+  };
+
+  // Live validation onChange + onBlur
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
+      return next;
+    });
+    setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }));
+    setDirty(true);
+    setStatus({ type: '', msg: '' });
+  };
+
+  const handleBlur = (e) => {
+    const { name } = e.target;
+    setErrors((prev) => ({ ...prev, [name]: validateField(name, form[name]) }));
+  };
+
+  // Stato del pulsante Save
+  const hasErrors = useMemo(() => Object.values(errors).some(Boolean), [errors]);
+  const allRequiredFilled = useMemo(
+    () => Object.keys(validateAll()).length === 0,
+    // ricalcola quando cambiano i valori dei campi obbligatori
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form.first_name, form.last_name, form.date_of_birth, form.gender, form.nationality, form.birth_city, form.native_language, form.residence_city, form.residence_country, form.profile_picture_url]
+  );
+  const isSaveDisabled = saving || !dirty || hasErrors || !allRequiredFilled;
+
   const onSave = async () => {
-    const newErrors = validate();
+    // validazione finale (inline, niente alert)
+    const newErrors = validateAll();
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 
@@ -195,69 +223,14 @@ export default function PersonalPanel({ athlete, onSaved }) {
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSave(); }} style={styles.formGrid}>
-      {/* First/Last */}
-      <Field
-        label="First name *"
-        name="first_name"
-        value={form.first_name}
-        onChange={onChange}
-        error={errors.first_name}
-      />
-      <Field
-        label="Last name *"
-        name="last_name"
-        value={form.last_name}
-        onChange={onChange}
-        error={errors.last_name}
-      />
-
-      {/* Nationality / Birth city */}
-      <Field
-        label="Nationality *"
-        name="nationality"
-        value={form.nationality}
-        onChange={onChange}
-        error={errors.nationality}
-      />
-      <Field
-        label="City of birth *"
-        name="birth_city"
-        value={form.birth_city}
-        onChange={onChange}
-        error={errors.birth_city}
-      />
-
-      {/* Native / Additional language */}
-      <Field
-        label="Native language *"
-        name="native_language"
-        value={form.native_language}
-        onChange={onChange}
-        error={errors.native_language}
-      />
-      <Field
-        label="Additional language (optional)"
-        name="additional_language"
-        value={form.additional_language}
-        onChange={onChange}
-        error={errors.additional_language}
-      />
-
-      {/* Residence */}
-      <Field
-        label="City of residence *"
-        name="residence_city"
-        value={form.residence_city}
-        onChange={onChange}
-        error={errors.residence_city}
-      />
-      <Field
-        label="Country of residence *"
-        name="residence_country"
-        value={form.residence_country}
-        onChange={onChange}
-        error={errors.residence_country}
-      />
+      <Field label="First name *" name="first_name" value={form.first_name} onChange={handleChange} onBlur={handleBlur} error={errors.first_name} />
+      <Field label="Last name *" name="last_name" value={form.last_name} onChange={handleChange} onBlur={handleBlur} error={errors.last_name} />
+      <Field label="Nationality *" name="nationality" value={form.nationality} onChange={handleChange} onBlur={handleBlur} error={errors.nationality} />
+      <Field label="City of birth *" name="birth_city" value={form.birth_city} onChange={handleChange} onBlur={handleBlur} error={errors.birth_city} />
+      <Field label="Native language *" name="native_language" value={form.native_language} onChange={handleChange} onBlur={handleBlur} error={errors.native_language} />
+      <Field label="Additional language (optional)" name="additional_language" value={form.additional_language} onChange={handleChange} onBlur={handleBlur} error={errors.additional_language} />
+      <Field label="City of residence *" name="residence_city" value={form.residence_city} onChange={handleChange} onBlur={handleBlur} error={errors.residence_city} />
+      <Field label="Country of residence *" name="residence_country" value={form.residence_country} onChange={handleChange} onBlur={handleBlur} error={errors.residence_country} />
 
       {/* DOB */}
       <div style={styles.field}>
@@ -267,10 +240,12 @@ export default function PersonalPanel({ athlete, onSaved }) {
           type="date"
           name="date_of_birth"
           value={form.date_of_birth}
-          onChange={onChange}
+          onChange={handleChange}
+          onBlur={handleBlur}
           min={toISO(minDateObj)}
           max={toISO(maxDateObj)}
           style={{ ...styles.input, borderColor: errors.date_of_birth ? '#b00' : '#E0E0E0' }}
+          aria-invalid={!!errors.date_of_birth}
         />
         {errors.date_of_birth && <div style={styles.error}>{errors.date_of_birth}</div>}
       </div>
@@ -281,8 +256,10 @@ export default function PersonalPanel({ athlete, onSaved }) {
         <select
           name="gender"
           value={form.gender}
-          onChange={onChange}
+          onChange={handleChange}
+          onBlur={handleBlur}
           style={{ ...styles.select, height: '40px', borderColor: errors.gender ? '#b00' : '#E0E0E0' }}
+          aria-invalid={!!errors.gender}
         >
           <option value="M">Male</option>
           <option value="F">Female</option>
@@ -294,12 +271,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
       <div style={styles.field}>
         <label style={styles.label}>Profile picture *</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <label
-            htmlFor="profileFile"
-            style={styles.uploadBtn}
-          >
-            Choose file
-          </label>
+          <label htmlFor="profileFile" style={styles.uploadBtn}>Choose file</label>
           <input
             id="profileFile"
             type="file"
@@ -325,7 +297,10 @@ export default function PersonalPanel({ athlete, onSaved }) {
 
               const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
               const publicUrl = data?.publicUrl || '';
-              setField('profile_picture_url', publicUrl);
+              setForm((prev) => ({ ...prev, profile_picture_url: publicUrl }));
+              setErrors((prev) => ({ ...prev, profile_picture_url: validateField('profile_picture_url', publicUrl) }));
+              setDirty(true);
+              setStatus({ type: '', msg: '' });
             }}
           />
         </div>
@@ -334,33 +309,24 @@ export default function PersonalPanel({ athlete, onSaved }) {
           <div style={{ position: 'relative', width: '140px', marginTop: '10px' }}>
             <button
               type="button"
-              onClick={() => setField('profile_picture_url', '')}
+              onClick={() => {
+                const v = '';
+                setForm((prev) => ({ ...prev, profile_picture_url: v }));
+                setErrors((prev) => ({ ...prev, profile_picture_url: validateField('profile_picture_url', v) }));
+                setDirty(true);
+              }}
               style={styles.removeBtn}
               aria-label="Remove picture"
               title="Remove picture"
             >
-              {/* Same icon style as Wizard */}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="black"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              {/* Stile X come Wizard: cerchio + croce */}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="11" />
                 <line x1="9" y1="9" x2="15" y2="15" />
                 <line x1="15" y1="9" x2="9" y2="15" />
               </svg>
             </button>
-            <img
-              src={form.profile_picture_url}
-              alt="Profile"
-              style={{ width: '100%', height: 'auto', borderRadius: '8px' }}
-            />
+            <img src={form.profile_picture_url} alt="Profile" style={{ width: '100%', height: 'auto', borderRadius: '8px' }} />
           </div>
         )}
         {errors.profile_picture_url && <div style={styles.error}>{errors.profile_picture_url}</div>}
@@ -375,7 +341,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
             </span>
           )}
         </div>
-        <button type="submit" disabled={saving || !dirty} style={styles.saveBtn}>
+        <button type="submit" disabled={isSaveDisabled} style={styles.saveBtn}>
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
@@ -383,8 +349,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
   );
 }
 
-/** Small input field component with inline error */
-function Field({ label, name, value, onChange, error }) {
+function Field({ label, name, value, onChange, onBlur, error }) {
   return (
     <div style={styles.field}>
       <label style={styles.label}>{label}</label>
@@ -392,7 +357,9 @@ function Field({ label, name, value, onChange, error }) {
         name={name}
         value={value}
         onChange={onChange}
+        onBlur={onBlur}
         style={{ ...styles.input, borderColor: error ? '#b00' : '#E0E0E0' }}
+        aria-invalid={!!error}
       />
       {error && <div style={styles.error}>{error}</div>}
     </div>
