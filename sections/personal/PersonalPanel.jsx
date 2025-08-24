@@ -54,7 +54,6 @@ export default function PersonalPanel({ athlete, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
-  const [isMobile, setIsMobile] = useState(false);
 
   const dobRef = useRef(null);
   const today = new Date();
@@ -85,15 +84,6 @@ export default function PersonalPanel({ athlete, onSaved }) {
     setErrors({});
     setStatus({ type: '', msg: '' });
   }, [athlete]);
-
-  // Detect mobile (<=480px)
-  useEffect(() => {
-    const check = () =>
-      setIsMobile(typeof window !== 'undefined' && window.matchMedia('(max-width: 480px)').matches);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
 
   // Prompt (EN) se lasci con modifiche non salvate
   useEffect(() => {
@@ -171,17 +161,21 @@ export default function PersonalPanel({ athlete, onSaved }) {
     setErrors((prev) => ({ ...prev, [name]: validateField(name, form[name]) }));
   };
 
-  // Stato del pulsante Save
+  // Stato del pulsante Save (robusto anche su iOS)
+  const allRequiredFilled = useMemo(() => {
+    for (const k of REQUIRED) {
+      const err = validateField(k, form[k]);
+      if (err) return false;
+    }
+    return true;
+  }, [form]);
+
   const hasErrors = useMemo(() => Object.values(errors).some(Boolean), [errors]);
-  const allRequiredFilled = useMemo(
-    () => Object.keys(validateAll()).length === 0,
-    // ricalcola quando cambiano i valori dei campi obbligatori
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [form.first_name, form.last_name, form.date_of_birth, form.gender, form.nationality, form.birth_city, form.native_language, form.residence_city, form.residence_country, form.profile_picture_url]
-  );
   const isSaveDisabled = saving || !dirty || hasErrors || !allRequiredFilled;
 
   const onSave = async () => {
+    if (isSaveDisabled) return; // guard extra per iOS
+
     // validazione finale inline
     const newErrors = validateAll();
     setErrors(newErrors);
@@ -274,7 +268,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
         {errors.gender && <div style={styles.error}>{errors.gender}</div>}
       </div>
 
-      {/* Profile picture */}
+      {/* Profile picture (gestita come nel Wizard: X in header sopra l’immagine, destra) */}
       <div style={styles.field}>
         <label style={styles.label}>Profile picture *</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -313,27 +307,47 @@ export default function PersonalPanel({ athlete, onSaved }) {
         </div>
 
         {form.profile_picture_url && (
-          <div style={{ position: 'relative', width: isMobile ? '120px' : '140px', marginTop: '10px' }}>
-            <button
-              type="button"
-              onClick={() => {
-                const v = '';
-                setForm((prev) => ({ ...prev, profile_picture_url: v }));
-                setErrors((prev) => ({ ...prev, profile_picture_url: validateField('profile_picture_url', v) }));
-                setDirty(true);
-              }}
-              style={{ ...styles.removeBtn, ...(isMobile ? styles.removeBtnMobile : {}) }}
-              aria-label="Remove picture"
-              title="Remove picture"
-            >
-              {/* Stile X come Wizard: cerchio + croce */}
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={isMobile ? 14 : 18} height={isMobile ? 14 : 18} fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="11" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-              </svg>
-            </button>
-            <img src={form.profile_picture_url} alt="Profile" style={{ width: '100%', height: 'auto', borderRadius: '8px' }} />
+          <div style={{ position: 'relative', width: '50%', marginTop: '10px' }}>
+            {/* Header con pulsante X fuori dall’immagine (identico al Wizard) */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const v = '';
+                  setForm((prev) => ({ ...prev, profile_picture_url: v }));
+                  setErrors((prev) => ({ ...prev, profile_picture_url: validateField('profile_picture_url', v) }));
+                  setDirty(true);
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.9)',
+                  border: '1px solid #ccc',
+                  borderRadius: '50%',
+                  width: '28px',
+                  height: '28px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0,
+                }}
+                aria-label="Remove picture"
+                title="Remove picture"
+              >
+                {/* Stessa icona del Wizard */}
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="11" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Immagine sotto (come Wizard) */}
+            <img
+              src={form.profile_picture_url}
+              alt="Profile"
+              style={{ width: '100%', height: 'auto', borderRadius: '8px' }}
+            />
           </div>
         )}
         {errors.profile_picture_url && <div style={styles.error}>{errors.profile_picture_url}</div>}
@@ -348,7 +362,17 @@ export default function PersonalPanel({ athlete, onSaved }) {
             </span>
           )}
         </div>
-        <button type="submit" disabled={isSaveDisabled} style={styles.saveBtn}>
+        <button
+          type="submit"
+          disabled={isSaveDisabled}
+          onClick={(e) => { if (isSaveDisabled) e.preventDefault(); }}
+          style={{
+            ...styles.saveBtn,
+            opacity: isSaveDisabled ? 0.5 : 1,
+            cursor: isSaveDisabled ? 'not-allowed' : 'pointer',
+            pointerEvents: isSaveDisabled ? 'none' : 'auto'
+          }}
+        >
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
@@ -380,6 +404,7 @@ const styles = {
   input: { padding: '10px 12px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 14, background: '#FFF' },
   select: { padding: '10px 12px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 14, background: '#FFF' },
   error: { fontSize: 11, color: '#b00', marginTop: 2 },
+
   uploadBtn: {
     background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
     color: '#fff',
@@ -389,30 +414,7 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 'bold'
   },
-  removeBtn: {
-    position: 'absolute',
-    top: '-8px',
-    right: '-8px',
-    background: 'rgba(255,255,255,0.9)',
-    border: '1px solid #ccc',
-    borderRadius: '50%',
-    width: '28px',
-    height: '28px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 0,
-    zIndex: 2
-  },
-  removeBtnMobile: {
-    top: '-12px',
-    right: '-12px',
-    width: '22px',
-    height: '22px',
-    borderWidth: '1px',
-    zIndex: 2
-  },
+
   saveBar: { gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8 },
-  saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8, border: '1px solid #E0E0E0', background: '#FFF', cursor: 'pointer' }
+  saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8, border: '1px solid #E0E0E0', background: '#FFF' }
 };
