@@ -54,6 +54,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
+  const [afterSavePrompt, setAfterSavePrompt] = useState(false);
 
   const dobRef = useRef(null);
   const today = new Date();
@@ -83,6 +84,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
     setDirty(false);
     setErrors({});
     setStatus({ type: '', msg: '' });
+    setAfterSavePrompt(false);
   }, [athlete]);
 
   // Prompt (EN) se lasci con modifiche non salvate
@@ -154,6 +156,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
     setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }));
     setDirty(true);
     setStatus({ type: '', msg: '' });
+    setAfterSavePrompt(false);
   };
 
   const handleBlur = (e) => {
@@ -161,7 +164,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
     setErrors((prev) => ({ ...prev, [name]: validateField(name, form[name]) }));
   };
 
-  // Stato del pulsante Save (robusto anche su iOS)
+  // Stato del pulsante Save
   const allRequiredFilled = useMemo(() => {
     for (const k of REQUIRED) {
       const err = validateField(k, form[k]);
@@ -174,7 +177,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
   const isSaveDisabled = saving || !dirty || hasErrors || !allRequiredFilled;
 
   const onSave = async () => {
-    if (isSaveDisabled) return; // guard extra per iOS
+    if (isSaveDisabled) return; // guard extra (mobile/iOS)
 
     // validazione finale inline
     const newErrors = validateAll();
@@ -214,9 +217,11 @@ export default function PersonalPanel({ athlete, onSaved }) {
       onSaved?.(data);
       setDirty(false);
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      setAfterSavePrompt(true); // mostra CTA Leave/Stay
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Save failed. Please try again.' });
+      setAfterSavePrompt(false);
     } finally {
       setSaving(false);
     }
@@ -268,7 +273,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
         {errors.gender && <div style={styles.error}>{errors.gender}</div>}
       </div>
 
-      {/* Profile picture (gestita come nel Wizard: X in header sopra l’immagine, destra) */}
+      {/* Profile picture (stile Wizard: X in header sopra l’immagine, senza cerchio grigio) */}
       <div style={styles.field}>
         <label style={styles.label}>Profile picture *</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -302,13 +307,14 @@ export default function PersonalPanel({ athlete, onSaved }) {
               setErrors((prev) => ({ ...prev, profile_picture_url: validateField('profile_picture_url', publicUrl) }));
               setDirty(true);
               setStatus({ type: '', msg: '' });
+              setAfterSavePrompt(false);
             }}
           />
         </div>
 
         {form.profile_picture_url && (
-          <div style={{ position: 'relative', width: '50%', marginTop: '10px' }}>
-            {/* Header con pulsante X fuori dall’immagine (identico al Wizard) */}
+          <div style={{ position: 'relative', width: '50%', minWidth: 120, maxWidth: 220, marginTop: '10px' }}>
+            {/* Header con pulsante X (niente border grigio, niente sfondo) */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
               <button
                 type="button"
@@ -317,24 +323,16 @@ export default function PersonalPanel({ athlete, onSaved }) {
                   setForm((prev) => ({ ...prev, profile_picture_url: v }));
                   setErrors((prev) => ({ ...prev, profile_picture_url: validateField('profile_picture_url', v) }));
                   setDirty(true);
+                  setAfterSavePrompt(false);
                 }}
-                style={{
-                  background: 'rgba(255,255,255,0.9)',
-                  border: '1px solid #ccc',
-                  borderRadius: '50%',
-                  width: '28px',
-                  height: '28px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 0,
-                }}
+                style={styles.removeBtnHeader}
                 aria-label="Remove picture"
                 title="Remove picture"
               >
-                {/* Stessa icona del Wizard */}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {/* Identico al Wizard: cerchio nero + X */}
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                     width="18" height="18" fill="none" stroke="black"
+                     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="11" />
                   <line x1="9" y1="9" x2="15" y2="15" />
                   <line x1="15" y1="9" x2="9" y2="15" />
@@ -342,7 +340,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
               </button>
             </div>
 
-            {/* Immagine sotto (come Wizard) */}
+            {/* Immagine */}
             <img
               src={form.profile_picture_url}
               alt="Profile"
@@ -355,10 +353,30 @@ export default function PersonalPanel({ athlete, onSaved }) {
 
       {/* Status + Save */}
       <div style={styles.saveBar}>
-        <div aria-live="polite" style={{ marginRight: 'auto', fontSize: 12 }}>
+        <div aria-live="polite" style={{ marginRight: 'auto', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
           {status.msg && (
             <span style={{ color: status.type === 'success' ? '#0a7' : '#b00', fontWeight: 600 }}>
               {status.msg}
+            </span>
+          )}
+          {/* Prompt post-salvataggio: Leave / Stay */}
+          {afterSavePrompt && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span>— Leave this page?</span>
+              <button
+                type="button"
+                onClick={() => router.back()}
+                style={{ ...styles.linkBtn, color: '#0a7' }}
+              >
+                Leave
+              </button>
+              <button
+                type="button"
+                onClick={() => setAfterSavePrompt(false)}
+                style={styles.linkBtn}
+              >
+                Stay
+              </button>
             </span>
           )}
         </div>
@@ -402,7 +420,7 @@ const styles = {
   field: { display: 'flex', flexDirection: 'column', gap: 6 },
   label: { fontSize: 12, opacity: 0.8 },
   input: { padding: '10px 12px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 14, background: '#FFF' },
-  select: { padding: '10px 12px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 14, background: '#FFF' },
+  select: { padding: '10px 12px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 14, background: '#FFF', height: '40px' },
   error: { fontSize: 11, color: '#b00', marginTop: 2 },
 
   uploadBtn: {
@@ -413,6 +431,32 @@ const styles = {
     padding: '0.5rem 1rem',
     cursor: 'pointer',
     fontWeight: 'bold'
+  },
+
+  // X come nel Wizard ma SENZA cerchio grigio (niente border/sfondo sul bottone)
+  removeBtnHeader: {
+    background: 'transparent',
+    border: 'none',
+    borderRadius: '0',
+    width: '28px',
+    height: '28px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
+    WebkitTapHighlightColor: 'transparent'
+  },
+
+  linkBtn: {
+    background: 'transparent',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+    textDecoration: 'underline',
+    color: '#333',
+    fontSize: 12,
+    fontWeight: 600
   },
 
   saveBar: { gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8 },
