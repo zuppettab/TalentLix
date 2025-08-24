@@ -21,6 +21,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
   });
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [dirty, setDirty] = useState(false);
 
   const dobRef = useRef(null);
   const today = new Date();
@@ -47,12 +48,26 @@ export default function PersonalPanel({ athlete, onSaved }) {
       residence_country: athlete.residence_country || '',
       profile_picture_url: athlete.profile_picture_url || ''
     });
+    setDirty(false);
   }, [athlete]);
+
+  // Warning if user tries to leave with unsaved changes
+  useEffect(() => {
+    const handler = (e) => {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = ''; // richiesto per Chrome
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
 
   const onChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: '' }));
+    setDirty(true);
   };
 
   const getAge = (yyyy_mm_dd) => {
@@ -122,6 +137,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
 
       if (error) throw error;
       onSaved?.(data);
+      setDirty(false);
       alert('Saved.');
     } catch (e) {
       console.error(e);
@@ -227,6 +243,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
               const publicUrl = data?.publicUrl || '';
               setForm((prev) => ({ ...prev, profile_picture_url: publicUrl }));
               setErrors((prev) => ({ ...prev, profile_picture_url: '' }));
+              setDirty(true);
             }}
           />
         </div>
@@ -236,7 +253,10 @@ export default function PersonalPanel({ athlete, onSaved }) {
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
               <button
                 type="button"
-                onClick={() => setForm((prev) => ({ ...prev, profile_picture_url: '' }))}
+                onClick={() => { 
+                  setForm((prev) => ({ ...prev, profile_picture_url: '' })); 
+                  setDirty(true);
+                }}
                 style={{
                   background: 'rgba(255,255,255,0.9)',
                   border: '1px solid #ccc',
@@ -279,7 +299,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
       </div>
 
       <div style={styles.saveBar}>
-        <button type="submit" disabled={saving} style={styles.saveBtn}>
+        <button type="submit" disabled={saving || !dirty} style={styles.saveBtn}>
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
