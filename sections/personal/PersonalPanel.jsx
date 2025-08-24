@@ -52,7 +52,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
   const onChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: '' })); // reset errore su change
+    setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
   const getAge = (yyyy_mm_dd) => {
@@ -70,7 +70,14 @@ export default function PersonalPanel({ athlete, onSaved }) {
     const newErrors = {};
     if (!form.first_name?.trim()) newErrors.first_name = "First name is required";
     if (!form.last_name?.trim()) newErrors.last_name = "Last name is required";
-    if (!form.date_of_birth) newErrors.date_of_birth = "Date of birth is required";
+    if (!form.date_of_birth) {
+      newErrors.date_of_birth = "Date of birth is required";
+    } else {
+      const age = getAge(form.date_of_birth);
+      if (age == null || age < 10 || age > 60) {
+        newErrors.date_of_birth = "Date of birth invalid or out of range (10–60y)";
+      }
+    }
     if (!form.gender) newErrors.gender = "Gender is required";
     if (!form.nationality) newErrors.nationality = "Nationality is required";
     if (!form.birth_city) newErrors.birth_city = "City of birth is required";
@@ -171,9 +178,8 @@ export default function PersonalPanel({ athlete, onSaved }) {
           onChange={onChange}
           style={{ ...styles.select, borderColor: errors.gender ? '#b00' : '#E0E0E0' }}
         >
-          <option value="">—</option>
-          <option value="M">M</option>
-          <option value="F">F</option>
+          <option value="M">Male</option>
+          <option value="F">Female</option>
         </select>
         {errors.gender && <div style={styles.error}>{errors.gender}</div>}
       </div>
@@ -243,8 +249,23 @@ export default function PersonalPanel({ athlete, onSaved }) {
                   justifyContent: 'center',
                   padding: 0,
                 }}
+                aria-label="Remove picture"
               >
-                ❌
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="black"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="11" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                </svg>
               </button>
             </div>
             <img
