@@ -1,559 +1,648 @@
-// @ts-check
+// /sections/personal/PersonalPanel.jsx
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/router';
-import { supabase as sb } from '../../utils/supabaseClient';
-const supabase = sb;
+import { supabase } from '../../utils/supabaseClient';
+import Select from 'react-select';
+import countries from '../../utils/countries';
+import PhoneInput from 'react-phone-input-2';
+import 'react-phone-input-2/lib/style.css';
+import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 
-const ATHLETE_TABLE = 'athlete';
-
-// Required fields + messages (EN)
-const REQUIRED = [
-  'first_name',
-  'last_name',
-  'date_of_birth',
-  'gender',
-  'nationality',
-  'birth_city',
-  'native_language',
-  'residence_city',
-  'residence_country',
-  'profile_picture_url'
-];
-
-const MSG = {
-  first_name: 'First name is required',
-  last_name: 'Last name is required',
-  date_of_birth_required: 'Date of birth is required',
-  date_of_birth_range: 'Date of birth invalid or out of range (10–60y)',
-  gender: 'Gender is required',
-  nationality: 'Nationality is required',
-  birth_city: 'City of birth is required',
-  native_language: 'Native language is required',
-  residence_city: 'City of residence is required',
-  residence_country: 'Country of residence is required',
-  profile_picture_url: 'Profile picture is required',
-};
-
-export default function PersonalPanel({ athlete, onSaved }) {
-  const router = useRouter();
-
-  const [form, setForm] = useState({
-    first_name: '',
-    last_name: '',
-    date_of_birth: '',
-    gender: '',
-    nationality: '',
-    birth_city: '',
-    native_language: '',
-    additional_language: '',
-    residence_city: '',
-    residence_country: '',
-    profile_picture_url: ''
+/**
+ * PersonalPanel
+ * - Dati anagrafici (first/last name, DOB, gender, nationality, birth_city, native_language)
+ * - Telefono con flusso OTP (send code / confirm) e stato Verified ✔
+ * - Salvataggio anagrafica: NON tocca phone (che viene scritto solo a verifica OTP riuscita)
+ *
+ * Props:
+ *  - athlete: record corrente da tabella 'athlete'
+ *  - onSaved(updatedAthlete): callback con il record aggiornato dopo Save
+ *  - isMobile: boolean per piccoli aggiustamenti responsive
+ */
+export default function PersonalPanel({ athlete, onSaved, isMobile }) {
+  // ---------- STATE FORM ----------
+  const [formData, setFormData] = useState({
+    first_name: athlete?.first_name || '',
+    last_name: athlete?.last_name || '',
+    date_of_birth: athlete?.date_of_birth || '',
+    gender: athlete?.gender || '',
+    nationality: athlete?.nationality || '',
+    birth_city: athlete?.birth_city || '',
+    native_language: athlete?.native_language || 'English',
+    phone: normalizeToE164Initial(athlete?.phone || ''),
   });
-  const [errors, setErrors] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const [status, setStatus] = useState({ type: '', msg: '' });
-  const [afterSavePrompt, setAfterSavePrompt] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
+
+  // ---------- PHONE OTP STATE (copiato/adattato dal Wizard Step 2) ----------
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [otpMessage, setOtpMessage] = useState('');
+
+  // cooldown & TTL (coerenti con Wizard: NEXT_PUBLIC_PHONE_RESEND_COOLDOWN / NEXT_PUBLIC_PHONE_OTP_TTL)
+  const COOLDOWN_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_RESEND_COOLDOWN || 60);
+  const OTP_TTL_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_OTP_TTL || 600);
+  const [cooldown, setCooldown] = useState(0);
+  const [expiresIn, setExpiresIn] = useState(0);
+
+  // Timers
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setInterval(() => setCooldown((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(id);
+  }, [cooldown]);
+
+  useEffect(() => {
+    if (expiresIn <= 0) return;
+    const id = setInterval(() => setExpiresIn((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(id);
+  }, [expiresIn]);
+
+  // On mount / when phone changes: controlla se il numero risulta già verified (contacts_verification o Supabase Auth)
+  useEffect(() => {
+    (async () => {
+      if (!athlete?.id) return;
+
+      // 1) Verifica applicativa (contacts_verification)
+      const { data: cvRows } = await supabase
+        .from('contacts_verification')
+        .select('phone_number, phone_verified')
+        .eq('athlete_id', athlete.id)
+        .limit(1);
+
+      const cv = Array.isArray(cvRows) && cvRows[0];
+      const eqDigits = (a, b) => digits(a) === digits(b);
+
+      const verifiedInApp =
+        cv?.phone_verified === true &&
+        cv?.phone_number &&
+        formData.phone &&
+        eqDigits(cv.phone_number, formData.phone);
+
+      if (verifiedInApp) {
+        setPhoneVerified(true);
+        setOtpSent(false);
+        setOtpMessage('Phone already verified ✔');
+        return;
+      }
+
+      // 2) Verifica lato Auth (numero confermato nell'account)
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const authPhone = authUser?.phone ? `+${String(authUser.phone).replace(/^\+?/, '')}` : '';
+
+      const sameNumber = !!formData.phone && eqDigits(formData.phone, authPhone);
+      const confirmed = !!authUser?.phone_confirmed_at;
+
+      // identities[].identity_data.phone_verified true/'true'
+      const phoneIdVerified =
+        Array.isArray(authUser?.identities) &&
+        authUser.identities.some(id =>
+          id?.provider === 'phone' &&
+          (id?.identity_data?.phone_verified === true || id?.identity_data?.phone_verified === 'true')
+        );
+
+      if (sameNumber && (confirmed || phoneIdVerified)) {
+        setPhoneVerified(true);
+        setOtpSent(false);
+        setOtpMessage('Phone already verified ✔');
+
+        // Allinea anche la tabella applicativa
+        await supabase
+          .from('contacts_verification')
+          .upsert(
+            { athlete_id: athlete.id, phone_number: formData.phone, phone_verified: true },
+            { onConflict: 'athlete_id' }
+          );
+        return;
+      }
+
+      // Se qui: non verified
+      setPhoneVerified(false);
+      setOtpMessage('');
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [athlete?.id, formData.phone]);
+
+  // ---------- DATEPICKER / LIMITI ETÀ (10–60 anni) ----------
   const dobRef = useRef(null);
   const today = new Date();
-  const maxDateObj = new Date(today.getFullYear() - 10, today.getMonth(), today.getDate());
-  const minDateObj = new Date(today.getFullYear() - 60, today.getMonth(), today.getDate());
+  const maxDateObj = new Date(today.getFullYear() - 10, today.getMonth(), today.getDate()); // max: 10 anni fa
+  const minDateObj = new Date(today.getFullYear() - 60, today.getMonth(), today.getDate()); // min: 60 anni fa
   const toISO = (d) => d.toISOString().slice(0, 10);
 
-  // Prefill dal record athlete
+  // Se il valore arrivasse in dd/mm/yyyy, converti una volta a ISO
   useEffect(() => {
-    if (!athlete) return;
-    const isoDOB = athlete.date_of_birth
-      ? new Date(athlete.date_of_birth).toISOString().slice(0, 10)
-      : '';
-    setForm({
-      first_name: athlete.first_name || '',
-      last_name: athlete.last_name || '',
-      date_of_birth: isoDOB,
-      gender: athlete.gender || '',
-      nationality: athlete.nationality || '',
-      birth_city: athlete.birth_city || '',
-      native_language: athlete.native_language || '',
-      additional_language: athlete.additional_language || '',
-      residence_city: athlete.residence_city || '',
-      residence_country: athlete.residence_country || '',
-      profile_picture_url: athlete.profile_picture_url || ''
-    });
-    setDirty(false);
-    setErrors({});
-    setStatus({ type: '', msg: '' });
-    setAfterSavePrompt(false);
-  }, [athlete]);
-
-  // Detect mobile (<=480px)
-  useEffect(() => {
-    const check = () =>
-      setIsMobile(typeof window !== 'undefined' && window.matchMedia('(max-width: 480px)').matches);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
+    if (formData.date_of_birth && formData.date_of_birth.includes('/')) {
+      const [dd, mm, yyyy] = formData.date_of_birth.split('/');
+      const iso = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+      setFormData((prev) => ({ ...prev, date_of_birth: iso }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Prompt (EN) se lasci con modifiche non salvate
-  useEffect(() => {
-    const beforeUnload = (e) => {
-      if (!dirty) return;
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', beforeUnload);
+  // Validazione DOB
+  const validDob = useMemo(() => {
+    const d = parseDob(formData.date_of_birth);
+    return !!d && ageBetween10and60(d);
+  }, [formData.date_of_birth]);
 
-    const onRouteChangeStart = () => {
-      if (!dirty) return;
-      const ok = window.confirm('You have unsaved changes. Leave without saving?');
-      if (!ok) {
-        router.events.emit('routeChangeError');
-        // eslint-disable-next-line no-throw-literal
-        throw 'Route change aborted due to unsaved changes';
+  // ---------- VALIDAZIONE PHONE ----------
+  const normalizedPhone = (formData.phone || '').replace(/\s+/g, '');
+  const parsedPhone = parsePhoneNumberFromString(normalizedPhone);
+  const nationalLen = parsedPhone?.nationalNumber ? String(parsedPhone.nationalNumber).length : 0;
+  const isValidPhone = !!parsedPhone && parsedPhone.isValid() && nationalLen >= 10;
+
+  // Se l'utente cambia il numero, torna a not verified
+  const onPhoneChange = (value) => {
+    const e164 = toE164(value);
+    setFormData((prev) => ({ ...prev, phone: e164 }));
+    setOtpSent(false);
+    setOtpCode('');
+    setOtpMessage('');
+    // Non forzo subito phoneVerified=false: lo farà l'effetto di verifica iniziale
+  };
+
+  // ---------- OTP ACTIONS (adattate dal Wizard Step 2) ----------
+  const sendCode = async () => {
+    try {
+      if (!isValidPhone) {
+        setOtpMessage('Invalid phone number');
+        return;
       }
-    };
-    router.events.on('routeChangeStart', onRouteChangeStart);
+      if (cooldown > 0) {
+        setOtpMessage(`Please wait ${cooldown}s before requesting a new code.`);
+        return;
+      }
 
-    return () => {
-      window.removeEventListener('beforeunload', beforeUnload);
-      router.events.off('routeChangeStart', onRouteChangeStart);
-    };
-  }, [dirty, router.events]);
+      // Check session (se scaduta, updateUser fallisce); se vuoi, implementa ensureSession() come nel Wizard
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setOtpMessage('Session expired. Please sign in again.');
+        return;
+      }
 
-  // Helpers
-  const getAge = (yyyy_mm_dd) => {
-    if (!yyyy_mm_dd) return null;
-    const [y, m, d] = yyyy_mm_dd.split('-').map((n) => parseInt(n, 10));
-    const birth = new Date(y, (m || 1) - 1, d || 1);
-    if (Number.isNaN(birth.getTime())) return null;
-    const now = new Date();
-    let age = now.getFullYear() - birth.getFullYear();
-    const mo = now.getMonth() - birth.getMonth();
-    if (mo < 0 || (mo === 0 && now.getDate() < birth.getDate())) age--;
-    return age;
-  };
+      // Richiesta OTP (phone_change)
+      const { error } = await supabase.auth.updateUser({ phone: formData.phone });
+      if (error) {
+        setOtpMessage(`Failed to request OTP: ${error.message}`);
+        return;
+      }
 
-  const validateField = (name, value) => {
-    if (name === 'date_of_birth') {
-      if (!value) return MSG.date_of_birth_required;
-      const age = getAge(value);
-      if (age == null || age < 10 || age > 60) return MSG.date_of_birth_range;
-      return '';
+      setOtpSent(true);
+      setCooldown(COOLDOWN_SECONDS);
+      setExpiresIn(OTP_TTL_SECONDS);
+      setOtpMessage('OTP requested. Check your SMS.');
+    } catch (e) {
+      setOtpMessage(`Send error: ${e?.message || String(e)}`);
     }
-    if (REQUIRED.includes(name)) {
-      const v = (value ?? '').toString().trim();
-      if (!v) return MSG[name] || 'This field is required';
+  };
+
+  const confirmCode = async () => {
+    try {
+      if (expiresIn <= 0) {
+        setOtpMessage('The code has expired. Please request a new one.');
+        return;
+      }
+      if (otpCode.length !== 6) return;
+
+      const { error } = await supabase.auth.verifyOtp({
+        phone: formData.phone,
+        token: otpCode,
+        type: 'phone_change',
+      });
+
+      if (error) {
+        setOtpMessage(`Verification failed${error.status ? ` [${error.status}]` : ''}: ${error.message}`);
+        return;
+      }
+
+      setPhoneVerified(true);
+      setOtpMessage('Phone verified ✔');
+
+      // Persisti su athlete
+      await supabase
+        .from('athlete')
+        .update({ phone: formData.phone })
+        .eq('id', athlete.id);
+
+      // Fissa stato affidabilità contatto nella tabella applicativa
+      const { error: dbError } = await supabase
+        .from('contacts_verification')
+        .upsert(
+          { athlete_id: athlete.id, phone_number: formData.phone, phone_verified: true },
+          { onConflict: 'athlete_id' }
+        );
+      if (dbError) {
+        setOtpMessage((prev) => `${prev} (DB warn: ${dbError.message})`);
+      }
+    } catch (e) {
+      setOtpMessage(`Verification error: ${e?.message || String(e)}`);
     }
-    return '';
   };
 
-  const validateAll = (state = form) => {
-    const out = {};
-    for (const key of REQUIRED) {
-      const err = validateField(key, state[key]);
-      if (err) out[key] = err;
-    }
-    return out;
-  };
-
-  // Live validation onChange + onBlur
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }));
-    setDirty(true);
-    setStatus({ type: '', msg: '' });
-    setAfterSavePrompt(false);
-  };
-
-  const handleBlur = (e) => {
-    const { name } = e.target;
-    setErrors((prev) => ({ ...prev, [name]: validateField(name, form[name]) }));
-  };
-
-  // Stato del pulsante Save (robusto anche su iOS)
-  const allRequiredFilled = useMemo(() => {
-    for (const k of REQUIRED) {
-      const err = validateField(k, form[k]);
-      if (err) return false;
-    }
-    return true;
-  }, [form]);
-
-  const hasErrors = useMemo(() => Object.values(errors).some(Boolean), [errors]);
-  const isSaveDisabled = saving || !dirty || hasErrors || !allRequiredFilled;
-
-  const onSave = async () => {
-    if (isSaveDisabled) return; // guard extra (mobile/iOS)
-
-    // validazione finale inline
-    const newErrors = validateAll();
-    setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) return;
-
+  // ---------- SAVE (SOLO ANAGRAFICA, NON PHONE) ----------
+  const handleSave = async () => {
     try {
       setSaving(true);
-      setStatus({ type: '', msg: '' });
+      setSaveMsg('');
 
-      const age = getAge(form.date_of_birth);
-      const parental = age != null && age < 14 ? true : null;
+      const isoDob = toIsoMaybe(formData.date_of_birth);
 
-      const payload = {
-        first_name: form.first_name.trim(),
-        last_name: form.last_name.trim(),
-        date_of_birth: form.date_of_birth || null,
-        gender: form.gender || null,
-        nationality: form.nationality || null,
-        birth_city: form.birth_city || null,
-        native_language: form.native_language || null,
-        additional_language: form.additional_language || null,
-        residence_city: form.residence_city || null,
-        residence_country: form.residence_country || null,
-        profile_picture_url: form.profile_picture_url || null,
-        ...(parental !== null ? { needs_parental_authorization: parental } : {})
-      };
-
+      // Aggiorna anagrafica
       const { data, error } = await supabase
-        .from(ATHLETE_TABLE)
-        .update(payload)
+        .from('athlete')
+        .update({
+          first_name: (formData.first_name || '').trim(),
+          last_name: (formData.last_name || '').trim(),
+          date_of_birth: isoDob || null,
+          gender: formData.gender || null, // DB vincolo: 'M' | 'F'
+          nationality: formData.nationality || null,
+          birth_city: (formData.birth_city || '').trim(),
+          native_language: (formData.native_language || '').trim() || 'English',
+        })
         .eq('id', athlete.id)
         .select()
         .single();
 
       if (error) throw error;
-      onSaved?.(data);
-      setDirty(false);
-      setStatus({ type: 'success', msg: 'Saved ✓' });
-      setAfterSavePrompt(true);
 
-      // auto-hide del banner dopo 5s
-      setTimeout(() => setAfterSavePrompt(false), 5000);
+      // Flag minori < 14y
+      const dobDate = parseDob(isoDob);
+      if (dobDate && !isAdult14(dobDate)) {
+        const { error: ageError } = await supabase
+          .from('athlete')
+          .update({ needs_parental_authorization: true })
+          .eq('id', athlete.id);
+        if (ageError) throw ageError;
+      }
+
+      onSaved?.(data);
+      setSaveMsg('Saved successfully.');
+      setTimeout(() => setSaveMsg(''), 1800);
     } catch (e) {
       console.error(e);
-      setStatus({ type: 'error', msg: 'Save failed. Please try again.' });
-      setAfterSavePrompt(false);
+      alert('Error saving personal data');
     } finally {
       setSaving(false);
     }
   };
 
-  // Stile dinamico del bottone Save (contrasto forte)
-  const saveBtnStyle = isSaveDisabled
-    ? {
-        ...styles.saveBtn,
-        background: '#EEE',
-        color: '#999',
-        border: '1px solid #E0E0E0',
-        opacity: 1,
-        cursor: 'not-allowed',
-        pointerEvents: 'none'
-      }
-    : {
-        ...styles.saveBtn,
-        background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
-        color: '#fff',
-        border: 'none',
-        cursor: 'pointer'
-      };
+  // ---------- UI HELPERS ----------
+  const fmtSecs = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  };
+
+  const headerRowStyle = { display: 'grid', gap: 12, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' };
+  const oneCol = { display: 'grid', gap: 12, gridTemplateColumns: '1fr' };
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(); }} style={styles.formGrid}>
-      <Field label="First name *" name="first_name" value={form.first_name} onChange={handleChange} onBlur={handleBlur} error={errors.first_name} />
-      <Field label="Last name *" name="last_name" value={form.last_name} onChange={handleChange} onBlur={handleBlur} error={errors.last_name} />
-      <Field label="Nationality *" name="nationality" value={form.nationality} onChange={handleChange} onBlur={handleBlur} error={errors.nationality} />
-      <Field label="City of birth *" name="birth_city" value={form.birth_city} onChange={handleChange} onBlur={handleBlur} error={errors.birth_city} />
-      <Field label="Native language *" name="native_language" value={form.native_language} onChange={handleChange} onBlur={handleBlur} error={errors.native_language} />
-      <Field label="Additional language (optional)" name="additional_language" value={form.additional_language} onChange={handleChange} onBlur={handleBlur} error={errors.additional_language} />
-      <Field label="City of residence *" name="residence_city" value={form.residence_city} onChange={handleChange} onBlur={handleBlur} error={errors.residence_city} />
-      <Field label="Country of residence *" name="residence_country" value={form.residence_country} onChange={handleChange} onBlur={handleBlur} error={errors.residence_country} />
+    <div>
+      {/* Campi anagrafici */}
+      <div style={headerRowStyle}>
+        <TextInput
+          placeholder="First Name"
+          value={formData.first_name}
+          onChange={(v) => setFormData((p) => ({ ...p, first_name: v }))}
+        />
+        <TextInput
+          placeholder="Last Name"
+          value={formData.last_name}
+          onChange={(v) => setFormData((p) => ({ ...p, last_name: v }))}
+        />
+      </div>
 
-      {/* DOB */}
-      <div style={styles.field}>
-        <label style={styles.label}>Date of birth *</label>
-        <input
-          ref={dobRef}
-          type="date"
-          name="date_of_birth"
-          value={form.date_of_birth}
-          onChange={handleChange}
-          onBlur={handleBlur}
+      <div style={{ ...headerRowStyle, marginTop: 12 }}>
+        <DateInput
+          inputRef={dobRef}
+          value={formData.date_of_birth || ''}
           min={toISO(minDateObj)}
           max={toISO(maxDateObj)}
-          style={{ ...styles.input, borderColor: errors.date_of_birth ? '#b00' : '#E0E0E0' }}
-          aria-invalid={!!errors.date_of_birth}
+          onChange={(v) => setFormData((p) => ({ ...p, date_of_birth: v }))}
+          openPicker={() => {
+            if (dobRef.current?.showPicker) dobRef.current.showPicker();
+            else dobRef.current?.focus();
+          }}
+          invalid={!validDob && !!formData.date_of_birth}
         />
-        {errors.date_of_birth && <div style={styles.error}>{errors.date_of_birth}</div>}
+
+        <SelectGender
+          value={formData.gender}
+          onChange={(v) => setFormData((p) => ({ ...p, gender: v }))}
+        />
       </div>
 
-      {/* Gender */}
-      <div style={styles.field}>
-        <label style={styles.label}>Gender *</label>
-        <select
-          name="gender"
-          value={form.gender}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          style={{ ...styles.select, height: '40px', borderColor: errors.gender ? '#b00' : '#E0E0E0' }}
-          aria-invalid={!!errors.gender}
-        >
-          <option value="M">Male</option>
-          <option value="F">Female</option>
-        </select>
-        {errors.gender && <div style={styles.error}>{errors.gender}</div>}
+      <div style={{ ...headerRowStyle, marginTop: 12 }}>
+        <CountrySelect
+          value={formData.nationality}
+          onChange={(v) => setFormData((p) => ({ ...p, nationality: v }))}
+        />
+        <TextInput
+          placeholder="City of Birth"
+          value={formData.birth_city}
+          onChange={(v) => setFormData((p) => ({ ...p, birth_city: v }))}
+        />
       </div>
 
-      {/* Profile picture */}
-      <div style={styles.field}>
-        <label style={styles.label}>Profile picture *</label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <label htmlFor="profileFile" style={styles.uploadBtn}>Choose file</label>
-          <input
-            id="profileFile"
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file || !athlete?.id) return;
+      <div style={{ ...oneCol, marginTop: 12 }}>
+        <TextInput
+          placeholder="Native Language"
+          value={formData.native_language}
+          onChange={(v) => setFormData((p) => ({ ...p, native_language: v }))}
+        />
+      </div>
 
-              const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-              const ts = Date.now();
-              const filePath = `${athlete.id}/Profile-${ts}.${ext}`;
+      {/* PHONE + OTP (identico per logica al Wizard Step 2) */}
+      <div style={{ marginTop: 18 }}>
+        <label style={labelStyle}>Mobile Phone</label>
+        <PhoneInput
+          countryCodeEditable={false}
+          country={undefined}
+          value={formData.phone ? formData.phone.replace(/^\+/, '') : ''}
+          onChange={onPhoneChange}
+          enableSearch
+          placeholder="Mobile phone number"
+          inputStyle={{
+            width: '100%',
+            height: '48px',
+            fontSize: '16px',
+            borderRadius: '8px',
+            paddingLeft: '48px',
+            border: '1px solid #ccc',
+            boxSizing: 'border-box'
+          }}
+          buttonStyle={{ border: 'none', background: 'none' }}
+          containerStyle={{ width: '100%' }}
+          dropdownStyle={{ borderRadius: '8px', zIndex: 1000 }}
+        />
 
-              const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, file, { cacheControl: '3600', upsert: false });
+        {!phoneVerified && (
+          <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={sendCode}
+              disabled={!isValidPhone || cooldown > 0}
+              style={{
+                background: (!isValidPhone || cooldown > 0) ? '#ccc' : 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+                color: '#fff',
+                border: 'none',
+                padding: '0.6rem',
+                borderRadius: 8,
+                cursor: (!isValidPhone || cooldown > 0) ? 'not-allowed' : 'pointer',
+                fontWeight: 700
+              }}
+            >
+              {otpSent ? 'Resend code' : 'Send code'}
+            </button>
 
-              if (uploadError) {
-                console.error('Upload error:', uploadError.message);
-                setStatus({ type: 'error', msg: 'Image upload failed. Please try again.' });
-                return;
-              }
+            <div style={{ fontSize: 12, color: '#555', textAlign: 'left' }}>
+              {cooldown > 0 ? (
+                <span>Resend in {fmtSecs(cooldown)}</span>
+              ) : (
+                otpSent && <span>You can resend now</span>
+              )}
+              {expiresIn > 0 && (
+                <span style={{ marginLeft: 8 }}>• Code expires in {fmtSecs(expiresIn)}</span>
+              )}
+            </div>
 
-              const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-              const publicUrl = data?.publicUrl || '';
-              setForm((prev) => ({ ...prev, profile_picture_url: publicUrl }));
-              setErrors((prev) => ({ ...prev, profile_picture_url: validateField('profile_picture_url', publicUrl) }));
-              setDirty(true);
-              setStatus({ type: '', msg: '' });
-              setAfterSavePrompt(false);
-            }}
-          />
-        </div>
-
-        {form.profile_picture_url && (
-          <div
-            style={{
-              position: 'relative',
-              width: isMobile ? '100%' : '220px',
-              maxWidth: '100%',
-              marginTop: '10px'
-            }}
-          >
-            {/* MOBILE: X assoluta fuori dall’angolo destro alto (non copre l’immagine) */}
-            {isMobile ? (
-              <button
-                type="button"
-                onClick={() => {
-                  const v = '';
-                  setForm((prev) => ({ ...prev, profile_picture_url: v }));
-                  setErrors((prev) => ({ ...prev, profile_picture_url: validateField('profile_picture_url', v) }));
-                  setDirty(true);
-                  setAfterSavePrompt(false);
-                }}
-                style={styles.removeBtnMobileAbsolute}
-                aria-label="Remove picture"
-                title="Remove picture"
-              >
-                <IconX small />
-              </button>
-            ) : (
-              // DESKTOP: X in header (come Wizard)
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+            {otpSent && (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d*"
+                  maxLength={6}
+                  placeholder="Enter 6-digit code"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  style={{
+                    width: '100%',
+                    padding: '0.8rem',
+                    borderRadius: 8,
+                    border: '1px solid #ccc',
+                    boxSizing: 'border-box'
+                  }}
+                />
                 <button
                   type="button"
-                  onClick={() => {
-                    const v = '';
-                    setForm((prev) => ({ ...prev, profile_picture_url: v }));
-                    setErrors((prev) => ({ ...prev, profile_picture_url: validateField('profile_picture_url', v) }));
-                    setDirty(true);
-                    setAfterSavePrompt(false);
+                  onClick={confirmCode}
+                  disabled={otpCode.length !== 6}
+                  style={{
+                    background: otpCode.length === 6 ? 'linear-gradient(90deg, #27E3DA, #F7B84E)' : '#ccc',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '0.6rem 0.8rem',
+                    borderRadius: 8,
+                    cursor: otpCode.length === 6 ? 'pointer' : 'not-allowed',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap'
                   }}
-                  style={styles.removeBtnHeader}
-                  aria-label="Remove picture"
-                  title="Remove picture"
                 >
-                  <IconX />
+                  Confirm
                 </button>
               </div>
             )}
 
-            <img
-              src={form.profile_picture_url}
-              alt="Profile"
-              style={{ width: '100%', height: 'auto', borderRadius: 8 }}
-            />
+            {otpMessage && (
+              <div style={{ fontSize: 14, color: '#444' }}>{otpMessage}</div>
+            )}
           </div>
         )}
-        {errors.profile_picture_url && <div style={styles.error}>{errors.profile_picture_url}</div>}
+
+        {phoneVerified && (
+          <div style={{ textAlign: 'left', color: 'green', fontWeight: 700, marginTop: 6 }}>
+            Phone verified ✔
+          </div>
+        )}
       </div>
 
-      {/* Status + Save */}
-      <div style={styles.saveBar}>
-        <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          {status.type === 'success' && (
-            <div role="status" aria-live="polite" style={styles.toastSuccess}>
-              <strong>Saved ✓</strong>
-              <span style={{ marginLeft: 8 }}>— Leave this page?</span>
-              <button type="button" onClick={() => router.back()} style={{ ...styles.linkBtn, color: '#0a7' }}>
-                Leave
-              </button>
-              <button type="button" onClick={() => setAfterSavePrompt(false)} style={styles.linkBtn}>
-                Stay
-              </button>
-            </div>
-          )}
-          {status.type === 'error' && (
-            <div role="status" aria-live="polite" style={styles.toastError}>
-              {status.msg}
-            </div>
-          )}
-        </div>
-
+      {/* SAVE */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 18 }}>
         <button
-          type="submit"
-          disabled={isSaveDisabled}
-          onClick={(e) => { if (isSaveDisabled) e.preventDefault(); }}
-          style={saveBtnStyle}
+          onClick={handleSave}
+          disabled={saving}
+          style={{
+            background: saving ? '#ccc' : 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+            color: '#fff',
+            border: 'none',
+            padding: '0.8rem 1rem',
+            borderRadius: 10,
+            cursor: saving ? 'not-allowed' : 'pointer',
+            fontWeight: 800,
+            minHeight: 44
+          }}
+          title="Save personal data"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
+        {saveMsg && <span style={{ color: '#2ECC71', fontWeight: 700 }}>{saveMsg}</span>}
       </div>
-    </form>
-  );
-}
-
-function Field({ label, name, value, onChange, onBlur, error }) {
-  return (
-    <div style={styles.field}>
-      <label style={styles.label}>{label}</label>
-      <input
-        name={name}
-        value={value}
-        onChange={onChange}
-        onBlur={onBlur}
-        style={{ ...styles.input, borderColor: error ? '#b00' : '#E0E0E0' }}
-        aria-invalid={!!error}
-      />
-      {error && <div style={styles.error}>{error}</div>}
     </div>
   );
 }
 
-function IconX({ small }) {
-  const s = small ? 14 : 18;
+/* ===================== UI Subcomponents ===================== */
+
+function TextInput({ placeholder, value, onChange }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-         width={s} height={s} fill="none" stroke="black"
-         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="11" />
-      <line x1="9" y1="9" x2="15" y2="15" />
-      <line x1="15" y1="9" x2="9" y2="15" />
-    </svg>
+    <input
+      style={inputStyle}
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
   );
 }
 
-const styles = {
-  formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' },
-  field: { display: 'flex', flexDirection: 'column', gap: 6 },
-  label: { fontSize: 12, opacity: 0.8 },
-  input: { padding: '10px 12px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 14, background: '#FFF' },
-  select: { padding: '10px 12px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 14, background: '#FFF', height: '40px' },
-  error: { fontSize: 11, color: '#b00', marginTop: 2 },
+function DateInput({ inputRef, value, min, max, onChange, openPicker, invalid }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <style jsx global>{`
+        input[type="date"]::-webkit-calendar-picker-indicator { display: none; }
+        input[type="date"] { -webkit-appearance: none; appearance: none; }
+      `}</style>
+      <input
+        ref={inputRef}
+        type="date"
+        style={{ ...inputStyle, ...(invalid ? { borderColor: '#cc0000' } : null) }}
+        value={value || ''}
+        min={min}
+        max={max}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <button
+        type="button"
+        onClick={openPicker}
+        style={calendarBtnStyle}
+        aria-label="Open calendar"
+        title="Open calendar"
+      >
+        📅
+      </button>
+    </div>
+  );
+}
 
-  uploadBtn: {
-    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 8,
-    padding: '0.5rem 1rem',
-    cursor: 'pointer',
-    fontWeight: 'bold'
-  },
+function SelectGender({ value, onChange }) {
+  return (
+    <select
+      style={inputStyle}
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">Select Gender</option>
+      <option value="M">Male</option>
+      <option value="F">Female</option>
+    </select>
+  );
+}
 
-  // X header (desktop): solo icona, niente bordo/sfondo
-  removeBtnHeader: {
-    background: 'transparent',
-    border: 'none',
-    width: 28,
-    height: 28,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 0,
-    WebkitTapHighlightColor: 'transparent'
-  },
+function CountrySelect({ value, onChange }) {
+  return (
+    <Select
+      name="nationality"
+      placeholder="Start typing nationality"
+      options={countries}
+      value={countries.find(opt => opt.value === value) || null}
+      onChange={(selected) => onChange(selected?.value || '')}
+      filterOption={(option, inputValue) =>
+        inputValue.length >= 2 &&
+        option.label.toLowerCase().includes(inputValue.toLowerCase())
+      }
+      styles={{
+        control: (base) => ({
+          ...base,
+          padding: '2px',
+          borderRadius: '8px',
+          borderColor: '#ccc',
+        }),
+      }}
+    />
+  );
+}
 
-  // X mobile: posizionata nell'angolo in alto a destra dell'immagine, leggermente FUORI
-  removeBtnMobileAbsolute: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    transform: 'translate(70%, -70%)', // spinge ancora un po’ più a destra/su
-    background: 'transparent',
-    border: 'none',
-    width: 24,
-    height: 24,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 0,
-    zIndex: 3,
-    WebkitTapHighlightColor: 'transparent'
-  },
+/* ===================== Styles ===================== */
 
-  // Toasts
-  toastSuccess: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-    background: '#E6FAF0',
-    color: '#0a7',
-    border: '1px solid #B7F0CF',
-    borderRadius: 8,
-    padding: '6px 10px',
-    fontSize: 12,
-    fontWeight: 600
-  },
-  toastError: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-    background: '#FFECEC',
-    color: '#b00',
-    border: '1px solid #FFB3B3',
-    borderRadius: 8,
-    padding: '6px 10px',
-    fontSize: 12,
-    fontWeight: 600
-  },
-
-  linkBtn: {
-    background: 'transparent',
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer',
-    textDecoration: 'underline',
-    color: '#333',
-    fontSize: 12,
-    fontWeight: 600
-  },
-
-  saveBar: { gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8 },
-  saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8 }
+const inputStyle = {
+  width: '100%',
+  padding: '0.8rem',
+  borderRadius: 8,
+  border: '1px solid #ccc',
+  boxSizing: 'border-box'
 };
+
+const labelStyle = {
+  display: 'block',
+  textAlign: 'left',
+  fontWeight: 700,
+  marginBottom: 6
+};
+
+const calendarBtnStyle = {
+  background: '#27E3DA',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 8,
+  padding: '0.5rem 0.75rem',
+  cursor: 'pointer',
+  fontWeight: 700,
+  lineHeight: 1,
+};
+
+/* ===================== Helpers ===================== */
+
+function digits(v) {
+  return v ? String(v).replace(/\D/g, '') : '';
+}
+function toE164(value) {
+  const d = digits(value || '');
+  return d ? `+${d}` : '';
+}
+function normalizeToE164Initial(v) {
+  if (!v) return '';
+  // se arriva già con +, normalizza; altrimenti aggiungi +
+  const d = digits(v);
+  return d ? `+${d}` : '';
+}
+function toIsoMaybe(dob) {
+  if (!dob) return null;
+  if (dob.includes('-')) return dob;
+  if (dob.includes('/')) {
+    const [dd, mm, yyyy] = dob.split('/');
+    return `${yyyy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+  }
+  return dob;
+}
+function parseDob(str) {
+  if (!str) return null;
+  let yyyy, mm, dd;
+  if (str.includes('-')) {
+    [yyyy, mm, dd] = str.split('-').map((v) => parseInt(v, 10));
+  } else {
+    const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!m) return null;
+    dd = parseInt(m[1], 10);
+    mm = parseInt(m[2], 10);
+    yyyy = parseInt(m[3], 10);
+  }
+  const d = new Date(yyyy, (mm - 1), dd);
+  if (d.getFullYear() !== yyyy || (d.getMonth() + 1) !== mm || d.getDate() !== dd) return null;
+  return d;
+}
+function ageBetween10and60(d) {
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+  return age >= 10 && age <= 60;
+}
+function isAdult14(d) {
+  const t = new Date();
+  let age = t.getFullYear() - d.getFullYear();
+  const mm = t.getMonth() - d.getMonth();
+  if (mm < 0 || (mm === 0 && t.getDate() < d.getDate())) age--;
+  return age >= 14;
+}
