@@ -509,7 +509,7 @@ useEffect(() => {
         </select>
        <Select
           name="nationality"
-          placeholder="Start typing nationality"
+          placeholder="Start typing Country of birth"
           options={countries}
           value={countries.find(opt => opt.value === formData.nationality) || null}
           onChange={(selected) =>
