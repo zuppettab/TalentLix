@@ -237,25 +237,19 @@ useEffect(() => {
             if (cvError) throw cvError;
 
             
-              const digits = (v) => (v ? String(v).replace(/\D/g, '') : '');
-              const currentDbPhone = athlete?.phone || '';
-            
-              // Se l’utente NON ha cambiato il numero, mantieni quello DB
-              if (digits(formData.phone) === digits(currentDbPhone)) {
-                updatePayload.phone = currentDbPhone;
-              }
-              // Se l’utente ha cambiato e il numero risulta VERIFICATO (CV/Auth/Athlete), salva il nuovo
-              else if (await isPhoneVerifiedForCurrentNumber()) {
-                updatePayload.phone = formData.phone;
-              }
-
-              // Altrimenti NON mettere `phone` nel payload → il DB resta col numero verificato precedente
-            
-              const { error } = await supabase
-                .from('athlete')
-                .update(updatePayload)
-                .eq('id', user.id);
-              if (error) throw error;
+          const digits = (v) => (v ? String(v).replace(/\D/g, '') : '');
+          const currentDbPhone = athlete?.phone || '';
+          
+          // Se è cambiato ed è verificato → aggiorna solo il telefono
+          if (digits(formData.phone) !== digits(currentDbPhone) && await isPhoneVerifiedForCurrentNumber()) {
+            const { error: phoneErr } = await supabase
+              .from('athlete')
+              .update({ phone: formData.phone })
+              .eq('id', user.id);
+            if (phoneErr) throw phoneErr;
+          }
+          // Se non è cambiato o non è verificato → non fare nulla
+          
 
       
           } else if (step === 3) {
