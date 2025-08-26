@@ -4,6 +4,9 @@ import { supabase as sb } from '../../utils/supabaseClient';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
+import Select from 'react-select';
+// ⬇️ se ContactsPanel.jsx sta in /sections/contacts/ usa questo:
+import countries from '../../utils/countries';
 
 const supabase = sb;
 const CV_TABLE = 'contacts_verification';
@@ -34,6 +37,8 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     residence_region: '',
     residence_postal_code: '',
     residence_address: '',
+    residence_city: '',
+    residence_country: '',
   });
 
   // read-only
@@ -287,8 +292,14 @@ const residence_country = cv?.residence_country || '';
         residence_region: form.residence_region || null,
         residence_postal_code: form.residence_postal_code || null,
         residence_address: form.residence_address || null,
+        residence_city: form.residence_city || null,
+        residence_country: form.residence_country || null,
       };
 
+      await supabase
+      .from('contacts_verification')
+      .upsert(payload, { onConflict: 'athlete_id' });
+      
       const { error } = await supabase.from(CV_TABLE).upsert(payload, { onConflict: 'athlete_id' });
       if (error) throw error;
 
@@ -364,14 +375,44 @@ const residence_country = cv?.residence_country || '';
         {otpMsg && <div style={{ marginTop: 6, fontSize: 12, color: '#666' }}>{otpMsg}</div>}
       </div>
 
-      {/* READ-ONLY City/Country */}
+      {/* Country of Residence (editable, same component as Wizard) */}
       <div style={styles.field}>
-        <label style={styles.label}>Country of residence (read-only)</label>
-        <input style={{ ...styles.input, background: '#FAFAFA' }} value={residence_country || '—'} readOnly />
+       <label style={{ fontWeight: 600, textAlign: 'left', marginTop: 8 }}>Country of residence</label>
+        <Select
+          name="residence_country"
+          placeholder="Start typing Country of Residence"
+          options={countries}
+          value={countries.find(opt => opt.value === form.residence_country) || null}
+          onChange={(selected) =>
+            setForm(prev => ({ ...prev, residence_country: selected?.value || '' }))
+          }
+          filterOption={(option, inputValue) =>
+            inputValue.length >= 2 &&
+            option.label.toLowerCase().includes(inputValue.toLowerCase())
+          }
+          styles={{
+            control: (base) => ({
+              ...base,
+              minHeight: 40,
+              height: 40,
+              borderRadius: 8,
+              borderColor: '#E0E0E0',
+            }),
+            indicatorsContainer: (base) => ({ ...base, height: 40 }),
+            valueContainer: (base) => ({ ...base, height: 40, padding: '0 8px' }),
+          }}
+        />
       </div>
       <div style={styles.field}>
-        <label style={styles.label}>City of residence (read-only)</label>
-        <input style={{ ...styles.input, background: '#FAFAFA' }} value={residence_city || '—'} readOnly />
+       {/* City of Residence (editable) */}
+        <label style={{ fontWeight: 600, textAlign: 'left' }}>City of residence</label>
+        <input
+          name="residence_city"
+          placeholder="City of residence"
+          value={form.residence_city}
+          onChange={(e) => setForm(p => ({ ...p, residence_city: e.target.value }))}
+          style={{ width: '100%', height: 40, border: '1px solid #E0E0E0', borderRadius: 8, padding: '0 12px', boxSizing: 'border-box' }}
+        />
       </div>
 
       {/* RESIDENCE (edit) */}
