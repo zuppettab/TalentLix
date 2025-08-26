@@ -769,7 +769,6 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         />
           {/* Country of Residence */}
           <div style={{ width: '100%' }}>
-            <label style={{ textAlign: 'left', fontSize: '12px', opacity: 0.8 }}>Country of Residence *</label>
             <Select
               name="residence_country"
               placeholder="Start typing Country of Residence"
