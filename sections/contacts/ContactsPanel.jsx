@@ -9,38 +9,39 @@ const supabase = sb;
 const CV_TABLE = 'contacts_verification';
 const ATHLETE_TABLE = 'athlete';
 
-// OTP policy (stessa del Wizard)
-const COOLDOWN_SECONDS = 30;      // resend
-const OTP_TTL_SECONDS  = 600;     // 10 minuti
+// OTP policy
+const COOLDOWN_SECONDS = 30;
+const OTP_TTL_SECONDS  = 600; // 10 min
 const MAX_ATTEMPTS     = 5;
 
 export default function ContactsPanel({ athlete, onSaved, isMobile }) {
-  const [cv, setCv] = useState(null);     // riga contacts_verification
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
   const [dirty, setDirty] = useState(false);
 
+  // row contacts_verification (se serve)
+  const [cv, setCv] = useState(null);
+
   // ---- Form
   const [form, setForm] = useState({
-    // phone (gestito con OTP per il write definitivo)
     phone: '',
     phone_verified: false,
-
-    // ID document
     id_document_type: '',
-    id_document_url: '',   // storage key sul bucket privato "documents"
-    id_selfie_url: '',     // storage key
-
-    // residence (editabili qui)
+    id_document_type_other: '',
+    id_document_url: '',
+    id_selfie_url: '',
     residence_region: '',
     residence_postal_code: '',
     residence_address: '',
   });
 
-  // read-only da athlete
+  // read-only
   const residence_city = athlete?.residence_city || '';
   const residence_country = athlete?.residence_country || '';
+
+  // riferimento al numero iniziale (serve per sapere se è cambiato)
+  const initialPhoneRef = useRef('');
 
   // ---- OTP state
   const [otp, setOtp] = useState('');
@@ -50,12 +51,12 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   const [expiresIn, setExpiresIn] = useState(0);
   const [attempts, setAttempts] = useState(0);
 
-  // countdowns
   useEffect(() => {
     if (cooldown <= 0) return;
     const t = setInterval(() => setCooldown((s) => (s > 0 ? s - 1 : 0)), 1000);
     return () => clearInterval(t);
   }, [cooldown]);
+
   useEffect(() => {
     if (expiresIn <= 0) return;
     const t = setInterval(() => setExpiresIn((s) => (s > 0 ? s - 1 : 0)), 1000);
@@ -67,7 +68,6 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     let mounted = true;
     (async () => {
       try {
-        // contacts_verification
         const { data: cvRow } = await supabase
           .from(CV_TABLE)
           .select('*')
@@ -75,18 +75,20 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           .single();
 
         const phone = athlete?.phone || cvRow?.phone_number || '';
-        const phone_verified = !!cvRow?.phone_verified;
+        initialPhoneRef.current = phone;
 
         const initial = {
           phone,
-          phone_verified,
+          phone_verified: !!cvRow?.phone_verified,
           id_document_type: cvRow?.id_document_type || '',
+          id_document_type_other: cvRow?.id_document_type_other || '',
           id_document_url: cvRow?.id_document_url || '',
           id_selfie_url: cvRow?.id_selfie_url || '',
           residence_region: cvRow?.residence_region || cvRow?.state_region || '',
           residence_postal_code: cvRow?.residence_postal_code || cvRow?.postal_code || '',
           residence_address: cvRow?.residence_address || cvRow?.address || '',
         };
+
         if (mounted) {
           setCv(cvRow || null);
           setForm(initial);
@@ -106,6 +108,9 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   const nationalLen = parsed?.nationalNumber ? String(parsed.nationalNumber).length : 0;
   const isValidPhone = !!parsed && parsed.isValid() && nationalLen >= 10;
 
+  // è cambiato rispetto al numero iniziale?
+  const phoneChanged = (form.phone || '') !== (initialPhoneRef.current || '');
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((p) => ({ ...p, [name]: value }));
@@ -114,7 +119,6 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   };
 
   const handlePhoneChange = (val) => {
-    // react-phone-input-2 ritorna solo cifre con prefisso. Convertiamo in +E.164
     const v = val?.startsWith('+') ? val : `+${val}`;
     setForm((p) => ({ ...p, phone: v, phone_verified: false }));
     setDirty(true);
@@ -123,7 +127,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     setOtp('');
   };
 
-  // ---- OTP: richiesta
+  // OTP helpers
   const ensureSession = async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session) {
@@ -135,21 +139,13 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
 
   const sendCode = async () => {
     try {
-      if (!isValidPhone) {
-        setOtpMsg('Please enter a valid phone number.');
-        return;
-      }
-      if (cooldown > 0) {
-        setOtpMsg(`Please wait ${cooldown}s before requesting a new code.`);
-        return;
-      }
+      if (!phoneChanged) { setOtpMsg('Edit your phone number before requesting a code.'); return; }
+      if (!isValidPhone) { setOtpMsg('Please enter a valid phone number.'); return; }
+      if (cooldown > 0) { setOtpMsg(`Please wait ${cooldown}s before requesting a new code.`); return; }
       if (!(await ensureSession())) return;
 
       const { error } = await supabase.auth.updateUser({ phone: form.phone });
-      if (error) {
-        setOtpMsg(`Failed to request OTP: ${error.message}`);
-        return;
-      }
+      if (error) { setOtpMsg(`Failed to request OTP: ${error.message}`); return; }
 
       setOtpSent(true);
       setCooldown(COOLDOWN_SECONDS);
@@ -163,6 +159,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
 
   const confirmCode = async () => {
     try {
+      if (!otpSent) { setOtpMsg('Request a code first.'); return; }
       if (!otp) { setOtpMsg('Please enter the code.'); return; }
       if (expiresIn <= 0) { setOtpMsg('The code has expired. Please request a new one.'); return; }
       if (attempts >= MAX_ATTEMPTS) { setOtpMsg('Too many attempts. Please request a new code.'); return; }
@@ -174,22 +171,23 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         type: 'phone_change'
       });
       setAttempts((n) => n + 1);
-      if (error) {
-        setOtpMsg(`Verification error: ${error.message}`);
-        return;
-      }
+      if (error) { setOtpMsg(`Verification error: ${error.message}`); return; }
 
-      // SUCCESSO: scrivi telefono su athlete + contacts_verification
+      // Successo → scrivi telefono su athlete + contacts_verification
       await supabase.from(ATHLETE_TABLE).update({ phone: form.phone }).eq('id', athlete.id);
       await supabase.from(CV_TABLE).upsert(
         { athlete_id: athlete.id, phone_number: form.phone, phone_verified: true },
         { onConflict: 'athlete_id' }
       );
 
+      // Aggiorna stato locale + reset "changed"
+      initialPhoneRef.current = form.phone;
       setForm((p) => ({ ...p, phone_verified: true }));
+      setOtpSent(false);
+      setOtp('');
       setOtpMsg('Phone verified ✓');
 
-      // Refresha athlete in Dashboard (se passato il callback)
+      // opzionale: refresh athlete
       if (onSaved) {
         const { data: fresh } = await supabase.from(ATHLETE_TABLE).select('*').eq('id', athlete.id).single();
         onSaved(fresh || null);
@@ -200,41 +198,43 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     }
   };
 
-  // ---- Upload su bucket PRIVATO "documents"
+  // ---- UPLOAD (bucket PRIVATO "documents")
   const makePath = (kind) => {
     const ts = Date.now();
-    if (kind === 'id')    return `documents/${athlete.id}/id/${form.id_document_type || 'doc'}-${ts}`;
-    if (kind === 'selfie')return `documents/${athlete.id}/selfie/${ts}`;
+    if (kind === 'id') return `documents/${athlete.id}/id/${form.id_document_type || 'doc'}-${ts}`;
+    if (kind === 'selfie') return `documents/${athlete.id}/selfie/${ts}`;
     return `documents/${athlete.id}/${ts}`;
   };
 
   const uploadFile = async (file, kind) => {
-    const path = `${makePath(kind)}.${file.name.split('.').pop()}`;
+    const ext = file.name.includes('.') ? file.name.split('.').pop() : 'bin';
+    const path = `${makePath(kind)}.${ext}`;
     const { error } = await supabase.storage.from('documents').upload(path, file, { upsert: true });
     if (error) throw error;
-    return path; // storage key (privato)
+    return path;
   };
 
-  // signed URL per preview (privato)
   const makeSignedUrl = async (path) => {
     if (!path) return '';
-    const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60); // 60s
+    const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60);
     if (error) return '';
     return data?.signedUrl || '';
   };
 
   const [docPreview, setDocPreview] = useState('');
   const [selfiePreview, setSelfiePreview] = useState('');
-
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setDocPreview(await makeSignedUrl(form.id_document_url));
-      setSelfiePreview(await makeSignedUrl(form.id_selfie_url));
-    })();
-    return () => { mounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.id_document_url, form.id_selfie_url]);
+    (async () => setDocPreview(await makeSignedUrl(form.id_document_url)))();
+  }, [form.id_document_url]);
+  useEffect(() => {
+    (async () => setSelfiePreview(await makeSignedUrl(form.id_selfie_url)))();
+  }, [form.id_selfie_url]);
+
+  // file inputs nascosti + bottoni “Choose file”
+  const docInputRef = useRef(null);
+  const selfieInputRef = useRef(null);
+  const clickDocPicker = () => docInputRef.current?.click();
+  const clickSelfiePicker = () => selfieInputRef.current?.click();
 
   const onPickDoc = async (e) => {
     const f = e.target.files?.[0];
@@ -264,9 +264,11 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     }
   };
 
-  // ---- SAVE (senza toccare timestamp; il telefono è gestito dall’OTP)
+  // ---- SAVE (senza timestamp)
+  const needOtherText = form.id_document_type === 'other';
   const canSave =
     !!form.id_document_type &&
+    (!needOtherText || !!form.id_document_type_other?.trim()) &&
     !!form.residence_region &&
     !!form.residence_postal_code &&
     !!form.residence_address;
@@ -279,12 +281,12 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       const payload = {
         athlete_id: athlete.id,
         id_document_type: form.id_document_type || null,
+        id_document_type_other: needOtherText ? (form.id_document_type_other || null) : null,
         id_document_url: form.id_document_url || null,
         id_selfie_url: form.id_selfie_url || null,
         residence_region: form.residence_region || null,
         residence_postal_code: form.residence_postal_code || null,
         residence_address: form.residence_address || null,
-        // phone_number/phone_verified NON si toccano qui: solo via OTP OK
       };
 
       const { error } = await supabase.from(CV_TABLE).upsert(payload, { onConflict: 'athlete_id' });
@@ -307,6 +309,11 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     ? { ...styles.saveBtn, background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' }
     : { ...styles.saveBtn, background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', cursor: 'pointer' };
 
+  // OTP controls: tutti piccoli, dimensione uniforme
+  const otpBtnDisabled = !phoneChanged || !isValidPhone || cooldown > 0;
+  const codeInputDisabled = !otpSent;
+  const confirmDisabled = !otpSent || !otp;
+
   return (
     <div style={{ ...styles.grid, ...(isMobile ? styles.gridMobile : null) }}>
       {/* PHONE + OTP */}
@@ -323,20 +330,36 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         />
         {!isValidPhone && form.phone && <div style={styles.error}>Invalid phone number.</div>}
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
-          <button type="button" onClick={sendCode} disabled={!isValidPhone || cooldown > 0} style={styles.smallBtn}>
+        <div style={styles.otpRow}>
+          <button
+            type="button"
+            onClick={sendCode}
+            disabled={otpBtnDisabled}
+            style={{ ...styles.otpBtn, ...(otpBtnDisabled ? styles.otpBtnDisabled : {}) }}
+          >
             {cooldown > 0 ? `Send code (${cooldown}s)` : 'Send code'}
           </button>
+
           <input
             placeholder="Code"
             value={otp}
             onChange={(e) => setOtp(e.target.value)}
-            style={{ ...styles.input, width: 120 }}
+            style={styles.otpInput}
+            disabled={codeInputDisabled}
           />
-          <button type="button" onClick={confirmCode} disabled={!otp} style={styles.smallBtn}>
+
+          <button
+            type="button"
+            onClick={confirmCode}
+            disabled={confirmDisabled}
+            style={{ ...styles.otpBtn, ...(confirmDisabled ? styles.otpBtnDisabled : {}) }}
+          >
             Confirm
           </button>
-          {form.phone_verified ? <span style={{ color: '#2ECC71', fontWeight: 600 }}>Verified ✓</span> : <span style={{ color: '#b00' }}>Not verified</span>}
+
+          {form.phone_verified
+            ? <span style={{ color: '#2ECC71', fontWeight: 600, fontSize: 12 }}>Verified ✓</span>
+            : <span style={{ color: '#b00', fontSize: 12 }}>Not verified</span>}
         </div>
         {otpMsg && <div style={{ marginTop: 6, fontSize: 12, color: '#666' }}>{otpMsg}</div>}
       </div>
@@ -383,9 +406,23 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         </select>
       </div>
 
+      {form.id_document_type === 'other' && (
+        <div style={styles.field}>
+          <label style={styles.label}>Specify document *</label>
+          <input
+            name="id_document_type_other"
+            value={form.id_document_type_other}
+            onChange={handleChange}
+            style={styles.input}
+            placeholder="Describe the document (e.g., student card)"
+          />
+        </div>
+      )}
+
       <div style={styles.field}>
         <label style={styles.label}>ID document (image/PDF)</label>
-        <input type="file" accept="image/*,.pdf" onChange={onPickDoc} />
+        <input ref={docInputRef} type="file" accept="image/*,.pdf" onChange={onPickDoc} style={{ display: 'none' }} />
+        <button type="button" onClick={clickDocPicker} style={styles.fileBtn}>Choose file</button>
         {form.id_document_url && (
           <div style={{ marginTop: 8 }}>
             <a href={docPreview} target="_blank" rel="noreferrer" style={styles.linkBtn}>Preview (60s)</a>
@@ -395,7 +432,8 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
 
       <div style={styles.field}>
         <label style={styles.label}>Selfie (image)</label>
-        <input type="file" accept="image/*" onChange={onPickSelfie} />
+        <input ref={selfieInputRef} type="file" accept="image/*" onChange={onPickSelfie} style={{ display: 'none' }} />
+        <button type="button" onClick={clickSelfiePicker} style={styles.fileBtn}>Choose file</button>
         {form.id_selfie_url && (
           <div style={{ marginTop: 8 }}>
             <a href={selfiePreview} target="_blank" rel="noreferrer" style={styles.linkBtn}>Preview (60s)</a>
@@ -403,13 +441,13 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         )}
       </div>
 
-      {/* SAVE BAR */}
+      {/* SAVE BAR (in basso a destra) */}
       <div style={styles.saveBar}>
         <button type="button" onClick={handleSave} disabled={!canSave || saving} style={saveBtnStyle}>
           {saving ? 'Saving…' : 'Save'}
         </button>
         {status.msg && (
-          <span style={{ color: status.type === 'error' ? '#b00' : '#2E7D32', fontWeight: 600 }}>
+          <span style={{ color: status.type === 'error' ? '#b00' : '#2E7D32', fontWeight: 600, marginLeft: 10 }}>
             {status.msg}
           </span>
         )}
@@ -439,17 +477,39 @@ const styles = {
   },
   error: { color: '#b00', fontSize: 12 },
 
-  saveBar: { gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8 },
-  saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8 },
-
-  smallBtn: {
-    fontSize: 13,
-    padding: '8px 12px',
+  // OTP controls: piccoli e uniformi
+  otpRow: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' },
+  otpBtn: {
+    padding: '6px 10px',
+    height: 32,
+    minWidth: 120,
+    fontSize: 12,
     borderRadius: 8,
     border: '1px solid #E0E0E0',
     background: '#FFF',
-    cursor: 'pointer',
-    minHeight: 36
+    cursor: 'pointer'
+  },
+  otpBtnDisabled: { background: '#F6F6F6', color: '#999', cursor: 'not-allowed' },
+  otpInput: {
+    height: 32,
+    minWidth: 120,
+    padding: '6px 10px',
+    border: '1px solid #E0E0E0',
+    borderRadius: 8,
+    fontSize: 12,
+    outline: 'none'
+  },
+
+  // File button stile progetto (come small button)
+  fileBtn: {
+    padding: '8px 12px',
+    height: 36,
+    minWidth: 140,
+    fontSize: 13,
+    borderRadius: 8,
+    border: '1px solid #E0E0E0',
+    background: '#FFF',
+    cursor: 'pointer'
   },
   linkBtn: {
     background: 'transparent',
@@ -460,5 +520,16 @@ const styles = {
     color: '#333',
     fontSize: 12,
     fontWeight: 600
-  }
+  },
+
+  // Save bar in basso a destra
+  saveBar: {
+    gridColumn: '1 / -1',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    paddingTop: 8,
+    justifyContent: 'flex-end'
+  },
+  saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8 }
 };
