@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { SECTIONS, DEFAULT_SECTION, isValidSection } from '../utils/dashboardSections';
 import { supabase } from '../utils/supabaseClient';
 import PersonalPanel from '../sections/personal/PersonalPanel';
+import ContactsPanel from '../sections/contacts/ContactsPanel';
 
 const ATHLETE_TABLE = 'athlete';
 
@@ -322,13 +323,16 @@ export default function Dashboard() {
             <>
               <h2 style={styles.panelTitle}>{sectionObj?.title}</h2>
               <div className="panel-body-mobile-fix" style={styles.panelBody}>
-                {current === 'personal' ? (
+                {current === 'personal' && (
                   <PersonalPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
-                ) : (
-                  <p style={styles.placeholder}>
-                    TODO — fields and Save for “{sectionObj?.title}” will render here.
-                  </p>
                 )}
+                {current === 'contacts' && (
+                  <ContactsPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
+                )}
+                {current !== 'personal' && current !== 'contacts' && (
+                  <p style={styles.placeholder}>TODO — “{sectionObj?.title}”</p>
+                )}
+
               </div>
             </>
           )}
