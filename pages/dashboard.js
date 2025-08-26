@@ -66,25 +66,23 @@ export default function Dashboard() {
         const { data, error } = await supabase
           .from(ATHLETE_TABLE)
           .select(`
-              id,
-              first_name,
-              last_name,
-              date_of_birth,
-              gender,
-              nationality,
-              birth_city,
-              native_language,
-              additional_language,
-              residence_city,
-              residence_country,
-              phone,
-              profile_picture_url,
-              profile_published,
-              completion_percentage,
-              current_step,
-              needs_parental_authorization,
-              seeking_team
-            `)
+                  id,
+                  first_name,
+                  last_name,
+                  date_of_birth,
+                  gender,
+                  nationality,
+                  birth_city,
+                  native_language,
+                  additional_language,
+                  phone,
+                  profile_picture_url,
+                  profile_published,
+                  completion_percentage,
+                  current_step,
+                  needs_parental_authorization,
+                  seeking_team
+                `)
 
           .eq('id', u.id)
           .single();
@@ -104,7 +102,20 @@ export default function Dashboard() {
           return;
         }
 
-        if (mounted) setAthlete(data || null);
+        // merge dei campi residenza da contacts_verification
+    const { data: cv } = await supabase
+      .from('contacts_verification')
+      .select('residence_city,residence_country')
+      .eq('athlete_id', u.id)
+      .single();
+    
+    const merged = {
+      ...data,
+      residence_city: cv?.residence_city || '',
+      residence_country: cv?.residence_country || ''
+    };
+    
+    if (mounted) setAthlete(merged);
       } catch (e) {
         console.error(e);
       } finally {
