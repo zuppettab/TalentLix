@@ -477,13 +477,15 @@ const styles = {
   },
   error: { color: '#b00', fontSize: 12 },
 
-  // OTP controls: piccoli e uniformi
+   // OTP controls uniformi (40px come il PhoneInput)
   otpRow: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' },
   otpBtn: {
-    padding: '6px 10px',
-    height: 32,
+    height: 40,
     minWidth: 120,
-    fontSize: 12,
+    padding: '0 12px',
+    boxSizing: 'border-box',
+    fontSize: 14,
+    lineHeight: '40px',
     borderRadius: 8,
     border: '1px solid #E0E0E0',
     background: '#FFF',
@@ -491,12 +493,13 @@ const styles = {
   },
   otpBtnDisabled: { background: '#F6F6F6', color: '#999', cursor: 'not-allowed' },
   otpInput: {
-    height: 32,
+    height: 40,
     minWidth: 120,
-    padding: '6px 10px',
+    padding: '0 12px',
+    boxSizing: 'border-box',
+    fontSize: 14,
     border: '1px solid #E0E0E0',
     borderRadius: 8,
-    fontSize: 12,
     outline: 'none'
   },
 
