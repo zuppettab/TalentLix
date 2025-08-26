@@ -767,14 +767,32 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
           value={formData.residence_city}
           onChange={handleChange}
         />
-        {/* Country of Residence */}
-        <input
-          style={styles.input}
-          name="residence_country"
-          placeholder="Country of Residence"
-          value={formData.residence_country}
-          onChange={handleChange}
-        />
+          {/* Country of Residence */}
+          <div style={{ width: '100%' }}>
+            <label style={{ textAlign: 'left', fontSize: '12px', opacity: 0.8 }}>Country of Residence *</label>
+            <Select
+              name="residence_country"
+              placeholder="Start typing Country of Residence"
+              options={countries}
+              value={countries.find(opt => opt.value === formData.residence_country) || null}
+              onChange={(selected) =>
+                setFormData(prev => ({ ...prev, residence_country: selected?.value || '' }))
+              }
+              filterOption={(option, inputValue) =>
+                inputValue.length >= 2 &&
+                option.label.toLowerCase().includes(inputValue.toLowerCase())
+              }
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  padding: '2px',
+                  borderRadius: '8px',
+                  borderColor: '#ccc',
+                }),
+              }}
+            />
+          </div>
+
         {/* Native Language */}
         <input
           style={styles.input}
