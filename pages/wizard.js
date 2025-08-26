@@ -78,6 +78,21 @@ useEffect(() => {
     // 2) Base form: merge ATHLETE (come facevi prima)
     setAthlete(athleteData);
     let nextForm = { ...formData, ...athleteData };
+    
+    // Carica anche RESIDENCE da contacts_verification
+    const { data: cvRow } = await supabase
+      .from('contacts_verification')
+      .select('residence_city, residence_country')
+      .eq('athlete_id', user.id)
+      .single();
+    
+    if (cvRow) {
+      nextForm = {
+        ...nextForm,
+        residence_city: cvRow.residence_city || '',
+        residence_country: cvRow.residence_country || ''
+      };
+    }
 
     // 3) Idrata anche l’ULTIMA sports_experiences (Step 3)
     const { data: expRows, error: expErr } = await supabase
@@ -196,15 +211,31 @@ useEffect(() => {
       
             } else if (step === 2) {
               // Aggiorna dati contatto Step 2 — NON toccare phone se non verified
-              const updatePayload = {
-                residence_city: formData.residence_city,
-                residence_country: formData.residence_country,
+            // Aggiorna tabella athlete (solo lingue, foto, step)
+            const { error: athleteError } = await supabase
+              .from('athlete')
+              .update({
                 native_language: formData.native_language,
                 additional_language: formData.additional_language,
                 profile_picture_url: formData.profile_picture_url,
                 current_step: nextStep,
                 completion_percentage: calcCompletion(nextStep),
-              };
+              })
+              .eq('id', user.id);
+            
+            if (athleteError) throw athleteError;
+            
+            // Aggiorna/crea riga in contacts_verification (residenza)
+            const { error: cvError } = await supabase
+              .from('contacts_verification')
+              .upsert({
+                athlete_id: user.id,
+                residence_city: formData.residence_city,
+                residence_country: formData.residence_country
+              }, { onConflict: 'athlete_id' });
+            
+            if (cvError) throw cvError;
+
             
               const digits = (v) => (v ? String(v).replace(/\D/g, '') : '');
               const currentDbPhone = athlete?.phone || '';
