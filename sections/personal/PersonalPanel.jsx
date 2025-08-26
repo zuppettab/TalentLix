@@ -17,8 +17,6 @@ const REQUIRED = [
   'nationality',
   'birth_city',
   'native_language',
-  'residence_city',
-  'residence_country',
   'profile_picture_url'
 ];
 
@@ -31,8 +29,6 @@ const MSG = {
   nationality: 'Country of birth is required',
   birth_city: 'City of birth is required',
   native_language: 'Native language is required',
-  residence_city: 'City of residence is required',
-  residence_country: 'Country of residence is required',
   profile_picture_url: 'Profile picture is required',
 };
 
@@ -48,8 +44,6 @@ export default function PersonalPanel({ athlete, onSaved }) {
     birth_city: '',
     native_language: '',
     additional_language: '',
-    residence_city: '',
-    residence_country: '',
     profile_picture_url: ''
   });
   const [errors, setErrors] = useState({});
@@ -80,8 +74,6 @@ export default function PersonalPanel({ athlete, onSaved }) {
       birth_city: athlete.birth_city || '',
       native_language: athlete.native_language || '',
       additional_language: athlete.additional_language || '',
-      residence_city: athlete.residence_city || '',
-      residence_country: athlete.residence_country || '',
       profile_picture_url: athlete.profile_picture_url || ''
     });
     setDirty(false);
@@ -212,8 +204,6 @@ export default function PersonalPanel({ athlete, onSaved }) {
         birth_city: form.birth_city || null,
         native_language: form.native_language || null,
         additional_language: form.additional_language || null,
-        residence_city: form.residence_city || null,
-        residence_country: form.residence_country || null,
         profile_picture_url: form.profile_picture_url || null,
         ...(parental !== null ? { needs_parental_authorization: parental } : {})
       };
@@ -298,39 +288,6 @@ export default function PersonalPanel({ athlete, onSaved }) {
       <Field label="City of birth *" name="birth_city" value={form.birth_city} onChange={handleChange} onBlur={handleBlur} error={errors.birth_city} />
       <Field label="Native language *" name="native_language" value={form.native_language} onChange={handleChange} onBlur={handleBlur} error={errors.native_language} />
       <Field label="Additional language (optional)" name="additional_language" value={form.additional_language} onChange={handleChange} onBlur={handleBlur} error={errors.additional_language} />
-
-      <div style={styles.field}>
-        <label style={styles.label}>Country of residence *</label>
-        <Select
-          name="residence_country"
-          placeholder="Start typing country"
-          options={countries}
-          value={countries.find(opt => opt.value === form.residence_country) || null}
-          onChange={(selected) => {
-            const value = selected?.value || '';
-            setForm(prev => ({ ...prev, residence_country: value }));
-            setErrors(prev => ({ ...prev, residence_country: validateField('residence_country', value) }));
-            setDirty(true);
-            setStatus({ type: '', msg: '' });
-            setAfterSavePrompt(false);
-          }}
-          filterOption={(option, inputValue) =>
-            inputValue.length >= 2 &&
-            option.label.toLowerCase().includes(inputValue.toLowerCase())
-          }
-          styles={{
-            control: (base) => ({
-              ...base,
-              padding: '2px',
-              borderRadius: '8px',
-              borderColor: errors.residence_country ? '#b00' : '#ccc',
-            }),
-          }}
-        />
-        {errors.residence_country && <div style={styles.error}>{errors.residence_country}</div>}
-      </div>
-
-      <Field label="City of residence *" name="residence_city" value={form.residence_city} onChange={handleChange} onBlur={handleBlur} error={errors.residence_city} />
 
       {/* DOB */}
       <div style={styles.field}>
