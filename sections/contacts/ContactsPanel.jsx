@@ -37,8 +37,8 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   });
 
   // read-only
-  const residence_city = athlete?.residence_city || '';
-  const residence_country = athlete?.residence_country || '';
+const residence_city = cv?.residence_city || '';
+const residence_country = cv?.residence_country || '';
 
   // riferimento al numero iniziale (serve per sapere se è cambiato)
   const initialPhoneRef = useRef('');
