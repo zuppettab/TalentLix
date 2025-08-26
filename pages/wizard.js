@@ -508,40 +508,43 @@ useEffect(() => {
           <option value="F">Female</option>
         </select>
       <div style={styles.field}>
-        <Select
+       <Select
           name="nationality"
           placeholder="Start typing country of birth"
           options={countries}
           value={countries.find(opt => opt.value === form.nationality) || null}
           onChange={(selected) => {
             const value = selected?.value || '';
-            setForm(prev => ({ ...prev, nationality: value }));
-            setErrors(prev => ({ ...prev, nationality: validateField('nationality', value) }));
-            setDirty(true);
-            setStatus({ type: '', msg: '' });
-            setAfterSavePrompt(false);
+            setFormData(prev => ({ ...prev, nationality: value }));
           }}
           filterOption={(option, inputValue) =>
             inputValue.length >= 2 &&
             option.label.toLowerCase().includes(inputValue.toLowerCase())
           }
           styles={{
-            control: (base, state) => ({
+            control: (base) => ({
               ...base,
               padding: '2px',
               borderRadius: '8px',
-              borderColor: errors.nationality ? '#b00' : '#ccc',
-              fontSize: '14px',     // 👈 allineato agli altri input
+              borderColor: '#ccc',
+              fontSize: '14px',
               minHeight: '40px',
             }),
             placeholder: (base) => ({
               ...base,
-              fontSize: '14px',     // 👈 stessa grandezza del placeholder input
+              fontSize: '14px',
               color: '#999',
             }),
             singleValue: (base) => ({
               ...base,
-              fontSize: '14px',     // 👈 testo selezionato
+              fontSize: '14px',
+            }),
+            menu: (base) => ({
+              ...base,
+              fontSize: '14px',
+            }),
+          }}
+        />
         <input
             style={styles.input}
             name="birth_city"
