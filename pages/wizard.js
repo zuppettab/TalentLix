@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../utils/supabaseClient';
@@ -507,15 +508,16 @@ useEffect(() => {
           <option value="M">Male</option>
           <option value="F">Female</option>
         </select>
-      <div style={styles.field}>
        <Select
           name="nationality"
-          placeholder="Start typing country of birth"
+          placeholder="Start typing Country of birth"
           options={countries}
-          value={countries.find(opt => opt.value === form.nationality) || null}
-          onChange={(selected) => {
-            const value = selected?.value || '';
-            setFormData(prev => ({ ...prev, nationality: value }));
+          value={countries.find(opt => opt.value === formData.nationality) || null}
+          onChange={(selected) =>
+            setFormData({ ...formData, nationality: selected?.value || '' })
+          }
+          onInputChange={(inputValue) => {
+            setCountryInput(inputValue);
           }}
           filterOption={(option, inputValue) =>
             inputValue.length >= 2 &&
@@ -527,21 +529,6 @@ useEffect(() => {
               padding: '2px',
               borderRadius: '8px',
               borderColor: '#ccc',
-              fontSize: '14px',
-              minHeight: '40px',
-            }),
-            placeholder: (base) => ({
-              ...base,
-              fontSize: '14px',
-              color: '#999',
-            }),
-            singleValue: (base) => ({
-              ...base,
-              fontSize: '14px',
-            }),
-            menu: (base) => ({
-              ...base,
-              fontSize: '14px',
             }),
           }}
         />
@@ -782,51 +769,29 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
           onChange={handleChange}
         />
           {/* Country of Residence */}
-          <div style={styles.field}>
+          <div style={{ width: '100%' }}>
             <Select
               name="residence_country"
-              placeholder="Start typing country of residence"
+              placeholder="Start typing Country of Residence"
               options={countries}
-              value={countries.find(opt => opt.value === form.residence_country) || null}
-              onChange={(selected) => {
-                const value = selected?.value || '';
-                setForm(prev => ({ ...prev, residence_country: value }));
-                setErrors(prev => ({ ...prev, residence_country: validateField('residence_country', value) }));
-                setDirty(true);
-                setStatus({ type: '', msg: '' });
-                setAfterSavePrompt(false);
-              }}
+              value={countries.find(opt => opt.value === formData.residence_country) || null}
+              onChange={(selected) =>
+                setFormData(prev => ({ ...prev, residence_country: selected?.value || '' }))
+              }
               filterOption={(option, inputValue) =>
                 inputValue.length >= 2 &&
                 option.label.toLowerCase().includes(inputValue.toLowerCase())
               }
               styles={{
-                control: (base, state) => ({
+                control: (base) => ({
                   ...base,
                   padding: '2px',
                   borderRadius: '8px',
-                  borderColor: errors.residence_country ? '#b00' : '#ccc',
-                  fontSize: '14px',     // 👈 allineato agli altri input
-                  minHeight: '40px',
-                }),
-                placeholder: (base) => ({
-                  ...base,
-                  fontSize: '14px',     // 👈 stesso font degli input normali
-                  color: '#999',
-                }),
-                singleValue: (base) => ({
-                  ...base,
-                  fontSize: '14px',
-                }),
-                menu: (base) => ({
-                  ...base,
-                  fontSize: '14px',
+                  borderColor: '#ccc',
                 }),
               }}
             />
-            {errors.residence_country && <div style={styles.error}>{errors.residence_country}</div>}
           </div>
-
 
         {/* Native Language */}
         <input
