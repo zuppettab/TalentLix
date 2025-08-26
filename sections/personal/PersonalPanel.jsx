@@ -298,7 +298,6 @@ export default function PersonalPanel({ athlete, onSaved }) {
       <Field label="City of birth *" name="birth_city" value={form.birth_city} onChange={handleChange} onBlur={handleBlur} error={errors.birth_city} />
       <Field label="Native language *" name="native_language" value={form.native_language} onChange={handleChange} onBlur={handleBlur} error={errors.native_language} />
       <Field label="Additional language (optional)" name="additional_language" value={form.additional_language} onChange={handleChange} onBlur={handleBlur} error={errors.additional_language} />
-      <Field label="City of residence *" name="residence_city" value={form.residence_city} onChange={handleChange} onBlur={handleBlur} error={errors.residence_city} />
 
       <div style={styles.field}>
         <label style={styles.label}>Country of residence *</label>
@@ -330,6 +329,8 @@ export default function PersonalPanel({ athlete, onSaved }) {
         />
         {errors.residence_country && <div style={styles.error}>{errors.residence_country}</div>}
       </div>
+
+      <Field label="City of residence *" name="residence_city" value={form.residence_city} onChange={handleChange} onBlur={handleBlur} error={errors.residence_city} />
 
       {/* DOB */}
       <div style={styles.field}>
