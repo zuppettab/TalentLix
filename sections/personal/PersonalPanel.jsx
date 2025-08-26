@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase as sb } from '../../utils/supabaseClient';
+import Select from 'react-select';
+import countries from '../../utils/countries';
 const supabase = sb;
 
 const ATHLETE_TABLE = 'athlete';
@@ -26,7 +28,7 @@ const MSG = {
   date_of_birth_required: 'Date of birth is required',
   date_of_birth_range: 'Date of birth invalid or out of range (10–60y)',
   gender: 'Gender is required',
-  nationality: 'Nationality is required',
+  nationality: 'Country of birth is required',
   birth_city: 'City of birth is required',
   native_language: 'Native language is required',
   residence_city: 'City of residence is required',
@@ -263,12 +265,71 @@ export default function PersonalPanel({ athlete, onSaved }) {
     <form onSubmit={(e) => { e.preventDefault(); onSave(); }} style={styles.formGrid}>
       <Field label="First name *" name="first_name" value={form.first_name} onChange={handleChange} onBlur={handleBlur} error={errors.first_name} />
       <Field label="Last name *" name="last_name" value={form.last_name} onChange={handleChange} onBlur={handleBlur} error={errors.last_name} />
-      <Field label="Nationality *" name="nationality" value={form.nationality} onChange={handleChange} onBlur={handleBlur} error={errors.nationality} />
+      <div style={styles.field}>
+        <label style={styles.label}>Country of birth *</label>
+        <Select
+          name="nationality"
+          placeholder="Start typing country"
+          options={countries}
+          value={countries.find(opt => opt.value === form.nationality) || null}
+          onChange={(selected) => {
+            const value = selected?.value || '';
+            setForm(prev => ({ ...prev, nationality: value }));
+            setErrors(prev => ({ ...prev, nationality: validateField('nationality', value) }));
+            setDirty(true);
+            setStatus({ type: '', msg: '' });
+            setAfterSavePrompt(false);
+          }}
+          filterOption={(option, inputValue) =>
+            inputValue.length >= 2 &&
+            option.label.toLowerCase().includes(inputValue.toLowerCase())
+          }
+          styles={{
+            control: (base) => ({
+              ...base,
+              padding: '2px',
+              borderRadius: '8px',
+              borderColor: errors.nationality ? '#b00' : '#ccc',
+            }),
+          }}
+        />
+        {errors.nationality && <div style={styles.error}>{errors.nationality}</div>}
+      </div>
       <Field label="City of birth *" name="birth_city" value={form.birth_city} onChange={handleChange} onBlur={handleBlur} error={errors.birth_city} />
       <Field label="Native language *" name="native_language" value={form.native_language} onChange={handleChange} onBlur={handleBlur} error={errors.native_language} />
       <Field label="Additional language (optional)" name="additional_language" value={form.additional_language} onChange={handleChange} onBlur={handleBlur} error={errors.additional_language} />
       <Field label="City of residence *" name="residence_city" value={form.residence_city} onChange={handleChange} onBlur={handleBlur} error={errors.residence_city} />
-      <Field label="Country of residence *" name="residence_country" value={form.residence_country} onChange={handleChange} onBlur={handleBlur} error={errors.residence_country} />
+
+      <div style={styles.field}>
+        <label style={styles.label}>Country of residence *</label>
+        <Select
+          name="residence_country"
+          placeholder="Start typing country"
+          options={countries}
+          value={countries.find(opt => opt.value === form.residence_country) || null}
+          onChange={(selected) => {
+            const value = selected?.value || '';
+            setForm(prev => ({ ...prev, residence_country: value }));
+            setErrors(prev => ({ ...prev, residence_country: validateField('residence_country', value) }));
+            setDirty(true);
+            setStatus({ type: '', msg: '' });
+            setAfterSavePrompt(false);
+          }}
+          filterOption={(option, inputValue) =>
+            inputValue.length >= 2 &&
+            option.label.toLowerCase().includes(inputValue.toLowerCase())
+          }
+          styles={{
+            control: (base) => ({
+              ...base,
+              padding: '2px',
+              borderRadius: '8px',
+              borderColor: errors.residence_country ? '#b00' : '#ccc',
+            }),
+          }}
+        />
+        {errors.residence_country && <div style={styles.error}>{errors.residence_country}</div>}
+      </div>
 
       {/* DOB */}
       <div style={styles.field}>
