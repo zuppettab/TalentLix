@@ -97,8 +97,9 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           residence_postal_code: cvRow?.residence_postal_code || cvRow?.postal_code || '',
           residence_address: cvRow?.residence_address || cvRow?.address || '',
           // <-- qui: city/country presi correttamente dall'ATHLETE, fallback cvRow
-          residence_city: athlete?.residence_city || cvRow?.residence_city || '',
-          residence_country: athlete?.residence_country || cvRow?.residence_country || '',
+          residence_city: cvRow?.residence_city || athlete?.residence_city || '',
+          residence_country: cvRow?.residence_country || athlete?.residence_country || '',
+
         };
 
         if (mounted) {
@@ -309,15 +310,18 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       const initial = initialRef.current || {};
 
       // changes per contacts_verification
-      const cvFields = [
-        'id_document_type',
-        'id_document_type_other',
-        'id_document_url',
-        'id_selfie_url',
-        'residence_region',
-        'residence_postal_code',
-        'residence_address',
-      ];
+        const cvFields = [
+          'id_document_type',
+          'id_document_type_other',
+          'id_document_url',
+          'id_selfie_url',
+          'residence_region',
+          'residence_postal_code',
+          'residence_address',
+          'residence_city',
+          'residence_country',
+        ];
+
       const cvPayload = { athlete_id: athlete.id };
       let cvChanged = false;
       for (const k of cvFields) {
@@ -331,22 +335,6 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       if (cvChanged) {
         const { error } = await supabase.from(CV_TABLE).upsert(cvPayload, { onConflict: 'athlete_id' });
         if (error) throw error;
-      }
-
-      // changes per athlete (QUI salviamo SEMPRE city/country se cambiati)
-      const athleteFields = ['residence_city', 'residence_country'];
-      const athletePayload = {};
-      let athleteChanged = false;
-      for (const k of athleteFields) {
-        const cur = form[k] ?? '';
-        const old = initial[k] ?? '';
-        if (cur !== old) {
-          athletePayload[k] = cur || null;
-          athleteChanged = true;
-        }
-      }
-      if (athleteChanged) {
-        await supabase.from(ATHLETE_TABLE).update(athletePayload).eq('id', athlete.id);
       }
 
       // refresh eventuale + reset
