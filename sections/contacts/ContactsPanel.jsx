@@ -96,6 +96,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           residence_region: cvRow?.residence_region || cvRow?.state_region || '',
           residence_postal_code: cvRow?.residence_postal_code || cvRow?.postal_code || '',
           residence_address: cvRow?.residence_address || cvRow?.address || '',
+          // <-- qui: city/country presi correttamente dall'ATHLETE, fallback cvRow
           residence_city: athlete?.residence_city || cvRow?.residence_city || '',
           residence_country: athlete?.residence_country || cvRow?.residence_country || '',
         };
@@ -332,7 +333,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         if (error) throw error;
       }
 
-      // changes per athlete
+      // changes per athlete (QUI salviamo SEMPRE city/country se cambiati)
       const athleteFields = ['residence_city', 'residence_country'];
       const athletePayload = {};
       let athleteChanged = false;
@@ -433,7 +434,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         {otpMsg && <div style={{ marginTop: 6, fontSize: 12, color: '#666' }}>{otpMsg}</div>}
       </div>
 
-      {/* RESIDENCE (editabili: DB giusto) */}
+      {/* RESIDENCE (EDITABILI) */}
       <div style={styles.field}>
         <label style={styles.label}>Country of residence</label>
         <Select
@@ -442,8 +443,9 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           options={countries}
           value={countries.find(opt => opt.value === form.residence_country) || null}
           onChange={(selected) => {
+            // <-- modifica minima: setDirty + reset status
             setForm(prev => ({ ...prev, residence_country: selected?.value || '' }));
-            setDirty(true);                    // <- importante per abilitare Save
+            setDirty(true);
             setStatus({ type: '', msg: '' });
           }}
           filterOption={(option, inputValue) =>
@@ -468,7 +470,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         <input
           name="residence_city"
           value={form.residence_city}
-          onChange={handleChange}
+          onChange={handleChange} // <-- già mette dirty e status
           style={styles.input}
           placeholder="e.g., Francavilla Fontana"
         />
