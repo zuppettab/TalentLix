@@ -1,5 +1,8 @@
 // sections/contacts/ContactsPanel.jsx
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Router from 'next/router';
+import Select from 'react-select';
+import countries from '../../utils/countries';
 import { supabase as sb } from '../../utils/supabaseClient';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
@@ -10,9 +13,9 @@ const CV_TABLE = 'contacts_verification';
 const ATHLETE_TABLE = 'athlete';
 
 // OTP policy
-const COOLDOWN_SECONDS = 30;
-const OTP_TTL_SECONDS  = 600; // 10 min
-const MAX_ATTEMPTS     = 5;
+const COOLDOWN_SECONDS = 60; // 1 minuto (prima 30s)
+const OTP_TTL_SECONDS = 600; // 10 min
+const MAX_ATTEMPTS = 5;
 
 export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   const [loading, setLoading] = useState(true);
@@ -34,11 +37,9 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     residence_region: '',
     residence_postal_code: '',
     residence_address: '',
+    residence_city: '',
+    residence_country: '',
   });
-
-  // read-only
-const residence_city = cv?.residence_city || '';
-const residence_country = cv?.residence_country || '';
 
   // riferimento al numero iniziale (serve per sapere se è cambiato)
   const initialPhoneRef = useRef('');
@@ -51,6 +52,11 @@ const residence_country = cv?.residence_country || '';
   const [expiresIn, setExpiresIn] = useState(0);
   const [attempts, setAttempts] = useState(0);
 
+  // file names visibili accanto ai bottoni
+  const [docFileName, setDocFileName] = useState('');
+  const [selfieFileName, setSelfieFileName] = useState('');
+
+  // countdowns
   useEffect(() => {
     if (cooldown <= 0) return;
     const t = setInterval(() => setCooldown((s) => (s > 0 ? s - 1 : 0)), 1000);
@@ -87,6 +93,9 @@ const residence_country = cv?.residence_country || '';
           residence_region: cvRow?.residence_region || cvRow?.state_region || '',
           residence_postal_code: cvRow?.residence_postal_code || cvRow?.postal_code || '',
           residence_address: cvRow?.residence_address || cvRow?.address || '',
+          // mappa corretta sul DB atleta per city/country
+          residence_city: athlete?.residence_city || cvRow?.residence_city || '',
+          residence_country: athlete?.residence_country || cvRow?.residence_country || '',
         };
 
         if (mounted) {
@@ -101,6 +110,31 @@ const residence_country = cv?.residence_country || '';
     })();
     return () => { mounted = false; };
   }, [athlete?.id]);
+
+  // Guard: avvisa se lasci la card con modifiche non salvate
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    const handleRouteChangeStart = (url) => {
+      if (!dirty) return;
+      const ok = window.confirm('Hai modifiche non salvate. Uscire senza salvare?');
+      if (!ok) {
+        Router.events.emit('routeChangeError');
+        // annulla la navigazione
+        // eslint-disable-next-line no-throw-literal
+        throw 'Route change aborted by user (unsaved changes)';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    Router.events.on('routeChangeStart', handleRouteChangeStart);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      Router.events.off('routeChangeStart', handleRouteChangeStart);
+    };
+  }, [dirty]);
 
   // -------- PHONE VALIDATION (E.164)
   const normalizedPhone = (form.phone || '').replace(/\s+/g, '');
@@ -201,9 +235,10 @@ const residence_country = cv?.residence_country || '';
   // ---- UPLOAD (bucket PRIVATO "documents")
   const makePath = (kind) => {
     const ts = Date.now();
-    if (kind === 'id') return `documents/${athlete.id}/id/${form.id_document_type || 'doc'}-${ts}`;
-    if (kind === 'selfie') return `documents/${athlete.id}/selfie/${ts}`;
-    return `documents/${athlete.id}/${ts}`;
+    // NIENTE prefisso "documents/" nel path interno: evitiamo la cartella annidata
+    if (kind === 'id') return `${athlete.id}/id/${form.id_document_type || 'doc'}-${ts}`;
+    if (kind === 'selfie') return `${athlete.id}/selfie/${ts}`;
+    return `${athlete.id}/${ts}`;
   };
 
   const uploadFile = async (file, kind) => {
@@ -241,6 +276,7 @@ const residence_country = cv?.residence_country || '';
     if (!f) return;
     try {
       const key = await uploadFile(f, 'id');
+      setDocFileName(f.name);
       setForm((p) => ({ ...p, id_document_url: key }));
       setDirty(true);
       setStatus({ type: '', msg: '' });
@@ -255,16 +291,17 @@ const residence_country = cv?.residence_country || '';
     if (!f) return;
     try {
       const key = await uploadFile(f, 'selfie');
+      setSelfieFileName(f.name);
       setForm((p) => ({ ...p, id_selfie_url: key }));
       setDirty(true);
       setStatus({ type: '', msg: '' });
     } catch (e2) {
       console.error(e2);
-      setStatus({ type: 'error', msg: 'Selfie upload failed.' });
+      setStatus({ type: 'error', msg: 'Doc photo upload failed.' });
     }
   };
 
-  // ---- SAVE (senza timestamp)
+  // ---- SAVE
   const needOtherText = form.id_document_type === 'other';
   const canSave =
     !!form.id_document_type &&
@@ -278,6 +315,7 @@ const residence_country = cv?.residence_country || '';
       setSaving(true);
       setStatus({ type: '', msg: '' });
 
+      // salva su contacts_verification
       const payload = {
         athlete_id: athlete.id,
         id_document_type: form.id_document_type || null,
@@ -288,12 +326,24 @@ const residence_country = cv?.residence_country || '';
         residence_postal_code: form.residence_postal_code || null,
         residence_address: form.residence_address || null,
       };
-
       const { error } = await supabase.from(CV_TABLE).upsert(payload, { onConflict: 'athlete_id' });
       if (error) throw error;
 
+      // salva i campi corretti su athlete (DB giusto)
+      await supabase
+        .from(ATHLETE_TABLE)
+        .update({
+          residence_city: form.residence_city || null,
+          residence_country: form.residence_country || null,
+        })
+        .eq('id', athlete.id);
+
       setDirty(false);
       setStatus({ type: 'ok', msg: 'Saved ✓' });
+      if (onSaved) {
+        const { data: fresh } = await supabase.from(ATHLETE_TABLE).select('*').eq('id', athlete.id).single();
+        onSaved(fresh || null);
+      }
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Save failed. Please try again.' });
@@ -305,14 +355,18 @@ const residence_country = cv?.residence_country || '';
   // ---- UI
   if (loading) return <div style={{ padding: 8, color: '#666' }}>Loading…</div>;
 
-  const saveBtnStyle = !canSave || saving
-    ? { ...styles.saveBtn, background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' }
-    : { ...styles.saveBtn, background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', cursor: 'pointer' };
+  const saveBtnStyle =
+    !canSave || saving
+      ? { ...styles.saveBtn, background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' }
+      : { ...styles.saveBtn, background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', cursor: 'pointer' };
 
-  // OTP controls: tutti piccoli, dimensione uniforme
+  // OTP controls: piccoli e uniformi
   const otpBtnDisabled = !phoneChanged || !isValidPhone || cooldown > 0;
   const codeInputDisabled = !otpSent;
   const confirmDisabled = !otpSent || !otp;
+
+  const enabledBtnStyleSmall = { ...styles.smallBtn, background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none' };
+  const disabledBtnStyleSmall = { ...styles.smallBtn, background: '#F6F6F6', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' };
 
   return (
     <div style={{ ...styles.grid, ...(isMobile ? styles.gridMobile : null) }}>
@@ -326,6 +380,7 @@ const residence_country = cv?.residence_country || '';
           inputStyle={{ width: '100%', height: 40 }}
           containerStyle={{ width: '100%' }}
           disableDropdown={false}
+          countryCodeEditable={false} // prefisso bloccato, modificabile solo dalla bandierina
           placeholder="Enter phone number"
         />
         {!isValidPhone && form.phone && <div style={styles.error}>Invalid phone number.</div>}
@@ -335,7 +390,7 @@ const residence_country = cv?.residence_country || '';
             type="button"
             onClick={sendCode}
             disabled={otpBtnDisabled}
-            style={{ ...styles.otpBtn, ...(otpBtnDisabled ? styles.otpBtnDisabled : {}) }}
+            style={otpBtnDisabled ? disabledBtnStyleSmall : enabledBtnStyleSmall}
           >
             {cooldown > 0 ? `Send code (${cooldown}s)` : 'Send code'}
           </button>
@@ -352,7 +407,7 @@ const residence_country = cv?.residence_country || '';
             type="button"
             onClick={confirmCode}
             disabled={confirmDisabled}
-            style={{ ...styles.otpBtn, ...(confirmDisabled ? styles.otpBtnDisabled : {}) }}
+            style={confirmDisabled ? disabledBtnStyleSmall : enabledBtnStyleSmall}
           >
             Confirm
           </button>
@@ -364,33 +419,62 @@ const residence_country = cv?.residence_country || '';
         {otpMsg && <div style={{ marginTop: 6, fontSize: 12, color: '#666' }}>{otpMsg}</div>}
       </div>
 
-      {/* READ-ONLY City/Country */}
+      {/* RESIDENCE (editabili: DB giusto) */}
       <div style={styles.field}>
-        <label style={styles.label}>Country of residence (read-only)</label>
-        <input style={{ ...styles.input, background: '#FAFAFA' }} value={residence_country || '—'} readOnly />
-      </div>
-      <div style={styles.field}>
-        <label style={styles.label}>City of residence (read-only)</label>
-        <input style={{ ...styles.input, background: '#FAFAFA' }} value={residence_city || '—'} readOnly />
+        <label style={styles.label}>Country of residence</label>
+        <Select
+          name="residence_country"
+          placeholder="Start typing Country of Residence"
+          options={countries}
+          value={countries.find(opt => opt.value === form.residence_country) || null}
+          onChange={(selected) =>
+            setForm(prev => ({ ...prev, residence_country: selected?.value || '' }))
+          }
+          filterOption={(option, inputValue) =>
+            inputValue.length >= 2 &&
+            option.label.toLowerCase().includes(inputValue.toLowerCase())
+          }
+          styles={{
+            control: (base) => ({
+              ...base,
+              padding: '2px',
+              borderRadius: '8px',
+              borderColor: '#ccc',
+              minHeight: 40,
+            }),
+            valueContainer: (base) => ({ ...base, padding: '0 8px' }),
+          }}
+        />
       </div>
 
-      {/* RESIDENCE (edit) */}
       <div style={styles.field}>
-        <label style={styles.label}>Region/State *</label>
+        <label style={styles.label}>City of residence</label>
+        <input
+          name="residence_city"
+          value={form.residence_city}
+          onChange={handleChange}
+          style={styles.input}
+          placeholder="e.g., Francavilla Fontana"
+        />
+      </div>
+
+      {/* RESIDENCE extra */}
+      <div style={styles.field}>
+        <label style={styles.label}>Region/State</label>
         <input name="residence_region" value={form.residence_region} onChange={handleChange} style={styles.input} placeholder="e.g., Puglia" />
       </div>
       <div style={styles.field}>
-        <label style={styles.label}>Postal code *</label>
+        <label style={styles.label}>Postal code</label>
         <input name="residence_postal_code" value={form.residence_postal_code} onChange={handleChange} style={styles.input} placeholder="e.g., 72100" />
       </div>
       <div style={styles.fieldWide}>
-        <label style={styles.label}>Address *</label>
+        <label style={styles.label}>Address</label>
         <input name="residence_address" value={form.residence_address} onChange={handleChange} style={styles.input} placeholder="Street, number" />
       </div>
 
       {/* ID DOCUMENT */}
       <div style={styles.field}>
-        <label style={styles.label}>ID document type *</label>
+        <label style={styles.label}>ID document type</label>
         <select
           name="id_document_type"
           value={form.id_document_type}
@@ -408,7 +492,7 @@ const residence_country = cv?.residence_country || '';
 
       {form.id_document_type === 'other' && (
         <div style={styles.field}>
-          <label style={styles.label}>Specify document *</label>
+          <label style={styles.label}>Specify document</label>
           <input
             name="id_document_type_other"
             value={form.id_document_type_other}
@@ -423,20 +507,22 @@ const residence_country = cv?.residence_country || '';
         <label style={styles.label}>ID document (image/PDF)</label>
         <input ref={docInputRef} type="file" accept="image/*,.pdf" onChange={onPickDoc} style={{ display: 'none' }} />
         <button type="button" onClick={clickDocPicker} style={styles.fileBtn}>Choose file</button>
-        {form.id_document_url && (
-          <div style={{ marginTop: 8 }}>
-            <a href={docPreview} target="_blank" rel="noreferrer" style={styles.linkBtn}>Preview (60s)</a>
+        {(docFileName || form.id_document_url) && (
+          <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            {docFileName && <span style={styles.fileName}>Selected: {docFileName}</span>}
+            {form.id_document_url && <a href={docPreview} target="_blank" rel="noreferrer" style={styles.linkBtn}>Preview (60s)</a>}
           </div>
         )}
       </div>
 
       <div style={styles.field}>
-        <label style={styles.label}>Selfie (image)</label>
+        <label style={styles.label}>Doc Photo (face close-up)</label>
         <input ref={selfieInputRef} type="file" accept="image/*" onChange={onPickSelfie} style={{ display: 'none' }} />
         <button type="button" onClick={clickSelfiePicker} style={styles.fileBtn}>Choose file</button>
-        {form.id_selfie_url && (
-          <div style={{ marginTop: 8 }}>
-            <a href={selfiePreview} target="_blank" rel="noreferrer" style={styles.linkBtn}>Preview (60s)</a>
+        {(selfieFileName || form.id_selfie_url) && (
+          <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            {selfieFileName && <span style={styles.fileName}>Selected: {selfieFileName}</span>}
+            {form.id_selfie_url && <a href={selfiePreview} target="_blank" rel="noreferrer" style={styles.linkBtn}>Preview (60s)</a>}
           </div>
         )}
       </div>
@@ -477,9 +563,9 @@ const styles = {
   },
   error: { color: '#b00', fontSize: 12 },
 
-   // OTP controls uniformi (40px come il PhoneInput)
+  // OTP controls uniformi (40px come il PhoneInput)
   otpRow: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' },
-  otpBtn: {
+  smallBtn: {
     height: 40,
     minWidth: 120,
     padding: '0 12px',
@@ -487,11 +573,8 @@ const styles = {
     fontSize: 14,
     lineHeight: '40px',
     borderRadius: 8,
-    border: '1px solid #E0E0E0',
-    background: '#FFF',
     cursor: 'pointer'
   },
-  otpBtnDisabled: { background: '#F6F6F6', color: '#999', cursor: 'not-allowed' },
   otpInput: {
     height: 40,
     minWidth: 120,
@@ -503,17 +586,19 @@ const styles = {
     outline: 'none'
   },
 
-  // File button stile progetto (come small button)
+  // File button con nota di colore come il resto del progetto
   fileBtn: {
     padding: '8px 12px',
     height: 36,
     minWidth: 140,
     fontSize: 13,
     borderRadius: 8,
-    border: '1px solid #E0E0E0',
-    background: '#FFF',
+    border: 'none',
+    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+    color: '#fff',
     cursor: 'pointer'
   },
+  fileName: { fontSize: 12, color: '#333' },
   linkBtn: {
     background: 'transparent',
     border: 'none',
