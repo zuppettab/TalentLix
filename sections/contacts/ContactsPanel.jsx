@@ -13,7 +13,7 @@ const CV_TABLE = 'contacts_verification';
 const ATHLETE_TABLE = 'athlete';
 
 // OTP policy
-const COOLDOWN_SECONDS = 60; // 1 minuto (prima 30s)
+const COOLDOWN_SECONDS = 60; // 1 minuto
 const OTP_TTL_SECONDS = 600; // 10 min
 const MAX_ATTEMPTS = 5;
 
@@ -22,6 +22,9 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
   const [dirty, setDirty] = useState(false);
+
+  // snapshot iniziale per diff salvataggio
+  const initialRef = useRef(null);
 
   // row contacts_verification (se serve)
   const [cv, setCv] = useState(null);
@@ -93,7 +96,6 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           residence_region: cvRow?.residence_region || cvRow?.state_region || '',
           residence_postal_code: cvRow?.residence_postal_code || cvRow?.postal_code || '',
           residence_address: cvRow?.residence_address || cvRow?.address || '',
-          // mappa corretta sul DB atleta per city/country
           residence_city: athlete?.residence_city || cvRow?.residence_city || '',
           residence_country: athlete?.residence_country || cvRow?.residence_country || '',
         };
@@ -101,6 +103,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         if (mounted) {
           setCv(cvRow || null);
           setForm(initial);
+          initialRef.current = initial; // snapshot per diff
           setLoading(false);
         }
       } catch (e) {
@@ -118,12 +121,11 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       e.preventDefault();
       e.returnValue = '';
     };
-    const handleRouteChangeStart = (url) => {
+    const handleRouteChangeStart = () => {
       if (!dirty) return;
       const ok = window.confirm('Hai modifiche non salvate. Uscire senza salvare?');
       if (!ok) {
         Router.events.emit('routeChangeError');
-        // annulla la navigazione
         // eslint-disable-next-line no-throw-literal
         throw 'Route change aborted by user (unsaved changes)';
       }
@@ -207,21 +209,18 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       setAttempts((n) => n + 1);
       if (error) { setOtpMsg(`Verification error: ${error.message}`); return; }
 
-      // Successo → scrivi telefono su athlete + contacts_verification
       await supabase.from(ATHLETE_TABLE).update({ phone: form.phone }).eq('id', athlete.id);
       await supabase.from(CV_TABLE).upsert(
         { athlete_id: athlete.id, phone_number: form.phone, phone_verified: true },
         { onConflict: 'athlete_id' }
       );
 
-      // Aggiorna stato locale + reset "changed"
       initialPhoneRef.current = form.phone;
       setForm((p) => ({ ...p, phone_verified: true }));
       setOtpSent(false);
       setOtp('');
       setOtpMsg('Phone verified ✓');
 
-      // opzionale: refresh athlete
       if (onSaved) {
         const { data: fresh } = await supabase.from(ATHLETE_TABLE).select('*').eq('id', athlete.id).single();
         onSaved(fresh || null);
@@ -235,7 +234,6 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   // ---- UPLOAD (bucket PRIVATO "documents")
   const makePath = (kind) => {
     const ts = Date.now();
-    // NIENTE prefisso "documents/" nel path interno: evitiamo la cartella annidata
     if (kind === 'id') return `${athlete.id}/id/${form.id_document_type || 'doc'}-${ts}`;
     if (kind === 'selfie') return `${athlete.id}/selfie/${ts}`;
     return `${athlete.id}/${ts}`;
@@ -301,45 +299,60 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     }
   };
 
-  // ---- SAVE
-  const needOtherText = form.id_document_type === 'other';
-  const canSave =
-    !!form.id_document_type &&
-    (!needOtherText || !!form.id_document_type_other?.trim()) &&
-    !!form.residence_region &&
-    !!form.residence_postal_code &&
-    !!form.residence_address;
-
+  // ---- SAVE (sempre possibile se dirty; salvataggio differenziale)
   const handleSave = async () => {
     try {
       setSaving(true);
       setStatus({ type: '', msg: '' });
 
-      // salva su contacts_verification
-      const payload = {
-        athlete_id: athlete.id,
-        id_document_type: form.id_document_type || null,
-        id_document_type_other: needOtherText ? (form.id_document_type_other || null) : null,
-        id_document_url: form.id_document_url || null,
-        id_selfie_url: form.id_selfie_url || null,
-        residence_region: form.residence_region || null,
-        residence_postal_code: form.residence_postal_code || null,
-        residence_address: form.residence_address || null,
-      };
-      const { error } = await supabase.from(CV_TABLE).upsert(payload, { onConflict: 'athlete_id' });
-      if (error) throw error;
+      const initial = initialRef.current || {};
 
-      // salva i campi corretti su athlete (DB giusto)
-      await supabase
-        .from(ATHLETE_TABLE)
-        .update({
-          residence_city: form.residence_city || null,
-          residence_country: form.residence_country || null,
-        })
-        .eq('id', athlete.id);
+      // changes per contacts_verification
+      const cvFields = [
+        'id_document_type',
+        'id_document_type_other',
+        'id_document_url',
+        'id_selfie_url',
+        'residence_region',
+        'residence_postal_code',
+        'residence_address',
+      ];
+      const cvPayload = { athlete_id: athlete.id };
+      let cvChanged = false;
+      for (const k of cvFields) {
+        const cur = form[k] ?? '';
+        const old = initial[k] ?? '';
+        if (cur !== old) {
+          cvPayload[k] = cur || null;
+          cvChanged = true;
+        }
+      }
+      if (cvChanged) {
+        const { error } = await supabase.from(CV_TABLE).upsert(cvPayload, { onConflict: 'athlete_id' });
+        if (error) throw error;
+      }
 
+      // changes per athlete
+      const athleteFields = ['residence_city', 'residence_country'];
+      const athletePayload = {};
+      let athleteChanged = false;
+      for (const k of athleteFields) {
+        const cur = form[k] ?? '';
+        const old = initial[k] ?? '';
+        if (cur !== old) {
+          athletePayload[k] = cur || null;
+          athleteChanged = true;
+        }
+      }
+      if (athleteChanged) {
+        await supabase.from(ATHLETE_TABLE).update(athletePayload).eq('id', athlete.id);
+      }
+
+      // refresh eventuale + reset
       setDirty(false);
+      initialRef.current = { ...form };
       setStatus({ type: 'ok', msg: 'Saved ✓' });
+
       if (onSaved) {
         const { data: fresh } = await supabase.from(ATHLETE_TABLE).select('*').eq('id', athlete.id).single();
         onSaved(fresh || null);
@@ -355,8 +368,9 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   // ---- UI
   if (loading) return <div style={{ padding: 8, color: '#666' }}>Loading…</div>;
 
+  const saveEnabled = dirty && !saving;
   const saveBtnStyle =
-    !canSave || saving
+    !saveEnabled
       ? { ...styles.saveBtn, background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' }
       : { ...styles.saveBtn, background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', cursor: 'pointer' };
 
@@ -427,9 +441,11 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           placeholder="Start typing Country of Residence"
           options={countries}
           value={countries.find(opt => opt.value === form.residence_country) || null}
-          onChange={(selected) =>
-            setForm(prev => ({ ...prev, residence_country: selected?.value || '' }))
-          }
+          onChange={(selected) => {
+            setForm(prev => ({ ...prev, residence_country: selected?.value || '' }));
+            setDirty(true);                    // <- importante per abilitare Save
+            setStatus({ type: '', msg: '' });
+          }}
           filterOption={(option, inputValue) =>
             inputValue.length >= 2 &&
             option.label.toLowerCase().includes(inputValue.toLowerCase())
@@ -529,7 +545,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
 
       {/* SAVE BAR (in basso a destra) */}
       <div style={styles.saveBar}>
-        <button type="button" onClick={handleSave} disabled={!canSave || saving} style={saveBtnStyle}>
+        <button type="button" onClick={handleSave} disabled={!saveEnabled} style={saveBtnStyle}>
           {saving ? 'Saving…' : 'Save'}
         </button>
         {status.msg && (
