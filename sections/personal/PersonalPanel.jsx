@@ -218,7 +218,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
       if (error) throw error;
       onSaved?.(data);
       setDirty(false);
-      setStatus({ type: 'success', msg: 'Saved ✓' });
+      setStatus({ type: 'success', msg: '' });
       setAfterSavePrompt(true);
 
       // auto-hide del banner dopo 5s
@@ -446,10 +446,33 @@ export default function PersonalPanel({ athlete, onSaved }) {
           type="submit"
           onClick={onSave}
           disabled={isSaveDisabled}
-          style={styles.saveBtn}
+          style={isSaveDisabled ? styles.saveBtnDisabled : styles.saveBtn}
         >
           {saving ? 'Saving...' : 'Save'}
         </button>
+        
+        {status.type === 'success' && (
+          <span
+            style={{
+              color: '#0a7',
+              fontWeight: 600,
+              marginLeft: 10,
+            }}
+          >
+            Saved ✓
+          </span>
+        )}
+        {status.type === 'error' && (
+          <span
+            style={{
+              color: '#b00',
+              fontWeight: 600,
+              marginLeft: 10,
+            }}
+          >
+            {status.msg}
+          </span>
+        )}
         
         {status.msg && (
           <span
