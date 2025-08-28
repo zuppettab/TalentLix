@@ -239,7 +239,11 @@ const saveBtnStyle =
     : { ...styles.saveBtn, background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', cursor: 'pointer' };
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(); }} style={styles.formGrid}>
+    <form
+        onSubmit={(e) => { e.preventDefault(); onSave(); }}
+        style={{ ...styles.formGrid, ...(isMobile ? { gridTemplateColumns: '1fr' } : null) }}
+      >
+
       <Field label="First name *" name="first_name" value={form.first_name} onChange={handleChange} onBlur={handleBlur} error={errors.first_name} />
       <Field label="Last name *" name="last_name" value={form.last_name} onChange={handleChange} onBlur={handleBlur} error={errors.last_name} />
       <div style={styles.field}>
@@ -419,7 +423,7 @@ const saveBtnStyle =
           </button>
         
           {status.msg && (
-            <span style={{ color: status.type === 'error' ? '#b00' : '#2E7D32', fontWeight: 600, marginLeft: 10 }}>
+            <span style={{ color: status.type === 'error' ? '#b00' : '#2E7D32', fontWeight: 600, marginLeft: 10, whiteSpace: 'nowrap' }}>
               {status.msg}
             </span>
           )}
@@ -546,6 +550,15 @@ const styles = {
     fontWeight: 600
   },
 
-  saveBar: { gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8, justifyContent: 'flex-end' },
+  saveBar: {
+      gridColumn: '1 / -1',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      paddingTop: 8,
+      justifyContent: 'flex-end',
+      flexWrap: 'wrap' // mobile-friendly: se manca spazio, va sotto ma resta a destra
+    },
+
   saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8 }
 };
