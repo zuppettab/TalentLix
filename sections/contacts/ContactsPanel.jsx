@@ -513,10 +513,11 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         <label style={styles.label}>ID document (image/PDF)</label>
         <input ref={docInputRef} type="file" accept="image/*,.pdf" onChange={onPickDoc} style={{ display: 'none' }} />
         <button type="button" onClick={clickDocPicker} style={styles.fileBtn}>Choose file</button>
-        {(docFileName || form.id_document_url) && (
-          <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            {docFileName && <span style={styles.fileName}>Selected: {docFileName}</span>}
-            {form.id_document_url && <a href={docPreview} target="_blank" rel="noreferrer" style={styles.linkBtn}>Preview (60s)</a>}
+       {(docFileName || form.id_document_url) && (
+          <div style={{ marginTop: 8 }}>
+            <span style={styles.fileName}>
+              Selected: {docFileName || (form.id_document_url ? form.id_document_url.split('/').pop() : '')}
+            </span>
           </div>
         )}
       </div>
@@ -526,9 +527,10 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         <input ref={selfieInputRef} type="file" accept="image/*" onChange={onPickSelfie} style={{ display: 'none' }} />
         <button type="button" onClick={clickSelfiePicker} style={styles.fileBtn}>Choose file</button>
         {(selfieFileName || form.id_selfie_url) && (
-          <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            {selfieFileName && <span style={styles.fileName}>Selected: {selfieFileName}</span>}
-            {form.id_selfie_url && <a href={selfiePreview} target="_blank" rel="noreferrer" style={styles.linkBtn}>Preview (60s)</a>}
+          <div style={{ marginTop: 8 }}>
+            <span style={styles.fileName}>
+              Selected: {selfieFileName || (form.id_selfie_url ? form.id_selfie_url.split('/').pop() : '')}
+            </span>
           </div>
         )}
       </div>
