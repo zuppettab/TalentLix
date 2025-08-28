@@ -1,3 +1,4 @@
+
 // @ts-check
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
@@ -218,7 +219,7 @@ export default function PersonalPanel({ athlete, onSaved }) {
       if (error) throw error;
       onSaved?.(data);
       setDirty(false);
-      setStatus({ type: 'success', msg: '' });
+      setStatus({ type: 'success', msg: 'Saved ✓' });
       setAfterSavePrompt(true);
 
       // auto-hide del banner dopo 5s
@@ -444,48 +445,12 @@ export default function PersonalPanel({ athlete, onSaved }) {
 
         <button
           type="submit"
-          onClick={onSave}
           disabled={isSaveDisabled}
-          style={isSaveDisabled ? styles.saveBtnDisabled : styles.saveBtn}
+          onClick={(e) => { if (isSaveDisabled) e.preventDefault(); }}
+          style={saveBtnStyle}
         >
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? 'Saving…' : 'Save'}
         </button>
-        
-        {status.type === 'success' && (
-          <span
-            style={{
-              color: '#0a7',
-              fontWeight: 600,
-              marginLeft: 10,
-            }}
-          >
-            Saved ✓
-          </span>
-        )}
-        {status.type === 'error' && (
-          <span
-            style={{
-              color: '#b00',
-              fontWeight: 600,
-              marginLeft: 10,
-            }}
-          >
-            {status.msg}
-          </span>
-        )}
-        
-        {status.msg && (
-          <span
-            style={{
-              color: status.type === 'error' ? '#b00' : '#2E7D32',
-              fontWeight: 600,
-              marginLeft: 10,
-            }}
-          >
-            {status.msg}
-          </span>
-        )}
-
       </div>
     </form>
   );
