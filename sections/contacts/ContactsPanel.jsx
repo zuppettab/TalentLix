@@ -538,8 +538,17 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         <button type="button" onClick={handleSave} disabled={!saveEnabled} style={saveBtnStyle}>
           {saving ? 'Saving…' : 'Save'}
         </button>
-        {status.msg && (
-          <span style={{ color: status.type === 'error' ? '#b00' : '#2E7D32', fontWeight: 600, marginLeft: 10 }}>
+       {status.msg && (
+          <span
+            style={{
+              color: status.type === 'error' ? '#b00' : '#2E7D32',
+              fontWeight: 600,
+              marginLeft: 10,
+              whiteSpace: 'nowrap',
+              display: 'inline-flex',
+              alignItems: 'center'
+            }}
+          >
             {status.msg}
           </span>
         )}
@@ -617,13 +626,14 @@ const styles = {
   },
 
   // Save bar in basso a destra
-  saveBar: {
+   saveBar: {
     gridColumn: '1 / -1',
     display: 'flex',
     alignItems: 'center',
     gap: 12,
     paddingTop: 8,
-    justifyContent: 'flex-end'
+    justifyContent: 'flex-end',
+    flexWrap: 'nowrap'
   },
   saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8 }
 };
