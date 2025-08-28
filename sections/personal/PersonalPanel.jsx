@@ -551,14 +551,14 @@ const styles = {
   },
 
   saveBar: {
-      gridColumn: '1 / -1',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 12,
-      paddingTop: 8,
-      justifyContent: 'flex-end',
-      flexWrap: 'wrap' // mobile-friendly: se manca spazio, va sotto ma resta a destra
-    },
+    gridColumn: '1 / -1',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    paddingTop: 8,
+    justifyContent: 'flex-end',
+    flexWrap: 'nowrap' // resta SEMPRE sulla stessa riga anche su mobile
+  },
 
   saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8 }
 };
