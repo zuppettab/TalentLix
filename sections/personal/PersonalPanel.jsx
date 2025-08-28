@@ -79,7 +79,6 @@ export default function PersonalPanel({ athlete, onSaved }) {
     });
     setDirty(false);
     setErrors({});
-    setStatus({ type: '', msg: '' });
     setAfterSavePrompt(false);
   }, [athlete]);
 
