@@ -234,23 +234,10 @@ export default function PersonalPanel({ athlete, onSaved }) {
   };
 
   // Stile dinamico del bottone Save (contrasto forte)
-  const saveBtnStyle = isSaveDisabled
-    ? {
-        ...styles.saveBtn,
-        background: '#EEE',
-        color: '#999',
-        border: '1px solid #E0E0E0',
-        opacity: 1,
-        cursor: 'not-allowed',
-        pointerEvents: 'none'
-      }
-    : {
-        ...styles.saveBtn,
-        background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
-        color: '#fff',
-        border: 'none',
-        cursor: 'pointer'
-      };
+const saveBtnStyle =
+  isSaveDisabled
+    ? { ...styles.saveBtn, background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' }
+    : { ...styles.saveBtn, background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', cursor: 'pointer' };
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSave(); }} style={styles.formGrid}>
@@ -423,35 +410,21 @@ export default function PersonalPanel({ athlete, onSaved }) {
 
       {/* Status + Save */}
       <div style={styles.saveBar}>
-        <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          {status.type === 'success' && (
-            <div role="status" aria-live="polite" style={styles.toastSuccess}>
-              <strong>Saved ✓</strong>
-              <span style={{ marginLeft: 8 }}>— Leave this page?</span>
-              <button type="button" onClick={() => router.back()} style={{ ...styles.linkBtn, color: '#0a7' }}>
-                Leave
-              </button>
-              <button type="button" onClick={() => setAfterSavePrompt(false)} style={styles.linkBtn}>
-                Stay
-              </button>
-            </div>
-          )}
-          {status.type === 'error' && (
-            <div role="status" aria-live="polite" style={styles.toastError}>
+          <button
+            type="submit"
+            disabled={isSaveDisabled}
+            onClick={(e) => { if (isSaveDisabled) e.preventDefault(); }}
+            style={saveBtnStyle}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        
+          {status.msg && (
+            <span style={{ color: status.type === 'error' ? '#b00' : '#2E7D32', fontWeight: 600, marginLeft: 10 }}>
               {status.msg}
-            </div>
+            </span>
           )}
         </div>
-
-        <button
-          type="submit"
-          disabled={isSaveDisabled}
-          onClick={(e) => { if (isSaveDisabled) e.preventDefault(); }}
-          style={saveBtnStyle}
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
     </form>
   );
 }
@@ -574,6 +547,6 @@ const styles = {
     fontWeight: 600
   },
 
-  saveBar: { gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8 },
+  saveBar: { gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8, justifyContent: 'flex-end' },
   saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8 }
 };
