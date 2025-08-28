@@ -444,12 +444,25 @@ export default function PersonalPanel({ athlete, onSaved }) {
 
         <button
           type="submit"
+          onClick={onSave}
           disabled={isSaveDisabled}
-          onClick={(e) => { if (isSaveDisabled) e.preventDefault(); }}
-          style={saveBtnStyle}
+          style={styles.saveBtn}
         >
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? 'Saving...' : 'Save'}
         </button>
+        
+        {status.msg && (
+          <span
+            style={{
+              color: status.type === 'error' ? '#b00' : '#2E7D32',
+              fontWeight: 600,
+              marginLeft: 10,
+            }}
+          >
+            {status.msg}
+          </span>
+        )}
+
       </div>
     </form>
   );
