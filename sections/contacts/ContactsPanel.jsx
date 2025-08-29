@@ -3,41 +3,73 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Router from 'next/router';
 import Select from 'react-select';
 import countries from '../../utils/countries';
-import { supabase as sb } from '../../utils/supabaseClient';
+import { supabase as sb } from '../../utils/supabaseClient'; // Supabase client centralizzato :contentReference[oaicite:2]{index=2}
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 
-const supabase = sb; // client Supabase centralizzato :contentReference[oaicite:2]{index=2}
+const supabase = sb;
 
 const CV_TABLE = 'contacts_verification';
 const ATHLETE_TABLE = 'athlete';
 
 // OTP policy
-const COOLDOWN_SECONDS = 60;  // 1 minuto
-const OTP_TTL_SECONDS = 600;  // 10 minuti
+const COOLDOWN_SECONDS = 60;  // 1 minute
+const OTP_TTL_SECONDS = 600;  // 10 minutes
 const MAX_ATTEMPTS = 5;
 
 // ID document types
 const ID_TYPES = [
-  { value: 'id_card', label: 'ID Card' },
-  { value: 'passport', label: 'Passport' },
+  { value: 'id_card',        label: 'ID Card' },
+  { value: 'passport',       label: 'Passport' },
   { value: 'driver_license', label: 'Driver License' },
-  { value: 'other', label: 'Other (specify)' },
+  { value: 'other',          label: 'Other (specify)' },
 ];
+
+// --------- Helpers (sanitization & UI) ---------
+const ALLOWED_ID_TYPES = new Set(['id_card', 'passport', 'driver_license', 'other']);
+
+function normalizeIdType(v) {
+  const s = (v ?? '').toString().trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (ALLOWED_ID_TYPES.has(s)) return s;
+  if (s === 'identity_card' || s === 'id') return 'id_card';
+  if (s === 'driving_license' || s === 'driving_licence' || s === 'licence' || s === 'license') return 'driver_license';
+  return '';
+}
+function hasValue(v) {
+  return v !== undefined && v !== null && String(v).trim() !== '';
+}
+function onlyDigits(v) {
+  return String(v || '').replace(/\D+/g, '');
+}
+function normalizePhone(v) {
+  return onlyDigits(v); // react-phone-input-2 vuole cifre (senza +)
+}
+function getFileNameFromPath(path) {
+  if (!path) return '';
+  const p = String(path);
+  const ix = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
+  return ix >= 0 ? p.slice(ix + 1) : p;
+}
+function elideMiddle(str, max = 28) {
+  const s = String(str || '');
+  if (s.length <= max) return s;
+  const half = Math.floor((max - 1) / 2);
+  return s.slice(0, half) + '…' + s.slice(s.length - half);
+}
 
 export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   // ----------------------- STATE BASE -----------------------
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState({ type: '', msg: '' }); // badge "Saved ✓" / error
-  const [dirty, setDirty] = useState(false); // guardia navigazione
+  const [status, setStatus] = useState({ type: '', msg: '' }); // "Saved ✓" / error
+  const [dirty, setDirty] = useState(false); // route guard
 
-  const initialRef = useRef(null);        // snapshot iniziale (per diff “non-telefono”)
-  const initialPhoneRef = useRef('');     // snapshot telefono normalizzato
-  const [cv, setCv] = useState(null);     // riga contacts_verification (se esiste)
+  const initialRef = useRef(null);    // snapshot iniziale (per diff non-telefono)
+  const initialPhoneRef = useRef(''); // snapshot telefono normalizzato
+  const [cv, setCv] = useState(null); // riga contacts_verification
 
-  // **NUOVO**: stato dei **VALORI SALVATI** (usato per la % progress)
+  // Valori SALVATI (base per la progress %)
   const [saved, setSaved] = useState(null);
 
   // ----------------------- FORM -----------------------
@@ -63,7 +95,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   const [expiresIn, setExpiresIn] = useState(0);
   const [attempts, setAttempts] = useState(0);
 
-  // file helper
+  // Upload helpers
   const [docFileName, setDocFileName] = useState('');
   const [selfieFileName, setSelfieFileName] = useState('');
   const [docPreview, setDocPreview] = useState('');
@@ -95,14 +127,13 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
 
         // telefono: preferisci athlete.phone, fallback cvRow.phone_number
         const rawPhone = athlete?.phone || cvRow?.phone_number || '';
-        const normalized = normalizePhone(rawPhone);
-
-        initialPhoneRef.current = normalized;
+        const normalizedPhone = normalizePhone(rawPhone);
+        initialPhoneRef.current = normalizedPhone;
 
         const initial = {
-          phone: normalized,
+          phone: normalizedPhone,
           phone_verified: !!cvRow?.phone_verified,
-          id_document_type: cvRow?.id_document_type || '',
+          id_document_type: normalizeIdType(cvRow?.id_document_type || ''),
           id_document_type_other: cvRow?.id_document_type_other || '',
           id_document_url: cvRow?.id_document_url || '',
           id_selfie_url: cvRow?.id_selfie_url || '',
@@ -117,7 +148,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           setCv(cvRow || null);
           setForm(initial);
           initialRef.current = initial;
-          setSaved(initial);          // <— **importante**: progress parte dai dati SALVATI
+          setSaved(initial); // progress calcolata sui dati salvati
           setLoading(false);
         }
       } catch (e) {
@@ -128,7 +159,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     return () => { mounted = false; };
   }, [athlete?.id]);
 
-  // signed preview per i file (link 60s)
+  // Signed preview per file (link 60s)
   useEffect(() => {
     (async () => setDocPreview(await makeSignedUrl(form.id_document_url)))();
   }, [form.id_document_url]);
@@ -136,7 +167,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     (async () => setSelfiePreview(await makeSignedUrl(form.id_selfie_url)))();
   }, [form.id_selfie_url]);
 
-  // Guardia navigazione con modifiche non salvate
+  // Route guard su dirty
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (!dirty) return;
@@ -145,7 +176,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     };
     const handleRouteChangeStart = () => {
       if (!dirty) return;
-      const ok = window.confirm('Hai modifiche non salvate. Uscire senza salvare?');
+      const ok = window.confirm('You have unsaved changes. Leave without saving?');
       if (!ok) {
         Router.events.emit('routeChangeError');
         // eslint-disable-next-line no-throw-literal
@@ -161,15 +192,15 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   }, [dirty]);
 
   // ----------------------- DERIVED -----------------------
-  // Stato review / lock
+  // Review / lock
   const currentReviewStatus = useMemo(
     () => (cv?.review_status || 'draft'),
     [cv?.review_status]
   );
-  const isLocked = currentReviewStatus === 'submitted' || currentReviewStatus === 'approved';
+  const isLocked   = currentReviewStatus === 'submitted' || currentReviewStatus === 'approved';
   const isRejected = currentReviewStatus === 'rejected';
 
-  // Validazione telefono (E.164 con +)
+  // Phone validation
   const e164 = form.phone ? `+${onlyDigits(form.phone)}` : '';
   const isValidPhone = !!(e164 && parsePhoneNumberFromString(e164)?.isValid());
   const phoneChanged = useMemo(
@@ -177,7 +208,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     [form.phone]
   );
 
-  // Dirty non-telefono (rispetto a snapshot iniziale)
+  // Dirty non-telefono
   const NON_PHONE_FIELDS = [
     'id_document_type',
     'id_document_type_other',
@@ -194,7 +225,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     return NON_PHONE_FIELDS.some(k => (form[k] ?? '') !== (initial[k] ?? ''));
   }, [form]);
 
-  // **NUOVO**: Progress % calcolato sui **VALORI SALVATI** (non sui campi popolati)
+  // Progress % (solo valori SALVATI)
   const progressInfo = useMemo(() => {
     const persisted = saved || {};
     const keys = [
@@ -215,35 +246,31 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     const percent = total > 0 ? Math.round((done / total) * 100) : 0;
     return { total, done, percent };
   }, [saved]);
-
   const progress = progressInfo.percent;
 
   // Gating bottoni
-  const saveEnabled   = nonPhoneDirty && !saving && !isLocked;
-  const canSubmit     = progress === 100
-    && (currentReviewStatus === 'draft' || currentReviewStatus === 'rejected')
-    && !nonPhoneDirty && !saving;
+  const saveEnabled = nonPhoneDirty && !saving && !isLocked;
 
-  // ----------------------- HELPERS -----------------------
-  function hasValue(v) {
-    return v !== undefined && v !== null && String(v).trim() !== '';
-  }
-  function onlyDigits(v) {
-    return String(v || '').replace(/\D+/g, '');
-  }
-  function normalizePhone(v) {
-    return onlyDigits(v); // PhoneInput vuole cifre (senza +)
-  }
+  // useEffect dedicato per garantire refresh immediato del gating "Submit for review"
+  const [submitEnabled, setSubmitEnabled] = useState(false);
+  useEffect(() => {
+    const ok = progress === 100
+      && (currentReviewStatus === 'draft' || currentReviewStatus === 'rejected')
+      && !nonPhoneDirty
+      && !saving;
+    setSubmitEnabled(ok);
+  }, [progress, currentReviewStatus, nonPhoneDirty, saving]);
 
+  // ----------------------- HANDLERS -----------------------
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (isLocked && name !== 'phone') return; // cristallizzato: blocca tutto tranne il telefono
+    if (isLocked && name !== 'phone') return; // crystallized: block everything but phone
     setForm((p) => ({ ...p, [name]: value }));
     setDirty(true);
     if (status.type) setStatus({ type: '', msg: '' });
   };
 
-  // Country <Select>
+  // Country Select
   const countryOption = useMemo(() => {
     if (!form.residence_country) return null;
     const lower = String(form.residence_country).toLowerCase();
@@ -275,7 +302,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     try {
       if (!phoneChanged) { setOtpMsg('Edit your phone number before requesting a code.'); return; }
       if (!isValidPhone) { setOtpMsg('Please enter a valid phone number.'); return; }
-      if (cooldown > 0) { setOtpMsg(`Please wait ${cooldown}s before requesting a new code.`); return; }
+      if (cooldown > 0)  { setOtpMsg(`Please wait ${cooldown}s before requesting a new code.`); return; }
       if (!(await ensureSession())) return;
 
       const { error } = await supabase.auth.updateUser({ phone: e164 });
@@ -293,9 +320,9 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
 
   const confirmCode = async () => {
     try {
-      if (!otpSent) { setOtpMsg('Request a code first.'); return; }
-      if (!otp) { setOtpMsg('Please enter the code.'); return; }
-      if (expiresIn <= 0) { setOtpMsg('The code has expired. Please request a new one.'); return; }
+      if (!otpSent)         { setOtpMsg('Request a code first.'); return; }
+      if (!otp)             { setOtpMsg('Please enter the code.'); return; }
+      if (expiresIn <= 0)   { setOtpMsg('The code has expired. Please request a new one.'); return; }
       if (attempts >= MAX_ATTEMPTS) { setOtpMsg('Too many attempts. Please request a new code.'); return; }
       if (!(await ensureSession())) return;
 
@@ -307,7 +334,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       setAttempts((n) => n + 1);
       if (error) { setOtpMsg(`Verification error: ${error.message}`); return; }
 
-      // Persist su athlete + CV (telefono verificato) — flusso indipendente dal Save
+      // Persist: athlete + CV (phone verified) — flusso indipendente dal Save
       await supabase.from(ATHLETE_TABLE).update({ phone: e164 }).eq('id', athlete.id);
       await supabase.from(CV_TABLE).upsert(
         { athlete_id: athlete.id, phone_number: e164, phone_verified: true },
@@ -323,7 +350,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       setExpiresIn(0);
       setAttempts(0);
 
-      // Aggiorna snapshot “iniziale” e **VALORI SALVATI** (per progress)
+      // Aggiorna snapshot + SAVED (progress)
       initialPhoneRef.current = onlyDigits(e164);
       setDirty(false);
       initialRef.current = { ...(initialRef.current || {}), phone: onlyDigits(e164), phone_verified: true };
@@ -341,9 +368,15 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   };
 
   // ----------------------- UPLOAD -----------------------
+  const docInputRef = useRef(null);
+  const selfieInputRef = useRef(null);
+  const clickDocPicker = () => docInputRef.current?.click();
+  const clickSelfiePicker = () => selfieInputRef.current?.click();
+
   const makePath = (kind) => {
     const ts = Date.now();
-    if (kind === 'id') return `${athlete.id}/id/${form.id_document_type || 'doc'}-${ts}`;
+    const t = normalizeIdType(form.id_document_type) || 'doc';
+    if (kind === 'id')     return `${athlete.id}/id/${t}-${ts}`;
     if (kind === 'selfie') return `${athlete.id}/selfie/${ts}`;
     return `${athlete.id}/${ts}`;
   };
@@ -363,11 +396,6 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     return data?.signedUrl || '';
   };
 
-  const docInputRef = useRef(null);
-  const selfieInputRef = useRef(null);
-  const clickDocPicker = () => docInputRef.current?.click();
-  const clickSelfiePicker = () => selfieInputRef.current?.click();
-
   const onPickDoc = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -379,7 +407,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       setStatus({ type: '', msg: '' });
     } catch (e2) {
       console.error(e2);
-      setStatus({ type: 'error', msg: 'Doc upload failed.' });
+      setStatus({ type: 'error', msg: 'Document upload failed.' });
     }
   };
 
@@ -394,7 +422,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       setStatus({ type: '', msg: '' });
     } catch (e2) {
       console.error(e2);
-      setStatus({ type: 'error', msg: 'Selfie upload failed.' });
+      setStatus({ type: 'error', msg: 'Face photo upload failed.' });
     }
   };
 
@@ -417,13 +445,28 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         'residence_country',
       ];
 
+      // Sanitizzazione robusta di id_document_type
+      const sanitizedType = normalizeIdType(form.id_document_type);
+
       const cvPayload = { athlete_id: athlete.id };
       let cvChanged = false;
       for (const k of cvFields) {
-        const cur = form[k] ?? '';
+        // Applica la normalizzazione solo al tipo
+        const curRaw = (k === 'id_document_type') ? sanitizedType : (form[k] ?? '');
         const old = initial[k] ?? '';
+        const cur = curRaw;
+
+        // Se non 'other', azzera il campo "other"
+        if (k === 'id_document_type_other' && sanitizedType !== 'other') {
+          if ((initial[k] ?? '') !== '') {
+            cvPayload[k] = null;
+            cvChanged = true;
+          }
+          continue;
+        }
+
         if (cur !== old) {
-          cvPayload[k] = cur || null;
+          cvPayload[k] = hasValue(cur) ? cur : null;
           cvChanged = true;
         }
       }
@@ -433,12 +476,12 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         if (error) throw error;
       }
 
-      // refresh UI + snapshot + **SALVATI** (per progress)
+      // refresh UI + snapshot + SAVED (per progress)
       const nextInitial = { ...(initialRef.current || {}), ...cvPayload };
       initialRef.current = {
         ...nextInitial,
-        id_document_type: form.id_document_type,
-        id_document_type_other: form.id_document_type_other,
+        id_document_type: sanitizedType,
+        id_document_type_other: sanitizedType === 'other' ? form.id_document_type_other : '',
         id_document_url: form.id_document_url,
         id_selfie_url: form.id_selfie_url,
         residence_region: form.residence_region,
@@ -450,8 +493,8 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
 
       setSaved((prev) => ({
         ...(prev || {}),
-        id_document_type: form.id_document_type,
-        id_document_type_other: form.id_document_type === 'other' ? form.id_document_type_other : '',
+        id_document_type: sanitizedType,
+        id_document_type_other: sanitizedType === 'other' ? form.id_document_type_other : '',
         id_document_url: form.id_document_url,
         id_selfie_url: form.id_selfie_url,
         residence_region: form.residence_region,
@@ -462,7 +505,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       }));
 
       setDirty(false);
-      setStatus({ type: 'ok', msg: 'Saved ✓' }); // coerente con le linee guida Save bar :contentReference[oaicite:3]{index=3}
+      setStatus({ type: 'success', msg: 'Saved ✓' }); // Save bar guideline (consistente) :contentReference[oaicite:3]{index=3}
 
       if (onSaved) {
         const { data: fresh } = await supabase.from(ATHLETE_TABLE).select('*').eq('id', athlete.id).single();
@@ -489,12 +532,13 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       };
       const { error } = await supabase.from(CV_TABLE).upsert(payload, { onConflict: 'athlete_id' });
       if (error) throw error;
-      // lock immediato in UI
+
+      // Lock immediato in UI
       setCv((prev) => ({ ...(prev || {}), ...payload }));
-      setStatus({ type: 'ok', msg: 'In revisione…' });
+      setStatus({ type: 'ok', msg: 'Under review…' });
     } catch (e) {
       console.error(e);
-      setStatus({ type: 'error', msg: 'Invio a verifica fallito.' });
+      setStatus({ type: 'error', msg: 'Submit failed.' });
     } finally {
       setSaving(false);
     }
@@ -503,7 +547,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   // ----------------------- UI -----------------------
   if (loading) return <div style={{ padding: 8, color: '#666' }}>Loading…</div>;
 
-  const enabledBtnStyleSmall = { ...styles.smallBtn, ...styles.smallBtnEnabled };
+  const enabledBtnStyleSmall  = { ...styles.smallBtn, ...styles.smallBtnEnabled };
   const disabledBtnStyleSmall = { ...styles.smallBtn, ...styles.smallBtnDisabled };
 
   const saveBtnStyle =
@@ -511,21 +555,25 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       ? { ...styles.saveBtn, ...styles.saveBtnDisabled }
       : { ...styles.saveBtn, ...styles.saveBtnEnabled };
 
-  const otpBtnDisabled = !phoneChanged || !isValidPhone || cooldown > 0;
+  const otpBtnDisabled   = !phoneChanged || !isValidPhone || cooldown > 0;
   const codeInputDisabled = !otpSent;
-  const confirmDisabled = !otpSent || !otp;
+  const confirmDisabled   = !otpSent || !otp;
 
-  const saveBarStyle = isMobile ? styles.saveBarMobile : styles.saveBar;
-  const progressLeftStyle = isMobile ? styles.progressLeftMobile : styles.progressLeft;
-  const progressTrackStyle = isMobile ? { ...styles.progressTrack, width: '100%' } : styles.progressTrack;
+  const saveBarStyle       = isMobile ? styles.saveBarMobile : styles.saveBar;
+  const progressLeftStyle  = isMobile ? styles.progressLeftMobile : styles.progressLeft;
+  const progressTrackStyle = isMobile ? styles.progressTrackMobile : styles.progressTrack;
+
+  // Nome file (cliccabile; ellipsis se lungo)
+  const docName   = elideMiddle(docFileName || getFileNameFromPath(form.id_document_url) || '', 28);
+  const selfieName= elideMiddle(selfieFileName || getFileNameFromPath(form.id_selfie_url) || '', 28);
 
   return (
     <div style={{ ...styles.grid, ...(isMobile ? styles.gridMobile : null) }}>
-      {/* ---------------- PHONE + OTP (sempre editabile) ---------------- */}
+      {/* ---------------- PHONE + OTP (always editable) ---------------- */}
       <div style={styles.fieldWide}>
         <label style={styles.label}>Phone</label>
 
-        {/* ROW adattiva: wrap su mobile per evitare sovrapposizioni */}
+        {/* Adaptive row (wrap prevented on mobile by sizes) */}
         <div style={styles.phoneRow}>
           <div style={styles.phoneInputWrap}>
             <PhoneInput
@@ -580,23 +628,24 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         {otpMsg && <div style={styles.otpMsg}>{otpMsg}</div>}
       </div>
 
-      {/* ---------------- BLOCCO CRISTALLIZZATO (tutto tranne Phone) ---------------- */}
+      {/* ---------------- CRYSTALLIZED BLOCK (everything except Phone) ---------------- */}
       <div style={isLocked ? styles.lockedWrap : undefined}>
         {/* ID document type */}
         <div style={styles.field}>
-          <label style={styles.label}>Document type</label>
+          <label style={styles.label}>ID document type</label>
           <Select
             isDisabled={isLocked}
             options={ID_TYPES}
-            value={ID_TYPES.find(o => o.value === form.id_document_type) || null}
+            // Valore normalizzato per evitare mismatch DB -> UI
+            value={ID_TYPES.find(o => o.value === normalizeIdType(form.id_document_type)) || null}
             onChange={(opt) => handleChange({ target: { name: 'id_document_type', value: opt?.value || '' } })}
             styles={selectStyles}
-            placeholder="Select document type..."
+            placeholder="Select ID document..."
           />
         </div>
 
-        {/* Other type */}
-        {form.id_document_type === 'other' && (
+        {/* Other type (conditional) */}
+        {normalizeIdType(form.id_document_type) === 'other' && (
           <div style={styles.field}>
             <label style={styles.label}>Other type</label>
             <input
@@ -610,32 +659,52 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           </div>
         )}
 
-        {/* ID document upload */}
+        {/* Upload ID Doc */}
         <div style={styles.field}>
-          <label style={styles.label}>ID document (front/photo)</label>
+          <label style={styles.label}>Upload ID Doc</label>
           <div style={styles.fileRow}>
             <input type="file" accept="image/*,application/pdf" ref={docInputRef} onChange={onPickDoc} style={{ display: 'none' }} />
             <button type="button" onClick={clickDocPicker} disabled={isLocked} style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}>
               Choose file
             </button>
-            <span style={styles.fileName}>{docFileName || (form.id_document_url ? 'File selected' : 'No file')}</span>
-            {docPreview && (
-              <a href={docPreview} target="_blank" rel="noreferrer" style={styles.previewLink}>Preview</a>
+
+            {form.id_document_url ? (
+              <a
+                href={docPreview || '#'}
+                target="_blank"
+                rel="noreferrer"
+                title={docFileName || getFileNameFromPath(form.id_document_url)}
+                style={styles.fileLink}
+              >
+                {docName || 'File selected'}
+              </a>
+            ) : (
+              <span style={styles.fileName}>No file</span>
             )}
           </div>
         </div>
 
-        {/* Selfie upload */}
+        {/* Upload Face Photo */}
         <div style={styles.field}>
-          <label style={styles.label}>Selfie (with document)</label>
+          <label style={styles.label}>Upload a Face Photo</label>
           <div style={styles.fileRow}>
             <input type="file" accept="image/*" ref={selfieInputRef} onChange={onPickSelfie} style={{ display: 'none' }} />
             <button type="button" onClick={clickSelfiePicker} disabled={isLocked} style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}>
               Choose file
             </button>
-            <span style={styles.fileName}>{selfieFileName || (form.id_selfie_url ? 'File selected' : 'No file')}</span>
-            {selfiePreview && (
-              <a href={selfiePreview} target="_blank" rel="noreferrer" style={styles.previewLink}>Preview</a>
+
+            {form.id_selfie_url ? (
+              <a
+                href={selfiePreview || '#'}
+                target="_blank"
+                rel="noreferrer"
+                title={selfieFileName || getFileNameFromPath(form.id_selfie_url)}
+                style={styles.fileLink}
+              >
+                {selfieName || 'File selected'}
+              </a>
+            ) : (
+              <span style={styles.fileName}>No file</span>
             )}
           </div>
         </div>
@@ -702,29 +771,29 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         </div>
       </div>
 
-      {/* ---------------- SAVE BAR (progress + invio + save) ---------------- */}
+      {/* ---------------- SAVE BAR (progress + submit + save) ---------------- */}
       <div style={saveBarStyle}>
-        {/* Progress left (sempre visibile; su mobile occupa 100%) */}
+        {/* Progress (short on mobile; single line) */}
         <div style={progressLeftStyle}>
           <div style={progressTrackStyle}>
             <div style={{ ...styles.progressFill, width: `${progress}%` }} />
           </div>
           <span style={styles.progressText}>{progress}% {progress === 100 ? '✓' : ''}</span>
 
-          {currentReviewStatus === 'submitted' && <span style={styles.badgePending}>In revisione…</span>}
-          {currentReviewStatus === 'approved' && <span style={styles.badgeApproved}>Verificato ✓</span>}
-          {isRejected && <span style={styles.badgeRejected}>Rifiutato</span>}
+          {currentReviewStatus === 'submitted' && <span style={styles.badgePending}>Under review…</span>}
+          {currentReviewStatus === 'approved'  && <span style={styles.badgeApproved}>Verified ✓</span>}
+          {isRejected && <span style={styles.badgeRejected}>Rejected</span>}
         </div>
 
-        {/* Invia a verifica */}
+        {/* Submit for review */}
         {(currentReviewStatus === 'draft' || currentReviewStatus === 'rejected') && (
           <button
             type="button"
             onClick={submitForReview}
-            disabled={!canSubmit}
-            style={canSubmit ? enabledBtnStyleSmall : disabledBtnStyleSmall}
+            disabled={!submitEnabled}
+            style={submitEnabled ? enabledBtnStyleSmall : disabledBtnStyleSmall}
           >
-            Invia a verifica
+            Submit for review
           </button>
         )}
 
@@ -751,9 +820,9 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         )}
       </div>
 
-      {/* Motivo rifiuto */}
+      {/* Rejection reason */}
       {isRejected && cv?.rejected_reason && (
-        <div style={styles.rejectedNote}>Motivo rifiuto: {cv.rejected_reason}</div>
+        <div style={styles.rejectedNote}>Rejection reason: {cv.rejected_reason}</div>
       )}
     </div>
   );
@@ -761,15 +830,14 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
 
 // ----------------------- STYLES -----------------------
 const styles = {
-  // Grid più ariosa (desktop) + layout mobile
+  // Grid with more air on desktop
   grid: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
-    gap: 18 // <— leggero aumento spaziatura
+    gap: 18
   },
   gridMobile: { gridTemplateColumns: '1fr' },
 
-  // Campi con più respiro
   field: { display: 'flex', flexDirection: 'column', gap: 8 },
   fieldWide: { gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 8 },
 
@@ -782,7 +850,7 @@ const styles = {
     fontSize: 14
   },
 
-  // Phone: wrap per evitare sovrapposizioni su mobile
+  // Phone row
   phoneRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   phoneInputWrap: { flex: '1 1 240px', minWidth: 220 },
 
@@ -791,7 +859,7 @@ const styles = {
     padding: '0 10px',
     borderRadius: 8,
     border: '1px solid #E0E0E0',
-    minWidth: 100 // un po' più largo per leggibilità
+    minWidth: 100
   },
   smallInputDisabled: { background: '#F7F7F7', color: '#999' },
 
@@ -819,26 +887,36 @@ const styles = {
   metaItem: { whiteSpace: 'nowrap' },
   otpMsg: { marginTop: 6, fontSize: 12, color: '#666' },
 
-  // File
+  // File row + clickable filename with ellipsis
   fileRow: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
   fileName: { fontSize: 12, color: '#555' },
-  previewLink: { fontSize: 12, color: '#0A66C2', textDecoration: 'underline' },
+  fileLink: {
+    display: 'inline-block',
+    maxWidth: 220,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    fontSize: 12,
+    color: '#0A66C2',
+    textDecoration: 'underline'
+  },
 
   // Lock wrapper
   lockedWrap: { pointerEvents: 'none', opacity: 0.6 },
 
   // Progress & badges
-  progressLeft: { marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 8, minWidth: 200 },
-  progressLeftMobile: { marginRight: 0, display: 'flex', alignItems: 'center', gap: 8, flexBasis: '100%', marginBottom: 6 },
-  progressTrack: { width: 160, height: 8, background: '#EEE', borderRadius: 999, overflow: 'hidden' },
+  progressLeft:        { marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 8, minWidth: 200, whiteSpace: 'nowrap' },
+  progressLeftMobile:  { marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' },
+  progressTrack:       { width: 160, height: 8, background: '#EEE', borderRadius: 999, overflow: 'hidden' },
+  progressTrackMobile: { width: 110, height: 8, background: '#EEE', borderRadius: 999, overflow: 'hidden' },
   progressFill: { height: '100%', background: 'linear-gradient(90deg, #27E3DA, #F7B84E)' },
-  progressText: { fontSize: 12, fontWeight: 600, color: '#333' },
-  badgePending: { fontSize: 12, fontWeight: 600, color: '#8A6D3B' },
+  progressText: { fontSize: 12, fontWeight: 600, color: '#333', whiteSpace: 'nowrap' },
+  badgePending:  { fontSize: 12, fontWeight: 600, color: '#8A6D3B' },
   badgeApproved: { fontSize: 12, fontWeight: 600, color: '#2E7D32' },
   badgeRejected: { fontSize: 12, fontWeight: 600, color: '#B00020' },
-  rejectedNote: { gridColumn: '1 / -1', marginTop: 8, padding: '8px 10px', border: '1px solid #F5C2C7', background: '#F8D7DA', borderRadius: 8, fontSize: 12, color: '#842029' },
+  rejectedNote:  { gridColumn: '1 / -1', marginTop: 8, padding: '8px 10px', border: '1px solid #F5C2C7', background: '#F8D7DA', borderRadius: 8, fontSize: 12, color: '#842029' },
 
-  // Save bar — coerente con linee guida; su mobile wrap per visibilità della progress
+  // Save bar (immutabile dalle linee guida)
   saveBar: {
     gridColumn: '1 / -1',
     display: 'flex',
@@ -852,10 +930,10 @@ const styles = {
     gridColumn: '1 / -1',
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     paddingTop: 10,
     justifyContent: 'flex-end',
-    flexWrap: 'wrap'
+    flexWrap: 'nowrap' // una riga anche su mobile (barra corta)
   },
   saveBtn: { height: 38, padding: '0 16px', borderRadius: 8, fontWeight: 600, border: 'none' },
   saveBtnEnabled: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', cursor: 'pointer' },
