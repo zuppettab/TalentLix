@@ -13,23 +13,30 @@ const CV_TABLE = 'contacts_verification';
 const ATHLETE_TABLE = 'athlete';
 
 // OTP policy
-const COOLDOWN_SECONDS = 60; // 1 minuto
-const OTP_TTL_SECONDS = 600; // 10 min
+const COOLDOWN_SECONDS = 60;  // 1 minuto
+const OTP_TTL_SECONDS = 600;  // 10 minuti
 const MAX_ATTEMPTS = 5;
 
+// ID document types (puoi adattare le label)
+const ID_TYPES = [
+  { value: 'id_card', label: 'ID Card' },
+  { value: 'passport', label: 'Passport' },
+  { value: 'driver_license', label: 'Driver License' },
+  { value: 'other', label: 'Other (specify)' },
+];
+
 export default function ContactsPanel({ athlete, onSaved, isMobile }) {
+  // ----------------------- STATE BASE -----------------------
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState({ type: '', msg: '' });
-  const [dirty, setDirty] = useState(false);
+  const [status, setStatus] = useState({ type: '', msg: '' }); // badge "Saved ✓" / error
+  const [dirty, setDirty] = useState(false); // usato anche per guardia navigazione
 
-  // snapshot iniziale per diff salvataggio
-  const initialRef = useRef(null);
+  const initialRef = useRef(null);        // snapshot iniziale (per diff non-telefono e progress)
+  const initialPhoneRef = useRef('');     // snapshot del telefono normalizzato
+  const [cv, setCv] = useState(null);     // riga contacts_verification (se esiste)
 
-  // row contacts_verification (se serve)
-  const [cv, setCv] = useState(null);
-
-  // ---- Form
+  // ----------------------- FORM -----------------------
   const [form, setForm] = useState({
     phone: '',
     phone_verified: false,
@@ -44,10 +51,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     residence_country: '',
   });
 
-  // riferimento al numero iniziale (serve per sapere se è cambiato)
-  const initialPhoneRef = useRef('');
-
-  // ---- OTP state
+  // ----------------------- OTP STATE -----------------------
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpMsg, setOtpMsg] = useState('');
@@ -55,10 +59,13 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   const [expiresIn, setExpiresIn] = useState(0);
   const [attempts, setAttempts] = useState(0);
 
-  // file names visibili accanto ai bottoni
+  // file helper (mostra filename e anteprima signed URL)
   const [docFileName, setDocFileName] = useState('');
   const [selfieFileName, setSelfieFileName] = useState('');
+  const [docPreview, setDocPreview] = useState('');
+  const [selfiePreview, setSelfiePreview] = useState('');
 
+  // ----------------------- EFFECTS -----------------------
   // countdowns
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -83,11 +90,14 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           .eq('athlete_id', athlete.id)
           .single();
 
-        const phone = athlete?.phone || cvRow?.phone_number || '';
-        initialPhoneRef.current = phone;
+        // telefono: preferisci athlete.phone, fallback cvRow.phone_number
+        const rawPhone = athlete?.phone || cvRow?.phone_number || '';
+        const normalized = normalizePhone(rawPhone);
+
+        initialPhoneRef.current = normalized;
 
         const initial = {
-          phone,
+          phone: normalized,
           phone_verified: !!cvRow?.phone_verified,
           id_document_type: cvRow?.id_document_type || '',
           id_document_type_other: cvRow?.id_document_type_other || '',
@@ -96,16 +106,16 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           residence_region: cvRow?.residence_region || cvRow?.state_region || '',
           residence_postal_code: cvRow?.residence_postal_code || cvRow?.postal_code || '',
           residence_address: cvRow?.residence_address || cvRow?.address || '',
-          // <-- qui: city/country presi correttamente dall'ATHLETE, fallback cvRow
+          // city/country: se presenti in ATHLETE usali, altrimenti CV
           residence_city: cvRow?.residence_city || athlete?.residence_city || '',
           residence_country: cvRow?.residence_country || athlete?.residence_country || '',
-
+          // review (solo UI; non serve in form)
         };
 
         if (mounted) {
           setCv(cvRow || null);
           setForm(initial);
-          initialRef.current = initial; // snapshot per diff
+          initialRef.current = initial;
           setLoading(false);
         }
       } catch (e) {
@@ -116,7 +126,15 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     return () => { mounted = false; };
   }, [athlete?.id]);
 
-  // Guard: avvisa se lasci la card con modifiche non salvate
+  // signed preview per i file (link 60s)
+  useEffect(() => {
+    (async () => setDocPreview(await makeSignedUrl(form.id_document_url)))();
+  }, [form.id_document_url]);
+  useEffect(() => {
+    (async () => setSelfiePreview(await makeSignedUrl(form.id_selfie_url)))();
+  }, [form.id_selfie_url]);
+
+  // Guardia navigazione con modifiche non salvate
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (!dirty) return;
@@ -140,32 +158,107 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     };
   }, [dirty]);
 
-  // -------- PHONE VALIDATION (E.164)
-  const normalizedPhone = (form.phone || '').replace(/\s+/g, '');
-  const parsed = useMemo(() => parsePhoneNumberFromString(normalizedPhone), [normalizedPhone]);
-  const nationalLen = parsed?.nationalNumber ? String(parsed.nationalNumber).length : 0;
-  const isValidPhone = !!parsed && parsed.isValid() && nationalLen >= 10;
+  // ----------------------- DERIVED -----------------------
+  // Stato review / lock
+  const currentReviewStatus = useMemo(
+    () => (cv?.review_status || 'draft'),
+    [cv?.review_status]
+  );
+  const isLocked = currentReviewStatus === 'submitted' || currentReviewStatus === 'approved';
+  const isRejected = currentReviewStatus === 'rejected';
 
-  // è cambiato rispetto al numero iniziale?
-  const phoneChanged = (form.phone || '') !== (initialPhoneRef.current || '');
+  // Validazione telefono (usa E.164 con +)
+  const e164 = form.phone ? `+${onlyDigits(form.phone)}` : '';
+  const isValidPhone = !!(e164 && parsePhoneNumberFromString(e164)?.isValid());
+  const phoneChanged = useMemo(
+    () => onlyDigits(form.phone) !== onlyDigits(initialPhoneRef.current || ''),
+    [form.phone]
+  );
+
+  // Dirty non-telefono
+  const NON_PHONE_FIELDS = [
+    'id_document_type',
+    'id_document_type_other',
+    'id_document_url',
+    'id_selfie_url',
+    'residence_region',
+    'residence_postal_code',
+    'residence_address',
+    'residence_city',
+    'residence_country',
+  ];
+  const nonPhoneDirty = useMemo(() => {
+    const initial = initialRef.current || {};
+    return NON_PHONE_FIELDS.some(k => (form[k] ?? '') !== (initial[k] ?? ''));
+  }, [form]);
+
+  // Progress % (solo campi di questa card)
+  const progressInfo = useMemo(() => {
+    const keys = [
+      'phone',
+      'id_document_type',
+      'id_document_url',
+      'id_selfie_url',
+      'residence_region',
+      'residence_postal_code',
+      'residence_address',
+      'residence_city',
+      'residence_country',
+    ];
+    if (form.id_document_type === 'other') keys.push('id_document_type_other');
+
+    const total = keys.length;
+    const done = keys.reduce((acc, k) => acc + (hasValue(form[k]) ? 1 : 0), 0);
+    const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { total, done, percent };
+  }, [form]);
+
+  const progress = progressInfo.percent;
+
+  // Gating bottoni
+  const saveEnabled   = nonPhoneDirty && !saving && !isLocked;
+  const canSubmit     = progress === 100
+    && (currentReviewStatus === 'draft' || currentReviewStatus === 'rejected')
+    && !nonPhoneDirty && !saving;
+
+  // ----------------------- HELPERS -----------------------
+  function hasValue(v) {
+    return v !== undefined && v !== null && String(v).trim() !== '';
+  }
+  function onlyDigits(v) {
+    return String(v || '').replace(/\D+/g, '');
+  }
+  function normalizePhone(v) {
+    return onlyDigits(v); // PhoneInput vuole solo cifre (senza +); teniamo normalizzato così
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (isLocked && name !== 'phone') return; // cristallizzato: blocca tutto tranne telefono
     setForm((p) => ({ ...p, [name]: value }));
     setDirty(true);
-    setStatus({ type: '', msg: '' });
+    if (status.type) setStatus({ type: '', msg: '' });
   };
 
-  const handlePhoneChange = (val) => {
-    const v = val?.startsWith('+') ? val : `+${val}`;
-    setForm((p) => ({ ...p, phone: v, phone_verified: false }));
+  // Country <Select> (accetta oggetti variabili: {value, label} o {code, name})
+  const countryOption = useMemo(() => {
+    if (!form.residence_country) return null;
+    const lower = String(form.residence_country).toLowerCase();
+    return countries.find(o => {
+      const cand = (o?.value ?? o?.code ?? o?.label ?? o?.name ?? '').toString().toLowerCase();
+      return cand === lower;
+    }) || null;
+  }, [form.residence_country]);
+
+  const onChangeCountry = (opt) => {
+    if (isLocked) return;
+    const next = opt?.value ?? opt?.code ?? opt?.label ?? opt?.name ?? '';
+    setForm((p) => ({ ...p, residence_country: String(next) }));
     setDirty(true);
-    setStatus({ type: '', msg: '' });
-    setOtpSent(false);
-    setOtp('');
+    if (status.type) setStatus({ type: '', msg: '' });
   };
 
-  // OTP helpers
+  // ----------------------- OTP -----------------------
   const ensureSession = async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session) {
@@ -182,7 +275,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       if (cooldown > 0) { setOtpMsg(`Please wait ${cooldown}s before requesting a new code.`); return; }
       if (!(await ensureSession())) return;
 
-      const { error } = await supabase.auth.updateUser({ phone: form.phone });
+      const { error } = await supabase.auth.updateUser({ phone: e164 });
       if (error) { setOtpMsg(`Failed to request OTP: ${error.message}`); return; }
 
       setOtpSent(true);
@@ -204,25 +297,35 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       if (!(await ensureSession())) return;
 
       const { error } = await supabase.auth.verifyOtp({
-        phone: form.phone,
+        phone: e164,
         token: otp,
-        type: 'phone_change'
+        type: 'phone_change',
       });
       setAttempts((n) => n + 1);
       if (error) { setOtpMsg(`Verification error: ${error.message}`); return; }
 
-      await supabase.from(ATHLETE_TABLE).update({ phone: form.phone }).eq('id', athlete.id);
+      // Persisti su athlete + CV (telefono verificato) — flusso indipendente dal Save
+      await supabase.from(ATHLETE_TABLE).update({ phone: e164 }).eq('id', athlete.id);
       await supabase.from(CV_TABLE).upsert(
-        { athlete_id: athlete.id, phone_number: form.phone, phone_verified: true },
+        { athlete_id: athlete.id, phone_number: e164, phone_verified: true },
         { onConflict: 'athlete_id' }
       );
 
-      initialPhoneRef.current = form.phone;
+      // Sync UI
       setForm((p) => ({ ...p, phone_verified: true }));
-      setOtpSent(false);
       setOtp('');
+      setOtpSent(false);
       setOtpMsg('Phone verified ✓');
+      setCooldown(0);
+      setExpiresIn(0);
+      setAttempts(0);
 
+      // Aggiorna snapshot così il telefono non risulta "changed"
+      initialPhoneRef.current = onlyDigits(e164);
+      setDirty(false);
+      initialRef.current = { ...(initialRef.current || {}), phone: onlyDigits(e164), phone_verified: true };
+
+      // callback parent (rileggi athlete)
       if (onSaved) {
         const { data: fresh } = await supabase.from(ATHLETE_TABLE).select('*').eq('id', athlete.id).single();
         onSaved(fresh || null);
@@ -233,7 +336,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     }
   };
 
-  // ---- UPLOAD (bucket PRIVATO "documents")
+  // ----------------------- UPLOAD -----------------------
   const makePath = (kind) => {
     const ts = Date.now();
     if (kind === 'id') return `${athlete.id}/id/${form.id_document_type || 'doc'}-${ts}`;
@@ -256,16 +359,6 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     return data?.signedUrl || '';
   };
 
-  const [docPreview, setDocPreview] = useState('');
-  const [selfiePreview, setSelfiePreview] = useState('');
-  useEffect(() => {
-    (async () => setDocPreview(await makeSignedUrl(form.id_document_url)))();
-  }, [form.id_document_url]);
-  useEffect(() => {
-    (async () => setSelfiePreview(await makeSignedUrl(form.id_selfie_url)))();
-  }, [form.id_selfie_url]);
-
-  // file inputs nascosti + bottoni “Choose file”
   const docInputRef = useRef(null);
   const selfieInputRef = useRef(null);
   const clickDocPicker = () => docInputRef.current?.click();
@@ -282,7 +375,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       setStatus({ type: '', msg: '' });
     } catch (e2) {
       console.error(e2);
-      setStatus({ type: 'error', msg: 'Document upload failed.' });
+      setStatus({ type: 'error', msg: 'Doc upload failed.' });
     }
   };
 
@@ -297,30 +390,28 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       setStatus({ type: '', msg: '' });
     } catch (e2) {
       console.error(e2);
-      setStatus({ type: 'error', msg: 'Doc photo upload failed.' });
+      setStatus({ type: 'error', msg: 'Selfie upload failed.' });
     }
   };
 
-  // ---- SAVE (sempre possibile se dirty; salvataggio differenziale)
+  // ----------------------- SAVE -----------------------
   const handleSave = async () => {
     try {
       setSaving(true);
       setStatus({ type: '', msg: '' });
 
       const initial = initialRef.current || {};
-
-      // changes per contacts_verification
-        const cvFields = [
-          'id_document_type',
-          'id_document_type_other',
-          'id_document_url',
-          'id_selfie_url',
-          'residence_region',
-          'residence_postal_code',
-          'residence_address',
-          'residence_city',
-          'residence_country',
-        ];
+      const cvFields = [
+        'id_document_type',
+        'id_document_type_other',
+        'id_document_url',
+        'id_selfie_url',
+        'residence_region',
+        'residence_postal_code',
+        'residence_address',
+        'residence_city',
+        'residence_country',
+      ];
 
       const cvPayload = { athlete_id: athlete.id };
       let cvChanged = false;
@@ -332,14 +423,27 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           cvChanged = true;
         }
       }
+
       if (cvChanged) {
         const { error } = await supabase.from(CV_TABLE).upsert(cvPayload, { onConflict: 'athlete_id' });
         if (error) throw error;
       }
 
-      // refresh eventuale + reset
+      // refresh UI + snapshot
+      const nextInitial = { ...(initialRef.current || {}), ...cvPayload };
+      initialRef.current = {
+        ...nextInitial,
+        id_document_type: form.id_document_type,
+        id_document_type_other: form.id_document_type_other,
+        id_document_url: form.id_document_url,
+        id_selfie_url: form.id_selfie_url,
+        residence_region: form.residence_region,
+        residence_postal_code: form.residence_postal_code,
+        residence_address: form.residence_address,
+        residence_city: form.residence_city,
+        residence_country: form.residence_country,
+      };
       setDirty(false);
-      initialRef.current = { ...form };
       setStatus({ type: 'ok', msg: 'Saved ✓' });
 
       if (onSaved) {
@@ -354,56 +458,82 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     }
   };
 
-  // ---- UI
+  // ----------------------- SUBMIT FOR REVIEW -----------------------
+  const submitForReview = async () => {
+    try {
+      setSaving(true);
+      setStatus({ type: '', msg: '' });
+      const payload = {
+        athlete_id: athlete.id,
+        review_status: 'submitted',
+        submitted_at: new Date().toISOString(),
+        rejected_reason: null,
+      };
+      const { error } = await supabase.from(CV_TABLE).upsert(payload, { onConflict: 'athlete_id' });
+      if (error) throw error;
+      // lock immediato in UI
+      setCv((prev) => ({ ...(prev || {}), ...payload }));
+      setStatus({ type: 'ok', msg: 'In revisione…' });
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: 'error', msg: 'Invio a verifica fallito.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ----------------------- UI -----------------------
   if (loading) return <div style={{ padding: 8, color: '#666' }}>Loading…</div>;
 
-  const saveEnabled = dirty && !saving;
+  const enabledBtnStyleSmall = { ...styles.smallBtn, background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', cursor: 'pointer' };
+  const disabledBtnStyleSmall = { ...styles.smallBtn, background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' };
+
   const saveBtnStyle =
     !saveEnabled
       ? { ...styles.saveBtn, background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' }
       : { ...styles.saveBtn, background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', cursor: 'pointer' };
 
-  // OTP controls: piccoli e uniformi
   const otpBtnDisabled = !phoneChanged || !isValidPhone || cooldown > 0;
   const codeInputDisabled = !otpSent;
   const confirmDisabled = !otpSent || !otp;
 
-  const enabledBtnStyleSmall = { ...styles.smallBtn, background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none' };
-  const disabledBtnStyleSmall = { ...styles.smallBtn, background: '#F6F6F6', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' };
-
   return (
     <div style={{ ...styles.grid, ...(isMobile ? styles.gridMobile : null) }}>
-      {/* PHONE + OTP */}
-      <div style={styles.field}>
+      {/* ---------------- PHONE + OTP (sempre editabile) ---------------- */}
+      <div style={styles.fieldWide}>
         <label style={styles.label}>Phone</label>
-        <PhoneInput
-          value={form.phone}
-          onChange={handlePhoneChange}
-          country={'it'}
-          inputStyle={{ width: '100%', height: 40 }}
-          containerStyle={{ width: '100%' }}
-          disableDropdown={false}
-          countryCodeEditable={false} // prefisso bloccato, modificabile solo dalla bandierina
-          placeholder="Enter phone number"
-        />
-        {!isValidPhone && form.phone && <div style={styles.error}>Invalid phone number.</div>}
+        <div style={styles.phoneRow}>
+          <div style={styles.phoneInputWrap}>
+            <PhoneInput
+              country={'it'}
+              value={form.phone}
+              onChange={(v) => handleChange({ target: { name: 'phone', value: normalizePhone(v) } })}
+              inputStyle={{ width: '100%', height: 40, borderRadius: 8, border: '1px solid #E0E0E0' }}
+              buttonStyle={{ border: '1px solid #E0E0E0', borderRadius: '8px 0 0 8px' }}
+              containerStyle={{ width: '100%' }}
+              specialLabel={''}
+              disabled={false}
+            />
+          </div>
 
-        <div style={styles.otpRow}>
           <button
             type="button"
             onClick={sendCode}
             disabled={otpBtnDisabled}
             style={otpBtnDisabled ? disabledBtnStyleSmall : enabledBtnStyleSmall}
+            title={cooldown > 0 ? `Wait ${cooldown}s` : ''}
           >
-            {cooldown > 0 ? `Send code (${cooldown}s)` : 'Send code'}
+            Request code
           </button>
 
           <input
+            type="text"
+            maxLength={8}
             placeholder="Code"
             value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            style={styles.otpInput}
+            onChange={(e) => setOtp(e.target.value.trim())}
             disabled={codeInputDisabled}
+            style={{ ...styles.smallInput, ...(codeInputDisabled ? styles.smallInputDisabled : null) }}
           />
 
           <button
@@ -414,151 +544,198 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           >
             Confirm
           </button>
+        </div>
 
+        <div style={styles.otpMeta}>
+          {cooldown > 0 && <span style={styles.metaItem}>Cooldown: {cooldown}s</span>}
+          {otpSent && expiresIn > 0 && <span style={styles.metaItem}>Expires in: {expiresIn}s</span>}
           {form.phone_verified
-            ? <span style={{ color: '#2ECC71', fontWeight: 600, fontSize: 12 }}>Verified ✓</span>
-            : <span style={{ color: '#b00', fontSize: 12 }}>Not verified</span>}
+            ? <span style={{ ...styles.metaItem, color: '#2E7D32', fontWeight: 600 }}>Verified ✓</span>
+            : <span style={{ ...styles.metaItem, color: '#b00' }}>Not verified</span>}
         </div>
         {otpMsg && <div style={{ marginTop: 6, fontSize: 12, color: '#666' }}>{otpMsg}</div>}
       </div>
 
-      {/* RESIDENCE (EDITABILI) */}
-      <div style={styles.field}>
-        <label style={styles.label}>Country of residence</label>
-        <Select
-          name="residence_country"
-          placeholder="Start typing Country of Residence"
-          options={countries}
-          value={countries.find(opt => opt.value === form.residence_country) || null}
-          onChange={(selected) => {
-            // <-- modifica minima: setDirty + reset status
-            setForm(prev => ({ ...prev, residence_country: selected?.value || '' }));
-            setDirty(true);
-            setStatus({ type: '', msg: '' });
-          }}
-          filterOption={(option, inputValue) =>
-            inputValue.length >= 2 &&
-            option.label.toLowerCase().includes(inputValue.toLowerCase())
-          }
-          styles={{
-            control: (base) => ({
-              ...base,
-              padding: '2px',
-              borderRadius: '8px',
-              borderColor: '#ccc',
-              minHeight: 40,
-            }),
-            valueContainer: (base) => ({ ...base, padding: '0 8px' }),
-          }}
-        />
-      </div>
-
-      <div style={styles.field}>
-        <label style={styles.label}>City of residence</label>
-        <input
-          name="residence_city"
-          value={form.residence_city}
-          onChange={handleChange} // <-- già mette dirty e status
-          style={styles.input}
-          placeholder="e.g., Francavilla Fontana"
-        />
-      </div>
-
-      {/* RESIDENCE extra */}
-      <div style={styles.field}>
-        <label style={styles.label}>Region/State</label>
-        <input name="residence_region" value={form.residence_region} onChange={handleChange} style={styles.input} placeholder="e.g., Puglia" />
-      </div>
-      <div style={styles.field}>
-        <label style={styles.label}>Postal code</label>
-        <input name="residence_postal_code" value={form.residence_postal_code} onChange={handleChange} style={styles.input} placeholder="e.g., 72100" />
-      </div>
-      <div style={styles.fieldWide}>
-        <label style={styles.label}>Address</label>
-        <input name="residence_address" value={form.residence_address} onChange={handleChange} style={styles.input} placeholder="Street, number" />
-      </div>
-
-      {/* ID DOCUMENT */}
-      <div style={styles.field}>
-        <label style={styles.label}>ID document type</label>
-        <select
-          name="id_document_type"
-          value={form.id_document_type}
-          onChange={handleChange}
-          style={styles.input}
-        >
-          <option value="">Select…</option>
-          <option value="passport">Passport</option>
-          <option value="national_id">National ID</option>
-          <option value="driver_license">Driver’s license</option>
-          <option value="residence_permit">Residence permit</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-
-      {form.id_document_type === 'other' && (
+      {/* ---------------- BLOCCO CRISTALLIZZATO (tutto tranne Phone) ---------------- */}
+      <div style={isLocked ? styles.lockedWrap : undefined}>
+        {/* ID document type */}
         <div style={styles.field}>
-          <label style={styles.label}>Specify document</label>
-          <input
-            name="id_document_type_other"
-            value={form.id_document_type_other}
-            onChange={handleChange}
-            style={styles.input}
-            placeholder="Describe the document (e.g., student card)"
+          <label style={styles.label}>Document type</label>
+          <Select
+            isDisabled={isLocked}
+            options={ID_TYPES}
+            value={ID_TYPES.find(o => o.value === form.id_document_type) || null}
+            onChange={(opt) => handleChange({ target: { name: 'id_document_type', value: opt?.value || '' } })}
+            styles={selectStyles}
+            placeholder="Select document type..."
           />
         </div>
-      )}
 
-      <div style={styles.field}>
-        <label style={styles.label}>ID document (image/PDF)</label>
-        <input ref={docInputRef} type="file" accept="image/*,.pdf" onChange={onPickDoc} style={{ display: 'none' }} />
-        <button type="button" onClick={clickDocPicker} style={styles.fileBtn}>Choose file</button>
-       {(docFileName || form.id_document_url) && (
-          <div style={{ marginTop: 8 }}>
-            <span style={styles.fileName}>
-              Selected: {docFileName || (form.id_document_url ? form.id_document_url.split('/').pop() : '')}
-            </span>
+        {/* Other type */}
+        {form.id_document_type === 'other' && (
+          <div style={styles.field}>
+            <label style={styles.label}>Other type</label>
+            <input
+              name="id_document_type_other"
+              value={form.id_document_type_other || ''}
+              onChange={handleChange}
+              disabled={isLocked}
+              style={styles.input}
+              placeholder="Specify document type"
+            />
           </div>
         )}
-      </div>
 
-      <div style={styles.field}>
-        <label style={styles.label}>Doc Photo (face close-up)</label>
-        <input ref={selfieInputRef} type="file" accept="image/*" onChange={onPickSelfie} style={{ display: 'none' }} />
-        <button type="button" onClick={clickSelfiePicker} style={styles.fileBtn}>Choose file</button>
-        {(selfieFileName || form.id_selfie_url) && (
-          <div style={{ marginTop: 8 }}>
-            <span style={styles.fileName}>
-              Selected: {selfieFileName || (form.id_selfie_url ? form.id_selfie_url.split('/').pop() : '')}
-            </span>
+        {/* ID document upload */}
+        <div style={styles.field}>
+          <label style={styles.label}>ID document (front/photo)</label>
+          <div style={styles.fileRow}>
+            <input type="file" accept="image/*,application/pdf" ref={docInputRef} onChange={onPickDoc} style={{ display: 'none' }} />
+            <button type="button" onClick={clickDocPicker} disabled={isLocked} style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}>
+              Choose file
+            </button>
+            <span style={styles.fileName}>{docFileName || (form.id_document_url ? 'File selected' : 'No file')}</span>
+            {docPreview && (
+              <a href={docPreview} target="_blank" rel="noreferrer" style={styles.previewLink}>Preview</a>
+            )}
           </div>
-        )}
+        </div>
+
+        {/* Selfie upload */}
+        <div style={styles.field}>
+          <label style={styles.label}>Selfie (with document)</label>
+          <div style={styles.fileRow}>
+            <input type="file" accept="image/*" ref={selfieInputRef} onChange={onPickSelfie} style={{ display: 'none' }} />
+            <button type="button" onClick={clickSelfiePicker} disabled={isLocked} style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}>
+              Choose file
+            </button>
+            <span style={styles.fileName}>{selfieFileName || (form.id_selfie_url ? 'File selected' : 'No file')}</span>
+            {selfiePreview && (
+              <a href={selfiePreview} target="_blank" rel="noreferrer" style={styles.previewLink}>Preview</a>
+            )}
+          </div>
+        </div>
+
+        {/* Residence */}
+        <div style={styles.field}>
+          <label style={styles.label}>Region / State</label>
+          <input
+            name="residence_region"
+            value={form.residence_region || ''}
+            onChange={handleChange}
+            disabled={isLocked}
+            style={styles.input}
+            placeholder="Region / State"
+          />
+        </div>
+
+        <div style={styles.field}>
+          <label style={styles.label}>Postal code</label>
+          <input
+            name="residence_postal_code"
+            value={form.residence_postal_code || ''}
+            onChange={handleChange}
+            disabled={isLocked}
+            style={styles.input}
+            placeholder="Postal code"
+          />
+        </div>
+
+        <div style={styles.fieldWide}>
+          <label style={styles.label}>Address</label>
+          <input
+            name="residence_address"
+            value={form.residence_address || ''}
+            onChange={handleChange}
+            disabled={isLocked}
+            style={styles.input}
+            placeholder="Street, number"
+          />
+        </div>
+
+        <div style={styles.field}>
+          <label style={styles.label}>City</label>
+          <input
+            name="residence_city"
+            value={form.residence_city || ''}
+            onChange={handleChange}
+            disabled={isLocked}
+            style={styles.input}
+            placeholder="City"
+          />
+        </div>
+
+        <div style={styles.field}>
+          <label style={styles.label}>Country</label>
+          <Select
+            isDisabled={isLocked}
+            options={countries}
+            value={countryOption}
+            onChange={onChangeCountry}
+            styles={selectStyles}
+            placeholder="Select country..."
+          />
+        </div>
       </div>
 
-      {/* SAVE BAR (in basso a destra) */}
+      {/* ---------------- SAVE BAR (progress + invio + save) ---------------- */}
       <div style={styles.saveBar}>
+        {/* Progress left */}
+        <div style={styles.progressLeft}>
+          <div style={styles.progressTrack}>
+            <div style={{ ...styles.progressFill, width: `${progress}%` }} />
+          </div>
+          <span style={styles.progressText}>{progress}% {progress === 100 ? '✓' : ''}</span>
+
+          {currentReviewStatus === 'submitted' && <span style={styles.badgePending}>In revisione…</span>}
+          {currentReviewStatus === 'approved' && <span style={styles.badgeApproved}>Verificato ✓</span>}
+          {isRejected && <span style={styles.badgeRejected}>Rifiutato</span>}
+        </div>
+
+        {/* Invia a verifica */}
+        {(currentReviewStatus === 'draft' || currentReviewStatus === 'rejected') && (
+          <button
+            type="button"
+            onClick={submitForReview}
+            disabled={!canSubmit}
+            style={canSubmit ? enabledBtnStyleSmall : disabledBtnStyleSmall}
+          >
+            Invia a verifica
+          </button>
+        )}
+
+        {/* Save (solo per modifiche non-telefono e non locked) */}
         <button type="button" onClick={handleSave} disabled={!saveEnabled} style={saveBtnStyle}>
           {saving ? 'Saving…' : 'Save'}
         </button>
-       {status.msg && (
+
+        {status.msg && (
           <span
+            role="status"
+            aria-live="polite"
             style={{
-              color: status.type === 'error' ? '#b00' : '#2E7D32',
-              fontWeight: 600,
               marginLeft: 10,
+              fontWeight: 600,
               whiteSpace: 'nowrap',
               display: 'inline-flex',
-              alignItems: 'center'
+              alignItems: 'center',
+              color: status.type === 'error' ? '#b00' : '#2E7D32'
             }}
           >
             {status.msg}
           </span>
         )}
       </div>
+
+      {/* Motivo rifiuto */}
+      {isRejected && cv?.rejected_reason && (
+        <div style={styles.rejectedNote}>Motivo rifiuto: {cv.rejected_reason}</div>
+      )}
     </div>
   );
 }
 
+// ----------------------- STYLES -----------------------
 const styles = {
   grid: {
     display: 'grid',
@@ -566,6 +743,7 @@ const styles = {
     gap: 16
   },
   gridMobile: { gridTemplateColumns: '1fr' },
+
   field: { display: 'flex', flexDirection: 'column', gap: 6 },
   fieldWide: { gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 6 },
 
@@ -575,60 +753,49 @@ const styles = {
     padding: '8px 10px',
     border: '1px solid #E0E0E0',
     borderRadius: 8,
-    fontSize: 14,
-    outline: 'none'
+    fontSize: 14
   },
-  error: { color: '#b00', fontSize: 12 },
 
-  // OTP controls uniformi (40px come il PhoneInput)
-  otpRow: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' },
-  smallBtn: {
-    height: 40,
-    minWidth: 120,
-    padding: '0 12px',
-    boxSizing: 'border-box',
-    fontSize: 14,
-    lineHeight: '40px',
+  // Phone
+  phoneRow: { display: 'flex', alignItems: 'center', gap: 8 },
+  phoneInputWrap: { flex: 1 },
+  smallInput: {
+    height: 38,
+    padding: '0 10px',
     borderRadius: 8,
-    cursor: 'pointer'
-  },
-  otpInput: {
-    height: 40,
-    minWidth: 120,
-    padding: '0 12px',
-    boxSizing: 'border-box',
-    fontSize: 14,
     border: '1px solid #E0E0E0',
-    borderRadius: 8,
-    outline: 'none'
+    minWidth: 80
   },
-
-  // File button con nota di colore come il resto del progetto
-  fileBtn: {
-    padding: '8px 12px',
-    height: 36,
-    minWidth: 140,
-    fontSize: 13,
+  smallInputDisabled: { background: '#F7F7F7', color: '#999' },
+  smallBtn: {
+    height: 38,
+    padding: '0 12px',
     borderRadius: 8,
-    border: 'none',
-    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
-    color: '#fff',
-    cursor: 'pointer'
-  },
-  fileName: { fontSize: 12, color: '#333' },
-  linkBtn: {
-    background: 'transparent',
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer',
-    textDecoration: 'underline',
-    color: '#333',
-    fontSize: 12,
     fontWeight: 600
   },
+  otpMeta: { display: 'flex', gap: 12, marginTop: 6, fontSize: 12, color: '#666' },
+  metaItem: { whiteSpace: 'nowrap' },
+
+  // File
+  fileRow: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  fileName: { fontSize: 12, color: '#555' },
+  previewLink: { fontSize: 12, color: '#0A66C2', textDecoration: 'underline' },
+
+  // Lock wrapper
+  lockedWrap: { pointerEvents: 'none', opacity: 0.6 },
+
+  // Progress & badges
+  progressLeft: { marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 },
+  progressTrack: { width: 120, height: 8, background: '#EEE', borderRadius: 999, overflow: 'hidden' },
+  progressFill: { height: '100%', background: 'linear-gradient(90deg, #27E3DA, #F7B84E)' },
+  progressText: { fontSize: 12, fontWeight: 600, color: '#333' },
+  badgePending: { fontSize: 12, fontWeight: 600, color: '#8A6D3B' },
+  badgeApproved: { fontSize: 12, fontWeight: 600, color: '#2E7D32' },
+  badgeRejected: { fontSize: 12, fontWeight: 600, color: '#B00020' },
+  rejectedNote: { gridColumn: '1 / -1', marginTop: 8, padding: '8px 10px', border: '1px solid #F5C2C7', background: '#F8D7DA', borderRadius: 8, fontSize: 12, color: '#842029' },
 
   // Save bar in basso a destra
-   saveBar: {
+  saveBar: {
     gridColumn: '1 / -1',
     display: 'flex',
     alignItems: 'center',
@@ -638,4 +805,19 @@ const styles = {
     flexWrap: 'nowrap'
   },
   saveBtn: { fontSize: 14, padding: '10px 16px', borderRadius: 8 }
+};
+
+// react-select inline styles coesi
+const selectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: 40,
+    borderRadius: 8,
+    borderColor: state.isFocused ? '#BDBDBD' : '#E0E0E0',
+    boxShadow: 'none',
+    ':hover': { borderColor: '#BDBDBD' }
+  }),
+  valueContainer: (base) => ({ ...base, padding: '0 8px' }),
+  indicatorsContainer: (base) => ({ ...base, paddingRight: 6 }),
+  menu: (base) => ({ ...base, zIndex: 10 })
 };
