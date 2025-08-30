@@ -10,6 +10,32 @@ import PhoneInput from 'react-phone-input-2';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import sports from '../utils/sports';
 
+const parseDob = (str) => {
+  if (!str) return null;
+  let y, m, d;
+  if (str.includes('-')) {
+    [y, m, d] = str.split('-').map(v => parseInt(v, 10));
+  } else {
+    const mm = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!mm) return null;
+    d = parseInt(mm[1], 10);
+    m = parseInt(mm[2], 10);
+    y = parseInt(mm[3], 10);
+  }
+  const dt = new Date(y, m - 1, d);
+  return (dt.getFullYear() === y && dt.getMonth() + 1 === m && dt.getDate() === d) ? dt : null;
+};
+
+const getAgeFromDob = (dobStr) => {
+  const dobDate = parseDob(dobStr);
+  if (!dobDate) return null;
+  const t = new Date();
+  let a = t.getFullYear() - dobDate.getFullYear();
+  const mm = t.getMonth() - dobDate.getMonth();
+  if (mm < 0 || (mm === 0 && t.getDate() < dobDate.getDate())) a--;
+  return a;
+};
+
 export default function Wizard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -37,7 +63,7 @@ export default function Wizard() {
   main_role: '',
   team_name: '',           // facoltativo
   previous_team: '',       // NUOVO (facoltativo)
-  years_experience: '',    // NUOVO (0–60) — mostrato solo dopo scelta sport
+  years_experience: '',    // NUOVO (0–age*0.7) — mostrato solo dopo scelta sport
   category: '',
   seeking_team: false,     // NUOVO (checkbox)
   // ——
@@ -282,10 +308,12 @@ useEffect(() => {
       
           } else if (step === 3) {
             // Insert esperienza sportiva (con previous_team + years_experience) + avanzamento
+            const age = getAgeFromDob(formData.date_of_birth);
+            const maxYears = age != null ? Math.floor(age * 0.7) : 0;
             const years =
               formData.years_experience === '' || formData.years_experience == null
                 ? null
-                : Math.max(0, Math.min(60, parseInt(formData.years_experience, 10)));
+                : Math.max(0, Math.min(maxYears, parseInt(formData.years_experience, 10)));
           
             const { error } = await supabase.from('sports_experiences').insert([{
               athlete_id: user.id,
@@ -294,7 +322,7 @@ useEffect(() => {
               team: formData.team_name || null,      // facoltativo
               previous_team: formData.previous_team || null, // NUOVO
               category: formData.category,
-              years_experience: years,               // NUOVO (0–60 o NULL)
+              years_experience: years,               // NUOVO (0–age*0.7 o NULL)
               seeking_team: !!formData.seeking_team,
             }]);
             if (error) throw error;
@@ -1086,6 +1114,9 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
 /* STEP 3 */
 const Step3 = ({ formData, setFormData, handleChange, saveStep }) => {
+  const age = getAgeFromDob(formData.date_of_birth);
+  const maxYears = age != null ? Math.floor(age * 0.7) : 0;
+  const showYearsInput = formData.sport && age != null;
   const isValid = formData.sport && formData.main_role && formData.category;
   return (
     <>
@@ -1113,14 +1144,14 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep }) => {
               }),
             }}
           />
-          {formData.sport && (
+          {showYearsInput && (
             <input
               style={styles.input}
               type="number"
               name="years_experience"
-              placeholder="Years of Experience (0–60)"
+              placeholder={`Years of Experience (0–${maxYears})`}
               min={0}
-              max={60}
+              max={maxYears}
               value={formData.years_experience}
               onChange={(e) => setFormData({ ...formData, years_experience: e.target.value })}
             />
