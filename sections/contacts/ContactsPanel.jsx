@@ -158,7 +158,10 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         };
 
         if (mounted) {
-          setCv(cvRow || null);
+          const normalized = cvRow
+            ? { ...cvRow, review_status: cvRow.review_status?.toLowerCase() }
+            : null;
+          setCv(normalized);
           setForm(initial);
           initialRef.current = initial;
           setSaved(initial); // progress calcolata sui dati salvati
@@ -199,7 +202,10 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
 
   // ----------------------- DERIVED -----------------------
   // Review / lock
-  const currentReviewStatus = useMemo(() => (cv?.review_status || 'draft'), [cv?.review_status]);
+  const currentReviewStatus = useMemo(
+    () => (cv?.review_status ? cv.review_status.toLowerCase() : 'draft'),
+    [cv?.review_status]
+  );
   const isLocked   = currentReviewStatus === 'submitted' || currentReviewStatus === 'approved';
   const isRejected = currentReviewStatus === 'rejected';
 
@@ -212,6 +218,11 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         .select('*')
         .eq('athlete_id', athlete.id)
         .single();
+      const nextStatus = data?.review_status?.toLowerCase();
+      if (!error && nextStatus && nextStatus !== 'submitted') {
+        const normalized = { ...data, review_status: nextStatus };
+        setCv(normalized);
+        setSaved((prev) => ({ ...(prev || {}), ...normalized }));
       if (!error && data?.review_status && data.review_status !== 'submitted') {
         setCv(data);
         setSaved((prev) => ({ ...(prev || {}), ...data }));

@@ -23,6 +23,10 @@ export default function Operator() {
     } else {
       const rows = await Promise.all(
         (data || []).map(async (a) => {
+          const raw = a.contacts_verification;
+          const cv = raw ? (Array.isArray(raw) ? raw[0] : raw) : null;
+          if (cv) {
+            cv.review_status = cv.review_status?.toLowerCase();
           const cv = a.contacts_verification?.[0] || null;
           if (cv) {
             const { data: docSigned } = cv.id_document_url
@@ -125,6 +129,9 @@ export default function Operator() {
       ) : (
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {athletes.map((a) => {
+
+            const status = a.cv?.review_status?.toLowerCase() || 'not submitted';
+            const label = status.charAt(0).toUpperCase() + status.slice(1);
             const status = a.cv?.review_status || 'not submitted';
             return (
               <li
@@ -144,7 +151,7 @@ export default function Operator() {
                   <span>
                     {a.first_name} {a.last_name}
                   </span>
-                  <span>{status}</span>
+                  <span>{label}</span>
                 </div>
                 {expanded === a.id && renderDetails(a)}
               </li>
