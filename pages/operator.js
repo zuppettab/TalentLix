@@ -1,167 +1,224 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '../utils/supabaseClient';
+// pages/operator.js
+import { useEffect, useMemo, useState } from 'react';
+import { supabase as sb } from '../utils/supabaseClient';
+
+const supabase = sb;
+
+const cellHead = { padding: 10, borderRight: '1px solid #EEE' };
+const cell = { padding: 10, borderRight: '1px solid #EEE' };
+
+const badgeStyle = (status) => {
+  const base = { padding: '2px 8px', borderRadius: 999, fontSize: 12, fontWeight: 600 };
+  if (status === 'approved')  return { ...base, color: '#2E7D32', border: '1px solid #2E7D32' };
+  if (status === 'submitted') return { ...base, color: '#8A6D3B', border: '1px solid #8A6D3B' };
+  if (status === 'rejected')  return { ...base, color: '#B00020', border: '1px solid #B00020' };
+  return { ...base, color: '#555', border: '1px solid #AAA' }; // draft/unknown
+};
+
+const miniBtn = (disabled) => ({
+  height: 30, padding: '0 10px', fontSize: 12, borderRadius: 8,
+  border: '1px solid #CCC', background: disabled ? '#EEE' : '#FFF', cursor: disabled ? 'not-allowed' : 'pointer'
+});
+const actionBtn = (disabled, color) => ({
+  height: 34, padding: '0 12px', fontWeight: 700, borderRadius: 8,
+  color: disabled ? '#999' : color,
+  border: `2px solid ${disabled ? '#DDD' : color}`,
+  background: '#FFF',
+  cursor: disabled ? 'not-allowed' : 'pointer'
+});
+
+async function signedUrl(path) {
+  if (!path) return '';
+  const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60);
+  return error ? '' : (data?.signedUrl || '');
+}
 
 export default function Operator() {
-  const [athletes, setAthletes] = useState([]);
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(null);
+  const [busy, setBusy] = useState(null); // athlete_id in lavorazione
 
-  useEffect(() => {
-    fetchAthletes();
-  }, []);
-
-  const fetchAthletes = async () => {
+  const load = async () => {
     setLoading(true);
+    // LEFT JOIN: athlete + eventuale riga in contacts_verification
     const { data, error } = await supabase
       .from('athlete')
-      .select(
-        `
-        id, first_name, last_name,
-        contacts_verification!left(
-          id, phone_number, id_document_url, id_selfie_url,
-          review_status, rejected_reason, residence_address, submitted_at
+      .select(`
+        id, first_name, last_name, phone,
+        contacts_verification (
+          review_status, id_verified, rejected_reason,
+          submitted_at, verified_at, verification_status_changed_at,
+          id_document_type, id_document_url, id_selfie_url,
+          phone_verified, residence_city, residence_country
         )
-        `
-      )
-      .order('submitted_at', { foreignTable: 'contacts_verification', ascending: false });
-    console.log(data);
+      `)
+      .order('last_name', { ascending: true });
+
     if (error) {
       console.error(error);
-      setAthletes([]);
+      setRows([]);
     } else {
-      const rows = await Promise.all(
-        (data || []).map(async (a) => {
-          const raw = a.contacts_verification;
-          const cv = raw?.[0] || null;
-          if (cv) {
-            cv.review_status = cv.review_status?.trim().toLowerCase();
-            const { data: docSigned } = cv.id_document_url
-              ? await supabase.storage
-                  .from('documents')
-                  .createSignedUrl(cv.id_document_url, 60)
-              : { data: null };
-            const { data: selfieSigned } = cv.id_selfie_url
-              ? await supabase.storage
-                  .from('documents')
-                  .createSignedUrl(cv.id_selfie_url, 60)
-              : { data: null };
-            cv.id_document_signed_url = docSigned?.signedUrl || null;
-            cv.id_selfie_signed_url = selfieSigned?.signedUrl || null;
-          }
-          delete a.contacts_verification;
-          return { ...a, cv };
-        })
-      );
-      setAthletes(rows);
+      const norm = (data || []).map(r => {
+        // Supabase può restituire array se 1:N; prendiamo la prima (aspettata 1:1)
+        const cv = Array.isArray(r.contacts_verification) ? r.contacts_verification[0] : r.contacts_verification;
+        const review_status = String(cv?.review_status || 'draft').toLowerCase();
+        return { ...r, cv: cv || null, review_status };
+      });
+      setRows(norm);
     }
     setLoading(false);
   };
 
-  const handleApprove = async (id) => {
-    const { error } = await supabase
-      .from('contacts_verification')
-      .update({ review_status: 'approved', reviewed_at: new Date().toISOString(), rejected_reason: null })
-      .eq('athlete_id', id);
-    if (error) return alert(error.message);
-    setAthletes((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? { ...a, cv: { ...(a.cv || {}), review_status: 'approved', reviewed_at: new Date().toISOString(), rejected_reason: null } }
-          : a
-      )
-    );
-    alert('Approved');
+  useEffect(() => { load(); }, []);
+
+  const ordered = useMemo(() => {
+    // Focus immediato sui "submitted"
+    const rank = s => ({ submitted: 0, rejected: 1, draft: 2, approved: 3 })[s] ?? 9;
+    return [...rows].sort((a, b) => rank(a.review_status) - rank(b.review_status));
+  }, [rows]);
+
+  const viewDoc = async (key) => {
+    const url = await signedUrl(key);
+    if (url) window.open(url, '_blank', 'noreferrer');
   };
 
-  const handleReject = async (id) => {
-    const reason = prompt('Reason for rejection?');
-    if (!reason) return;
-    const { error } = await supabase
-      .from('contacts_verification')
-      .update({ review_status: 'rejected', rejected_reason: reason, reviewed_at: new Date().toISOString() })
-      .eq('athlete_id', id);
-    if (error) return alert(error.message);
-    setAthletes((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? { ...a, cv: { ...(a.cv || {}), review_status: 'rejected', rejected_reason: reason, reviewed_at: new Date().toISOString() } }
-          : a
-      )
-    );
-    alert('Rejected');
+  // *** IMPORTANTISSIMO ***
+  // Nessuna creazione/alter table. Si AGGIORNA SOLO se esiste già una riga "submitted".
+  const doApprove = async (athleteId) => {
+    try {
+      setBusy(athleteId);
+      // Aggiorna SOLO dove già esiste una riga submitted per quell'athlete_id
+      const { error } = await supabase
+        .from('contacts_verification')
+        .update({
+          review_status: 'approved',
+          id_verified: true,
+          verified_at: new Date().toISOString(),
+          verification_status_changed_at: new Date().toISOString(),
+          rejected_reason: null,
+        })
+        .eq('athlete_id', athleteId)
+        .eq('review_status', 'submitted');
+      if (error) throw error;
+      await load();
+    } catch (e) {
+      console.error(e); alert('Approve failed');
+    } finally {
+      setBusy(null);
+    }
   };
-  const renderDetails = (a) => {
-    const cv = a.cv;
-    return (
-      <div style={{ marginTop: 10 }}>
-        {cv ? (
-          <>
-            <div>Phone: {cv.phone_number || 'N/A'}</div>
-            <div>Address: {cv.residence_address || 'N/A'}</div>
-            {cv.id_document_signed_url && (
-              <div>
-                <a href={cv.id_document_signed_url} target="_blank" rel="noreferrer">
-                  ID document
-                </a>
-              </div>
-            )}
-            {cv.id_selfie_signed_url && (
-              <div>
-                <a href={cv.id_selfie_signed_url} target="_blank" rel="noreferrer">
-                  ID selfie
-                </a>
-              </div>
-            )}
-            {cv.rejected_reason && (
-              <div style={{ color: 'red' }}>Reason: {cv.rejected_reason}</div>
-            )}
-            <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-              <button onClick={() => handleApprove(a.id)}>Approve</button>
-              <button onClick={() => handleReject(a.id)}>Reject</button>
-            </div>
-          </>
-        ) : (
-          <div>User has not submitted verification data yet</div>
-        )}
-      </div>
-    );
+
+  const doReject = async (athleteId) => {
+    const reason = window.prompt('Motivo del rifiuto (opzionale):', '');
+    try {
+      setBusy(athleteId);
+      const { error } = await supabase
+        .from('contacts_verification')
+        .update({
+          review_status: 'rejected',
+          id_verified: false,
+          verification_status_changed_at: new Date().toISOString(),
+          rejected_reason: (reason || '').trim() || null,
+        })
+        .eq('athlete_id', athleteId)
+        .eq('review_status', 'submitted');
+      if (error) throw error;
+      await load();
+    } catch (e) {
+      console.error(e); alert('Reject failed');
+    } finally {
+      setBusy(null);
+    }
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Operator Review</h1>
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {athletes.map((a) => {
-            const status = a.cv?.review_status || 'not submitted';
-            return (
-              <li
-                key={a.id}
-                style={{
-                  marginBottom: 10,
-                  border: '1px solid #ccc',
-                  borderRadius: 4,
-                  padding: 10,
-                  background: status === 'submitted' ? '#fff7e6' : '#fff',
-                }}
-              >
-                <div
-                  onClick={() => setExpanded(expanded === a.id ? null : a.id)}
-                  style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}
-                >
-                  <span>
-                    {a.first_name} {a.last_name}
-                  </span>
-                  <span>{status}</span>
+    <div style={{ padding: 20, fontFamily: 'system-ui, Arial, sans-serif' }}>
+      <h1 style={{ margin: '0 0 12px' }}>Operator – Identity Reviews (public)</h1>
+      <div style={{ marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button onClick={load} disabled={loading} style={{ height: 36, padding: '0 12px', fontWeight: 600 }}>
+          {loading ? 'Loading…' : 'Refresh'}
+        </button>
+        <span style={{ fontSize: 12, color: '#666' }}>
+          Sola lettura + azioni su profili già “submitted”. Nessuna modifica allo schema.
+        </span>
+      </div>
+
+      <div style={{ border: '1px solid #EEE', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 1fr 1fr 1fr', gap: 0, background: '#FAFAFA', fontWeight: 700 }}>
+          <div style={cellHead}>Athlete</div>
+          <div style={cellHead}>Status</div>
+          <div style={cellHead}>Phone</div>
+          <div style={cellHead}>Documents</div>
+          <div style={cellHead}>Actions</div>
+        </div>
+
+        {ordered.map((r) => {
+          const cv = r.cv || {};
+          const canAct = r.review_status === 'submitted'; // SOLO se già sottomesso
+          return (
+            <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '220px 1fr 1fr 1fr 1fr', borderTop: '1px solid #EEE' }}>
+              <div style={cell}>
+                <div style={{ fontWeight: 700 }}>{r.last_name} {r.first_name}</div>
+                <div style={{ fontSize: 12, color: '#999' }}>
+                  {cv.residence_city ? `${cv.residence_city}` : ''}{cv.residence_country ? `, ${cv.residence_country}` : ''}
                 </div>
-                {expanded === a.id && renderDetails(a)}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+              </div>
+
+              <div style={cell}>
+                <span style={badgeStyle(r.review_status)}>{r.review_status}</span>
+                <div style={{ fontSize: 12, color: '#666', marginTop: 6 }}>
+                  {cv.id_verified ? 'ID verified ✓' : 'ID not verified'}
+                  {cv.rejected_reason ? <div style={{ color: '#B00020' }}>Reason: {cv.rejected_reason}</div> : null}
+                </div>
+              </div>
+
+              <div style={cell}>
+                <div style={{ fontSize: 13 }}>{r.phone || '-'}</div>
+                <div style={{ fontSize: 12, color: cv.phone_verified ? '#2E7D32' : '#B00020' }}>
+                  {cv.phone_verified ? 'Phone verified ✓' : 'Phone not verified'}
+                </div>
+              </div>
+
+              <div style={cell}>
+                <div style={{ fontSize: 12 }}>Type: {cv.id_document_type || '-'}</div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => viewDoc(cv.id_document_url)}
+                    disabled={!cv.id_document_url}
+                    style={miniBtn(!cv.id_document_url)}
+                    title="View ID document"
+                  >ID Doc</button>
+                  <button
+                    onClick={() => viewDoc(cv.id_selfie_url)}
+                    disabled={!cv.id_selfie_url}
+                    style={miniBtn(!cv.id_selfie_url)}
+                    title="View Face photo"
+                  >Face</button>
+                </div>
+              </div>
+
+              <div style={cell}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => doApprove(r.id)}
+                    disabled={!canAct || busy === r.id}
+                    style={actionBtn(!canAct || busy === r.id, '#2E7D32')}
+                  >Approve</button>
+                  <button
+                    onClick={() => doReject(r.id)}
+                    disabled={!canAct || busy === r.id}
+                    style={actionBtn(!canAct || busy === r.id, '#B00020')}
+                  >Reject</button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {ordered.length === 0 && !loading && (
+          <div style={{ padding: 20, color: '#666' }}>Nessun atleta trovato.</div>
+        )}
+      </div>
     </div>
   );
 }
