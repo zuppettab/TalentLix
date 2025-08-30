@@ -431,10 +431,6 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera not supported');
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
       setCameraMode('streaming');
     } catch (err) {
       console.error(err);
@@ -477,6 +473,12 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   const retakeSelfie = () => {
     openCamera();
   };
+
+  useEffect(() => {
+    if (cameraMode !== 'streaming' || !streamRef.current || !videoRef.current) return;
+    videoRef.current.srcObject = streamRef.current;
+    videoRef.current.play().catch(console.error);
+  }, [cameraMode]);
 
   useEffect(() => {
     return () => closeCamera();
