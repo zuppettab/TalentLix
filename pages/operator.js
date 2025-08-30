@@ -15,8 +15,15 @@ export default function Operator() {
     const { data, error } = await supabase
       .from('athlete')
       .select(
-        'id, first_name, last_name, contacts_verification(id, phone_number, id_document_url, id_selfie_url, review_status, rejected_reason, residence_address)'
+        `
+        id, first_name, last_name,
+        contacts_verification!left(
+          id, phone_number, id_document_url, id_selfie_url,
+          review_status, rejected_reason, residence_address
+        )
+        `
       );
+    console.log(data);
     if (error) {
       console.error(error);
       setAthletes([]);
