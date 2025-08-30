@@ -776,8 +776,8 @@ const styles = {
   gridMobile: { gridTemplateColumns: '1fr' },
 
   // campi più distanziati
-  field: { display: 'flex', flexDirection: 'column', gap: 12 },
-  fieldWide: { gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 12 },
+  field: { display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 },
+  fieldWide: { gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 },
 
   label: { fontSize: 13, fontWeight: 600 },
   input: {
@@ -873,11 +873,11 @@ const styles = {
     alignItems: 'stretch',
     gap: 10,
     paddingTop: 12,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     flexWrap: 'wrap'
   },
   buttonsWrap: { display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' },
-  buttonsWrapMobile: { display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' },
+  buttonsWrapMobile: { display: 'flex', alignItems: 'center', gap: 8 },
 
   saveBtn: { height: 38, padding: '0 16px', borderRadius: 8, fontWeight: 600, border: 'none' },
   saveBtnEnabled: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', cursor: 'pointer' },
