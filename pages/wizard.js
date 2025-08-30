@@ -19,7 +19,7 @@ export default function Wizard() {
   const [errorMessage, setErrorMessage] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
 
-const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState({
   first_name: '',
   last_name: '',
   date_of_birth: '',
@@ -43,6 +43,40 @@ const [formData, setFormData] = useState({
   // ——
   profile_published: false,
 });
+
+  const loadLatestExperience = async (athleteId, base = {}) => {
+    const { data: expRows, error: expErr } = await supabase
+      .from('sports_experiences')
+      .select('sport, role, team, previous_team, category, years_experience, seeking_team')
+      .eq('athlete_id', athleteId)
+      .order('id', { ascending: false })
+      .limit(1);
+
+    if (!expErr && Array.isArray(expRows) && expRows.length > 0) {
+      const exp = expRows[0];
+      return {
+        ...base,
+        sport: exp?.sport || '',
+        main_role: exp?.role || '',
+        team_name: exp?.team || '',
+        previous_team: exp?.previous_team || '',
+        category: exp?.category || '',
+        years_experience: exp?.years_experience ?? '',
+        seeking_team: exp?.seeking_team ?? false,
+      };
+    }
+
+    return {
+      ...base,
+      sport: '',
+      main_role: '',
+      team_name: '',
+      previous_team: '',
+      category: '',
+      years_experience: '',
+      seeking_team: false,
+    };
+  };
 
 // Fetch user and athlete data
 useEffect(() => {
@@ -75,9 +109,10 @@ useEffect(() => {
       return;
     }
 
-    // 2) Base form: merge ATHLETE (come facevi prima)
+    // 2) Base form: merge ATHLETE (seeking_team ignorato)
     setAthlete(athleteData);
-    let nextForm = { ...formData, ...athleteData };
+    const { seeking_team: _ignored, ...athleteWithoutFlag } = athleteData || {};
+    let nextForm = { ...formData, ...athleteWithoutFlag, seeking_team: false };
     
     // Carica anche RESIDENCE da contacts_verification
     const { data: cvRow } = await supabase
@@ -95,25 +130,7 @@ useEffect(() => {
     }
 
     // 3) Idrata anche l’ULTIMA sports_experiences (Step 3)
-    const { data: expRows, error: expErr } = await supabase
-      .from('sports_experiences')
-      .select('sport, role, team, previous_team, category, years_experience')
-      .eq('athlete_id', user.id)
-      .order('id', { ascending: false })
-      .limit(1);
-
-    if (!expErr && Array.isArray(expRows) && expRows.length > 0) {
-      const exp = expRows[0];
-      nextForm = {
-        ...nextForm,
-        sport: exp?.sport || '',
-        main_role: exp?.role || '',
-        team_name: exp?.team || '',
-        previous_team: exp?.previous_team || '',
-        category: exp?.category || '',
-        years_experience: exp?.years_experience ?? ''
-      };
-    }
+    nextForm = await loadLatestExperience(user.id, nextForm);
 
     setFormData(nextForm);
     setStep(athleteData.current_step || 1);
@@ -123,6 +140,17 @@ useEffect(() => {
   initWizard();
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [router]);
+
+useEffect(() => {
+  const refreshStep3 = async () => {
+    if (step === 3 && user?.id) {
+      const updated = await loadLatestExperience(user.id, formData);
+      setFormData(updated);
+    }
+  };
+  refreshStep3();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [step]);
 
 
   const handleChange = (e) => {
@@ -267,11 +295,11 @@ useEffect(() => {
               previous_team: formData.previous_team || null, // NUOVO
               category: formData.category,
               years_experience: years,               // NUOVO (0–60 o NULL)
+              seeking_team: !!formData.seeking_team,
             }]);
             if (error) throw error;
-          
+
             const { error: upErr } = await supabase.from('athlete').update({
-              seeking_team: !!formData.seeking_team, // NUOVO flag profilo
               current_step: nextStep,
               completion_percentage: calcCompletion(nextStep),
             }).eq('id', user.id);
