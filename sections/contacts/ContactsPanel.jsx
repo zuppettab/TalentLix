@@ -20,7 +20,7 @@ const MAX_ATTEMPTS = 5;
 
 // ID document types
 const ID_TYPES = [
-  { value: 'national_id',     label: 'ID Card' },
+  { value: 'national_id',     label: 'National ID' },
   { value: 'passport',        label: 'Passport' },
   { value: 'driver_license',  label: 'Driver License' },
   { value: 'residence_permit', label: 'Residence Permit' },
@@ -28,12 +28,30 @@ const ID_TYPES = [
 ];
 
 // --------- Helpers (sanitization & UI) ---------
-const ALLOWED_ID_TYPES = new Set(['national_id', 'passport', 'driver_license', 'residence_permit', 'other']);
+const ALLOWED_ID_TYPES = new Set([
+  'national_id',
+  'passport',
+  'driver_license',
+  'residence_permit',
+  'other',
+]);
 function normalizeIdType(v) {
   const s = (v ?? '').toString().trim().toLowerCase().replace(/[\s-]+/g, '_');
   if (ALLOWED_ID_TYPES.has(s)) return s;
-  if (s === 'id_card' || s === 'identity_card' || s === 'id') return 'national_id';
-  if (s === 'driving_license' || s === 'driving_licence' || s === 'licence' || s === 'license') return 'driver_license';
+  if (
+    s === 'id_card' ||
+    s === 'identity_card' ||
+    s === 'id' ||
+    s === 'idcard' ||
+    s === 'identitycard' ||
+    s === 'nationalid'
+  ) return 'national_id';
+  if (
+    s === 'driving_license' ||
+    s === 'driving_licence' ||
+    s === 'licence' ||
+    s === 'license'
+  ) return 'driver_license';
   if (s === 'residencepermit') return 'residence_permit';
   return '';
 }
@@ -758,8 +776,8 @@ const styles = {
   gridMobile: { gridTemplateColumns: '1fr' },
 
   // campi più distanziati
-  field: { display: 'flex', flexDirection: 'column', gap: 12 },
-  fieldWide: { gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 12 },
+  field: { display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 },
+  fieldWide: { gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 },
 
   label: { fontSize: 13, fontWeight: 600 },
   input: {
@@ -855,11 +873,11 @@ const styles = {
     alignItems: 'stretch',
     gap: 10,
     paddingTop: 12,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     flexWrap: 'wrap'
   },
   buttonsWrap: { display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' },
-  buttonsWrapMobile: { display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' },
+  buttonsWrapMobile: { display: 'flex', alignItems: 'center', gap: 8 },
 
   saveBtn: { height: 38, padding: '0 16px', borderRadius: 8, fontWeight: 600, border: 'none' },
   saveBtnEnabled: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', cursor: 'pointer' },

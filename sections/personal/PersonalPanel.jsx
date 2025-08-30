@@ -238,6 +238,10 @@ const saveBtnStyle =
     ? { ...styles.saveBtn, background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' }
     : { ...styles.saveBtn, background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', cursor: 'pointer' };
 
+  const saveBarStyle = isMobile
+    ? { ...styles.saveBar, justifyContent: 'flex-start' }
+    : styles.saveBar;
+
   return (
     <form
         onSubmit={(e) => { e.preventDefault(); onSave(); }}
@@ -412,7 +416,7 @@ const saveBtnStyle =
       </div>
 
       {/* Status + Save */}
-      <div style={styles.saveBar}>
+      <div style={saveBarStyle}>
           <button
             type="submit"
             disabled={isSaveDisabled}
@@ -464,7 +468,7 @@ function IconX({ small }) {
 
 const styles = {
   formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' },
-  field: { display: 'flex', flexDirection: 'column', gap: 6 },
+  field: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 },
   label: { fontSize: 12, opacity: 0.8 },
   input: { padding: '10px 12px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 14, background: '#FFF' },
   select: { padding: '10px 12px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 14, background: '#FFF', height: '40px' },
