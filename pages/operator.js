@@ -19,7 +19,7 @@ export default function Operator() {
         id, first_name, last_name,
         contacts_verification!left(
           id, phone_number, id_document_url, id_selfie_url,
-          review_status, rejected_reason, residence_address
+          review_status, rejected_reason, residence_address, submitted_at
         )
         `
       );
