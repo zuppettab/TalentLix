@@ -223,6 +223,9 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         const normalized = { ...data, review_status: nextStatus };
         setCv(normalized);
         setSaved((prev) => ({ ...(prev || {}), ...normalized }));
+      if (!error && data?.review_status && data.review_status !== 'submitted') {
+        setCv(data);
+        setSaved((prev) => ({ ...(prev || {}), ...data }));
         setSnapshotV((v) => v + 1);
       }
     }, 4000);

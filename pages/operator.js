@@ -27,6 +27,8 @@ export default function Operator() {
           const cv = raw ? (Array.isArray(raw) ? raw[0] : raw) : null;
           if (cv) {
             cv.review_status = cv.review_status?.toLowerCase();
+          const cv = a.contacts_verification?.[0] || null;
+          if (cv) {
             const { data: docSigned } = cv.id_document_url
               ? await supabase.storage
                   .from('documents')
@@ -127,8 +129,10 @@ export default function Operator() {
       ) : (
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {athletes.map((a) => {
+
             const status = a.cv?.review_status?.toLowerCase() || 'not submitted';
             const label = status.charAt(0).toUpperCase() + status.slice(1);
+            const status = a.cv?.review_status || 'not submitted';
             return (
               <li
                 key={a.id}
