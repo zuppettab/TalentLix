@@ -20,19 +20,21 @@ const MAX_ATTEMPTS = 5;
 
 // ID document types
 const ID_TYPES = [
-  { value: 'id_card',        label: 'ID Card' },
-  { value: 'passport',       label: 'Passport' },
-  { value: 'driver_license', label: 'Driver License' },
-  { value: 'other',          label: 'Other (specify)' },
+  { value: 'national_id',     label: 'ID Card' },
+  { value: 'passport',        label: 'Passport' },
+  { value: 'driver_license',  label: 'Driver License' },
+  { value: 'residence_permit', label: 'Residence Permit' },
+  { value: 'other',           label: 'Other (specify)' },
 ];
 
 // --------- Helpers (sanitization & UI) ---------
-const ALLOWED_ID_TYPES = new Set(['id_card', 'passport', 'driver_license', 'other']);
+const ALLOWED_ID_TYPES = new Set(['national_id', 'passport', 'driver_license', 'residence_permit', 'other']);
 function normalizeIdType(v) {
   const s = (v ?? '').toString().trim().toLowerCase().replace(/[\s-]+/g, '_');
   if (ALLOWED_ID_TYPES.has(s)) return s;
-  if (s === 'identity_card' || s === 'id') return 'id_card';
+  if (s === 'id_card' || s === 'identity_card' || s === 'id') return 'national_id';
   if (s === 'driving_license' || s === 'driving_licence' || s === 'licence' || s === 'license') return 'driver_license';
+  if (s === 'residencepermit') return 'residence_permit';
   return '';
 }
 function hasValue(v) { return v !== undefined && v !== null && String(v).trim() !== ''; }
