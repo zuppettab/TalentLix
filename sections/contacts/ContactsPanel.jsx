@@ -114,6 +114,12 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   const [docPreview, setDocPreview] = useState('');
   const [selfiePreview, setSelfiePreview] = useState('');
 
+  // Camera capture
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+
   // ----------------------- EFFECTS -----------------------
   // countdowns
   useEffect(() => {
@@ -360,7 +366,9 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   };
 
   const uploadFile = async (file, kind) => {
-    const ext = file.name.includes('.') ? file.name.split('.').pop() : 'bin';
+    const ext = file.name?.includes('.')
+      ? file.name.split('.').pop()
+      : (file.type?.split('/')?.pop() || 'bin');
     const path = `${makePath(kind)}.${ext}`;
     const { error } = await supabase.storage.from('documents').upload(path, file, { upsert: true });
     if (error) throw error;
@@ -397,6 +405,60 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       console.error(e2); setStatus({ type: 'error', msg: 'Face photo upload failed.' });
     }
   };
+
+  const closeCamera = () => {
+    const stream = streamRef.current;
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  const openCamera = async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera not supported');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setIsCameraOpen(true);
+    } catch (err) {
+      console.error(err);
+      setStatus({ type: 'error', msg: 'Unable to access camera.' });
+      closeCamera();
+    }
+  };
+
+  const captureSelfie = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      try {
+        const key = await uploadFile(blob, 'selfie');
+        setSelfieFileName('selfie.png');
+        setForm((p) => ({ ...p, id_selfie_url: key }));
+        setSelfiePreview(await makeSignedUrl(key));
+        setDirty(true);
+        if (status.type) setStatus({ type: '', msg: '' });
+      } catch (e2) {
+        console.error(e2); setStatus({ type: 'error', msg: 'Face photo upload failed.' });
+      } finally {
+        closeCamera();
+      }
+    }, 'image/png');
+  };
+
+  useEffect(() => {
+    return () => closeCamera();
+  }, []);
 
   // ----------------------- SAVE -----------------------
   const handleSave = async () => {
@@ -626,12 +688,49 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         <div style={styles.field}>
           <label style={styles.label}>Upload a Face Photo</label>
           <div style={styles.fileRow}>
-            <input type="file" accept="image/*" ref={selfieInputRef} onChange={onPickSelfie} style={{ display: 'none' }} />
-            <button type="button" onClick={clickSelfiePicker} disabled={isLocked} style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}>
-              Choose file
-            </button>
+            <input
+              type="file"
+              accept="image/*"
+              ref={selfieInputRef}
+              onChange={onPickSelfie}
+              style={{ display: 'none' }}
+            />
+            {!isCameraOpen && (
+              <>
+                <button
+                  type="button"
+                  onClick={clickSelfiePicker}
+                  disabled={isLocked}
+                  style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}
+                >
+                  Choose file
+                </button>
+                <button
+                  type="button"
+                  onClick={openCamera}
+                  disabled={isLocked}
+                  style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}
+                >
+                  Scatta foto
+                </button>
+              </>
+            )}
+            {isCameraOpen && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <video ref={videoRef} autoPlay playsInline style={{ width: 200, borderRadius: 8 }} />
+                <canvas ref={canvasRef} style={{ display: 'none' }} />
+                <button
+                  type="button"
+                  onClick={captureSelfie}
+                  disabled={isLocked}
+                  style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}
+                >
+                  Salva
+                </button>
+              </div>
+            )}
 
-            {form.id_selfie_url ? (
+            {!isCameraOpen && (form.id_selfie_url ? (
               <a
                 href={selfiePreview || '#'}
                 target="_blank"
@@ -643,7 +742,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
               </a>
             ) : (
               <span style={styles.fileName}>No file</span>
-            )}
+            ))}
           </div>
         </div>
 
