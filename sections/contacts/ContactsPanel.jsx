@@ -203,6 +203,24 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   const isLocked   = currentReviewStatus === 'submitted' || currentReviewStatus === 'approved';
   const isRejected = currentReviewStatus === 'rejected';
 
+  // Poll for review updates while under review
+  useEffect(() => {
+    if (currentReviewStatus !== 'submitted') return;
+    const t = setInterval(async () => {
+      const { data, error } = await supabase
+        .from(CV_TABLE)
+        .select('*')
+        .eq('athlete_id', athlete.id)
+        .single();
+      if (!error && data?.review_status && data.review_status !== 'submitted') {
+        setCv(data);
+        setSaved((prev) => ({ ...(prev || {}), ...data }));
+        setSnapshotV((v) => v + 1);
+      }
+    }, 4000);
+    return () => clearInterval(t);
+  }, [currentReviewStatus, athlete.id]);
+
   // Phone validation
   const e164 = form.phone ? `+${onlyDigits(form.phone)}` : '';
   const isValidPhone = !!(e164 && parsePhoneNumberFromString(e164)?.isValid());
