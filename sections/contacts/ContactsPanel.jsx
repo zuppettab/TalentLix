@@ -115,7 +115,8 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   const [selfiePreview, setSelfiePreview] = useState('');
 
   // Camera capture
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [cameraMode, setCameraMode] = useState('closed'); // 'closed' | 'streaming' | 'captured'
+  const [capturedBlob, setCapturedBlob] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -412,18 +413,29 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       stream.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
-    setIsCameraOpen(false);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    if (canvasRef.current) {
+      const c = canvasRef.current;
+      const ctx = c.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, c.width, c.height);
+    }
+    setCapturedBlob(null);
+    setCameraMode('closed');
   };
 
   const openCamera = async () => {
     try {
+      closeCamera();
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera not supported');
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await videoRef.current.play();
       }
-      setIsCameraOpen(true);
+      setCameraMode('streaming');
     } catch (err) {
       console.error(err);
       setStatus({ type: 'error', msg: 'Unable to access camera.' });
@@ -439,21 +451,31 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob(async (blob) => {
+    canvas.toBlob((blob) => {
       if (!blob) return;
-      try {
-        const key = await uploadFile(blob, 'selfie');
-        setSelfieFileName('selfie.png');
-        setForm((p) => ({ ...p, id_selfie_url: key }));
-        setSelfiePreview(await makeSignedUrl(key));
-        setDirty(true);
-        if (status.type) setStatus({ type: '', msg: '' });
-      } catch (e2) {
-        console.error(e2); setStatus({ type: 'error', msg: 'Face photo upload failed.' });
-      } finally {
-        closeCamera();
-      }
+      setCapturedBlob(blob);
+      setCameraMode('captured');
     }, 'image/png');
+  };
+
+  const confirmSelfie = async () => {
+    if (!capturedBlob) return;
+    try {
+      const key = await uploadFile(capturedBlob, 'selfie');
+      setSelfieFileName('selfie.png');
+      setForm((p) => ({ ...p, id_selfie_url: key }));
+      setSelfiePreview(await makeSignedUrl(key));
+      setDirty(true);
+      if (status.type) setStatus({ type: '', msg: '' });
+    } catch (e2) {
+      console.error(e2); setStatus({ type: 'error', msg: 'Face photo upload failed.' });
+    } finally {
+      closeCamera();
+    }
+  };
+
+  const retakeSelfie = () => {
+    openCamera();
   };
 
   useEffect(() => {
@@ -695,7 +717,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
               onChange={onPickSelfie}
               style={{ display: 'none' }}
             />
-            {!isCameraOpen && (
+            {cameraMode === 'closed' && (
               <>
                 <button
                   type="button"
@@ -715,22 +737,44 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
                 </button>
               </>
             )}
-            {isCameraOpen && (
+            {cameraMode === 'streaming' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <video ref={videoRef} autoPlay playsInline style={{ width: 200, borderRadius: 8 }} />
-                <canvas ref={canvasRef} style={{ display: 'none' }} />
                 <button
                   type="button"
                   onClick={captureSelfie}
                   disabled={isLocked}
                   style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}
                 >
-                  Salva
+                  Capture
                 </button>
               </div>
             )}
+            {cameraMode === 'captured' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <canvas ref={canvasRef} style={{ width: 200, borderRadius: 8 }} />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={confirmSelfie}
+                    disabled={isLocked}
+                    style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}
+                  >
+                    Use photo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={retakeSelfie}
+                    disabled={isLocked}
+                    style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}
+                  >
+                    Retake
+                  </button>
+                </div>
+              </div>
+            )}
 
-            {!isCameraOpen && (form.id_selfie_url ? (
+            {cameraMode === 'closed' && (form.id_selfie_url ? (
               <a
                 href={selfiePreview || '#'}
                 target="_blank"
