@@ -711,7 +711,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
                   disabled={isLocked}
                   style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}
                 >
-                  Scatta foto
+                  Take a photo
                 </button>
               </>
             )}
