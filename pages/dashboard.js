@@ -5,6 +5,7 @@ import { SECTIONS, DEFAULT_SECTION, isValidSection } from '../utils/dashboardSec
 import { supabase } from '../utils/supabaseClient';
 import PersonalPanel from '../sections/personal/PersonalPanel';
 import ContactsPanel from '../sections/contacts/ContactsPanel';
+import SportInfoPanel from '../sections/sports/SportInfoPanel';
 
 const ATHLETE_TABLE = 'athlete';
 
@@ -349,7 +350,10 @@ export default function Dashboard() {
                 {current === 'contacts' && (
                   <ContactsPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
                 )}
-                {current !== 'personal' && current !== 'contacts' && (
+                {current === 'sports' && (
+                  <SportInfoPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
+                )}
+                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && (
                   <p style={styles.placeholder}>TODO — “{sectionObj?.title}”</p>
                 )}
 

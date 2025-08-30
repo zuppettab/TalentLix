@@ -4,7 +4,7 @@
 export const SECTIONS = [
   { id: 'personal',  title: 'Personal data' },
   { id: 'contacts',  title: 'Contacts' },
-  { id: 'sports',    title: 'Sports info' },
+  { id: 'sports',    title: 'Sport info' },
   { id: 'physical',  title: 'Physical data' },
   { id: 'media',     title: 'Media' },
   { id: 'social',    title: 'Social' },
