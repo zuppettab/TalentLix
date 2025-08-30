@@ -40,11 +40,10 @@ export default function Wizard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [athlete, setAthlete] = useState(null);
-const [step, setStep] = useState(1);
-const [loading, setLoading] = useState(true);
-const [errorMessage, setErrorMessage] = useState('');
-const [menuOpen, setMenuOpen] = useState(false);
-const [errors, setErrors] = useState({});
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const [formData, setFormData] = useState({
   first_name: '',
@@ -311,23 +310,10 @@ useEffect(() => {
             // Insert esperienza sportiva (con previous_team + years_experience) + avanzamento
             const age = getAgeFromDob(formData.date_of_birth);
             const maxYears = age != null ? Math.floor(age * 0.7) : 0;
-
-            if (formData.years_experience !== '' && formData.years_experience != null) {
-              const yrs = parseInt(formData.years_experience, 10);
-              if (Number.isNaN(yrs) || yrs < 0 || yrs > maxYears) {
-                setErrors(prev => ({ ...prev, years_experience: `Out of range (0–${maxYears})` }));
-                return;
-              } else {
-                setErrors(prev => ({ ...prev, years_experience: '' }));
-              }
-            } else {
-              setErrors(prev => ({ ...prev, years_experience: '' }));
-            }
-
             const years =
               formData.years_experience === '' || formData.years_experience == null
                 ? null
-                : parseInt(formData.years_experience, 10);
+                : Math.max(0, Math.min(maxYears, parseInt(formData.years_experience, 10)));
           
             const { error } = await supabase.from('sports_experiences').insert([{
               athlete_id: user.id,
@@ -486,16 +472,7 @@ const handleLogout = async () => {
                       saveStep={() => saveStep(3)}
                     />
                 )}
-                {step === 3 && (
-                  <Step3
-                    formData={formData}
-                    setFormData={setFormData}
-                    handleChange={handleChange}
-                    saveStep={() => saveStep(4)}
-                    errors={errors}
-                    setErrors={setErrors}
-                  />
-                )}
+                {step === 3 && <Step3 formData={formData} setFormData={setFormData} handleChange={handleChange} saveStep={() => saveStep(4)} />}
                 {step === 4 && <Step4 formData={formData} setFormData={setFormData} finalize={finalizeProfile} />}
               </motion.div>
             </AnimatePresence>
@@ -1136,28 +1113,11 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
 
 /* STEP 3 */
-const Step3 = ({ formData, setFormData, handleChange, saveStep, errors, setErrors }) => {
+const Step3 = ({ formData, setFormData, handleChange, saveStep }) => {
   const age = getAgeFromDob(formData.date_of_birth);
   const maxYears = age != null ? Math.floor(age * 0.7) : 0;
   const showYearsInput = formData.sport && age != null;
-
-  const handleYearsChange = (e) => {
-    const val = e.target.value;
-    setFormData({ ...formData, years_experience: val });
-    if (val === '' || val == null) {
-      setErrors(prev => ({ ...prev, years_experience: '' }));
-      return;
-    }
-    const num = parseInt(val, 10);
-    if (Number.isNaN(num) || num < 0 || num > maxYears) {
-      setErrors(prev => ({ ...prev, years_experience: `Out of range (0–${maxYears})` }));
-    } else {
-      setErrors(prev => ({ ...prev, years_experience: '' }));
-    }
-  };
-
-  const baseValid = formData.sport && formData.main_role && formData.category;
-  const isValid = baseValid && !errors.years_experience;
+  const isValid = formData.sport && formData.main_role && formData.category;
   return (
     <>
       <h2 style={styles.title}>👤 Step 3</h2>
@@ -1185,24 +1145,16 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep, errors, setError
             }}
           />
           {showYearsInput && (
-            <div style={{ width: '100%' }}>
-              <input
-                style={styles.input}
-                type="number"
-                name="years_experience"
-                placeholder={`Years of Experience (0–${maxYears})`}
-                min={0}
-                max={maxYears}
-                value={formData.years_experience}
-                onChange={handleYearsChange}
-                onBlur={handleYearsChange}
-              />
-              {errors.years_experience && (
-                <div style={{ color:'#b00', fontSize:'12px', textAlign:'left', marginTop:'6px', paddingLeft:'18px' }}>
-                  {errors.years_experience}
-                </div>
-              )}
-            </div>
+            <input
+              style={styles.input}
+              type="number"
+              name="years_experience"
+              placeholder={`Years of Experience (0–${maxYears})`}
+              min={0}
+              max={maxYears}
+              value={formData.years_experience}
+              onChange={(e) => setFormData({ ...formData, years_experience: e.target.value })}
+            />
           )}
 
         <input style={styles.input} name="main_role" placeholder="Main Role" value={formData.main_role} onChange={handleChange} />
@@ -1232,7 +1184,7 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep, errors, setError
 
         <input style={styles.input} name="category" placeholder="Category" value={formData.category} onChange={handleChange} />
         <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
-        {!baseValid && (
+        {!isValid && (
           <ul style={{ color:'#b00', fontSize:'12px', textAlign:'left', marginTop:'6px', paddingLeft:'18px' }}>
             {!formData.sport && <li>Sport missing</li>}
             {!formData.main_role && <li>Main Role missing</li>}
