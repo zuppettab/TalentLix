@@ -138,6 +138,8 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
           .eq('athlete_id', athlete.id)
           .single();
 
+        if (cvRow) cvRow.review_status = cvRow.review_status?.trim().toLowerCase();
+
         // phone: prefer athlete.phone, fallback cvRow.phone_number
         const rawPhone = athlete?.phone || cvRow?.phone_number || '';
         const normalizedPhone = normalizePhone(rawPhone);

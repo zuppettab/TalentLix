@@ -34,6 +34,7 @@ export default function Operator() {
           const raw = a.contacts_verification;
           const cv = raw?.[0] || null;
           if (cv) {
+            cv.review_status = cv.review_status?.trim().toLowerCase();
             const { data: docSigned } = cv.id_document_url
               ? await supabase.storage
                   .from('documents')
