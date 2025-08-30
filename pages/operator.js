@@ -22,7 +22,8 @@ export default function Operator() {
           review_status, rejected_reason, residence_address, submitted_at
         )
         `
-      );
+      )
+      .order('submitted_at', { foreignTable: 'contacts_verification', ascending: false });
     console.log(data);
     if (error) {
       console.error(error);
@@ -30,7 +31,8 @@ export default function Operator() {
     } else {
       const rows = await Promise.all(
         (data || []).map(async (a) => {
-          const cv = a.contacts_verification?.[0] || null;
+          const raw = a.contacts_verification;
+          const cv = raw?.[0] || null;
           if (cv) {
             const { data: docSigned } = cv.id_document_url
               ? await supabase.storage
