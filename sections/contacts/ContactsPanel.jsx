@@ -158,7 +158,10 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
         };
 
         if (mounted) {
-          setCv(cvRow || null);
+          const normalized = cvRow
+            ? { ...cvRow, review_status: cvRow.review_status?.toLowerCase() }
+            : null;
+          setCv(normalized);
           setForm(initial);
           initialRef.current = initial;
           setSaved(initial); // progress calcolata sui dati salvati
@@ -199,9 +202,32 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
 
   // ----------------------- DERIVED -----------------------
   // Review / lock
-  const currentReviewStatus = useMemo(() => (cv?.review_status || 'draft'), [cv?.review_status]);
+  const currentReviewStatus = useMemo(
+    () => (cv?.review_status ? cv.review_status.toLowerCase() : 'draft'),
+    [cv?.review_status]
+  );
   const isLocked   = currentReviewStatus === 'submitted' || currentReviewStatus === 'approved';
   const isRejected = currentReviewStatus === 'rejected';
+
+  // Poll for review updates while under review
+  useEffect(() => {
+    if (currentReviewStatus !== 'submitted') return;
+    const t = setInterval(async () => {
+      const { data, error } = await supabase
+        .from(CV_TABLE)
+        .select('*')
+        .eq('athlete_id', athlete.id)
+        .single();
+      const nextStatus = data?.review_status?.toLowerCase();
+      if (!error && nextStatus && nextStatus !== 'submitted') {
+        const normalized = { ...data, review_status: nextStatus };
+        setCv(normalized);
+        setSaved((prev) => ({ ...(prev || {}), ...normalized }));
+        setSnapshotV((v) => v + 1);
+      }
+    }, 4000);
+    return () => clearInterval(t);
+  }, [currentReviewStatus, athlete.id]);
 
   // Phone validation
   const e164 = form.phone ? `+${onlyDigits(form.phone)}` : '';

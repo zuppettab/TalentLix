@@ -14,57 +14,106 @@ export default function Operator() {
     setLoading(true);
     const { data, error } = await supabase
       .from('athlete')
-      .select('id, first_name, last_name, contacts_verification(*)');
+      .select(
+        'id, first_name, last_name, contacts_verification(id, phone_number, id_document_url, id_selfie_url, review_status, rejected_reason, residence_address)'
+      );
     if (error) {
       console.error(error);
       setAthletes([]);
     } else {
-      setAthletes(data || []);
+      const rows = await Promise.all(
+        (data || []).map(async (a) => {
+          const raw = a.contacts_verification;
+          const cv = raw ? (Array.isArray(raw) ? raw[0] : raw) : null;
+          if (cv) {
+            cv.review_status = cv.review_status?.toLowerCase();
+            const { data: docSigned } = cv.id_document_url
+              ? await supabase.storage
+                  .from('documents')
+                  .createSignedUrl(cv.id_document_url, 60)
+              : { data: null };
+            const { data: selfieSigned } = cv.id_selfie_url
+              ? await supabase.storage
+                  .from('documents')
+                  .createSignedUrl(cv.id_selfie_url, 60)
+              : { data: null };
+            cv.id_document_signed_url = docSigned?.signedUrl || null;
+            cv.id_selfie_signed_url = selfieSigned?.signedUrl || null;
+          }
+          delete a.contacts_verification;
+          return { ...a, cv };
+        })
+      );
+      setAthletes(rows);
     }
     setLoading(false);
   };
 
   const handleApprove = async (id) => {
-    await supabase
+    const { error } = await supabase
       .from('contacts_verification')
-      .update({ review_status: 'approved', reviewed_at: new Date().toISOString() })
+      .update({ review_status: 'approved', reviewed_at: new Date().toISOString(), rejected_reason: null })
       .eq('athlete_id', id);
-    fetchAthletes();
+    if (error) return alert(error.message);
+    setAthletes((prev) =>
+      prev.map((a) =>
+        a.id === id
+          ? { ...a, cv: { ...(a.cv || {}), review_status: 'approved', reviewed_at: new Date().toISOString(), rejected_reason: null } }
+          : a
+      )
+    );
+    alert('Approved');
   };
 
   const handleReject = async (id) => {
     const reason = prompt('Reason for rejection?');
     if (!reason) return;
-    await supabase
+    const { error } = await supabase
       .from('contacts_verification')
       .update({ review_status: 'rejected', rejected_reason: reason, reviewed_at: new Date().toISOString() })
       .eq('athlete_id', id);
-    fetchAthletes();
+    if (error) return alert(error.message);
+    setAthletes((prev) =>
+      prev.map((a) =>
+        a.id === id
+          ? { ...a, cv: { ...(a.cv || {}), review_status: 'rejected', rejected_reason: reason, reviewed_at: new Date().toISOString() } }
+          : a
+      )
+    );
+    alert('Rejected');
   };
-
-  const renderDetails = (cv, id) => {
+  const renderDetails = (a) => {
+    const cv = a.cv;
     return (
       <div style={{ marginTop: 10 }}>
         {cv ? (
           <>
-            <div>Phone: {cv.phone || 'N/A'}</div>
-            <div>Document: {cv.document_number || 'N/A'}</div>
+            <div>Phone: {cv.phone_number || 'N/A'}</div>
             <div>Address: {cv.residence_address || 'N/A'}</div>
-            {cv.signed_document_url && (
+            {cv.id_document_signed_url && (
               <div>
-                <a href={cv.signed_document_url} target="_blank" rel="noreferrer">Signed document</a>
+                <a href={cv.id_document_signed_url} target="_blank" rel="noreferrer">
+                  ID document
+                </a>
+              </div>
+            )}
+            {cv.id_selfie_signed_url && (
+              <div>
+                <a href={cv.id_selfie_signed_url} target="_blank" rel="noreferrer">
+                  ID selfie
+                </a>
               </div>
             )}
             {cv.rejected_reason && (
               <div style={{ color: 'red' }}>Reason: {cv.rejected_reason}</div>
             )}
             <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-              <button onClick={() => handleApprove(id)}>Approve</button>
-              <button onClick={() => handleReject(id)}>Reject</button>
+              <button onClick={() => handleApprove(a.id)}>Approve</button>
+              <button onClick={() => handleReject(a.id)}>Reject</button>
             </div>
           </>
         ) : (
-          <div>No submission</div>
+          <div>User has not submitted verification data yet</div>
         )}
       </div>
     );
@@ -78,7 +127,8 @@ export default function Operator() {
       ) : (
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {athletes.map((a) => {
-            const status = a.contacts_verification?.review_status || 'not submitted';
+            const status = a.cv?.review_status?.toLowerCase() || 'not submitted';
+            const label = status.charAt(0).toUpperCase() + status.slice(1);
             return (
               <li
                 key={a.id}
@@ -97,9 +147,9 @@ export default function Operator() {
                   <span>
                     {a.first_name} {a.last_name}
                   </span>
-                  <span>{status}</span>
+                  <span>{label}</span>
                 </div>
-                {expanded === a.id && renderDetails(a.contacts_verification, a.id)}
+                {expanded === a.id && renderDetails(a)}
               </li>
             );
           })}
