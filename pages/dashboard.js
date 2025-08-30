@@ -80,8 +80,7 @@ export default function Dashboard() {
                   profile_published,
                   completion_percentage,
                   current_step,
-                  needs_parental_authorization,
-                  seeking_team
+                  needs_parental_authorization
                 `)
 
           .eq('id', u.id)
@@ -109,12 +108,22 @@ export default function Dashboard() {
       .eq('athlete_id', u.id)
       .single();
     
+    const { data: expRows } = await supabase
+      .from('sports_experiences')
+      .select('seeking_team')
+      .eq('athlete_id', u.id)
+      .order('id', { ascending: false })
+      .limit(1);
+
+    const latestSeeking = Array.isArray(expRows) && expRows.length > 0 ? !!expRows[0].seeking_team : false;
+
     const merged = {
       ...data,
       residence_city: cv?.residence_city || '',
-      residence_country: cv?.residence_country || ''
+      residence_country: cv?.residence_country || '',
+      seeking_team: latestSeeking,
     };
-    
+
     if (mounted) setAthlete(merged);
       } catch (e) {
         console.error(e);
