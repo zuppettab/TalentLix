@@ -441,12 +441,15 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
 
   const captureSelfie = () => {
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    let canvas = canvasRef.current;
+    if (!video) return;
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      canvasRef.current = canvas;
+    }
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
     canvas.toBlob((blob) => {
       if (!blob) return;
       setCapturedBlob(blob);
@@ -719,6 +722,10 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
               onChange={onPickSelfie}
               style={{ display: 'none' }}
             />
+            <canvas
+              ref={canvasRef}
+              style={{ width: 200, borderRadius: 8, display: cameraMode === 'captured' ? 'block' : 'none' }}
+            />
             {cameraMode === 'closed' && (
               <>
                 <button
@@ -753,26 +760,23 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
               </div>
             )}
             {cameraMode === 'captured' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <canvas ref={canvasRef} style={{ width: 200, borderRadius: 8 }} />
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={confirmSelfie}
-                    disabled={isLocked}
-                    style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}
-                  >
-                    Use photo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={retakeSelfie}
-                    disabled={isLocked}
-                    style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}
-                  >
-                    Retake
-                  </button>
-                </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={confirmSelfie}
+                  disabled={isLocked}
+                  style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}
+                >
+                  Use photo
+                </button>
+                <button
+                  type="button"
+                  onClick={retakeSelfie}
+                  disabled={isLocked}
+                  style={isLocked ? disabledBtnStyleSmall : enabledBtnStyleSmall}
+                >
+                  Retake
+                </button>
               </div>
             )}
 
