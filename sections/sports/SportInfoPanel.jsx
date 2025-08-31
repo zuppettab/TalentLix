@@ -976,14 +976,14 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>Season</th>
-                <th style={styles.th}>Sport</th>
-                <th style={styles.th}>Team</th>
-                <th style={styles.th}>Role</th>
-                <th style={styles.th}>Category</th>
-                <th style={styles.th}>League</th>
-                <th style={styles.th}>Current</th>
-                <th style={styles.thRight}>Actions</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Season</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Sport</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Team</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Role</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Category</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>League</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Current</th>
+                <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobile : null) }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -991,7 +991,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                 const isEditing = editId === r.id;
                 return (
                   <tr key={r.id}>
-                    <td style={styles.td}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <input
@@ -1014,7 +1014,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         <div style={styles.error}>{editErrors.season_start || editErrors.season_end}</div>
                       )}
                     </td>
-                    <td style={styles.td}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <Select
                           options={sports}
@@ -1024,7 +1024,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         />
                       ) : (r.sport || '-')}
                     </td>
-                    <td style={styles.td}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <>
                           <input
@@ -1036,7 +1036,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         </>
                       ) : (r.team_name || '-')}
                     </td>
-                    <td style={styles.td}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <>
                           <input
@@ -1048,7 +1048,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         </>
                       ) : (r.role || '-')}
                     </td>
-                    <td style={styles.td}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <>
                           <input
@@ -1060,7 +1060,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         </>
                       ) : (r.category || '-')}
                     </td>
-                    <td style={styles.td}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <input
                           value={edit.league}
@@ -1069,7 +1069,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         />
                       ) : (r.league || '-')}
                     </td>
-                    <td style={styles.td}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <input
@@ -1083,7 +1083,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         r.is_current ? 'Yes' : '—'
                       )}
                     </td>
-                    <td style={{ ...styles.td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {!isEditing ? (
                         <>
                           <button type="button" style={styles.linkBtn} onClick={() => onEdit(r)}>Edit</button>
@@ -1223,12 +1223,14 @@ const styles = {
     whiteSpace: 'nowrap',
   },
   thRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
+  thMobile: { padding: '12px 16px', minWidth: 100 },
   td: {
     fontSize: 14,
     padding: '10px 12px',
     borderBottom: '1px solid #F5F5F5',
     verticalAlign: 'top',
   },
+  tdMobile: { padding: '12px 16px', minWidth: 100 },
 
   careerForm: {
     display: 'grid',
