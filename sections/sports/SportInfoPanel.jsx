@@ -8,6 +8,7 @@ import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import { supabase as sb } from '../../utils/supabaseClient';
 import sports from '../../utils/sports';
+import SeasonAccordionItem from './SeasonAccordionItem';
 
 const supabase = sb;
 
@@ -646,6 +647,8 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
   const [editId, setEditId] = useState(null);
   const [edit, setEdit] = useState({});
   const [editErrors, setEditErrors] = useState({});
+  const [openId, setOpenId] = useState(null); // accordion open row
+  const [rowBusy, setRowBusy] = useState(null); // disable actions while saving/deleting
 
   const selectStyles = makeSelectStyles(false);
 
@@ -701,6 +704,11 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
     if (!obj.category?.toString().trim()) out.category = MSG.cat_required;
 
     return out;
+  };
+
+  const toggleSeason = (id) => {
+    setEditId(null);
+    setOpenId((p) => (p === id ? null : id));
   };
 
   // ---- ADD row ----
@@ -772,6 +780,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
 
   // ---- EDIT row ----
   const onEdit = (row) => {
+    setOpenId(row.id);
     setEditId(row.id);
     setEdit({
       sport: row.sport || '',
@@ -797,10 +806,15 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
   const onEditSave = async (id) => {
     const errs = validateCareer(edit, 'edit');
     setEditErrors(errs);
-    if (Object.keys(errs).length) return;
+    if (Object.keys(errs).length) {
+      const el = document.getElementById(`season-region-${id}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
 
     try {
       setCStatus({ type: '', msg: '' });
+      setRowBusy(id);
 
       if (edit.is_current) {
         await supabase
@@ -837,6 +851,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
       console.error(e);
       setCStatus({ type: 'error', msg: 'Save failed' });
     }
+    setRowBusy(null);
   };
 
   // ---- DELETE row ----
@@ -844,14 +859,18 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
     const ok = window.confirm('Delete this season?');
     if (!ok) return;
     try {
+      setRowBusy(id);
       const { error } = await supabase.from(CAREER_TABLE).delete().eq('id', id);
       if (error) throw error;
       setCStatus({ type: 'success', msg: 'Saved ✓' });
       await loadRows();
+      setOpenId((p) => (p === id ? null : p));
+      if (editId === id) setEditId(null);
     } catch (e) {
       console.error(e);
       setCStatus({ type: 'error', msg: 'Delete failed' });
     }
+    setRowBusy(null);
   };
 
   const SeasonCell = ({ start, end }) => {
@@ -975,7 +994,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
           <div style={{ padding: 8, color: '#666' }}>Loading…</div>
         ) : rows.length === 0 ? (
           <div style={{ padding: 8, color: '#666' }}>No seasons yet.</div>
-        ) : (
+        ) : !isMobile ? (
           <table style={styles.table}>
             <thead>
               <tr>
@@ -997,19 +1016,19 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <input
-                        type="number"
-                        value={edit.season_start}
-                        onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
-                        style={{ ...styles.careerInput, borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
-                      />
-                      <input
-                        type="number"
-                        value={edit.season_end}
-                        onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
-                        style={{ ...styles.careerInput, borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
-                      />
-                    </div>
+                          <input
+                            type="number"
+                            value={edit.season_start}
+                            onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
+                            style={{ ...styles.careerInput, borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
+                          />
+                          <input
+                            type="number"
+                            value={edit.season_end}
+                            onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
+                            style={{ ...styles.careerInput, borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
+                          />
+                        </div>
                       ) : (
                         <SeasonCell start={r.season_start} end={r.season_end} />
                       )}
@@ -1087,15 +1106,15 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {!isEditing ? (
                         <>
-                          <button type="button" style={styles.linkBtn} onClick={() => onEdit(r)}>Edit</button>
+                          <button type="button" style={styles.linkBtn} onClick={() => onEdit(r)} disabled={rowBusy === r.id}>Edit</button>
                           <span style={{ margin: '0 6px' }}>|</span>
-                          <button type="button" style={{ ...styles.linkBtn, color: '#b00' }} onClick={() => onDelete(r.id)}>Delete</button>
+                          <button type="button" style={{ ...styles.linkBtn, color: '#b00' }} onClick={() => onDelete(r.id)} disabled={rowBusy === r.id}>Delete</button>
                         </>
                       ) : (
                         <>
-                          <button type="button" style={styles.linkBtn} onClick={() => onEditSave(r.id)}>Save</button>
+                          <button type="button" style={styles.linkBtn} onClick={() => onEditSave(r.id)} disabled={rowBusy === r.id}>Save</button>
                           <span style={{ margin: '0 6px' }}>|</span>
-                          <button type="button" style={styles.linkBtn} onClick={onEditCancel}>Cancel</button>
+                          <button type="button" style={styles.linkBtn} onClick={onEditCancel} disabled={rowBusy === r.id}>Cancel</button>
                         </>
                       )}
                     </td>
@@ -1104,6 +1123,28 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
               })}
             </tbody>
           </table>
+        ) : (
+          <div>
+            {rows.map((r) => (
+              <SeasonAccordionItem
+                key={r.id}
+                row={r}
+                isOpen={openId === r.id}
+                isEditing={editId === r.id}
+                toggle={() => toggleSeason(r.id)}
+                onEdit={() => onEdit(r)}
+                onEditSave={() => onEditSave(r.id)}
+                onEditCancel={onEditCancel}
+                onDelete={() => onDelete(r.id)}
+                edit={edit}
+                setEdit={setEdit}
+                editErrors={editErrors}
+                selectStyles={selectStyles}
+                styles={styles}
+                busy={rowBusy === r.id}
+              />
+            ))}
+          </div>
         )}
       </div>
 
@@ -1246,4 +1287,49 @@ const styles = {
   careerFormMobile: {
     gridTemplateColumns: '1fr',
   },
+
+  // Mobile season accordion
+  seasonCard: {
+    border: '1px solid #EEE',
+    borderRadius: 12,
+    marginBottom: 8,
+    background: '#FFF',
+  },
+  seasonSummary: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '10px 12px',
+    background: 'transparent',
+    border: 'none',
+    textAlign: 'left',
+    cursor: 'pointer',
+    minHeight: 56,
+  },
+  seasonText: { fontSize: 16, fontWeight: 600, color: '#111827' },
+  pill: { borderRadius: 999, padding: '2px 8px', fontSize: 12, marginLeft: 8 },
+  pillSport: { background: '#F3F4F6', color: '#111827' },
+  pillCurrent: { background: '#E8F7EE', color: '#111827' },
+  teamText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#111827',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    marginLeft: 8,
+  },
+  chevron: { width: 16, height: 16, transition: 'transform 0.2s', flexShrink: 0 },
+  seasonDetails: {
+    padding: 12,
+    borderTop: '1px solid #EEE',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  seasonDetailRow: { display: 'flex', flexDirection: 'column', gap: 4 },
+  seasonLabel: { fontSize: 12, color: '#6B7280' },
+  seasonValue: { fontSize: 14, color: '#111827' },
+  seasonActions: { display: 'flex', gap: 8, marginTop: 8 },
 };
