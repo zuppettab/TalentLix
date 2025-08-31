@@ -10,6 +10,7 @@ import sports from '../../utils/sports';
 const supabase = sb;
 
 const SPORTS_TABLE = 'sports_experiences';
+const CAREER_TABLE = 'athlete_career';
 
 // Obbligatori (coerenti con Wizard Step 3)
 const REQUIRED = ['sport', 'main_role', 'category'];
@@ -21,31 +22,28 @@ const MSG = {
   years_experience_int: 'Years must be an integer',
   years_experience_range: 'Years must be between 0 and 60',
   trial_window_incomplete: 'Both trial dates are required',
-  trial_window_order: 'Start date must be before or equal to end date'
-};
+  trial_window_order: 'Start date must be before or equal to end date',
 
-const CONTRACT_STATUS_OPTIONS = [
-  { value: 'free_agent', label: 'Free agent' },
-  { value: 'under_contract', label: 'Under contract' },
-  { value: 'on_loan', label: 'On loan' }
-];
+  // Career widget
+  season_start_required: 'Season start is required',
+  season_year_range: 'Year must be between 1900 and 2100',
+  season_order: 'Season end must be >= start (or empty)',
+  team_required: 'Team is required',
+  role_required: 'Role is required',
+  cat_required: 'Category is required',
+};
 
 // ---- helpers: daterange <-> 2 date ----
 const parseDateRange = (rng) => {
-  // accepts formats like: [2025-01-01,2025-02-01], ["2025-01-01","2025-02-01"], (.. ..)
   if (!rng || typeof rng !== 'string') return { start: '', end: '' };
   const m = rng.match(/^[\[\(]\s*"?(\d{4}-\d{2}-\d{2})"?\s*,\s*"?(\d{4}-\d{2}-\d{2})"?\s*[\]\)]$/);
   if (m) return { start: m[1], end: m[2] };
-  // fallback: try to pick first two ISO-like dates
   const all = rng.match(/(\d{4}-\d{2}-\d{2})/g);
   if (all && all.length >= 2) return { start: all[0], end: all[1] };
   return { start: '', end: '' };
 };
 
-const buildDateRange = (start, end) => {
-  if (!start || !end) return null;
-  return `[${start},${end}]`; // inclusive
-};
+const buildDateRange = (start, end) => (start && end ? `[${start},${end}]` : null);
 
 // ---- react-select styles (coerenti) ----
 const makeSelectStyles = (hasError) => ({
@@ -55,17 +53,23 @@ const makeSelectStyles = (hasError) => ({
     borderRadius: 10,
     borderColor: hasError ? '#b00' : (state.isFocused ? '#BDBDBD' : '#E0E0E0'),
     boxShadow: 'none',
-    ':hover': { borderColor: hasError ? '#b00' : '#BDBDBD' }
+    ':hover': { borderColor: hasError ? '#b00' : '#BDBDBD' },
   }),
   valueContainer: (base) => ({ ...base, padding: '0 10px' }),
   indicatorsContainer: (base) => ({ ...base, paddingRight: 8 }),
-  menu: (base) => ({ ...base, zIndex: 10 })
+  menu: (base) => ({ ...base, zIndex: 10 }),
 });
+
+const CONTRACT_STATUS_OPTIONS = [
+  { value: 'free_agent', label: 'Free agent' },
+  { value: 'under_contract', label: 'Under contract' },
+  { value: 'on_loan', label: 'On loan' },
+];
 
 export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
   const router = useRouter();
 
-  // ----------------------- STATE -----------------------
+  // ----------------------- STATE (form corrente) -----------------------
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' }); // success/error msg
@@ -94,7 +98,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
     trial_end: '',
     agent_name: '',
     agency_name: '',
-    is_represented: false
+    is_represented: false,
   });
 
   const [errors, setErrors] = useState({});
@@ -165,13 +169,13 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
             trial_end: tEnd || '',
             agent_name: last.agent_name || '',
             agency_name: last.agency_name || '',
-            is_represented: !!last.is_represented
+            is_represented: !!last.is_represented,
           });
         }
         if (mounted) {
           setDirty(false);
           setErrors({});
-          setStatus({ type: '', msg: '' });
+          // Non azzeriamo lo status qui: resta conforme alle linee guida save-bar
         }
       } catch (e) {
         console.error(e);
@@ -197,7 +201,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
       if (n < 0 || n > 60) return MSG.years_experience_range;
     }
     if (name === 'trial_window') {
-      // valida solo se in cerca di squadra e se uno dei due campi è valorizzato
       if (!state.seeking_team) return '';
       const s = (state.trial_start || '').trim();
       const e = (state.trial_end || '').trim();
@@ -228,7 +231,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
     setForm((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => {
       const next = { ...prev };
-      // validazioni puntuali
       if (REQUIRED.includes(name) || name === 'years_experience') {
         const err = validateField(name, value, { ...form, [name]: value });
         next[name] = err || undefined;
@@ -240,7 +242,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
       return next;
     });
     setDirty(true);
-    setStatus({ type: '', msg: '' });
+    if (status.type) setStatus({ type: '', msg: '' });
   };
 
   const onSelectSport = (opt) => {
@@ -273,7 +275,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
   const onSave = async () => {
     if (isSaveDisabled) return;
 
-    // validazione finale
     const newErrors = validateAll();
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
@@ -282,22 +283,18 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
       setSaving(true);
       setStatus({ type: '', msg: '' });
 
-      // sanitize years
       const years =
         form.years_experience === '' || form.years_experience == null
           ? null
           : Math.max(0, Math.min(60, parseInt(form.years_experience, 10)));
 
-      // daterange (solo se seeking_team e start+end presenti)
       const trial_window =
         form.seeking_team && form.trial_start && form.trial_end
           ? buildDateRange(form.trial_start, form.trial_end)
           : null;
 
-      // preferred regions (solo se seeking team, altrimenti array vuoto)
       const preferred_regions = form.seeking_team ? form.preferred_regions : [];
 
-      // agent fields: se non rappresentato, salvo null
       const agent_name = form.is_represented ? (form.agent_name || null) : null;
       const agency_name = form.is_represented ? (form.agency_name || null) : null;
 
@@ -311,7 +308,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         years_experience: years,
         seeking_team: !!form.seeking_team,
 
-        // nuovi campi
         secondary_role: (form.secondary_role || '').trim() || null,
         playing_style: (form.playing_style || '').trim() || null,
         contract_status: form.contract_status || null,
@@ -321,7 +317,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         trial_window,
         agent_name,
         agency_name,
-        is_represented: !!form.is_represented
+        is_represented: !!form.is_represented,
       };
 
       if (expId) {
@@ -347,14 +343,14 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         setExpId(data?.id || null);
       }
 
-      // callback parent (come le altre card): ricarico athlete per coerenza UI
+      // callback parent (come le altre card)
       if (onSaved) {
         const { data: fresh } = await supabase.from('athlete').select('*').eq('id', athlete.id).single();
         onSaved(fresh || null);
       }
     } catch (e) {
       console.error(e);
-      setStatus({ type: 'error', msg: 'Save failed. Please try again.' });
+      setStatus({ type: 'error', msg: 'Save failed' });
     } finally {
       setSaving(false);
     }
@@ -375,7 +371,8 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSave(); }}
           style={{ ...styles.grid, ...(isMobile ? styles.gridMobile : null) }}>
-      {/* Sport */}
+
+      {/* --- BLOCCO: stato sportivo corrente (sports_experiences) --- */}
       <div style={styles.field}>
         <label style={styles.label}>Sport *</label>
         <Select
@@ -393,9 +390,8 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         {errors.sport && <div style={styles.error}>{errors.sport}</div>}
       </div>
 
-      {/* Years of experience (opzionale) */}
       <div style={styles.field}>
-        <label style={styles.label}>Years of experience</label>
+        <label style={styles.label}>Years of experience (0–60)</label>
         <input
           type="number"
           name="years_experience"
@@ -408,7 +404,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         {errors.years_experience && <div style={styles.error}>{errors.years_experience}</div>}
       </div>
 
-      {/* Main role */}
       <div style={styles.field}>
         <label style={styles.label}>Main role *</label>
         <input
@@ -420,7 +415,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         {errors.main_role && <div style={styles.error}>{errors.main_role}</div>}
       </div>
 
-      {/* Category */}
       <div style={styles.field}>
         <label style={styles.label}>Category *</label>
         <input
@@ -432,7 +426,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         {errors.category && <div style={styles.error}>{errors.category}</div>}
       </div>
 
-      {/* Secondary role (nuovo, opzionale) */}
       <div style={styles.field}>
         <label style={styles.label}>Secondary role</label>
         <input
@@ -443,7 +436,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         />
       </div>
 
-      {/* Playing style / key tasks (nuovo, opzionale) */}
       <div style={styles.field}>
         <label style={styles.label}>Playing style / Key tasks</label>
         <textarea
@@ -456,7 +448,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         />
       </div>
 
-      {/* Current team (opzionale) */}
       <div style={styles.field}>
         <label style={styles.label}>Current team (optional)</label>
         <input
@@ -467,7 +458,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         />
       </div>
 
-      {/* Previous team (opzionale) */}
       <div style={styles.field}>
         <label style={styles.label}>Previous team (optional)</label>
         <input
@@ -478,7 +468,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         />
       </div>
 
-      {/* Contract status (nuovo, opzionale) */}
       <div style={styles.field}>
         <label style={styles.label}>Contract status</label>
         <Select
@@ -487,12 +476,11 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
           options={CONTRACT_STATUS_OPTIONS}
           value={CONTRACT_STATUS_OPTIONS.find(o => o.value === form.contract_status) || null}
           onChange={(opt) => onSelectContract(opt)}
-          styles={selectStylesEnum}
+          styles={makeSelectStyles(false)}
           isClearable
         />
       </div>
 
-      {/* Contract end date (nuovo, opzionale) */}
       <div style={styles.field}>
         <label style={styles.label}>Contract end date</label>
         <input
@@ -504,7 +492,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         />
       </div>
 
-      {/* Contract notes (nuovo, opzionale) */}
       <div style={styles.field}>
         <label style={styles.label}>Contract notes</label>
         <input
@@ -516,7 +503,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         />
       </div>
 
-      {/* Seeking team (controlla la comparsa di preferred_regions e trial_window) */}
       <div style={{ ...styles.field, alignSelf: 'end' }}>
         <label style={styles.label}>Seeking team</label>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -530,7 +516,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         </label>
       </div>
 
-      {/* preferred_regions (nuovo) — SOLO se seeking_team */}
       {form.seeking_team && (
         <div style={styles.field}>
           <label style={styles.label}>Preferred regions</label>
@@ -539,12 +524,11 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
             placeholder="Add regions/countries…"
             value={(form.preferred_regions || []).map(v => ({ value: v, label: v }))}
             onChange={onChangeRegions}
-            styles={selectStylesTags}
+            styles={makeSelectStyles(false)}
           />
         </div>
       )}
 
-      {/* trial_window (nuovo) — SOLO se seeking_team */}
       {form.seeking_team && (
         <div style={styles.field}>
           <label style={styles.label}>Trial window (optional)</label>
@@ -574,7 +558,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         </div>
       )}
 
-      {/* Representation (nuovo, opzionale) */}
       <div style={styles.field}>
         <label style={styles.label}>Representation</label>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -604,13 +587,22 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         </div>
       </div>
 
-      {/* SAVE BAR */}
+      {/* --- WIDGET: Career (athlete_career) --- */}
+      <div style={{ gridColumn: '1 / -1' }}>
+        <CareerWidget
+          athleteId={athlete?.id}
+          defaultSport={form.sport}
+          isMobile={isMobile}
+        />
+      </div>
+
+      {/* SAVE BAR (identica alle linee guida) */}
       <div style={saveBarStyle}>
-        <button type="submit" disabled={isSaveDisabled} style={saveBtnStyle}>
+        <button type="submit" disabled={isSaveDisabled} style={saveBtnStyle} aria-disabled={isSaveDisabled}>
           {saving ? 'Saving…' : 'Save'}
         </button>
         {status.msg && (
-          <span style={{
+          <span role="status" aria-live="polite" style={{
             marginLeft: 10,
             fontWeight: 600,
             whiteSpace: 'nowrap',
@@ -626,28 +618,533 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
   );
 }
 
-// ----------------------- STYLES (identici alle altre card) -----------------------
+/** -------------------- Career widget -------------------- */
+function CareerWidget({ athleteId, defaultSport, isMobile }) {
+  const [rows, setRows] = useState([]);
+  const [cLoading, setCLoading] = useState(true);
+  const [cStatus, setCStatus] = useState({ type: '', msg: '' });
+
+  // Add row state
+  const [adding, setAdding] = useState(false);
+  const [add, setAdd] = useState({
+    sport: '',
+    season_start: '',
+    season_end: '',
+    team_name: '',
+    role: '',
+    category: '',
+    league: '',
+    notes: '',
+    is_current: false,
+  });
+  const [addErrors, setAddErrors] = useState({});
+
+  // Edit row state
+  const [editId, setEditId] = useState(null);
+  const [edit, setEdit] = useState({});
+  const [editErrors, setEditErrors] = useState({});
+
+  const selectStyles = makeSelectStyles(false);
+
+  const loadRows = async () => {
+    if (!athleteId) return;
+    try {
+      setCLoading(true);
+      const { data, error } = await supabase
+        .from(CAREER_TABLE)
+        .select('*')
+        .eq('athlete_id', athleteId)
+        .order('season_start', { ascending: false })
+        .order('season_end', { ascending: false });
+      if (error) throw error;
+      setRows(data || []);
+    } catch (e) {
+      console.error(e);
+      setCStatus({ type: 'error', msg: 'Load failed' });
+    } finally {
+      setCLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRows();
+  }, [athleteId]);
+
+  useEffect(() => {
+    // Imposta default sport sull'add quando apre/aggiorna il form
+    if (adding && defaultSport && !add.sport) {
+      setAdd((p) => ({ ...p, sport: defaultSport }));
+    }
+  }, [adding, defaultSport]);
+
+  // ---- validation helpers ----
+  const validYear = (y) => {
+    const n = Number(y);
+    return Number.isInteger(n) && n >= 1900 && n <= 2100;
+  };
+
+  const validateCareer = (obj, mode = 'add') => {
+    const out = {};
+    if (!obj.season_start) out.season_start = MSG.season_start_required;
+    else if (!validYear(obj.season_start)) out.season_start = MSG.season_year_range;
+
+    if (obj.season_end !== '' && obj.season_end != null) {
+      if (!validYear(obj.season_end)) out.season_end = MSG.season_year_range;
+      else if (Number(obj.season_end) < Number(obj.season_start)) out.season_end = MSG.season_order;
+    }
+
+    if (!obj.team_name?.toString().trim()) out.team_name = MSG.team_required;
+    if (!obj.role?.toString().trim()) out.role = MSG.role_required;
+    if (!obj.category?.toString().trim()) out.category = MSG.cat_required;
+
+    return out;
+  };
+
+  // ---- ADD row ----
+  const onAddClick = () => {
+    setAdding(true);
+    setCStatus({ type: '', msg: '' });
+    setAdd({
+      sport: defaultSport || '',
+      season_start: '',
+      season_end: '',
+      team_name: '',
+      role: '',
+      category: '',
+      league: '',
+      notes: '',
+      is_current: false,
+    });
+    setAddErrors({});
+  };
+
+  const onAddCancel = () => {
+    setAdding(false);
+    setAddErrors({});
+    setCStatus({ type: '', msg: '' });
+  };
+
+  const onAddSave = async () => {
+    const errs = validateCareer(add, 'add');
+    setAddErrors(errs);
+    if (Object.keys(errs).length) return;
+
+    try {
+      setCStatus({ type: '', msg: '' });
+
+      // se si imposta current, azzera gli altri current per stesso sport
+      if (add.is_current) {
+        await supabase
+          .from(CAREER_TABLE)
+          .update({ is_current: false })
+          .eq('athlete_id', athleteId)
+          .eq('sport', add.sport)
+          .eq('is_current', true);
+      }
+
+      const payload = {
+        athlete_id: athleteId,
+        sport: add.sport || '',
+        season_start: add.season_start ? Number(add.season_start) : null,
+        season_end: add.season_end === '' ? null : Number(add.season_end),
+        team_name: add.team_name || '',
+        role: add.role || '',
+        category: add.category || '',
+        league: add.league || null,
+        notes: add.notes || null,
+        is_current: !!add.is_current,
+      };
+
+      const { error } = await supabase.from(CAREER_TABLE).insert([payload]);
+      if (error) throw error;
+
+      setAdding(false);
+      setCStatus({ type: 'success', msg: 'Saved ✓' });
+      await loadRows();
+    } catch (e) {
+      console.error(e);
+      setCStatus({ type: 'error', msg: 'Save failed' });
+    }
+  };
+
+  // ---- EDIT row ----
+  const onEdit = (row) => {
+    setEditId(row.id);
+    setEdit({
+      sport: row.sport || '',
+      season_start: row.season_start ?? '',
+      season_end: row.season_end ?? '',
+      team_name: row.team_name || '',
+      role: row.role || '',
+      category: row.category || '',
+      league: row.league || '',
+      notes: row.notes || '',
+      is_current: !!row.is_current,
+    });
+    setEditErrors({});
+    setCStatus({ type: '', msg: '' });
+  };
+
+  const onEditCancel = () => {
+    setEditId(null);
+    setEdit({});
+    setEditErrors({});
+  };
+
+  const onEditSave = async (id) => {
+    const errs = validateCareer(edit, 'edit');
+    setEditErrors(errs);
+    if (Object.keys(errs).length) return;
+
+    try {
+      setCStatus({ type: '', msg: '' });
+
+      if (edit.is_current) {
+        await supabase
+          .from(CAREER_TABLE)
+          .update({ is_current: false })
+          .eq('athlete_id', athleteId)
+          .eq('sport', edit.sport)
+          .eq('is_current', true)
+          .neq('id', id);
+      }
+
+      const payload = {
+        sport: edit.sport || '',
+        season_start: edit.season_start ? Number(edit.season_start) : null,
+        season_end: edit.season_end === '' ? null : Number(edit.season_end),
+        team_name: edit.team_name || '',
+        role: edit.role || '',
+        category: edit.category || '',
+        league: edit.league || null,
+        notes: edit.notes || null,
+        is_current: !!edit.is_current,
+      };
+
+      const { error } = await supabase
+        .from(CAREER_TABLE)
+        .update(payload)
+        .eq('id', id);
+      if (error) throw error;
+
+      setEditId(null);
+      setCStatus({ type: 'success', msg: 'Saved ✓' });
+      await loadRows();
+    } catch (e) {
+      console.error(e);
+      setCStatus({ type: 'error', msg: 'Save failed' });
+    }
+  };
+
+  // ---- DELETE row ----
+  const onDelete = async (id) => {
+    const ok = window.confirm('Delete this season?');
+    if (!ok) return;
+    try {
+      const { error } = await supabase.from(CAREER_TABLE).delete().eq('id', id);
+      if (error) throw error;
+      setCStatus({ type: 'success', msg: 'Saved ✓' });
+      await loadRows();
+    } catch (e) {
+      console.error(e);
+      setCStatus({ type: 'error', msg: 'Delete failed' });
+    }
+  };
+
+  const SeasonCell = ({ start, end }) => {
+    const s = start ? String(start) : '';
+    const e = end ? String(end) : '';
+    let disp = s;
+    if (s && e) {
+      const short = e.length === 4 ? e.slice(2) : e;
+      disp = `${s}/${short}`;
+    }
+    return <span>{disp || '-'}</span>;
+  };
+
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <h3 style={{ margin: 0, fontSize: 16 }}>Career (seasons)</h3>
+        {!adding ? (
+          <button type="button" onClick={onAddClick} style={styles.smallBtn}>+ Add season</button>
+        ) : (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={onAddSave} style={styles.smallBtnPrimary}>Save</button>
+            <button type="button" onClick={onAddCancel} style={styles.smallBtn}>Cancel</button>
+          </div>
+        )}
+      </div>
+
+      {/* Add row form (inline) */}
+      {adding && (
+        <div style={{ ...styles.careerForm, ...(isMobile ? styles.careerFormMobile : null) }}>
+          <div>
+            <label style={styles.sublabel}>Sport</label>
+            <Select
+              placeholder="Sport"
+              options={sports}
+              value={sports.find(o => o.value === add.sport) || null}
+              onChange={(opt) => setAdd((p) => ({ ...p, sport: opt?.value || '' }))}
+              styles={selectStyles}
+            />
+          </div>
+          <div>
+            <label style={styles.sublabel}>Season start *</label>
+            <input
+              type="number"
+              value={add.season_start}
+              onChange={(e) => setAdd((p) => ({ ...p, season_start: e.target.value }))}
+              style={{ ...styles.input, borderColor: addErrors.season_start ? '#b00' : '#E0E0E0' }}
+            />
+            {addErrors.season_start && <div style={styles.error}>{addErrors.season_start}</div>}
+          </div>
+          <div>
+            <label style={styles.sublabel}>Season end</label>
+            <input
+              type="number"
+              value={add.season_end}
+              onChange={(e) => setAdd((p) => ({ ...p, season_end: e.target.value }))}
+              style={{ ...styles.input, borderColor: addErrors.season_end ? '#b00' : '#E0E0E0' }}
+            />
+            {addErrors.season_end && <div style={styles.error}>{addErrors.season_end}</div>}
+          </div>
+          <div>
+            <label style={styles.sublabel}>Team *</label>
+            <input
+              value={add.team_name}
+              onChange={(e) => setAdd((p) => ({ ...p, team_name: e.target.value }))}
+              style={{ ...styles.input, borderColor: addErrors.team_name ? '#b00' : '#E0E0E0' }}
+            />
+            {addErrors.team_name && <div style={styles.error}>{addErrors.team_name}</div>}
+          </div>
+          <div>
+            <label style={styles.sublabel}>Role *</label>
+            <input
+              value={add.role}
+              onChange={(e) => setAdd((p) => ({ ...p, role: e.target.value }))}
+              style={{ ...styles.input, borderColor: addErrors.role ? '#b00' : '#E0E0E0' }}
+            />
+            {addErrors.role && <div style={styles.error}>{addErrors.role}</div>}
+          </div>
+          <div>
+            <label style={styles.sublabel}>Category *</label>
+            <input
+              value={add.category}
+              onChange={(e) => setAdd((p) => ({ ...p, category: e.target.value }))}
+              style={{ ...styles.input, borderColor: addErrors.category ? '#b00' : '#E0E0E0' }}
+            />
+            {addErrors.category && <div style={styles.error}>{addErrors.category}</div>}
+          </div>
+          <div>
+            <label style={styles.sublabel}>League</label>
+            <input
+              value={add.league}
+              onChange={(e) => setAdd((p) => ({ ...p, league: e.target.value }))}
+              style={styles.input}
+            />
+          </div>
+          <div>
+            <label style={styles.sublabel}>Notes</label>
+            <input
+              value={add.notes}
+              onChange={(e) => setAdd((p) => ({ ...p, notes: e.target.value }))}
+              style={styles.input}
+            />
+          </div>
+          <div>
+            <label style={styles.sublabel}>Current</label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={!!add.is_current}
+                onChange={(e) => setAdd((p) => ({ ...p, is_current: e.target.checked }))}
+              />
+              <span>This is my current season</span>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* Table/list */}
+      <div style={styles.tableWrap}>
+        {cLoading ? (
+          <div style={{ padding: 8, color: '#666' }}>Loading…</div>
+        ) : rows.length === 0 ? (
+          <div style={{ padding: 8, color: '#666' }}>No seasons yet.</div>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Season</th>
+                <th style={styles.th}>Sport</th>
+                <th style={styles.th}>Team</th>
+                <th style={styles.th}>Role</th>
+                <th style={styles.th}>Category</th>
+                <th style={styles.th}>League</th>
+                <th style={styles.th}>Current</th>
+                <th style={styles.thRight}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const isEditing = editId === r.id;
+                return (
+                  <tr key={r.id}>
+                    <td style={styles.td}>
+                      {isEditing ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                          <input
+                            type="number"
+                            value={edit.season_start}
+                            onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
+                            style={{ ...styles.input, height: 36, borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
+                          />
+                          <input
+                            type="number"
+                            value={edit.season_end}
+                            onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
+                            style={{ ...styles.input, height: 36, borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
+                          />
+                        </div>
+                      ) : (
+                        <SeasonCell start={r.season_start} end={r.season_end} />
+                      )}
+                      {(isEditing && (editErrors.season_start || editErrors.season_end)) && (
+                        <div style={styles.error}>{editErrors.season_start || editErrors.season_end}</div>
+                      )}
+                    </td>
+                    <td style={styles.td}>
+                      {isEditing ? (
+                        <Select
+                          options={sports}
+                          value={sports.find(o => o.value === edit.sport) || null}
+                          onChange={(opt) => setEdit((p) => ({ ...p, sport: opt?.value || '' }))}
+                          styles={makeSelectStyles(false)}
+                        />
+                      ) : (r.sport || '-')}
+                    </td>
+                    <td style={styles.td}>
+                      {isEditing ? (
+                        <>
+                          <input
+                            value={edit.team_name}
+                            onChange={(e) => setEdit((p) => ({ ...p, team_name: e.target.value }))}
+                            style={{ ...styles.input, height: 36, borderColor: editErrors.team_name ? '#b00' : '#E0E0E0' }}
+                          />
+                          {editErrors.team_name && <div style={styles.error}>{editErrors.team_name}</div>}
+                        </>
+                      ) : (r.team_name || '-')}
+                    </td>
+                    <td style={styles.td}>
+                      {isEditing ? (
+                        <>
+                          <input
+                            value={edit.role}
+                            onChange={(e) => setEdit((p) => ({ ...p, role: e.target.value }))}
+                            style={{ ...styles.input, height: 36, borderColor: editErrors.role ? '#b00' : '#E0E0E0' }}
+                          />
+                          {editErrors.role && <div style={styles.error}>{editErrors.role}</div>}
+                        </>
+                      ) : (r.role || '-')}
+                    </td>
+                    <td style={styles.td}>
+                      {isEditing ? (
+                        <>
+                          <input
+                            value={edit.category}
+                            onChange={(e) => setEdit((p) => ({ ...p, category: e.target.value }))}
+                            style={{ ...styles.input, height: 36, borderColor: editErrors.category ? '#b00' : '#E0E0E0' }}
+                          />
+                          {editErrors.category && <div style={styles.error}>{editErrors.category}</div>}
+                        </>
+                      ) : (r.category || '-')}
+                    </td>
+                    <td style={styles.td}>
+                      {isEditing ? (
+                        <input
+                          value={edit.league}
+                          onChange={(e) => setEdit((p) => ({ ...p, league: e.target.value }))}
+                          style={{ ...styles.input, height: 36 }}
+                        />
+                      ) : (r.league || '-')}
+                    </td>
+                    <td style={styles.td}>
+                      {isEditing ? (
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <input
+                            type="checkbox"
+                            checked={!!edit.is_current}
+                            onChange={(e) => setEdit((p) => ({ ...p, is_current: e.target.checked }))}
+                          />
+                          <span>Current</span>
+                        </label>
+                      ) : (
+                        r.is_current ? 'Yes' : '—'
+                      )}
+                    </td>
+                    <td style={{ ...styles.td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {!isEditing ? (
+                        <>
+                          <button type="button" style={styles.linkBtn} onClick={() => onEdit(r)}>Edit</button>
+                          <span style={{ margin: '0 6px' }}>|</span>
+                          <button type="button" style={{ ...styles.linkBtn, color: '#b00' }} onClick={() => onDelete(r.id)}>Delete</button>
+                        </>
+                      ) : (
+                        <>
+                          <button type="button" style={styles.linkBtn} onClick={() => onEditSave(r.id)}>Save</button>
+                          <span style={{ margin: '0 6px' }}>|</span>
+                          <button type="button" style={styles.linkBtn} onClick={onEditCancel}>Cancel</button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {cStatus.msg && (
+        <div style={{
+          marginTop: 8,
+          fontWeight: 600,
+          color: cStatus.type === 'error' ? '#b00' : '#2E7D32',
+          display: 'inline-flex',
+          alignItems: 'center'
+        }}>
+          {cStatus.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ----------------------- STYLES (identici / armonizzati) -----------------------
 const styles = {
   grid: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
-    gap: 24
+    gap: 24,
   },
   gridMobile: { gridTemplateColumns: '1fr' },
 
   field: { display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 },
   label: { fontSize: 13, fontWeight: 600 },
+  sublabel: { fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 6 },
+
   input: {
     height: 42,
     padding: '10px 12px',
     border: '1px solid #E0E0E0',
     borderRadius: 10,
     fontSize: 14,
-    background: '#FFF'
+    background: '#FFF',
   },
   error: { fontSize: 12, color: '#b00' },
 
-  // Save bar identica alle altre card
+  // Save bar unificata
   saveBar: {
     gridColumn: '1 / -1',
     display: 'flex',
@@ -655,7 +1152,7 @@ const styles = {
     gap: 12,
     paddingTop: 12,
     justifyContent: 'flex-end',
-    flexWrap: 'nowrap'
+    flexWrap: 'nowrap',
   },
   saveBarMobile: {
     gridColumn: '1 / -1',
@@ -664,9 +1161,78 @@ const styles = {
     gap: 10,
     paddingTop: 12,
     justifyContent: 'flex-start',
-    flexWrap: 'wrap'
+    flexWrap: 'wrap',
   },
   saveBtn: { height: 38, padding: '0 16px', borderRadius: 8, fontWeight: 600, border: 'none' },
   saveBtnEnabled: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', cursor: 'pointer' },
-  saveBtnDisabled: { background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' }
+  saveBtnDisabled: { background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' },
+
+  // Career widget
+  smallBtn: {
+    height: 32,
+    padding: '0 12px',
+    borderRadius: 8,
+    border: '1px solid #E0E0E0',
+    background: '#FFF',
+    cursor: 'pointer',
+    fontWeight: 600,
+  },
+  smallBtnPrimary: {
+    height: 32,
+    padding: '0 12px',
+    borderRadius: 8,
+    border: 'none',
+    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+    color: '#fff',
+    cursor: 'pointer',
+    fontWeight: 600,
+  },
+  linkBtn: {
+    background: 'transparent',
+    border: 'none',
+    padding: 0,
+    color: '#1976d2',
+    cursor: 'pointer',
+    fontWeight: 600,
+  },
+  tableWrap: {
+    overflowX: 'auto',
+    border: '1px solid #EEE',
+    borderRadius: 10,
+    background: '#FFF',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'separate',
+    borderSpacing: 0,
+  },
+  th: {
+    textAlign: 'left',
+    fontSize: 12,
+    fontWeight: 700,
+    padding: '10px 12px',
+    borderBottom: '1px solid #EEE',
+    whiteSpace: 'nowrap',
+  },
+  thRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
+  td: {
+    fontSize: 14,
+    padding: '10px 12px',
+    borderBottom: '1px solid #F5F5F5',
+    verticalAlign: 'top',
+  },
+
+  careerForm: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap: 12,
+    margin: '12px 0',
+    padding: 12,
+    border: '1px dashed #E0E0E0',
+    borderRadius: 10,
+    background: '#FAFAFA',
+  },
+  careerFormMobile: {
+    gridTemplateColumns: '1fr',
+  },
 };
