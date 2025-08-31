@@ -1,22 +1,66 @@
 // sections/sports/SportInfoPanel.jsx
 // @ts-check
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import Select from 'react-select';
+import CreatableSelect from 'react-select/creatable';
 import { supabase as sb } from '../../utils/supabaseClient';
 import sports from '../../utils/sports';
 
 const supabase = sb;
 
 const SPORTS_TABLE = 'sports_experiences';
-const REQUIRED = ['sport', 'main_role', 'category']; // come Wizard Step 3
+
+// Obbligatori (coerenti con Wizard Step 3)
+const REQUIRED = ['sport', 'main_role', 'category'];
+
 const MSG = {
   sport: 'Sport is required',
   main_role: 'Main role is required',
   category: 'Category is required',
   years_experience_int: 'Years must be an integer',
-  years_experience_range: 'Years must be between 0 and 60'
+  years_experience_range: 'Years must be between 0 and 60',
+  trial_window_incomplete: 'Both trial dates are required',
+  trial_window_order: 'Start date must be before or equal to end date'
 };
+
+const CONTRACT_STATUS_OPTIONS = [
+  { value: 'free_agent', label: 'Free agent' },
+  { value: 'under_contract', label: 'Under contract' },
+  { value: 'on_loan', label: 'On loan' }
+];
+
+// ---- helpers: daterange <-> 2 date ----
+const parseDateRange = (rng) => {
+  // accepts formats like: [2025-01-01,2025-02-01], ["2025-01-01","2025-02-01"], (.. ..)
+  if (!rng || typeof rng !== 'string') return { start: '', end: '' };
+  const m = rng.match(/^[\[\(]\s*"?(\d{4}-\d{2}-\d{2})"?\s*,\s*"?(\d{4}-\d{2}-\d{2})"?\s*[\]\)]$/);
+  if (m) return { start: m[1], end: m[2] };
+  // fallback: try to pick first two ISO-like dates
+  const all = rng.match(/(\d{4}-\d{2}-\d{2})/g);
+  if (all && all.length >= 2) return { start: all[0], end: all[1] };
+  return { start: '', end: '' };
+};
+
+const buildDateRange = (start, end) => {
+  if (!start || !end) return null;
+  return `[${start},${end}]`; // inclusive
+};
+
+// ---- react-select styles (coerenti) ----
+const makeSelectStyles = (hasError) => ({
+  control: (base, state) => ({
+    ...base,
+    minHeight: 42,
+    borderRadius: 10,
+    borderColor: hasError ? '#b00' : (state.isFocused ? '#BDBDBD' : '#E0E0E0'),
+    boxShadow: 'none',
+    ':hover': { borderColor: hasError ? '#b00' : '#BDBDBD' }
+  }),
+  valueContainer: (base) => ({ ...base, padding: '0 10px' }),
+  indicatorsContainer: (base) => ({ ...base, paddingRight: 8 }),
+  menu: (base) => ({ ...base, zIndex: 10 })
+});
 
 export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
   const router = useRouter();
@@ -30,14 +74,29 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
   const [expId, setExpId] = useState(null); // ultima riga da editare (se esiste)
 
   const [form, setForm] = useState({
+    // core (già presenti)
     sport: '',
     main_role: '',
     category: '',
     team_name: '',
     previous_team: '',
     years_experience: '',
-    seeking_team: false
+    seeking_team: false,
+
+    // nuovi campi (tutti opzionali)
+    secondary_role: '',
+    playing_style: '',
+    contract_status: '',          // enum
+    contract_end_date: '',        // YYYY-MM-DD
+    contract_notes: '',
+    preferred_regions: [],        // string[]
+    trial_start: '',              // derive trial_window
+    trial_end: '',
+    agent_name: '',
+    agency_name: '',
+    is_represented: false
   });
+
   const [errors, setErrors] = useState({});
 
   // ----------------------- GUARD: unsaved changes -----------------------
@@ -69,7 +128,14 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         setLoading(true);
         const { data, error } = await supabase
           .from(SPORTS_TABLE)
-          .select('id, sport, role, team, previous_team, category, years_experience, seeking_team')
+          .select(`
+            id,
+            sport, role, team, previous_team, category, years_experience, seeking_team,
+            secondary_role, playing_style,
+            contract_status, contract_end_date, contract_notes,
+            preferred_regions, trial_window,
+            agent_name, agency_name, is_represented
+          `)
           .eq('athlete_id', athlete.id)
           .order('id', { ascending: false })
           .limit(1);
@@ -78,6 +144,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
 
         const last = Array.isArray(data) && data[0];
         if (mounted && last) {
+          const { start: tStart, end: tEnd } = parseDateRange(last.trial_window);
           setExpId(last.id);
           setForm({
             sport: last.sport || '',
@@ -86,12 +153,25 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
             team_name: last.team || '',
             previous_team: last.previous_team || '',
             years_experience: last.years_experience ?? '',
-            seeking_team: !!last.seeking_team
+            seeking_team: !!last.seeking_team,
+
+            secondary_role: last.secondary_role || '',
+            playing_style: last.playing_style || '',
+            contract_status: last.contract_status || '',
+            contract_end_date: last.contract_end_date || '',
+            contract_notes: last.contract_notes || '',
+            preferred_regions: Array.isArray(last.preferred_regions) ? last.preferred_regions : [],
+            trial_start: tStart || '',
+            trial_end: tEnd || '',
+            agent_name: last.agent_name || '',
+            agency_name: last.agency_name || '',
+            is_represented: !!last.is_represented
           });
         }
         if (mounted) {
           setDirty(false);
           setErrors({});
+          setStatus({ type: '', msg: '' });
         }
       } catch (e) {
         console.error(e);
@@ -104,7 +184,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
   }, [athlete?.id]);
 
   // ----------------------- VALIDATION -----------------------
-  const validateField = (name, value) => {
+  const validateField = (name, value, state = form) => {
     if (REQUIRED.includes(name)) {
       const v = (value ?? '').toString().trim();
       if (!v) return MSG[name] || 'This field is required';
@@ -116,42 +196,71 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
       if (!Number.isInteger(n)) return MSG.years_experience_int;
       if (n < 0 || n > 60) return MSG.years_experience_range;
     }
+    if (name === 'trial_window') {
+      // valida solo se in cerca di squadra e se uno dei due campi è valorizzato
+      if (!state.seeking_team) return '';
+      const s = (state.trial_start || '').trim();
+      const e = (state.trial_end || '').trim();
+      if ((!s && !e)) return ''; // totalmente opzionale
+      if ((s && !e) || (!s && e)) return MSG.trial_window_incomplete;
+      if (s > e) return MSG.trial_window_order;
+    }
     return '';
   };
+
   const validateAll = (state = form) => {
     const out = {};
     for (const key of REQUIRED) {
-      const err = validateField(key, state[key]);
+      const err = validateField(key, state[key], state);
       if (err) out[key] = err;
     }
     if (state.years_experience !== '') {
-      const e = validateField('years_experience', state.years_experience);
+      const e = validateField('years_experience', state.years_experience, state);
       if (e) out.years_experience = e;
     }
+    const tw = validateField('trial_window', null, state);
+    if (tw) out.trial_window = tw;
     return out;
   };
 
   // ----------------------- INPUT HANDLERS -----------------------
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    const v = type === 'checkbox' ? !!checked : value;
-    setForm((prev) => ({ ...prev, [name]: v }));
-    setErrors((prev) => ({ ...prev, [name]: validateField(name, v) }));
+  const setField = (name, value) => {
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      // validazioni puntuali
+      if (REQUIRED.includes(name) || name === 'years_experience') {
+        const err = validateField(name, value, { ...form, [name]: value });
+        next[name] = err || undefined;
+      }
+      if (name === 'trial_start' || name === 'trial_end' || name === 'seeking_team') {
+        const err = validateField('trial_window', null, { ...form, [name]: value });
+        next.trial_window = err || undefined;
+      }
+      return next;
+    });
     setDirty(true);
     setStatus({ type: '', msg: '' });
   };
 
   const onSelectSport = (opt) => {
     const value = opt?.value || '';
-    setForm((prev) => ({ ...prev, sport: value }));
-    setErrors((prev) => ({ ...prev, sport: validateField('sport', value) }));
-    setDirty(true);
-    setStatus({ type: '', msg: '' });
+    setField('sport', value);
+  };
+
+  const onSelectContract = (opt) => {
+    const value = opt?.value || '';
+    setField('contract_status', value);
+  };
+
+  const onChangeRegions = (opts) => {
+    const arr = Array.isArray(opts) ? opts.map(o => o.value.trim()).filter(Boolean) : [];
+    setField('preferred_regions', arr);
   };
 
   const allRequiredFilled = useMemo(() => {
     for (const k of REQUIRED) {
-      const err = validateField(k, form[k]);
+      const err = validateField(k, form[k], form);
       if (err) return false;
     }
     return true;
@@ -179,6 +288,19 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
           ? null
           : Math.max(0, Math.min(60, parseInt(form.years_experience, 10)));
 
+      // daterange (solo se seeking_team e start+end presenti)
+      const trial_window =
+        form.seeking_team && form.trial_start && form.trial_end
+          ? buildDateRange(form.trial_start, form.trial_end)
+          : null;
+
+      // preferred regions (solo se seeking team, altrimenti array vuoto)
+      const preferred_regions = form.seeking_team ? form.preferred_regions : [];
+
+      // agent fields: se non rappresentato, salvo null
+      const agent_name = form.is_represented ? (form.agent_name || null) : null;
+      const agency_name = form.is_represented ? (form.agency_name || null) : null;
+
       const payload = {
         athlete_id: athlete.id,
         sport: (form.sport || '').trim(),
@@ -187,7 +309,19 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         previous_team: (form.previous_team || null) || null,
         category: (form.category || '').trim(),
         years_experience: years,
-        seeking_team: !!form.seeking_team
+        seeking_team: !!form.seeking_team,
+
+        // nuovi campi
+        secondary_role: (form.secondary_role || '').trim() || null,
+        playing_style: (form.playing_style || '').trim() || null,
+        contract_status: form.contract_status || null,
+        contract_end_date: form.contract_end_date || null,
+        contract_notes: (form.contract_notes || '').trim() || null,
+        preferred_regions,
+        trial_window,
+        agent_name,
+        agency_name,
+        is_represented: !!form.is_represented
       };
 
       if (expId) {
@@ -198,7 +332,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
           .select()
           .single();
         if (error) throw error;
-        // sync
         setDirty(false);
         setStatus({ type: 'success', msg: 'Saved ✓' });
         setExpId(data?.id || expId);
@@ -230,27 +363,18 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
   // ----------------------- UI -----------------------
   if (loading) return <div style={{ padding: 8, color: '#666' }}>Loading…</div>;
 
-  const saveBarStyle      = isMobile ? styles.saveBarMobile : styles.saveBar;
-  const saveBtnStyle      = isSaveDisabled
+  const selectStylesSport = makeSelectStyles(!!errors.sport);
+  const selectStylesEnum  = makeSelectStyles(false);
+  const selectStylesTags  = makeSelectStyles(false);
+
+  const saveBarStyle = isMobile ? styles.saveBarMobile : styles.saveBar;
+  const saveBtnStyle = isSaveDisabled
     ? { ...styles.saveBtn, ...styles.saveBtnDisabled }
     : { ...styles.saveBtn, ...styles.saveBtnEnabled };
 
-  const selectStyles = {
-    control: (base, state) => ({
-      ...base,
-      minHeight: 42,
-      borderRadius: 10,
-      borderColor: errors.sport ? '#b00' : (state.isFocused ? '#BDBDBD' : '#E0E0E0'),
-      boxShadow: 'none',
-      ':hover': { borderColor: errors.sport ? '#b00' : '#BDBDBD' }
-    }),
-    valueContainer: (base) => ({ ...base, padding: '0 10px' }),
-    indicatorsContainer: (base) => ({ ...base, paddingRight: 8 }),
-    menu: (base) => ({ ...base, zIndex: 10 })
-  };
-
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(); }} style={{ ...styles.grid, ...(isMobile ? styles.gridMobile : null) }}>
+    <form onSubmit={(e) => { e.preventDefault(); onSave(); }}
+          style={{ ...styles.grid, ...(isMobile ? styles.gridMobile : null) }}>
       {/* Sport */}
       <div style={styles.field}>
         <label style={styles.label}>Sport *</label>
@@ -259,26 +383,26 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
           placeholder="Start typing sport"
           options={sports}
           value={sports.find(opt => opt.value === form.sport) || null}
-          onChange={onSelectSport}
+          onChange={(opt) => onSelectSport(opt)}
           filterOption={(option, inputValue) =>
             inputValue.length >= 2 &&
             option.label.toLowerCase().includes(inputValue.toLowerCase())
           }
-          styles={selectStyles}
+          styles={selectStylesSport}
         />
         {errors.sport && <div style={styles.error}>{errors.sport}</div>}
       </div>
 
       {/* Years of experience (opzionale) */}
       <div style={styles.field}>
-        <label style={styles.label}>Years of experience</label>
+        <label style={styles.label}>Years of experience (0–60)</label>
         <input
           type="number"
           name="years_experience"
           min={0}
           max={60}
           value={form.years_experience}
-          onChange={handleChange}
+          onChange={(e) => setField('years_experience', e.target.value)}
           style={{ ...styles.input, borderColor: errors.years_experience ? '#b00' : '#E0E0E0' }}
         />
         {errors.years_experience && <div style={styles.error}>{errors.years_experience}</div>}
@@ -290,7 +414,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         <input
           name="main_role"
           value={form.main_role}
-          onChange={handleChange}
+          onChange={(e) => setField('main_role', e.target.value)}
           style={{ ...styles.input, borderColor: errors.main_role ? '#b00' : '#E0E0E0' }}
         />
         {errors.main_role && <div style={styles.error}>{errors.main_role}</div>}
@@ -302,10 +426,34 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         <input
           name="category"
           value={form.category}
-          onChange={handleChange}
+          onChange={(e) => setField('category', e.target.value)}
           style={{ ...styles.input, borderColor: errors.category ? '#b00' : '#E0E0E0' }}
         />
         {errors.category && <div style={styles.error}>{errors.category}</div>}
+      </div>
+
+      {/* Secondary role (nuovo, opzionale) */}
+      <div style={styles.field}>
+        <label style={styles.label}>Secondary role</label>
+        <input
+          name="secondary_role"
+          value={form.secondary_role}
+          onChange={(e) => setField('secondary_role', e.target.value)}
+          style={styles.input}
+        />
+      </div>
+
+      {/* Playing style / key tasks (nuovo, opzionale) */}
+      <div style={styles.field}>
+        <label style={styles.label}>Playing style / Key tasks</label>
+        <textarea
+          name="playing_style"
+          rows={3}
+          value={form.playing_style}
+          onChange={(e) => setField('playing_style', e.target.value)}
+          style={{ ...styles.input, height: 'auto', paddingTop: 10, paddingBottom: 10 }}
+          placeholder="Breve descrizione (max 3 punti sintetici)…"
+        />
       </div>
 
       {/* Current team (opzionale) */}
@@ -314,7 +462,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         <input
           name="team_name"
           value={form.team_name}
-          onChange={handleChange}
+          onChange={(e) => setField('team_name', e.target.value)}
           style={styles.input}
         />
       </div>
@@ -325,12 +473,50 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         <input
           name="previous_team"
           value={form.previous_team}
-          onChange={handleChange}
+          onChange={(e) => setField('previous_team', e.target.value)}
           style={styles.input}
         />
       </div>
 
-      {/* Seeking team */}
+      {/* Contract status (nuovo, opzionale) */}
+      <div style={styles.field}>
+        <label style={styles.label}>Contract status</label>
+        <Select
+          name="contract_status"
+          placeholder="Select status"
+          options={CONTRACT_STATUS_OPTIONS}
+          value={CONTRACT_STATUS_OPTIONS.find(o => o.value === form.contract_status) || null}
+          onChange={(opt) => onSelectContract(opt)}
+          styles={selectStylesEnum}
+          isClearable
+        />
+      </div>
+
+      {/* Contract end date (nuovo, opzionale) */}
+      <div style={styles.field}>
+        <label style={styles.label}>Contract end date</label>
+        <input
+          type="date"
+          name="contract_end_date"
+          value={form.contract_end_date}
+          onChange={(e) => setField('contract_end_date', e.target.value)}
+          style={styles.input}
+        />
+      </div>
+
+      {/* Contract notes (nuovo, opzionale) */}
+      <div style={styles.field}>
+        <label style={styles.label}>Contract notes</label>
+        <input
+          name="contract_notes"
+          value={form.contract_notes}
+          onChange={(e) => setField('contract_notes', e.target.value)}
+          style={styles.input}
+          placeholder="Short notes (no sensitive data)…"
+        />
+      </div>
+
+      {/* Seeking team (controlla la comparsa di preferred_regions e trial_window) */}
       <div style={{ ...styles.field, alignSelf: 'end' }}>
         <label style={styles.label}>Seeking team</label>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -338,10 +524,84 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
             type="checkbox"
             name="seeking_team"
             checked={!!form.seeking_team}
-            onChange={handleChange}
+            onChange={(e) => setField('seeking_team', e.target.checked)}
           />
           <span>Available and seeking a team</span>
         </label>
+      </div>
+
+      {/* preferred_regions (nuovo) — SOLO se seeking_team */}
+      {form.seeking_team && (
+        <div style={styles.field}>
+          <label style={styles.label}>Preferred regions</label>
+          <CreatableSelect
+            isMulti
+            placeholder="Add regions/countries…"
+            value={(form.preferred_regions || []).map(v => ({ value: v, label: v }))}
+            onChange={onChangeRegions}
+            styles={selectStylesTags}
+          />
+        </div>
+      )}
+
+      {/* trial_window (nuovo) — SOLO se seeking_team */}
+      {form.seeking_team && (
+        <div style={styles.field}>
+          <label style={styles.label}>Trial window (optional)</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <input
+                type="date"
+                name="trial_start"
+                value={form.trial_start}
+                onChange={(e) => setField('trial_start', e.target.value)}
+                style={styles.input}
+              />
+              <small style={{ color: '#666' }}>Start</small>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <input
+                type="date"
+                name="trial_end"
+                value={form.trial_end}
+                onChange={(e) => setField('trial_end', e.target.value)}
+                style={styles.input}
+              />
+              <small style={{ color: '#666' }}>End</small>
+            </div>
+          </div>
+          {errors.trial_window && <div style={styles.error}>{errors.trial_window}</div>}
+        </div>
+      )}
+
+      {/* Representation (nuovo, opzionale) */}
+      <div style={styles.field}>
+        <label style={styles.label}>Representation</label>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <input
+            type="checkbox"
+            name="is_represented"
+            checked={!!form.is_represented}
+            onChange={(e) => setField('is_represented', e.target.checked)}
+          />
+          <span>Represented by an agent</span>
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <input
+            name="agent_name"
+            value={form.agent_name}
+            onChange={(e) => setField('agent_name', e.target.value)}
+            placeholder="Agent name"
+            style={styles.input}
+          />
+          <input
+            name="agency_name"
+            value={form.agency_name}
+            onChange={(e) => setField('agency_name', e.target.value)}
+            placeholder="Agency"
+            style={styles.input}
+          />
+        </div>
       </div>
 
       {/* SAVE BAR */}
@@ -366,7 +626,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
   );
 }
 
-// ----------------------- STYLES (coerenti con le altre card) -----------------------
+// ----------------------- STYLES (identici alle altre card) -----------------------
 const styles = {
   grid: {
     display: 'grid',
