@@ -395,7 +395,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
 
       {/* Years of experience (opzionale) */}
       <div style={styles.field}>
-        <label style={styles.label}>Years of experience (0–60)</label>
+        <label style={styles.label}>Years of experience</label>
         <input
           type="number"
           name="years_experience"
@@ -452,7 +452,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
           value={form.playing_style}
           onChange={(e) => setField('playing_style', e.target.value)}
           style={{ ...styles.input, height: 'auto', paddingTop: 10, paddingBottom: 10 }}
-          placeholder="Breve descrizione (max 3 punti sintetici)…"
+          placeholder="Short description (max 3 bullet points)"
         />
       </div>
 
