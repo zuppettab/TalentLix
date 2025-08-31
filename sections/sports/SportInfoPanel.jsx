@@ -1223,14 +1223,14 @@ const styles = {
     whiteSpace: 'nowrap',
   },
   thRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
-  thMobile: { padding: '12px 20px', minWidth: 250 },
+  thMobile: { padding: '12px 20px', minWidth: 180 },
   td: {
     fontSize: 14,
     padding: '10px 12px',
     borderBottom: '1px solid #F5F5F5',
     verticalAlign: 'top',
   },
-  tdMobile: { padding: '12px 20px', minWidth: 250 },
+  tdMobile: { padding: '12px 20px', minWidth: 180 },
 
   careerForm: {
     display: 'grid',
