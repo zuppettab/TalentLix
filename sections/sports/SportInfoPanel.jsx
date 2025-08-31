@@ -47,6 +47,7 @@ const buildDateRange = (start, end) => (start && end ? `[${start},${end}]` : nul
 
 // ---- react-select styles (coerenti) ----
 const makeSelectStyles = (hasError) => ({
+  container: (base) => ({ ...base, width: '100%' }),
   control: (base, state) => ({
     ...base,
     minHeight: 42,
@@ -1014,7 +1015,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         <div style={styles.error}>{editErrors.season_start || editErrors.season_end}</div>
                       )}
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), minWidth: 150 }}>
                       {isEditing ? (
                         <Select
                           options={sports}
