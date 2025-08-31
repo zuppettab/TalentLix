@@ -1,3 +1,4 @@
+
 // sections/sports/SportInfoPanel.jsx
 // @ts-check
 import { useEffect, useMemo, useState } from 'react';
@@ -977,14 +978,14 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={{ ...styles.th, ...(isMobile ? styles.mobileCell : null) }}>Season</th>
-                <th style={{ ...styles.th, ...(isMobile ? styles.mobileCell : null) }}>Sport</th>
-                <th style={{ ...styles.th, ...(isMobile ? styles.mobileCell : null) }}>Team</th>
-                <th style={{ ...styles.th, ...(isMobile ? styles.mobileCell : null) }}>Role</th>
-                <th style={{ ...styles.th, ...(isMobile ? styles.mobileCell : null) }}>Category</th>
-                <th style={{ ...styles.th, ...(isMobile ? styles.mobileCell : null) }}>League</th>
-                <th style={{ ...styles.th, ...(isMobile ? styles.mobileCell : null) }}>Current</th>
-                <th style={{ ...styles.thRight, ...(isMobile ? styles.mobileCell : null) }}>Actions</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Season</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Sport</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Team</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Role</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Category</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>League</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Current</th>
+                <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobile : null) }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -992,7 +993,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                 const isEditing = editId === r.id;
                 return (
                   <tr key={r.id}>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.mobileCell : null) }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <input
@@ -1015,7 +1016,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         <div style={styles.error}>{editErrors.season_start || editErrors.season_end}</div>
                       )}
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.mobileCell : null), minWidth: 150 }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), minWidth: 150 }}>
                       {isEditing ? (
                         <Select
                           options={sports}
@@ -1025,7 +1026,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         />
                       ) : (r.sport || '-')}
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.mobileCell : null) }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <>
                           <input
@@ -1037,7 +1038,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         </>
                       ) : (r.team_name || '-')}
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.mobileCell : null) }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <>
                           <input
@@ -1049,7 +1050,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         </>
                       ) : (r.role || '-')}
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.mobileCell : null) }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <>
                           <input
@@ -1061,7 +1062,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         </>
                       ) : (r.category || '-')}
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.mobileCell : null) }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <input
                           value={edit.league}
@@ -1070,7 +1071,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         />
                       ) : (r.league || '-')}
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.mobileCell : null), textAlign: 'center' }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'center' }}>
                       {isEditing ? (
                         <input
                           type="checkbox"
@@ -1082,7 +1083,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         r.is_current ? 'Yes' : '—'
                       )}
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.mobileCell : null), textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {!isEditing ? (
                         <>
                           <button type="button" style={styles.linkBtn} onClick={() => onEdit(r)}>Edit</button>
@@ -1140,7 +1141,6 @@ const styles = {
     borderRadius: 10,
     fontSize: 14,
     background: '#FFF',
-    width: '100%',
   },
   careerInput: {
     height: 38,
@@ -1149,7 +1149,6 @@ const styles = {
     borderRadius: 10,
     fontSize: 14,
     background: '#FFF',
-    width: '100%',
   },
   error: { fontSize: 12, color: '#b00' },
 
@@ -1224,13 +1223,14 @@ const styles = {
     whiteSpace: 'nowrap',
   },
   thRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
-  mobileCell: { padding: '12px 16px', minWidth: 150 },
+  thMobile: { padding: '12px 16px', minWidth: 100 },
   td: {
     fontSize: 14,
     padding: '10px 12px',
     borderBottom: '1px solid #F5F5F5',
     verticalAlign: 'top',
   },
+  tdMobile: { padding: '12px 16px', minWidth: 100 },
 
   careerForm: {
     display: 'grid',
