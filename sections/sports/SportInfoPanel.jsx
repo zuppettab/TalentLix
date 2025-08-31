@@ -895,7 +895,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
               type="number"
               value={add.season_start}
               onChange={(e) => setAdd((p) => ({ ...p, season_start: e.target.value }))}
-              style={{ ...styles.input, borderColor: addErrors.season_start ? '#b00' : '#E0E0E0' }}
+              style={{ ...styles.careerInput, borderColor: addErrors.season_start ? '#b00' : '#E0E0E0' }}
             />
             {addErrors.season_start && <div style={styles.error}>{addErrors.season_start}</div>}
           </div>
@@ -905,7 +905,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
               type="number"
               value={add.season_end}
               onChange={(e) => setAdd((p) => ({ ...p, season_end: e.target.value }))}
-              style={{ ...styles.input, borderColor: addErrors.season_end ? '#b00' : '#E0E0E0' }}
+              style={{ ...styles.careerInput, borderColor: addErrors.season_end ? '#b00' : '#E0E0E0' }}
             />
             {addErrors.season_end && <div style={styles.error}>{addErrors.season_end}</div>}
           </div>
@@ -914,7 +914,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
             <input
               value={add.team_name}
               onChange={(e) => setAdd((p) => ({ ...p, team_name: e.target.value }))}
-              style={{ ...styles.input, borderColor: addErrors.team_name ? '#b00' : '#E0E0E0' }}
+              style={{ ...styles.careerInput, borderColor: addErrors.team_name ? '#b00' : '#E0E0E0' }}
             />
             {addErrors.team_name && <div style={styles.error}>{addErrors.team_name}</div>}
           </div>
@@ -923,7 +923,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
             <input
               value={add.role}
               onChange={(e) => setAdd((p) => ({ ...p, role: e.target.value }))}
-              style={{ ...styles.input, borderColor: addErrors.role ? '#b00' : '#E0E0E0' }}
+              style={{ ...styles.careerInput, borderColor: addErrors.role ? '#b00' : '#E0E0E0' }}
             />
             {addErrors.role && <div style={styles.error}>{addErrors.role}</div>}
           </div>
@@ -932,7 +932,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
             <input
               value={add.category}
               onChange={(e) => setAdd((p) => ({ ...p, category: e.target.value }))}
-              style={{ ...styles.input, borderColor: addErrors.category ? '#b00' : '#E0E0E0' }}
+              style={{ ...styles.careerInput, borderColor: addErrors.category ? '#b00' : '#E0E0E0' }}
             />
             {addErrors.category && <div style={styles.error}>{addErrors.category}</div>}
           </div>
@@ -941,7 +941,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
             <input
               value={add.league}
               onChange={(e) => setAdd((p) => ({ ...p, league: e.target.value }))}
-              style={styles.input}
+              style={styles.careerInput}
             />
           </div>
           <div>
@@ -949,7 +949,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
             <input
               value={add.notes}
               onChange={(e) => setAdd((p) => ({ ...p, notes: e.target.value }))}
-              style={styles.input}
+              style={styles.careerInput}
             />
           </div>
           <div>
@@ -994,19 +994,19 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                     <td style={styles.td}>
                       {isEditing ? (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                          <input
-                            type="number"
-                            value={edit.season_start}
-                            onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
-                            style={{ ...styles.input, height: 36, borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
-                          />
-                          <input
-                            type="number"
-                            value={edit.season_end}
-                            onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
-                            style={{ ...styles.input, height: 36, borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
-                          />
-                        </div>
+                      <input
+                        type="number"
+                        value={edit.season_start}
+                        onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
+                        style={{ ...styles.careerInput, borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
+                      />
+                      <input
+                        type="number"
+                        value={edit.season_end}
+                        onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
+                        style={{ ...styles.careerInput, borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
+                      />
+                    </div>
                       ) : (
                         <SeasonCell start={r.season_start} end={r.season_end} />
                       )}
@@ -1030,7 +1030,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                           <input
                             value={edit.team_name}
                             onChange={(e) => setEdit((p) => ({ ...p, team_name: e.target.value }))}
-                            style={{ ...styles.input, height: 36, borderColor: editErrors.team_name ? '#b00' : '#E0E0E0' }}
+                            style={{ ...styles.careerInput, borderColor: editErrors.team_name ? '#b00' : '#E0E0E0' }}
                           />
                           {editErrors.team_name && <div style={styles.error}>{editErrors.team_name}</div>}
                         </>
@@ -1042,7 +1042,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                           <input
                             value={edit.role}
                             onChange={(e) => setEdit((p) => ({ ...p, role: e.target.value }))}
-                            style={{ ...styles.input, height: 36, borderColor: editErrors.role ? '#b00' : '#E0E0E0' }}
+                            style={{ ...styles.careerInput, borderColor: editErrors.role ? '#b00' : '#E0E0E0' }}
                           />
                           {editErrors.role && <div style={styles.error}>{editErrors.role}</div>}
                         </>
@@ -1054,7 +1054,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                           <input
                             value={edit.category}
                             onChange={(e) => setEdit((p) => ({ ...p, category: e.target.value }))}
-                            style={{ ...styles.input, height: 36, borderColor: editErrors.category ? '#b00' : '#E0E0E0' }}
+                            style={{ ...styles.careerInput, borderColor: editErrors.category ? '#b00' : '#E0E0E0' }}
                           />
                           {editErrors.category && <div style={styles.error}>{editErrors.category}</div>}
                         </>
@@ -1065,7 +1065,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         <input
                           value={edit.league}
                           onChange={(e) => setEdit((p) => ({ ...p, league: e.target.value }))}
-                          style={{ ...styles.input, height: 36 }}
+                          style={styles.careerInput}
                         />
                       ) : (r.league || '-')}
                     </td>
@@ -1137,6 +1137,14 @@ const styles = {
   input: {
     height: 42,
     padding: '10px 12px',
+    border: '1px solid #E0E0E0',
+    borderRadius: 10,
+    fontSize: 14,
+    background: '#FFF',
+  },
+  careerInput: {
+    height: 38,
+    padding: '8px 12px',
     border: '1px solid #E0E0E0',
     borderRadius: 10,
     fontSize: 14,
