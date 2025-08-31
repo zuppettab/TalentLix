@@ -1,3 +1,5 @@
+
+
 // sections/sports/SportInfoPanel.jsx
 // @ts-check
 import { useEffect, useMemo, useState } from 'react';
@@ -47,6 +49,7 @@ const buildDateRange = (start, end) => (start && end ? `[${start},${end}]` : nul
 
 // ---- react-select styles (coerenti) ----
 const makeSelectStyles = (hasError) => ({
+  container: (base) => ({ ...base, width: '100%' }),
   control: (base, state) => ({
     ...base,
     minHeight: 42,
@@ -58,16 +61,6 @@ const makeSelectStyles = (hasError) => ({
   valueContainer: (base) => ({ ...base, padding: '0 10px' }),
   indicatorsContainer: (base) => ({ ...base, paddingRight: 8 }),
   menu: (base) => ({ ...base, zIndex: 10 }),
-});
-
-// Select “alto” solo per la tabella Career su mobile
-const selectStylesTableMobile = (hasError = false) => ({
-  ...makeSelectStyles(hasError),
-  control: (base, state) => ({
-    ...makeSelectStyles(hasError).control(base, state),
-    minHeight: 52,
-  }),
-  valueContainer: (base) => ({ ...base, padding: '0 14px' }),
 });
 
 const CONTRACT_STATUS_OPTIONS = [
@@ -185,6 +178,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
         if (mounted) {
           setDirty(false);
           setErrors({});
+          // Non azzeriamo lo status qui: resta conforme alle linee guida save-bar
         }
       } catch (e) {
         console.error(e);
@@ -369,6 +363,9 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
   if (loading) return <div style={{ padding: 8, color: '#666' }}>Loading…</div>;
 
   const selectStylesSport = makeSelectStyles(!!errors.sport);
+  const selectStylesEnum  = makeSelectStyles(false);
+  const selectStylesTags  = makeSelectStyles(false);
+
   const saveBarStyle = isMobile ? styles.saveBarMobile : styles.saveBar;
   const saveBtnStyle = isSaveDisabled
     ? { ...styles.saveBtn, ...styles.saveBtnDisabled }
@@ -572,7 +569,6 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
             name="is_represented"
             checked={!!form.is_represented}
             onChange={(e) => setField('is_represented', e.target.checked)}
-            style={isMobile ? { transform: 'scale(1.1)' } : undefined}
           />
           <span>Represented by an agent</span>
         </label>
@@ -651,6 +647,8 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
   const [edit, setEdit] = useState({});
   const [editErrors, setEditErrors] = useState({});
 
+  const selectStyles = makeSelectStyles(false);
+
   const loadRows = async () => {
     if (!athleteId) return;
     try {
@@ -671,8 +669,12 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
     }
   };
 
-  useEffect(() => { loadRows(); }, [athleteId]);
   useEffect(() => {
+    loadRows();
+  }, [athleteId]);
+
+  useEffect(() => {
+    // Imposta default sport sull'add quando apre/aggiorna il form
     if (adding && defaultSport && !add.sport) {
       setAdd((p) => ({ ...p, sport: defaultSport }));
     }
@@ -684,7 +686,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
     return Number.isInteger(n) && n >= 1900 && n <= 2100;
   };
 
-  const validateCareer = (obj) => {
+  const validateCareer = (obj, mode = 'add') => {
     const out = {};
     if (!obj.season_start) out.season_start = MSG.season_start_required;
     else if (!validYear(obj.season_start)) out.season_start = MSG.season_year_range;
@@ -726,7 +728,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
   };
 
   const onAddSave = async () => {
-    const errs = validateCareer(add);
+    const errs = validateCareer(add, 'add');
     setAddErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -793,7 +795,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
   };
 
   const onEditSave = async (id) => {
-    const errs = validateCareer(edit);
+    const errs = validateCareer(edit, 'edit');
     setEditErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -863,9 +865,6 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
     return <span>{disp || '-'}</span>;
   };
 
-  // ---- Select styles per Add/Edit in tabella (solo mobile “alto”) ----
-  const selectStylesForTable = isMobile ? selectStylesTableMobile(false) : makeSelectStyles(false);
-
   return (
     <div style={{ marginTop: 6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -890,7 +889,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
               options={sports}
               value={sports.find(o => o.value === add.sport) || null}
               onChange={(opt) => setAdd((p) => ({ ...p, sport: opt?.value || '' }))}
-              styles={selectStylesForTable}
+              styles={selectStyles}
             />
           </div>
           <div>
@@ -899,7 +898,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
               type="number"
               value={add.season_start}
               onChange={(e) => setAdd((p) => ({ ...p, season_start: e.target.value }))}
-              style={{ ...(isMobile ? styles.careerInputMobile : styles.careerInput), borderColor: addErrors.season_start ? '#b00' : '#E0E0E0' }}
+              style={{ ...styles.careerInput, borderColor: addErrors.season_start ? '#b00' : '#E0E0E0' }}
             />
             {addErrors.season_start && <div style={styles.error}>{addErrors.season_start}</div>}
           </div>
@@ -909,7 +908,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
               type="number"
               value={add.season_end}
               onChange={(e) => setAdd((p) => ({ ...p, season_end: e.target.value }))}
-              style={{ ...(isMobile ? styles.careerInputMobile : styles.careerInput), borderColor: addErrors.season_end ? '#b00' : '#E0E0E0' }}
+              style={{ ...styles.careerInput, borderColor: addErrors.season_end ? '#b00' : '#E0E0E0' }}
             />
             {addErrors.season_end && <div style={styles.error}>{addErrors.season_end}</div>}
           </div>
@@ -918,7 +917,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
             <input
               value={add.team_name}
               onChange={(e) => setAdd((p) => ({ ...p, team_name: e.target.value }))}
-              style={{ ...(isMobile ? styles.careerInputMobile : styles.careerInput), borderColor: addErrors.team_name ? '#b00' : '#E0E0E0' }}
+              style={{ ...styles.careerInput, borderColor: addErrors.team_name ? '#b00' : '#E0E0E0' }}
             />
             {addErrors.team_name && <div style={styles.error}>{addErrors.team_name}</div>}
           </div>
@@ -927,7 +926,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
             <input
               value={add.role}
               onChange={(e) => setAdd((p) => ({ ...p, role: e.target.value }))}
-              style={{ ...(isMobile ? styles.careerInputMobile : styles.careerInput), borderColor: addErrors.role ? '#b00' : '#E0E0E0' }}
+              style={{ ...styles.careerInput, borderColor: addErrors.role ? '#b00' : '#E0E0E0' }}
             />
             {addErrors.role && <div style={styles.error}>{addErrors.role}</div>}
           </div>
@@ -936,7 +935,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
             <input
               value={add.category}
               onChange={(e) => setAdd((p) => ({ ...p, category: e.target.value }))}
-              style={{ ...(isMobile ? styles.careerInputMobile : styles.careerInput), borderColor: addErrors.category ? '#b00' : '#E0E0E0' }}
+              style={{ ...styles.careerInput, borderColor: addErrors.category ? '#b00' : '#E0E0E0' }}
             />
             {addErrors.category && <div style={styles.error}>{addErrors.category}</div>}
           </div>
@@ -945,7 +944,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
             <input
               value={add.league}
               onChange={(e) => setAdd((p) => ({ ...p, league: e.target.value }))}
-              style={isMobile ? styles.careerInputMobile : styles.careerInput}
+              style={styles.careerInput}
             />
           </div>
           <div>
@@ -953,7 +952,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
             <input
               value={add.notes}
               onChange={(e) => setAdd((p) => ({ ...p, notes: e.target.value }))}
-              style={isMobile ? styles.careerInputMobile : styles.careerInput}
+              style={styles.careerInput}
             />
           </div>
           <div>
@@ -963,7 +962,6 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                 type="checkbox"
                 checked={!!add.is_current}
                 onChange={(e) => setAdd((p) => ({ ...p, is_current: e.target.checked }))}
-                style={isMobile ? { transform: 'scale(1.25)' } : undefined}
               />
               <span>This is my current season</span>
             </label>
@@ -988,7 +986,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                 <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Category</th>
                 <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>League</th>
                 <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Current</th>
-                <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobileRight : null) }}>Actions</th>
+                <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobile : null) }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -999,19 +997,19 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                          <input
-                            type="number"
-                            value={edit.season_start}
-                            onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
-                            style={{ ...(isMobile ? styles.careerInputMobile : styles.careerInput), borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
-                          />
-                          <input
-                            type="number"
-                            value={edit.season_end}
-                            onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
-                            style={{ ...(isMobile ? styles.careerInputMobile : styles.careerInput), borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
-                          />
-                        </div>
+                      <input
+                        type="number"
+                        value={edit.season_start}
+                        onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
+                        style={{ ...styles.careerInput, borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
+                      />
+                      <input
+                        type="number"
+                        value={edit.season_end}
+                        onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
+                        style={{ ...styles.careerInput, borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
+                      />
+                    </div>
                       ) : (
                         <SeasonCell start={r.season_start} end={r.season_end} />
                       )}
@@ -1019,84 +1017,74 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         <div style={styles.error}>{editErrors.season_start || editErrors.season_end}</div>
                       )}
                     </td>
-
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), minWidth: 150 }}>
                       {isEditing ? (
                         <Select
                           options={sports}
                           value={sports.find(o => o.value === edit.sport) || null}
                           onChange={(opt) => setEdit((p) => ({ ...p, sport: opt?.value || '' }))}
-                          styles={selectStylesForTable}
+                          styles={makeSelectStyles(false)}
                         />
                       ) : (r.sport || '-')}
                     </td>
-
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <>
                           <input
                             value={edit.team_name}
                             onChange={(e) => setEdit((p) => ({ ...p, team_name: e.target.value }))}
-                            style={{ ...(isMobile ? styles.careerInputMobile : styles.careerInput), borderColor: editErrors.team_name ? '#b00' : '#E0E0E0' }}
+                            style={{ ...styles.careerInput, borderColor: editErrors.team_name ? '#b00' : '#E0E0E0' }}
                           />
                           {editErrors.team_name && <div style={styles.error}>{editErrors.team_name}</div>}
                         </>
                       ) : (r.team_name || '-')}
                     </td>
-
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <>
                           <input
                             value={edit.role}
                             onChange={(e) => setEdit((p) => ({ ...p, role: e.target.value }))}
-                            style={{ ...(isMobile ? styles.careerInputMobile : styles.careerInput), borderColor: editErrors.role ? '#b00' : '#E0E0E0' }}
+                            style={{ ...styles.careerInput, borderColor: editErrors.role ? '#b00' : '#E0E0E0' }}
                           />
                           {editErrors.role && <div style={styles.error}>{editErrors.role}</div>}
                         </>
                       ) : (r.role || '-')}
                     </td>
-
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <>
                           <input
                             value={edit.category}
                             onChange={(e) => setEdit((p) => ({ ...p, category: e.target.value }))}
-                            style={{ ...(isMobile ? styles.careerInputMobile : styles.careerInput), borderColor: editErrors.category ? '#b00' : '#E0E0E0' }}
+                            style={{ ...styles.careerInput, borderColor: editErrors.category ? '#b00' : '#E0E0E0' }}
                           />
                           {editErrors.category && <div style={styles.error}>{editErrors.category}</div>}
                         </>
                       ) : (r.category || '-')}
                     </td>
-
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
                       {isEditing ? (
                         <input
                           value={edit.league}
                           onChange={(e) => setEdit((p) => ({ ...p, league: e.target.value }))}
-                          style={isMobile ? styles.careerInputMobile : styles.careerInput}
+                          style={styles.careerInput}
                         />
                       ) : (r.league || '-')}
                     </td>
-
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'center' }}>
                       {isEditing ? (
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <input
-                            type="checkbox"
-                            checked={!!edit.is_current}
-                            onChange={(e) => setEdit((p) => ({ ...p, is_current: e.target.checked }))}
-                            style={isMobile ? { transform: 'scale(1.25)' } : undefined}
-                          />
-                          <span>Current</span>
-                        </label>
+                        <input
+                          type="checkbox"
+                          aria-label="Current season"
+                          checked={!!edit.is_current}
+                          onChange={(e) => setEdit((p) => ({ ...p, is_current: e.target.checked }))}
+                        />
                       ) : (
                         r.is_current ? 'Yes' : '—'
                       )}
                     </td>
-
-                    <td style={{ ...styles.td, textAlign: 'right', whiteSpace: 'nowrap', ...(isMobile ? styles.tdMobile : null) }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {!isEditing ? (
                         <>
                           <button type="button" style={styles.linkBtn} onClick={() => onEdit(r)}>Edit</button>
@@ -1155,6 +1143,14 @@ const styles = {
     fontSize: 14,
     background: '#FFF',
   },
+  careerInput: {
+    height: 38,
+    padding: '8px 12px',
+    border: '1px solid #E0E0E0',
+    borderRadius: 10,
+    fontSize: 14,
+    background: '#FFF',
+  },
   error: { fontSize: 12, color: '#b00' },
 
   // Save bar unificata
@@ -1180,7 +1176,7 @@ const styles = {
   saveBtnEnabled: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', cursor: 'pointer' },
   saveBtnDisabled: { background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' },
 
-  // Career widget - bottoni
+  // Career widget
   smallBtn: {
     height: 32,
     padding: '0 12px',
@@ -1208,8 +1204,6 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 600,
   },
-
-  // Career widget - tabella
   tableWrap: {
     overflowX: 'auto',
     border: '1px solid #EEE',
@@ -1230,19 +1224,15 @@ const styles = {
     whiteSpace: 'nowrap',
   },
   thRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
+  thMobile: { padding: '12px 20px', minWidth: 180 },
   td: {
     fontSize: 14,
     padding: '10px 12px',
     borderBottom: '1px solid #F5F5F5',
     verticalAlign: 'top',
   },
+  tdMobile: { padding: '12px 20px', minWidth: 180 },
 
-  // *** MOBILE BIG per tabella Career ***
-  thMobile: { padding: '18px 24px', minWidth: 220, fontSize: 14, lineHeight: 1.35 },
-  thMobileRight: { padding: '18px 24px', minWidth: 220, fontSize: 14, lineHeight: 1.35, textAlign: 'right' },
-  tdMobile: { padding: '16px 24px', minWidth: 220, fontSize: 16, lineHeight: 1.45 },
-
-  // Form Add/Edit per tabella Career
   careerForm: {
     display: 'grid',
     gridTemplateColumns: 'repeat(4, 1fr)',
@@ -1253,24 +1243,7 @@ const styles = {
     borderRadius: 10,
     background: '#FAFAFA',
   },
-  careerFormMobile: { gridTemplateColumns: '1fr' },
-
-  // Input standard (desktop) per Career
-  careerInput: {
-    height: 38,
-    padding: '8px 12px',
-    border: '1px solid #E0E0E0',
-    borderRadius: 10,
-    fontSize: 14,
-    background: '#FFF',
-  },
-  // Input "big" SOLO MOBILE per Career
-  careerInputMobile: {
-    height: 52,
-    padding: '12px 14px',
-    border: '1px solid #E0E0E0',
-    borderRadius: 10,
-    fontSize: 16,
-    background: '#FFF',
+  careerFormMobile: {
+    gridTemplateColumns: '1fr',
   },
 };
