@@ -1070,16 +1070,14 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                         />
                       ) : (r.league || '-')}
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'center' }}>
                       {isEditing ? (
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <input
-                            type="checkbox"
-                            checked={!!edit.is_current}
-                            onChange={(e) => setEdit((p) => ({ ...p, is_current: e.target.checked }))}
-                          />
-                          <span>Current</span>
-                        </label>
+                        <input
+                          type="checkbox"
+                          aria-label="Current season"
+                          checked={!!edit.is_current}
+                          onChange={(e) => setEdit((p) => ({ ...p, is_current: e.target.checked }))}
+                        />
                       ) : (
                         r.is_current ? 'Yes' : '—'
                       )}
