@@ -394,7 +394,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
       </div>
 
       <div style={styles.field}>
-        <label style={styles.label}>Years of experience (0–60)</label>
+        <label style={styles.label}>Years of experience</label>
         <input
           type="number"
           name="years_experience"
