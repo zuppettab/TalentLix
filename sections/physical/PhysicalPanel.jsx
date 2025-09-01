@@ -822,17 +822,13 @@ const styles = {
 
   // Help (?)
   helpBtn: {
-    width: 18,
-    height: 18,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: '50%',
-    border: '1px solid #E0E0E0',
-    background: '#FFF',
+    background: 'transparent',
     cursor: 'pointer',
-    fontSize: 12,
-    fontWeight: 700,
+    fontSize: 13,
+    fontWeight: 600,
     padding: 0,
     color: '#333',
     flexShrink: 0,
