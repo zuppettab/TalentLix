@@ -6,6 +6,7 @@ import { supabase } from '../utils/supabaseClient';
 import PersonalPanel from '../sections/personal/PersonalPanel';
 import ContactsPanel from '../sections/contacts/ContactsPanel';
 import SportInfoPanel from '../sections/sports/SportInfoPanel';
+import PhysicalPanel from '../sections/physical/PhysicalPanel';
 
 const ATHLETE_TABLE = 'athlete';
 
@@ -353,7 +354,10 @@ export default function Dashboard() {
                 {current === 'sports' && (
                   <SportInfoPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
                 )}
-                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && (
+                {current === 'physical' && (
+                  <PhysicalPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
+                )}
+                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'physical' && (
                   <p style={styles.placeholder}>TODO — “{sectionObj?.title}”</p>
                 )}
 
