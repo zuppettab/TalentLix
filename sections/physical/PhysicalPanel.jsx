@@ -1,6 +1,6 @@
 // sections/physical/PhysicalPanel.jsx
 // @ts-check
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase as sb } from '../../utils/supabaseClient';
 
@@ -332,7 +332,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         max={todayISO}
         onChange={(v) => setField('physical_measured_at', v)}
         error={errors.physical_measured_at}
-        help="Date of the physical measurements (height/weight/etc.). Not in the future."
       />
 
       <NumberField
@@ -343,7 +342,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.height_cm}
         step="0.1"
         placeholder="e.g., 185.0"
-        help="Height without shoes, in centimeters."
       />
       <NumberField
         label="Weight (kg)"
@@ -353,7 +351,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.weight_kg}
         step="0.1"
         placeholder="e.g., 78.5"
-        help="Body weight in kilograms."
       />
       <NumberField
         label="Wingspan / Arm span (cm)"
@@ -363,7 +360,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.wingspan_cm}
         step="0.1"
         placeholder="e.g., 190.0"
-        help="Fingertip-to-fingertip reach with arms extended horizontally."
       />
       <NumberField
         label="Standing reach (cm)"
@@ -373,7 +369,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.standing_reach_cm}
         step="1"
         placeholder="e.g., 240"
-        help="Maximum overhead reach while standing, heels on floor."
       />
       <NumberField
         label="Body fat (%)"
@@ -383,7 +378,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.body_fat_percent}
         step="0.1"
         placeholder="e.g., 12.5"
-        help="If available. Indicate the measurement method in notes."
       />
 
       <SelectInline
@@ -393,7 +387,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         onChange={(v) => setField('dominant_hand', v)}
         options={LATERALITY}
         error={errors.dominant_hand}
-        help="Preferred hand in sport-specific or daily tasks."
       />
       <SelectInline
         label="Dominant foot"
@@ -402,7 +395,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         onChange={(v) => setField('dominant_foot', v)}
         options={LATERALITY}
         error={errors.dominant_foot}
-        help="Preferred foot for kicking, pushing off, balance."
       />
       <SelectInline
         label="Dominant eye"
@@ -411,7 +403,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         onChange={(v) => setField('dominant_eye', v)}
         options={LATERALITY}
         error={errors.dominant_eye}
-        help="Eye dominance (useful for precision/aim sports)."
       />
 
       <TextField
@@ -421,7 +412,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         onChange={(v) => setField('physical_notes', v)}
         error={errors.physical_notes}
         placeholder="Method, device/model, conditions (optional)…"
-        help="Add method (e.g., BIA / skinfold), device, conditions (rested, indoor…)."
         multiline
       />
 
@@ -435,7 +425,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         max={todayISO}
         onChange={(v) => setField('performance_measured_at', v)}
         error={errors.performance_measured_at}
-        help="Date of the performance tests (sprint, jump, etc.). Not in the future."
       />
 
       {/* Forza/Esplosività */}
@@ -447,7 +436,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.grip_strength_left_kg}
         step="0.1"
         placeholder="e.g., 44.0"
-        help="Best of 2 attempts with dynamometer, left hand."
       />
       <NumberField
         label="Grip strength R (kg)"
@@ -457,7 +445,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.grip_strength_right_kg}
         step="0.1"
         placeholder="e.g., 46.0"
-        help="Best of 2 attempts with dynamometer, right hand."
       />
       <NumberField
         label="Vertical jump (CMJ) (cm)"
@@ -467,7 +454,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.vertical_jump_cmj_cm}
         step="1"
         placeholder="e.g., 38"
-        help="Countermovement jump height in centimeters."
       />
       <NumberField
         label="Standing long jump (cm)"
@@ -477,7 +463,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.standing_long_jump_cm}
         step="1"
         placeholder="e.g., 240"
-        help="Two-feet standing broad jump distance."
       />
 
       {/* Velocità/Agilità */}
@@ -489,7 +474,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.sprint_10m_s}
         step="0.001"
         placeholder="e.g., 1.850"
-        help="Time for 10 meters. Use seconds with 3 decimals."
       />
       <NumberField
         label="Sprint 20 m (s)"
@@ -499,7 +483,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.sprint_20m_s}
         step="0.001"
         placeholder="e.g., 3.250"
-        help="Time for 20 meters. Seconds with 3 decimals."
       />
       <NumberField
         label="Pro agility 5–10–5 (s)"
@@ -509,7 +492,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.pro_agility_5_10_5_s}
         step="0.001"
         placeholder="e.g., 4.400"
-        help="Standard shuttle run 5–10–5 seconds."
       />
 
       {/* Mobilità/Core/Endurance */}
@@ -521,7 +503,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.sit_and_reach_cm}
         step="1"
         placeholder="e.g., 25"
-        help="Flexibility test (may be negative if below 0)."
       />
       <NumberField
         label="Plank hold (s)"
@@ -531,7 +512,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.plank_hold_s}
         step="1"
         placeholder="e.g., 120"
-        help="Maximum front plank time in seconds."
       />
       <NumberField
         label="Cooper 12’ (m)"
@@ -541,7 +521,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.cooper_12min_m}
         step="1"
         placeholder="e.g., 2700"
-        help="Total distance covered in 12 minutes, in meters."
       />
 
       <TextField
@@ -551,7 +530,6 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         onChange={(v) => setField('performance_notes', v)}
         error={errors.performance_notes}
         placeholder="Protocol, device, surface, footwear, attempt count…"
-        help="Add protocol, device/model, surface, footwear, rested/fatigued, attempts."
         multiline
       />
 
@@ -587,10 +565,10 @@ function SectionTitle({ title }) {
   );
 }
 
-function DateField({ label, name, value, onChange, error, help, min, max }) {
+function DateField({ label, name, value, onChange, error, min, max }) {
   return (
     <div style={styles.field}>
-      <LabelWithHelp label={label} help={help} />
+      <label style={styles.label}>{label}</label>
       <input
         type="date"
         name={name}
@@ -606,10 +584,10 @@ function DateField({ label, name, value, onChange, error, help, min, max }) {
   );
 }
 
-function NumberField({ label, name, value, onChange, error, help, step = '1', placeholder }) {
+function NumberField({ label, name, value, onChange, error, step = '1', placeholder }) {
   return (
     <div style={styles.field}>
-      <LabelWithHelp label={label} help={help} />
+      <label style={styles.label}>{label}</label>
       <input
         type="number"
         name={name}
@@ -625,10 +603,10 @@ function NumberField({ label, name, value, onChange, error, help, step = '1', pl
   );
 }
 
-function TextField({ label, name, value, onChange, error, help, placeholder, multiline = false }) {
+function TextField({ label, name, value, onChange, error, placeholder, multiline = false }) {
   return (
     <div style={styles.field}>
-      <LabelWithHelp label={label} help={help} />
+      <label style={styles.label}>{label}</label>
       {multiline ? (
         <textarea
           name={name}
@@ -654,10 +632,10 @@ function TextField({ label, name, value, onChange, error, help, placeholder, mul
   );
 }
 
-function SelectInline({ label, name, value, onChange, error, options, help }) {
+function SelectInline({ label, name, value, onChange, error, options }) {
   return (
     <div style={styles.field}>
-      <LabelWithHelp label={label} help={help} />
+      <label style={styles.label}>{label}</label>
       <div style={{ position: 'relative' }}>
         <select
           name={name}
@@ -675,45 +653,6 @@ function SelectInline({ label, name, value, onChange, error, options, help }) {
     </div>
   );
 }
-
-/* -------------------- HELP (?) -------------------- */
-
-function LabelWithHelp({ label, help }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e) => {
-      if (!ref.current) return;
-      if (!ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('click', onDocClick);
-    return () => document.removeEventListener('click', onDocClick);
-  }, [open]);
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', position: 'relative', width: '100%' }} ref={ref}>
-      <label style={{ ...styles.label, flex: 1 }}>{label}</label>
-      <button
-        type="button"
-        aria-label={`Help for ${label}`}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onClick={() => setOpen((v) => !v)} // mobile toggle
-        style={{ ...styles.helpBtn, marginLeft: 8 }}
-      >
-        ?
-      </button>
-      {open && help && (
-        <div role="tooltip" style={styles.helpBubble}>
-          {help}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* -------------------- HELPERS -------------------- */
 
 function toISO(d) {
@@ -820,32 +759,4 @@ const styles = {
   saveBtnEnabled: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', cursor: 'pointer' },
   saveBtnDisabled: { background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' },
 
-  // Help (?)
-  helpBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'transparent',
-    cursor: 'pointer',
-    fontSize: 13,
-    fontWeight: 600,
-    padding: 0,
-    color: '#333',
-    flexShrink: 0,
-  },
-  helpBubble: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    marginTop: 6,
-    background: '#FFF',
-    border: '1px solid #EEE',
-    borderRadius: 8,
-    boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-    padding: '8px 10px',
-    fontSize: 12,
-    color: '#333',
-    maxWidth: 360,
-    zIndex: 5,
-  },
 };
