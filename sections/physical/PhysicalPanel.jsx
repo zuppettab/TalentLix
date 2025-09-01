@@ -733,6 +733,10 @@ function toISODate(v) {
 function toStr(v) {
   return (v === null || v === undefined) ? '' : String(v);
 }
+function normStr(v) {
+  const s = (v ?? '').toString().trim();
+  return s === '' ? null : s;
+}
 function nullIfEmpty(v) {
   const s = (v ?? '').toString().trim();
   return s === '' ? null : s;
