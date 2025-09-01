@@ -693,15 +693,15 @@ function LabelWithHelp({ label, help }) {
   }, [open]);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }} ref={ref}>
-      <label style={styles.label}>{label}</label>
+    <div style={{ display: 'flex', alignItems: 'center', position: 'relative', width: '100%' }} ref={ref}>
+      <label style={{ ...styles.label, flex: 1 }}>{label}</label>
       <button
         type="button"
         aria-label={`Help for ${label}`}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         onClick={() => setOpen((v) => !v)} // mobile toggle
-        style={styles.helpBtn}
+        style={{ ...styles.helpBtn, marginLeft: 8 }}
       >
         ?
       </button>
@@ -732,6 +732,10 @@ function toISODate(v) {
 }
 function toStr(v) {
   return (v === null || v === undefined) ? '' : String(v);
+}
+function normStr(v) {
+  const s = (v ?? '').toString().trim();
+  return s === '' ? null : s;
 }
 function nullIfEmpty(v) {
   const s = (v ?? '').toString().trim();
@@ -771,7 +775,7 @@ const styles = {
   gridMobile: { gridTemplateColumns: '1fr' },
 
   field: { display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: 600 },
+  label: { fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' },
 
   input: {
     height: 42,
@@ -820,8 +824,9 @@ const styles = {
   helpBtn: {
     width: 18,
     height: 18,
-    lineHeight: '18px',
-    textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: '50%',
     border: '1px solid #E0E0E0',
     background: '#FFF',
@@ -829,7 +834,8 @@ const styles = {
     fontSize: 12,
     fontWeight: 700,
     padding: 0,
-    color: '#333'
+    color: '#333',
+    flexShrink: 0,
   },
   helpBubble: {
     position: 'absolute',
