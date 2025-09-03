@@ -238,7 +238,7 @@ export default function AwardsWidget({ athleteId, isMobile }) {
 
       {/* Add row form (inline) */}
       {adding && (
-        <div style={{ ...styles.careerForm, ...(isMobile ? styles.careerFormMobile : null) }}>
+        <div style={styles.careerForm}>
           <div>
             <label style={styles.sublabel}>Season start</label>
             <input
@@ -481,7 +481,7 @@ function AwardAccordionItem({
         <div id={regionId} role="region" aria-labelledby={summaryId} style={styles.seasonDetails}>
           {isEditing ? (
             <>
-              <div style={{ ...styles.careerForm, ...styles.careerFormMobile }}>
+              <div style={styles.careerForm}>
                 <div>
                   <label style={styles.sublabel}>Season start</label>
                   <input
@@ -666,8 +666,8 @@ const styles = {
 
   // Form inline (riuso stile “careerForm” per coerenza visiva)
   careerForm: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
+    display: 'flex',
+    flexDirection: 'column',
     gap: 12,
     margin: '12px 0',
     padding: 12,
@@ -675,7 +675,6 @@ const styles = {
     borderRadius: 10,
     background: '#FAFAFA',
   },
-  careerFormMobile: { gridTemplateColumns: '1fr' },
 
   // Mobile season accordion (stessi token della Season card)
   seasonCard: { border: '1px solid #EEE', borderRadius: 12, marginBottom: 8, background: '#FFF' },
