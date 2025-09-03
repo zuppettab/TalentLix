@@ -238,8 +238,8 @@ export default function AwardsWidget({ athleteId, isMobile }) {
 
       {/* Add row form (inline) */}
       {adding && (
-        <div style={{ ...styles.careerForm, ...(isMobile ? styles.careerFormMobile : null) }}>
-          <div>
+        <div style={styles.careerForm}>
+          <div style={styles.field}>
             <label style={styles.sublabel}>Season start</label>
             <input
               type="number"
@@ -249,7 +249,7 @@ export default function AwardsWidget({ athleteId, isMobile }) {
             />
             {addErrors.season_start && <div style={styles.error}>{addErrors.season_start}</div>}
           </div>
-          <div>
+          <div style={styles.field}>
             <label style={styles.sublabel}>Season end</label>
             <input
               type="number"
@@ -259,7 +259,7 @@ export default function AwardsWidget({ athleteId, isMobile }) {
             />
             {addErrors.season_end && <div style={styles.error}>{addErrors.season_end}</div>}
           </div>
-          <div>
+          <div style={styles.field}>
             <label style={styles.sublabel}>Title</label>
             <input
               value={add.title}
@@ -267,7 +267,7 @@ export default function AwardsWidget({ athleteId, isMobile }) {
               style={styles.careerInput}
             />
           </div>
-          <div>
+          <div style={styles.field}>
             <label style={styles.sublabel}>Awarding entity</label>
             <input
               value={add.awarding_entity}
@@ -275,7 +275,7 @@ export default function AwardsWidget({ athleteId, isMobile }) {
               style={styles.careerInput}
             />
           </div>
-          <div>
+          <div style={styles.field}>
             <label style={styles.sublabel}>Date awarded</label>
             <input
               type="date"
@@ -285,7 +285,7 @@ export default function AwardsWidget({ athleteId, isMobile }) {
             />
             {addErrors.date_awarded && <div style={styles.error}>{addErrors.date_awarded}</div>}
           </div>
-          <div style={{ gridColumn: '1 / -1' }}>
+          <div style={styles.field}>
             <label style={styles.sublabel}>Description</label>
             <textarea
               rows={3}
@@ -481,8 +481,8 @@ function AwardAccordionItem({
         <div id={regionId} role="region" aria-labelledby={summaryId} style={styles.seasonDetails}>
           {isEditing ? (
             <>
-              <div style={{ ...styles.careerForm, ...styles.careerFormMobile }}>
-                <div>
+              <div style={styles.careerForm}>
+                <div style={styles.field}>
                   <label style={styles.sublabel}>Season start</label>
                   <input
                     type="number"
@@ -492,7 +492,7 @@ function AwardAccordionItem({
                   />
                   {editErrors.season_start && <div style={styles.error}>{editErrors.season_start}</div>}
                 </div>
-                <div>
+                <div style={styles.field}>
                   <label style={styles.sublabel}>Season end</label>
                   <input
                     type="number"
@@ -502,7 +502,7 @@ function AwardAccordionItem({
                   />
                   {editErrors.season_end && <div style={styles.error}>{editErrors.season_end}</div>}
                 </div>
-                <div>
+                <div style={styles.field}>
                   <label style={styles.sublabel}>Title</label>
                   <input
                     value={edit.title}
@@ -510,7 +510,7 @@ function AwardAccordionItem({
                     style={styles.careerInput}
                   />
                 </div>
-                <div>
+                <div style={styles.field}>
                   <label style={styles.sublabel}>Awarding entity</label>
                   <input
                     value={edit.awarding_entity}
@@ -518,7 +518,7 @@ function AwardAccordionItem({
                     style={styles.careerInput}
                   />
                 </div>
-                <div>
+                <div style={styles.field}>
                   <label style={styles.sublabel}>Date awarded</label>
                   <input
                     type="date"
@@ -528,7 +528,7 @@ function AwardAccordionItem({
                   />
                   {editErrors.date_awarded && <div style={styles.error}>{editErrors.date_awarded}</div>}
                 </div>
-                <div style={{ gridColumn: '1 / -1' }}>
+                <div style={styles.field}>
                   <label style={styles.sublabel}>Description</label>
                   <textarea
                     rows={3}
@@ -602,6 +602,8 @@ const styles = {
     borderRadius: 10,
     fontSize: 14,
     background: '#FFF',
+    width: '100%',
+    boxSizing: 'border-box',
   },
   error: { fontSize: 12, color: '#b00' },
 
@@ -666,8 +668,8 @@ const styles = {
 
   // Form inline (riuso stile “careerForm” per coerenza visiva)
   careerForm: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
+    display: 'flex',
+    flexDirection: 'column',
     gap: 12,
     margin: '12px 0',
     padding: 12,
@@ -675,7 +677,6 @@ const styles = {
     borderRadius: 10,
     background: '#FAFAFA',
   },
-  careerFormMobile: { gridTemplateColumns: '1fr' },
 
   // Mobile season accordion (stessi token della Season card)
   seasonCard: { border: '1px solid #EEE', borderRadius: 12, marginBottom: 8, background: '#FFF' },
