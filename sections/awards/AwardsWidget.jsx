@@ -238,62 +238,74 @@ export default function AwardsWidget({ athleteId, isMobile }) {
 
       {/* Add row form (inline) */}
       {adding && (
-        <div style={styles.careerForm}>
-          <div>
+        <div style={isMobile ? styles.careerForm : styles.desktopForm}>
+          <div style={isMobile ? styles.field : styles.desktopField}>
             <label style={styles.sublabel}>Season start</label>
-            <input
-              type="number"
-              value={add.season_start}
-              onChange={(e) => setAdd((p) => ({ ...p, season_start: e.target.value }))}
-              style={{ ...styles.careerInput, borderColor: addErrors.season_start ? '#b00' : '#E0E0E0' }}
-            />
-            {addErrors.season_start && <div style={styles.error}>{addErrors.season_start}</div>}
+            <div>
+              <input
+                type="number"
+                value={add.season_start}
+                onChange={(e) => setAdd((p) => ({ ...p, season_start: e.target.value }))}
+                style={{ ...styles.careerInput, borderColor: addErrors.season_start ? '#b00' : '#E0E0E0' }}
+              />
+              {addErrors.season_start && <div style={styles.error}>{addErrors.season_start}</div>}
+            </div>
           </div>
-          <div>
+          <div style={isMobile ? styles.field : styles.desktopField}>
             <label style={styles.sublabel}>Season end</label>
-            <input
-              type="number"
-              value={add.season_end}
-              onChange={(e) => setAdd((p) => ({ ...p, season_end: e.target.value }))}
-              style={{ ...styles.careerInput, borderColor: addErrors.season_end ? '#b00' : '#E0E0E0' }}
-            />
-            {addErrors.season_end && <div style={styles.error}>{addErrors.season_end}</div>}
+            <div>
+              <input
+                type="number"
+                value={add.season_end}
+                onChange={(e) => setAdd((p) => ({ ...p, season_end: e.target.value }))}
+                style={{ ...styles.careerInput, borderColor: addErrors.season_end ? '#b00' : '#E0E0E0' }}
+              />
+              {addErrors.season_end && <div style={styles.error}>{addErrors.season_end}</div>}
+            </div>
           </div>
-          <div>
+          <div style={isMobile ? styles.field : styles.desktopField}>
             <label style={styles.sublabel}>Title</label>
-            <input
-              value={add.title}
-              onChange={(e) => setAdd((p) => ({ ...p, title: e.target.value }))}
-              style={styles.careerInput}
-            />
+            <div>
+              <input
+                value={add.title}
+                onChange={(e) => setAdd((p) => ({ ...p, title: e.target.value }))}
+                style={styles.careerInput}
+              />
+            </div>
           </div>
-          <div>
+          <div style={isMobile ? styles.field : styles.desktopField}>
             <label style={styles.sublabel}>Awarding entity</label>
-            <input
-              value={add.awarding_entity}
-              onChange={(e) => setAdd((p) => ({ ...p, awarding_entity: e.target.value }))}
-              style={styles.careerInput}
-            />
+            <div>
+              <input
+                value={add.awarding_entity}
+                onChange={(e) => setAdd((p) => ({ ...p, awarding_entity: e.target.value }))}
+                style={styles.careerInput}
+              />
+            </div>
           </div>
-          <div>
+          <div style={isMobile ? styles.field : styles.desktopField}>
             <label style={styles.sublabel}>Date awarded</label>
-            <input
-              type="date"
-              value={add.date_awarded}
-              onChange={(e) => setAdd((p) => ({ ...p, date_awarded: e.target.value }))}
-              style={{ ...styles.careerInput, borderColor: addErrors.date_awarded ? '#b00' : '#E0E0E0' }}
-            />
-            {addErrors.date_awarded && <div style={styles.error}>{addErrors.date_awarded}</div>}
+            <div>
+              <input
+                type="date"
+                value={add.date_awarded}
+                onChange={(e) => setAdd((p) => ({ ...p, date_awarded: e.target.value }))}
+                style={{ ...styles.careerInput, borderColor: addErrors.date_awarded ? '#b00' : '#E0E0E0' }}
+              />
+              {addErrors.date_awarded && <div style={styles.error}>{addErrors.date_awarded}</div>}
+            </div>
           </div>
-          <div style={{ gridColumn: '1 / -1' }}>
+          <div style={isMobile ? styles.field : styles.desktopField}>
             <label style={styles.sublabel}>Description</label>
-            <textarea
-              rows={3}
-              value={add.description}
-              onChange={(e) => setAdd((p) => ({ ...p, description: e.target.value }))}
-              style={{ ...styles.careerInput, height: 'auto', paddingTop: 8, paddingBottom: 8 }}
-              placeholder="Optional notes…"
-            />
+            <div>
+              <textarea
+                rows={3}
+                value={add.description}
+                onChange={(e) => setAdd((p) => ({ ...p, description: e.target.value }))}
+                style={{ ...styles.careerInput, height: 'auto', paddingTop: 8, paddingBottom: 8 }}
+                placeholder="Optional notes…"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -418,6 +430,7 @@ export default function AwardsWidget({ athleteId, isMobile }) {
               editErrors={editErrors}
               styles={styles}
               busy={rowBusy === r.id}
+              isMobile={isMobile}
             />
           ))}
         </div>
@@ -453,6 +466,7 @@ function AwardAccordionItem({
   editErrors,
   styles,
   busy,
+  isMobile,
 }) {
   const summaryId = `award-summary-${row.id}`;
   const regionId = `award-region-${row.id}`;
@@ -481,62 +495,74 @@ function AwardAccordionItem({
         <div id={regionId} role="region" aria-labelledby={summaryId} style={styles.seasonDetails}>
           {isEditing ? (
             <>
-              <div style={styles.careerForm}>
-                <div>
+              <div style={isMobile ? styles.careerForm : styles.desktopForm}>
+                <div style={isMobile ? styles.field : styles.desktopField}>
                   <label style={styles.sublabel}>Season start</label>
-                  <input
-                    type="number"
-                    value={edit.season_start}
-                    onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
-                    style={{ ...styles.careerInput, borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
-                  />
-                  {editErrors.season_start && <div style={styles.error}>{editErrors.season_start}</div>}
+                  <div>
+                    <input
+                      type="number"
+                      value={edit.season_start}
+                      onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
+                      style={{ ...styles.careerInput, borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
+                    />
+                    {editErrors.season_start && <div style={styles.error}>{editErrors.season_start}</div>}
+                  </div>
                 </div>
-                <div>
+                <div style={isMobile ? styles.field : styles.desktopField}>
                   <label style={styles.sublabel}>Season end</label>
-                  <input
-                    type="number"
-                    value={edit.season_end}
-                    onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
-                    style={{ ...styles.careerInput, borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
-                  />
-                  {editErrors.season_end && <div style={styles.error}>{editErrors.season_end}</div>}
+                  <div>
+                    <input
+                      type="number"
+                      value={edit.season_end}
+                      onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
+                      style={{ ...styles.careerInput, borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
+                    />
+                    {editErrors.season_end && <div style={styles.error}>{editErrors.season_end}</div>}
+                  </div>
                 </div>
-                <div>
+                <div style={isMobile ? styles.field : styles.desktopField}>
                   <label style={styles.sublabel}>Title</label>
-                  <input
-                    value={edit.title}
-                    onChange={(e) => setEdit((p) => ({ ...p, title: e.target.value }))}
-                    style={styles.careerInput}
-                  />
+                  <div>
+                    <input
+                      value={edit.title}
+                      onChange={(e) => setEdit((p) => ({ ...p, title: e.target.value }))}
+                      style={styles.careerInput}
+                    />
+                  </div>
                 </div>
-                <div>
+                <div style={isMobile ? styles.field : styles.desktopField}>
                   <label style={styles.sublabel}>Awarding entity</label>
-                  <input
-                    value={edit.awarding_entity}
-                    onChange={(e) => setEdit((p) => ({ ...p, awarding_entity: e.target.value }))}
-                    style={styles.careerInput}
-                  />
+                  <div>
+                    <input
+                      value={edit.awarding_entity}
+                      onChange={(e) => setEdit((p) => ({ ...p, awarding_entity: e.target.value }))}
+                      style={styles.careerInput}
+                    />
+                  </div>
                 </div>
-                <div>
+                <div style={isMobile ? styles.field : styles.desktopField}>
                   <label style={styles.sublabel}>Date awarded</label>
-                  <input
-                    type="date"
-                    value={edit.date_awarded}
-                    onChange={(e) => setEdit((p) => ({ ...p, date_awarded: e.target.value }))}
-                    style={{ ...styles.careerInput, borderColor: editErrors.date_awarded ? '#b00' : '#E0E0E0' }}
-                  />
-                  {editErrors.date_awarded && <div style={styles.error}>{editErrors.date_awarded}</div>}
+                  <div>
+                    <input
+                      type="date"
+                      value={edit.date_awarded}
+                      onChange={(e) => setEdit((p) => ({ ...p, date_awarded: e.target.value }))}
+                      style={{ ...styles.careerInput, borderColor: editErrors.date_awarded ? '#b00' : '#E0E0E0' }}
+                    />
+                    {editErrors.date_awarded && <div style={styles.error}>{editErrors.date_awarded}</div>}
+                  </div>
                 </div>
-                <div style={{ gridColumn: '1 / -1' }}>
+                <div style={isMobile ? styles.field : styles.desktopField}>
                   <label style={styles.sublabel}>Description</label>
-                  <textarea
-                    rows={3}
-                    value={edit.description}
-                    onChange={(e) => setEdit((p) => ({ ...p, description: e.target.value }))}
-                    style={{ ...styles.careerInput, height: 'auto', paddingTop: 8, paddingBottom: 8 }}
-                    placeholder="Optional notes…"
-                  />
+                  <div>
+                    <textarea
+                      rows={3}
+                      value={edit.description}
+                      onChange={(e) => setEdit((p) => ({ ...p, description: e.target.value }))}
+                      style={{ ...styles.careerInput, height: 'auto', paddingTop: 8, paddingBottom: 8 }}
+                      placeholder="Optional notes…"
+                    />
+                  </div>
                 </div>
               </div>
               <div style={styles.seasonActions}>
@@ -584,6 +610,7 @@ function AwardAccordionItem({
 const styles = {
   // input/label/error
   field: { display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 },
+  desktopField: { display: 'contents' },
   label: { fontSize: 13, fontWeight: 600 },
   sublabel: { fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 6 },
 
@@ -602,6 +629,7 @@ const styles = {
     borderRadius: 10,
     fontSize: 14,
     background: '#FFF',
+    width: '100%',
   },
   error: { fontSize: 12, color: '#b00' },
 
@@ -669,6 +697,17 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: 12,
+    margin: '12px 0',
+    padding: 12,
+    border: '1px dashed #E0E0E0',
+    borderRadius: 10,
+    background: '#FAFAFA',
+  },
+  desktopForm: {
+    display: 'grid',
+    gridTemplateColumns: '150px 1fr',
+    columnGap: 16,
+    rowGap: 12,
     margin: '12px 0',
     padding: 12,
     border: '1px dashed #E0E0E0',
