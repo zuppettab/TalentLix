@@ -7,6 +7,7 @@ import PersonalPanel from '../sections/personal/PersonalPanel';
 import ContactsPanel from '../sections/contacts/ContactsPanel';
 import SportInfoPanel from '../sections/sports/SportInfoPanel';
 import PhysicalPanel from '../sections/physical/PhysicalPanel';
+import AwardsWidget from '../sections/awards/AwardsWidget';
 
 const ATHLETE_TABLE = 'athlete';
 
@@ -357,7 +358,10 @@ export default function Dashboard() {
                 {current === 'physical' && (
                   <PhysicalPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
                 )}
-                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'physical' && (
+                {current === 'awards' && (
+                  <AwardsWidget athleteId={athlete?.id} isMobile={isMobile} />
+                )}
+                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'physical' && current !== 'awards' && (
                   <p style={styles.placeholder}>TODO — “{sectionObj?.title}”</p>
                 )}
 

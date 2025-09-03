@@ -6,9 +6,9 @@ export const SECTIONS = [
   { id: 'contacts',  title: 'Contacts and Identity' },
   { id: 'sports',    title: 'Sport info' },
   { id: 'physical',  title: 'Physical data' },
+  { id: 'awards',    title: 'Awards' },
   { id: 'media',     title: 'Media' },
   { id: 'social',    title: 'Social' },
-  { id: 'awards',    title: 'Awards' },
   { id: 'privacy',   title: 'Privacy & consent' },
 ];
 
