@@ -422,8 +422,18 @@ export default function AwardsWidget({ athleteId, isMobile }) {
                 <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Entity</th>
                 <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Date</th>
                 <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Description</th>
-                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Evidence file</th>
-                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>External URL</th>
+                <th
+                  style={{ ...styles.th, ...(isMobile ? styles.thMobile : null), ...styles.evidenceCell }}
+                  title="Evidence file"
+                >
+                  📄
+                </th>
+                <th
+                  style={{ ...styles.th, ...(isMobile ? styles.thMobile : null), ...styles.linkCell }}
+                  title="External URL"
+                >
+                  🔗
+                </th>
                 <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobile : null) }}>Actions</th>
               </tr>
             </thead>
@@ -484,7 +494,7 @@ export default function AwardsWidget({ athleteId, isMobile }) {
                       ) : (formatDate(r.date_awarded))}
                       {isEditing && editErrors.date_awarded && <div style={styles.error}>{editErrors.date_awarded}</div>}
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), minWidth: 200 }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), ...(isEditing ? { minWidth: 200 } : null) }}>
                       {isEditing ? (
                         <textarea
                           rows={2}
@@ -492,9 +502,17 @@ export default function AwardsWidget({ athleteId, isMobile }) {
                           onChange={(e) => setEdit((p) => ({ ...p, description: e.target.value }))}
                           style={{ ...styles.careerInput, height: 'auto', paddingTop: 8, paddingBottom: 8 }}
                         />
-                      ) : (r.description || '—')}
+                      ) : (
+                        r.description ? (
+                          <div style={styles.descCell} title={r.description}>
+                            {r.description}
+                          </div>
+                        ) : (
+                          '—'
+                        )
+                      )}
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), ...styles.evidenceCell }}>
                       {isEditing ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <button type="button" style={styles.smallBtn} onClick={clickEditEvidence}>Choose file</button>
@@ -502,13 +520,20 @@ export default function AwardsWidget({ athleteId, isMobile }) {
                         </div>
                       ) : (
                         r.evidence_file_path ? (
-                          <a href={r.evidence_signed_url} target="_blank" rel="noopener noreferrer">
-                            {getFileNameFromPath(r.evidence_file_path)}
+                          <a
+                            href={r.evidence_signed_url}
+                            title={getFileNameFromPath(r.evidence_file_path)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            📄
                           </a>
-                        ) : '—'
+                        ) : (
+                          '—'
+                        )
                       )}
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), ...styles.linkCell }}>
                       {isEditing ? (
                         <input
                           value={edit.evidence_external_url}
@@ -517,8 +542,17 @@ export default function AwardsWidget({ athleteId, isMobile }) {
                         />
                       ) : (
                         r.evidence_external_url ? (
-                          <a href={r.evidence_external_url} target="_blank" rel="noopener noreferrer">{r.evidence_external_url}</a>
-                        ) : '—'
+                          <a
+                            href={r.evidence_external_url}
+                            title={r.evidence_external_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            🔗
+                          </a>
+                        ) : (
+                          '—'
+                        )
                       )}
                     </td>
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -869,6 +903,9 @@ const styles = {
     verticalAlign: 'top',
   },
   tdMobile: { padding: '12px 20px', minWidth: 180 },
+  descCell: { maxWidth: 150, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  evidenceCell: { width: 40, textAlign: 'center' },
+  linkCell: { width: 40, textAlign: 'center' },
 
   // Form inline (riuso stile “careerForm” per coerenza visiva)
   careerForm: {
