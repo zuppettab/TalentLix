@@ -1,6 +1,6 @@
 // sections/sports/AwardsWidget.jsx
 // @ts-check
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase as sb } from '../../utils/supabaseClient';
 
 const supabase = sb;
@@ -17,6 +17,12 @@ const formatSeason = (start, end) => {
   return s || '-';
 };
 const formatDate = (d) => (d ? d : '—');
+const getFileNameFromPath = (p) => {
+  if (!p) return '';
+  const s = String(p);
+  const ix = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\'));
+  return ix >= 0 ? s.slice(ix + 1) : s;
+};
 
 export default function AwardsWidget({ athleteId, isMobile }) {
   const [rows, setRows] = useState([]);
@@ -32,6 +38,8 @@ export default function AwardsWidget({ athleteId, isMobile }) {
     awarding_entity: '',
     date_awarded: '',
     description: '',
+    evidence_file_path: '',
+    evidence_external_url: '',
   });
   const [addErrors, setAddErrors] = useState({});
 
@@ -41,6 +49,58 @@ export default function AwardsWidget({ athleteId, isMobile }) {
   const [editErrors, setEditErrors] = useState({});
   const [openId, setOpenId] = useState(null);   // accordion open row (mobile)
   const [rowBusy, setRowBusy] = useState(null); // disable actions while saving/deleting
+
+  // File upload helpers
+  const addEvidenceRef = useRef(null);
+  const editEvidenceRef = useRef(null);
+  const clickAddEvidence = () => addEvidenceRef.current?.click();
+  const clickEditEvidence = () => editEvidenceRef.current?.click();
+  const [addEvidenceName, setAddEvidenceName] = useState('');
+  const [editEvidenceName, setEditEvidenceName] = useState('');
+
+  const makeEvidencePath = () => `${athleteId}/awards/${Date.now()}`;
+  const uploadEvidenceFile = async (file) => {
+    const ext = file.name?.includes('.')
+      ? file.name.split('.').pop()
+      : (file.type?.split('/')?.pop() || 'bin');
+    const path = `${makeEvidencePath()}.${ext}`;
+    const { error } = await supabase.storage.from('documents').upload(path, file, { upsert: true });
+    if (error) throw error;
+    return path;
+  };
+
+  const onPickAddEvidence = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    try {
+      const key = await uploadEvidenceFile(f);
+      setAdd((p) => ({ ...p, evidence_file_path: key }));
+      setAddEvidenceName(f.name);
+    } catch (err) {
+      console.error(err);
+      setCStatus({ type: 'error', msg: 'File upload failed' });
+    }
+  };
+
+  const onPickEditEvidence = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    try {
+      const key = await uploadEvidenceFile(f);
+      setEdit((p) => ({ ...p, evidence_file_path: key }));
+      setEditEvidenceName(f.name);
+    } catch (err) {
+      console.error(err);
+      setCStatus({ type: 'error', msg: 'File upload failed' });
+    }
+  };
+
+  const makeSignedUrl = async (path) => {
+    if (!path) return '';
+    const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60);
+    if (error) return '';
+    return data?.signedUrl || '';
+  };
 
   // --- load
   const loadRows = async () => {
@@ -55,7 +115,14 @@ export default function AwardsWidget({ athleteId, isMobile }) {
         .order('date_awarded', { ascending: false })
         .order('id', { ascending: false });
       if (error) throw error;
-      setRows(data || []);
+      const withUrls = await Promise.all(
+        (data || []).map(async (r) => {
+          let signed = '';
+          if (r.evidence_file_path) signed = await makeSignedUrl(r.evidence_file_path);
+          return { ...r, evidence_signed_url: signed };
+        }),
+      );
+      setRows(withUrls);
     } catch (e) {
       console.error(e);
       setCStatus({ type: 'error', msg: 'Load failed' });
@@ -104,13 +171,17 @@ export default function AwardsWidget({ athleteId, isMobile }) {
       awarding_entity: '',
       date_awarded: '',
       description: '',
+      evidence_file_path: '',
+      evidence_external_url: '',
     });
     setAddErrors({});
+    setAddEvidenceName('');
   };
   const onAddCancel = () => {
     setAdding(false);
     setAddErrors({});
     setCStatus({ type: '', msg: '' });
+    setAddEvidenceName('');
   };
   const onAddSave = async () => {
     const errs = validate(add);
@@ -129,12 +200,15 @@ export default function AwardsWidget({ athleteId, isMobile }) {
         date_awarded: add.date_awarded || null,
         season_start: add.season_start === '' ? null : Number(add.season_start),
         season_end: add.season_end === '' ? null : Number(add.season_end),
+        evidence_file_path: add.evidence_file_path || null,
+        evidence_external_url: (add.evidence_external_url || '').trim() || null,
       };
 
       const { error } = await supabase.from(AWARDS_TABLE).insert([payload]);
       if (error) throw error;
 
       setAdding(false);
+      setAddEvidenceName('');
       setCStatus({ type: 'success', msg: 'Saved ✓' });
       await loadRows();
     } catch (e) {
@@ -154,14 +228,18 @@ export default function AwardsWidget({ athleteId, isMobile }) {
       awarding_entity: row.awarding_entity || '',
       date_awarded: row.date_awarded || '',
       description: row.description || '',
+      evidence_file_path: row.evidence_file_path || '',
+      evidence_external_url: row.evidence_external_url || '',
     });
     setEditErrors({});
     setCStatus({ type: '', msg: '' });
+    setEditEvidenceName(getFileNameFromPath(row.evidence_file_path) || '');
   };
   const onEditCancel = () => {
     setEditId(null);
     setEdit({});
     setEditErrors({});
+    setEditEvidenceName('');
   };
   const onEditSave = async (id) => {
     const errs = validate(edit);
@@ -182,6 +260,8 @@ export default function AwardsWidget({ athleteId, isMobile }) {
         date_awarded: edit.date_awarded || null,
         season_start: edit.season_start === '' ? null : Number(edit.season_start),
         season_end: edit.season_end === '' ? null : Number(edit.season_end),
+        evidence_file_path: edit.evidence_file_path || null,
+        evidence_external_url: (edit.evidence_external_url || '').trim() || null,
       };
 
       const { error } = await supabase
@@ -191,6 +271,7 @@ export default function AwardsWidget({ athleteId, isMobile }) {
       if (error) throw error;
 
       setEditId(null);
+      setEditEvidenceName('');
       setCStatus({ type: 'success', msg: 'Saved ✓' });
       await loadRows();
     } catch (e) {
@@ -223,18 +304,20 @@ export default function AwardsWidget({ athleteId, isMobile }) {
   if (cLoading) return <div style={{ padding: 8, color: '#666' }}>Loading…</div>;
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <h3 style={{ margin: 0, fontSize: 16 }}>Awards &amp; Recognitions</h3>
-        {!adding ? (
-          <button type="button" onClick={onAddClick} style={styles.smallBtn}>+ Add award</button>
-        ) : (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={onAddSave} style={styles.smallBtnPrimary}>Save</button>
-            <button type="button" onClick={onAddCancel} style={styles.smallBtn}>Cancel</button>
-          </div>
-        )}
-      </div>
+    <>
+      <input type="file" ref={editEvidenceRef} onChange={onPickEditEvidence} style={{ display: 'none' }} />
+      <div style={{ marginTop: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <h3 style={{ margin: 0, fontSize: 16 }}>Awards &amp; Recognitions</h3>
+          {!adding ? (
+            <button type="button" onClick={onAddClick} style={styles.smallBtn}>+ Add award</button>
+          ) : (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={onAddSave} style={styles.smallBtnPrimary}>Save</button>
+              <button type="button" onClick={onAddCancel} style={styles.smallBtn}>Cancel</button>
+            </div>
+          )}
+        </div>
 
       {/* Add row form (inline) */}
       {adding && (
@@ -296,6 +379,24 @@ export default function AwardsWidget({ athleteId, isMobile }) {
             </div>
           </div>
           <div style={isMobile ? styles.field : styles.desktopField}>
+            <label style={styles.sublabel}>Evidence file</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button type="button" style={styles.smallBtn} onClick={clickAddEvidence}>Choose file</button>
+              <span style={{ fontSize: 14 }}>{addEvidenceName || 'No file'}</span>
+            </div>
+            <input type="file" ref={addEvidenceRef} onChange={onPickAddEvidence} style={{ display: 'none' }} />
+          </div>
+          <div style={isMobile ? styles.field : styles.desktopField}>
+            <label style={styles.sublabel}>Evidence external URL</label>
+            <div>
+              <input
+                value={add.evidence_external_url}
+                onChange={(e) => setAdd((p) => ({ ...p, evidence_external_url: e.target.value }))}
+                style={styles.careerInput}
+              />
+            </div>
+          </div>
+          <div style={isMobile ? styles.field : styles.desktopField}>
             <label style={styles.sublabel}>Description</label>
             <div>
               <textarea
@@ -321,6 +422,8 @@ export default function AwardsWidget({ athleteId, isMobile }) {
                 <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Entity</th>
                 <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Date</th>
                 <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Description</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Evidence file</th>
+                <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>External URL</th>
                 <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobile : null) }}>Actions</th>
               </tr>
             </thead>
@@ -391,6 +494,33 @@ export default function AwardsWidget({ athleteId, isMobile }) {
                         />
                       ) : (r.description || '—')}
                     </td>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                      {isEditing ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <button type="button" style={styles.smallBtn} onClick={clickEditEvidence}>Choose file</button>
+                          <span style={{ fontSize: 14 }}>{editEvidenceName || getFileNameFromPath(edit.evidence_file_path) || 'No file'}</span>
+                        </div>
+                      ) : (
+                        r.evidence_file_path ? (
+                          <a href={r.evidence_signed_url} target="_blank" rel="noopener noreferrer">
+                            {getFileNameFromPath(r.evidence_file_path)}
+                          </a>
+                        ) : '—'
+                      )}
+                    </td>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                      {isEditing ? (
+                        <input
+                          value={edit.evidence_external_url}
+                          onChange={(e) => setEdit((p) => ({ ...p, evidence_external_url: e.target.value }))}
+                          style={styles.careerInput}
+                        />
+                      ) : (
+                        r.evidence_external_url ? (
+                          <a href={r.evidence_external_url} target="_blank" rel="noopener noreferrer">{r.evidence_external_url}</a>
+                        ) : '—'
+                      )}
+                    </td>
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {!isEditing ? (
                         <>
@@ -431,6 +561,8 @@ export default function AwardsWidget({ athleteId, isMobile }) {
               styles={styles}
               busy={rowBusy === r.id}
               isMobile={isMobile}
+              clickEditEvidence={clickEditEvidence}
+              editEvidenceName={editEvidenceName}
             />
           ))}
         </div>
@@ -447,7 +579,8 @@ export default function AwardsWidget({ athleteId, isMobile }) {
           {cStatus.msg}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -467,6 +600,8 @@ function AwardAccordionItem({
   styles,
   busy,
   isMobile,
+  clickEditEvidence,
+  editEvidenceName,
 }) {
   const summaryId = `award-summary-${row.id}`;
   const regionId = `award-region-${row.id}`;
@@ -553,6 +688,23 @@ function AwardAccordionItem({
                   </div>
                 </div>
                 <div style={isMobile ? styles.field : styles.desktopField}>
+                  <label style={styles.sublabel}>Evidence file</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button type="button" style={styles.smallBtn} onClick={clickEditEvidence}>Choose file</button>
+                    <span style={{ fontSize: 14 }}>{editEvidenceName || getFileNameFromPath(edit.evidence_file_path) || 'No file'}</span>
+                  </div>
+                </div>
+                <div style={isMobile ? styles.field : styles.desktopField}>
+                  <label style={styles.sublabel}>Evidence external URL</label>
+                  <div>
+                    <input
+                      value={edit.evidence_external_url}
+                      onChange={(e) => setEdit((p) => ({ ...p, evidence_external_url: e.target.value }))}
+                      style={styles.careerInput}
+                    />
+                  </div>
+                </div>
+                <div style={isMobile ? styles.field : styles.desktopField}>
                   <label style={styles.sublabel}>Description</label>
                   <div>
                     <textarea
@@ -592,6 +744,32 @@ function AwardAccordionItem({
                 <div style={styles.seasonDetailRow}>
                   <span style={styles.seasonLabel}>Description</span>
                   <span style={styles.seasonValue}>{row.description}</span>
+                </div>
+              )}
+              {row.evidence_file_path && (
+                <div style={styles.seasonDetailRow}>
+                  <span style={styles.seasonLabel}>Evidence</span>
+                  <a
+                    href={row.evidence_signed_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={styles.seasonValue}
+                  >
+                    {getFileNameFromPath(row.evidence_file_path)}
+                  </a>
+                </div>
+              )}
+              {row.evidence_external_url && (
+                <div style={styles.seasonDetailRow}>
+                  <span style={styles.seasonLabel}>Evidence URL</span>
+                  <a
+                    href={row.evidence_external_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={styles.seasonValue}
+                  >
+                    {row.evidence_external_url}
+                  </a>
                 </div>
               )}
               <div style={styles.seasonActions}>
