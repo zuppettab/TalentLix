@@ -152,7 +152,7 @@ const styles = {
   galleryTh: { textAlign: 'left', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE', whiteSpace: 'nowrap' },
   galleryThRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
   galleryTd: { fontSize: 14, padding: '10px 12px', borderBottom: '1px solid #F5F5F5', verticalAlign: 'top' },
-  galleryThumbCell: { width: 60 },
+  galleryThumbCell: { width: 80, textAlign: 'center' },
   galleryTitleCell: { width: '20%', minWidth: 160 },
   galleryCaptionCell: { width: '35%', minWidth: 240 },
   galleryTagsCell: { width: '25%', minWidth: 200 },
@@ -1688,11 +1688,14 @@ function GalleryIconLink({ item, getSigned }) {
       setUrl(u);
     })();
   }, [item?.storage_path, item?.external_url]);
-  const icon = <span role="img" aria-label="image" style={{ fontSize: 24 }}>🖼️</span>;
-  if (!url) return icon;
+  if (!url) return <span role="img" aria-label="image" style={{ fontSize: 24 }}>🖼️</span>;
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-      {icon}
+    <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+      <img
+        src={url}
+        alt={item?.title || 'Image'}
+        style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8 }}
+      />
     </a>
   );
 }
