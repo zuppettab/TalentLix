@@ -146,6 +146,16 @@ const styles = {
   itemTitle: { fontWeight: 700, fontSize: 14 },
   itemMeta: { fontSize: 12, color: '#666' },
 
+  // Gallery table
+  galleryTableWrap: { overflowX: 'auto', border: '1px solid #EEE', borderRadius: 10, background: '#FFF' },
+  galleryTable: { width: '100%', borderCollapse: 'separate', borderSpacing: 0 },
+  galleryTh: { textAlign: 'left', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE', whiteSpace: 'nowrap' },
+  galleryThRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
+  galleryTd: { fontSize: 14, padding: '10px 12px', borderBottom: '1px solid #F5F5F5', verticalAlign: 'top' },
+  galleryThumbCell: { width: 200 },
+  galleryActionCell: { textAlign: 'right', whiteSpace: 'nowrap' },
+  galleryThumb: { width: 40, height: 40, objectFit: 'cover', borderRadius: 4 },
+
   // Table (games)
   tableWrap: { overflowX: 'auto', border: '1px solid #EEE', borderRadius: 10, background: '#FFF' },
   table: { width: '100%', borderCollapse: 'separate', borderSpacing: 0 },
@@ -1370,63 +1380,77 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
           </button>
         </div>
 
-        <div style={styles.list}>
-          {gallery.map((it, idx) => (
-            <div key={it.id}
-                 draggable
-                 onDragStart={() => onDragStartGal(idx)}
-                 onDragOver={(e) => onDragOverGal(e, idx)}
-                 onDrop={onDropGal}
-                 style={{
-                   ...styles.item,
-                   ...(drag.type==='gal' && drag.to === idx ? styles.droptarget : null),
-                   ...(drag.type==='gal' ? styles.draggable : null)
-                 }}>
-              <div style={styles.itemHeader}>
-                <div>
-                  <div style={styles.itemTitle}>Photo #{idx + 1}</div>
-                  <div style={styles.itemMeta}>
-                    {elide(it.storage_path || it.external_url || '', 48)} • {(bytesToMB(it.file_size_bytes)||0)}MB
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button type="button" style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
-                          onClick={() => onDeleteGallery(it.id, it.storage_path)}>
-                    Delete
-                  </button>
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
-                <div>
-                  <label style={styles.label}>Title</label>
-                  <input value={it.title || ''} onChange={(e) => editGalleryField(it.id, 'title', e.target.value)} style={styles.input}/>
-                </div>
-                <div>
-                  <label style={styles.label}>Caption</label>
-                  <input value={it.caption || ''} onChange={(e) => editGalleryField(it.id, 'caption', e.target.value)} style={styles.input}/>
-                </div>
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <label style={styles.label}>Tags</label>
-                <CreatableSelect
-                  isMulti
-                  placeholder="Add tag…"
-                  value={(Array.isArray(it.tags) ? it.tags : []).map(t => ({ value: t, label: t }))}
-                  onChange={(opts) => editGalleryField(it.id, 'tags', (Array.isArray(opts) ? opts.map(o => o.value) : []))}
-                  styles={{
-                    container: (b) => ({ ...b, width:'100%' }),
-                    control: (b) => ({ ...b, minHeight: 42, borderRadius: 10, borderColor: '#E0E0E0', boxShadow: 'none' }),
-                    valueContainer: (b) => ({ ...b, padding: '0 10px' }),
-                    indicatorsContainer: (b) => ({ ...b, paddingRight: 8 }),
-                    menu: (b) => ({ ...b, zIndex: 10 }),
-                  }}
-                />
-              </div>
-            </div>
-          ))}
-          {gallery.length === 0 && (
-            <div style={{ fontSize: 12, color: '#666' }}>No photos in gallery.</div>
-          )}
+        <div style={styles.galleryTableWrap}>
+          <table style={styles.galleryTable}>
+            <thead>
+              <tr>
+                <th style={styles.galleryTh}>Photo</th>
+                <th style={styles.galleryTh}>Title</th>
+                <th style={styles.galleryTh}>Caption</th>
+                <th style={styles.galleryTh}>Tags</th>
+                <th style={styles.galleryThRight}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {gallery.length > 0 && gallery.map((it, idx) => (
+                <tr key={it.id}
+                    draggable
+                    onDragStart={() => onDragStartGal(idx)}
+                    onDragOver={(e) => onDragOverGal(e, idx)}
+                    onDrop={onDropGal}
+                    style={{
+                      ...(drag.type==='gal' && drag.to === idx ? styles.droptarget : null),
+                      ...(drag.type==='gal' ? styles.draggable : null)
+                    }}>
+                  <td style={{ ...styles.galleryTd, ...styles.galleryThumbCell }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <GalleryThumb item={it} getSigned={getSignedUrl} />
+                      <div>
+                        <div style={styles.itemTitle}>Photo #{idx + 1}</div>
+                        <div style={styles.itemMeta}>
+                          {elide(it.storage_path || it.external_url || '', 48)} • {(bytesToMB(it.file_size_bytes)||0)}MB
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={styles.galleryTd}>
+                    <input value={it.title || ''} onChange={(e) => editGalleryField(it.id, 'title', e.target.value)} style={styles.input}/>
+                  </td>
+                  <td style={styles.galleryTd}>
+                    <input value={it.caption || ''} onChange={(e) => editGalleryField(it.id, 'caption', e.target.value)} style={styles.input}/>
+                  </td>
+                  <td style={styles.galleryTd}>
+                    <CreatableSelect
+                      isMulti
+                      placeholder="Add tag…"
+                      value={(Array.isArray(it.tags) ? it.tags : []).map(t => ({ value: t, label: t }))}
+                      onChange={(opts) => editGalleryField(it.id, 'tags', (Array.isArray(opts) ? opts.map(o => o.value) : []))}
+                      styles={{
+                        container: (b) => ({ ...b, width:'100%' }),
+                        control: (b) => ({ ...b, minHeight: 42, borderRadius: 10, borderColor: '#E0E0E0', boxShadow: 'none' }),
+                        valueContainer: (b) => ({ ...b, padding: '0 10px' }),
+                        indicatorsContainer: (b) => ({ ...b, paddingRight: 8 }),
+                        menu: (b) => ({ ...b, zIndex: 10 }),
+                      }}
+                    />
+                  </td>
+                  <td style={{ ...styles.galleryTd, ...styles.galleryActionCell }}>
+                    <button type="button" style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
+                            onClick={() => onDeleteGallery(it.id, it.storage_path)}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {gallery.length === 0 && (
+                <tr>
+                  <td style={styles.galleryTd} colSpan={5}>
+                    <span style={{ fontSize: 12, color: '#666' }}>No photos in gallery.</span>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -1665,6 +1689,22 @@ function GameAccordionItem({ item, game, isOpen, onToggle, onEditGameField, onSa
         </div>
       )}
     </div>
+  );
+}
+
+function GalleryThumb({ item, getSigned }) {
+  const [src, setSrc] = useState('');
+  useEffect(() => {
+    (async () => {
+      const u = item?.external_url || (item?.storage_path ? await getSigned(item.storage_path) : '');
+      setSrc(u);
+    })();
+  }, [item?.storage_path, item?.external_url]);
+  if (!src) return <div style={{ ...styles.galleryThumb, background: '#EEE' }} />;
+  return (
+    <a href={src} target="_blank" rel="noopener noreferrer">
+      <img alt="Thumb" src={src} style={styles.galleryThumb} />
+    </a>
   );
 }
 
