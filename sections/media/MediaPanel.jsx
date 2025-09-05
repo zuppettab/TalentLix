@@ -113,21 +113,28 @@ const styles = {
     display: 'flex', flexDirection: 'column', gap: 8, background: '#FFF'
   },
   featuredPreview: {
-    width: '100%', aspectRatio: '4 / 3', background: '#F7F7F7',
-    border: '1px solid #EEE', borderRadius: 10, objectFit: 'cover'
+    width: '100%',
+    maxWidth: 200,
+    aspectRatio: '4 / 3',
+    background: '#F7F7F7',
+    border: '1px solid #EEE',
+    borderRadius: 10,
+    objectFit: 'cover',
+    margin: '0 auto'
   },
 
   // Player video
   mediaPreview: {
     width: '100%',
-    maxWidth: 560,
+    maxWidth: 320,
     aspectRatio: '16 / 9',
     background: '#000',
     border: '1px solid #EEE',
     borderRadius: 10,
     objectFit: 'cover',
     overflow: 'hidden',
-    display: 'block'
+    display: 'block',
+    margin: '0 auto'
   },
   videoRow: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
 
@@ -1531,7 +1538,7 @@ function VideoPlayer({ item, getSigned, usePoster }) {
       controls
       preload="metadata"
       poster={poster || undefined}
-      style={{ maxWidth: 420, width: '100%', borderRadius: 10, border: '1px solid #EEE', background:'#000' }}
+      style={styles.mediaPreview}
       src={src || ''}
     />
   );
