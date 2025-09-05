@@ -152,9 +152,11 @@ const styles = {
   galleryTh: { textAlign: 'left', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE', whiteSpace: 'nowrap' },
   galleryThRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
   galleryTd: { fontSize: 14, padding: '10px 12px', borderBottom: '1px solid #F5F5F5', verticalAlign: 'top' },
-  galleryThumbCell: { width: 200 },
+  galleryThumbCell: { width: 60 },
+  galleryTitleCell: { width: '20%', minWidth: 160 },
+  galleryCaptionCell: { width: '35%', minWidth: 240 },
+  galleryTagsCell: { width: '25%', minWidth: 200 },
   galleryActionCell: { textAlign: 'right', whiteSpace: 'nowrap' },
-  galleryThumb: { width: 40, height: 40, objectFit: 'cover', borderRadius: 4 },
 
   // Table (games)
   tableWrap: { overflowX: 'auto', border: '1px solid #EEE', borderRadius: 10, background: '#FFF' },
@@ -201,12 +203,6 @@ const styles = {
 // ------------------------------ UTILS ------------------------------
 const nowTs = () => Date.now();
 const bytesToMB = (b) => Math.round((Number(b || 0) / (1024 * 1024)) * 10) / 10;
-const elide = (s, max = 40) => {
-  const v = String(s || '');
-  if (v.length <= max) return v;
-  const h = Math.floor((max - 1) / 2);
-  return v.slice(0, h) + '…' + v.slice(v.length - h);
-};
 const isImageFile = (f) => IMG_TYPES.has(f?.type || '');
 const isVideoFile = (f) => VID_TYPES.has(f?.type || '');
 const getExt = (name = '') => (name.includes('.') ? name.split('.').pop().toLowerCase() : '');
@@ -1384,10 +1380,10 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
           <table style={styles.galleryTable}>
             <thead>
               <tr>
-                <th style={styles.galleryTh}>Photo</th>
-                <th style={styles.galleryTh}>Title</th>
-                <th style={styles.galleryTh}>Caption</th>
-                <th style={styles.galleryTh}>Tags</th>
+                <th style={{ ...styles.galleryTh, ...styles.galleryThumbCell }}>Photo</th>
+                <th style={{ ...styles.galleryTh, ...styles.galleryTitleCell }}>Title</th>
+                <th style={{ ...styles.galleryTh, ...styles.galleryCaptionCell }}>Caption</th>
+                <th style={{ ...styles.galleryTh, ...styles.galleryTagsCell }}>Tags</th>
                 <th style={styles.galleryThRight}>Actions</th>
               </tr>
             </thead>
@@ -1403,23 +1399,15 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                       ...(drag.type==='gal' ? styles.draggable : null)
                     }}>
                   <td style={{ ...styles.galleryTd, ...styles.galleryThumbCell }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <GalleryThumb item={it} getSigned={getSignedUrl} />
-                      <div>
-                        <div style={styles.itemTitle}>Photo #{idx + 1}</div>
-                        <div style={styles.itemMeta}>
-                          {elide(it.storage_path || it.external_url || '', 48)} • {(bytesToMB(it.file_size_bytes)||0)}MB
-                        </div>
-                      </div>
-                    </div>
+                    <GalleryIconLink item={it} getSigned={getSignedUrl} />
                   </td>
-                  <td style={styles.galleryTd}>
+                  <td style={{ ...styles.galleryTd, ...styles.galleryTitleCell }}>
                     <input value={it.title || ''} onChange={(e) => editGalleryField(it.id, 'title', e.target.value)} style={styles.input}/>
                   </td>
-                  <td style={styles.galleryTd}>
+                  <td style={{ ...styles.galleryTd, ...styles.galleryCaptionCell }}>
                     <input value={it.caption || ''} onChange={(e) => editGalleryField(it.id, 'caption', e.target.value)} style={styles.input}/>
                   </td>
-                  <td style={styles.galleryTd}>
+                  <td style={{ ...styles.galleryTd, ...styles.galleryTagsCell }}>
                     <CreatableSelect
                       isMulti
                       placeholder="Add tag…"
@@ -1692,18 +1680,19 @@ function GameAccordionItem({ item, game, isOpen, onToggle, onEditGameField, onSa
   );
 }
 
-function GalleryThumb({ item, getSigned }) {
-  const [src, setSrc] = useState('');
+function GalleryIconLink({ item, getSigned }) {
+  const [url, setUrl] = useState('');
   useEffect(() => {
     (async () => {
       const u = item?.external_url || (item?.storage_path ? await getSigned(item.storage_path) : '');
-      setSrc(u);
+      setUrl(u);
     })();
   }, [item?.storage_path, item?.external_url]);
-  if (!src) return <div style={{ ...styles.galleryThumb, background: '#EEE' }} />;
+  const icon = <span role="img" aria-label="image" style={{ fontSize: 24 }}>🖼️</span>;
+  if (!url) return icon;
   return (
-    <a href={src} target="_blank" rel="noopener noreferrer">
-      <img alt="Thumb" src={src} style={styles.galleryThumb} />
+    <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+      {icon}
     </a>
   );
 }
