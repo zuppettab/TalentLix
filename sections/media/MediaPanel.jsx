@@ -162,7 +162,7 @@ const styles = {
   galleryTh: { textAlign: 'left', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE', whiteSpace: 'nowrap' },
   galleryThRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
   galleryTd: { fontSize: 14, padding: '10px 12px', borderBottom: '1px solid #F5F5F5', verticalAlign: 'top' },
-  galleryThumbCell: { width: 80, textAlign: 'center' },
+  galleryThumbCell: { width: 100, textAlign: 'center', verticalAlign: 'middle' },
   galleryTitleCell: { width: '18%', minWidth: 120 },
   galleryCaptionCell: { width: '25%', minWidth: 160 },
   galleryTagsCell: { width: '25%', minWidth: 160 },
@@ -1739,7 +1739,7 @@ function GalleryIconLink({ item, getSigned }) {
       <img
         src={url}
         alt={item?.title || 'Image'}
-        style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8 }}
+        style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, display: 'block', margin: '0 auto' }}
       />
     </a>
   );
