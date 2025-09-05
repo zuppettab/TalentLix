@@ -125,7 +125,7 @@ const styles = {
   },
   featuredPreview: {
     width: '100%',
-    maxWidth: 200,
+    maxWidth: 300,
     aspectRatio: '4 / 3',
     background: '#F7F7F7',
     border: '1px solid #EEE',
