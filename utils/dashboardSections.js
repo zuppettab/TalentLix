@@ -10,6 +10,7 @@ export const SECTIONS = [
   { id: 'media',     title: 'Media' },
   { id: 'social',    title: 'Social' },
   { id: 'privacy',   title: 'Privacy & consent' },
+  { id: 'media',    title: 'Media' },
 ];
 
 /** @type {'personal'|'contacts'|'sports'|'physical'|'media'|'social'|'awards'|'privacy'} */
