@@ -63,6 +63,7 @@ const styles = {
   fieldRow: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
   label: { fontSize: 13, fontWeight: 600 },
   input: {
+    width: '100%',
     height: 42,
     padding: '10px 12px',
     border: '1px solid #E0E0E0',
@@ -154,8 +155,8 @@ const styles = {
   galleryTd: { fontSize: 14, padding: '10px 12px', borderBottom: '1px solid #F5F5F5', verticalAlign: 'top' },
   galleryThumbCell: { width: 80, textAlign: 'center' },
   galleryTitleCell: { width: '20%', minWidth: 160 },
-  galleryCaptionCell: { width: '35%', minWidth: 240 },
-  galleryTagsCell: { width: '25%', minWidth: 200 },
+  galleryCaptionCell: { width: '30%', minWidth: 240 },
+  galleryTagsCell: { width: '30%', minWidth: 200 },
   galleryActionCell: { textAlign: 'right', whiteSpace: 'nowrap' },
 
   // Table (games)
