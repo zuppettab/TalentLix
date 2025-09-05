@@ -1461,7 +1461,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                  style={styles.input} placeholder="e.g. U17 Elite" disabled={addGameDisabled}/>
         </div>
 
-        <div style={styles.fieldRow}>
+        <div style={{ ...styles.fieldRow, marginBottom: 16 }}>
           <button type="button" onClick={onAddGame}
                   style={addGameDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
                   disabled={addGameDisabled}>
