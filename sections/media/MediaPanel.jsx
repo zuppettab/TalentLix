@@ -1760,6 +1760,12 @@ function GalleryAccordionItem({ item, isOpen, onToggle, editGalleryField, onSave
     })();
   }, [item?.storage_path]);
 
+  const handleOpen = async () => {
+    const url = item.external_url ||
+                (item.storage_path ? await getSigned(item.storage_path) : '#');
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div style={styles.galleryCard}>
       <button
@@ -1824,7 +1830,7 @@ function GalleryAccordionItem({ item, isOpen, onToggle, editGalleryField, onSave
             <button
               type="button"
               style={styles.smallBtn}
-              onClick={() => window.open(item.external_url || '#', '_blank', 'noopener,noreferrer')}
+              onClick={handleOpen}
             >
               Open
             </button>
