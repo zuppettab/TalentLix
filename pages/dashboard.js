@@ -355,6 +355,9 @@ export default function Dashboard() {
                 {current === 'sports' && (
                   <SportInfoPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
                 )}
+                {current === 'media' && (
+                 <MediaPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
+                )}
                 {current === 'physical' && (
                   <PhysicalPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
                 )}
