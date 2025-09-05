@@ -146,6 +146,31 @@ const styles = {
   itemTitle: { fontWeight: 700, fontSize: 14 },
   itemMeta: { fontSize: 12, color: '#666' },
 
+  // Table (games)
+  tableWrap: { overflowX: 'auto', border: '1px solid #EEE', borderRadius: 10, background: '#FFF' },
+  table: { width: '100%', borderCollapse: 'separate', borderSpacing: 0 },
+  th: { textAlign: 'left', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE', whiteSpace: 'nowrap' },
+  thRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
+  thMobile: { padding: '12px 20px', minWidth: 180 },
+  td: { fontSize: 14, padding: '10px 12px', borderBottom: '1px solid #F5F5F5', verticalAlign: 'top' },
+  tdMobile: { padding: '12px 20px', minWidth: 180 },
+
+  // Mobile accordion (games)
+  gameCard: { border: '1px solid #EEE', borderRadius: 12, marginBottom: 8, background: '#FFF' },
+  gameSummary: {
+    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+    padding: '10px 12px', background: 'transparent', border: 'none', textAlign: 'left',
+    cursor: 'pointer', minHeight: 56,
+  },
+  gameDate: { fontSize: 16, fontWeight: 600, color: '#111827' },
+  gameText: {
+    flex: 1, fontSize: 14, color: '#111827', overflow: 'hidden',
+    textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 8,
+  },
+  gameChevron: { width: 16, height: 16, transition: 'transform 0.2s', flexShrink: 0 },
+  gameDetails: { padding: 12, borderTop: '1px solid #EEE', display: 'flex', flexDirection: 'column', gap: 8 },
+  gameActions: { display: 'flex', gap: 8, marginTop: 8 },
+
   // Drag handle + area drop
   draggable: { cursor: 'grab' },
   droptarget: { outline: '2px dashed rgba(39,227,218,0.5)' },
@@ -333,6 +358,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   const [gallery, setGallery]       = useState([]);
   const [highlights, setHighlights] = useState([]);
   const [games, setGames]           = useState([]);
+  const [openGameId, setOpenGameId] = useState(null);
 
   // UI stati locali (add forms)
   const headInputRef = useRef(null);
@@ -1065,6 +1091,10 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     }
   };
 
+  const toggleGame = (id) => {
+    setOpenGameId((p) => (p === id ? null : id));
+  };
+
   // ---------------- SAVE BAR (solo testi/ordinamenti Gallery & HL) ----------------
   const hasDirty = dirty;
   const isSaveDisabled = saving || !hasDirty;
@@ -1441,54 +1471,102 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
           {addGameDisabled && <div style={{ color: '#b00', fontSize: 12 }}>Limit reached: replace or remove.</div>}
         </div>
 
-        <div style={styles.list}>
-          {games.map(({ item, game }) => (
-            <div key={item.id} style={styles.item}>
-              <div style={styles.itemHeader}>
-                <div>
-                  <div style={styles.itemTitle}>{game.match_date || '—'} • {game.opponent || '—'}</div>
-                  <div style={styles.itemMeta}>
-                    {game.competition || '—'} • {game.season || '—'} • {game.team_level || '—'}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <a href={item.external_url || '#'} target="_blank" rel="noreferrer" style={styles.linkBtn}>Open</a>
-                  <button type="button" style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
-                          onClick={() => onDeleteGame(item.id)}>Delete</button>
-                </div>
-              </div>
-
-              <div style={{ ...styles.boxGrid2, ...(isMobile ? styles.boxGridMobile : null), marginTop: 8 }}>
-                <div>
-                  <label style={styles.label}>Match date *</label>
-                  <input type="date" value={game.match_date || ''} onChange={(e) => onEditGameField(item.id, 'match_date', e.target.value)} style={styles.input}/>
-                </div>
-                <div>
-                  <label style={styles.label}>Opponent *</label>
-                  <input value={game.opponent || ''} onChange={(e) => onEditGameField(item.id, 'opponent', e.target.value)} style={styles.input}/>
-                </div>
-                <div>
-                  <label style={styles.label}>Competition *</label>
-                  <input value={game.competition || ''} onChange={(e) => onEditGameField(item.id, 'competition', e.target.value)} style={styles.input}/>
-                </div>
-                <div>
-                  <label style={styles.label}>Season *</label>
-                  <input value={game.season || ''} onChange={(e) => onEditGameField(item.id, 'season', e.target.value)} style={styles.input}/>
-                </div>
-                <div>
-                  <label style={styles.label}>Team level *</label>
-                  <input value={game.team_level || ''} onChange={(e) => onEditGameField(item.id, 'team_level', e.target.value)} style={styles.input}/>
-                </div>
-                <div style={{ alignSelf: 'end' }}>
-                  <button type="button" onClick={() => onSaveGameRow(item.id)} style={styles.smallBtnPrimary}>Save</button>
-                </div>
-              </div>
-            </div>
-          ))}
-          {games.length === 0 && (
-            <div style={{ fontSize: 12, color: '#666' }}>No matches added.</div>
-          )}
-        </div>
+        {!isMobile ? (
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Match Date</th>
+                  <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Opponent</th>
+                  <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Competition</th>
+                  <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Season</th>
+                  <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Team Level</th>
+                  <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobile : null) }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {games.map(({ item, game }) => (
+                  <tr key={item.id}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                      <input
+                        type="date"
+                        value={game.match_date || ''}
+                        onChange={(e) => onEditGameField(item.id, 'match_date', e.target.value)}
+                        style={styles.input}
+                      />
+                    </td>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                      <input
+                        value={game.opponent || ''}
+                        onChange={(e) => onEditGameField(item.id, 'opponent', e.target.value)}
+                        style={styles.input}
+                      />
+                    </td>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                      <input
+                        value={game.competition || ''}
+                        onChange={(e) => onEditGameField(item.id, 'competition', e.target.value)}
+                        style={styles.input}
+                      />
+                    </td>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                      <input
+                        value={game.season || ''}
+                        onChange={(e) => onEditGameField(item.id, 'season', e.target.value)}
+                        style={styles.input}
+                      />
+                    </td>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                      <input
+                        value={game.team_level || ''}
+                        onChange={(e) => onEditGameField(item.id, 'team_level', e.target.value)}
+                        style={styles.input}
+                      />
+                    </td>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <a href={item.external_url || '#'} target="_blank" rel="noreferrer" style={styles.linkBtn}>Open</a>
+                      <span style={{ margin: '0 6px' }}>|</span>
+                      <button type="button" style={styles.linkBtn} onClick={() => onSaveGameRow(item.id)}>Save</button>
+                      <span style={{ margin: '0 6px' }}>|</span>
+                      <button
+                        type="button"
+                        style={{ ...styles.linkBtn, color: '#b00' }}
+                        onClick={() => onDeleteGame(item.id)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {games.length === 0 && (
+                  <tr>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }} colSpan={6}>
+                      <div style={{ fontSize: 12, color: '#666' }}>No matches added.</div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div>
+            {games.map(({ item, game }) => (
+              <GameAccordionItem
+                key={item.id}
+                item={item}
+                game={game}
+                isOpen={openGameId === item.id}
+                onToggle={() => toggleGame(item.id)}
+                onEditGameField={onEditGameField}
+                onSaveGameRow={onSaveGameRow}
+                onDeleteGame={onDeleteGame}
+              />
+            ))}
+            {games.length === 0 && (
+              <div style={{ fontSize: 12, color: '#666' }}>No matches added.</div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* SAVE BAR — testi/ordinamenti (Gallery/Highlights) */}
@@ -1507,6 +1585,89 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 }
 
 // ---------------- SUB-COMPONENTS ----------------
+function GameAccordionItem({ item, game, isOpen, onToggle, onEditGameField, onSaveGameRow, onDeleteGame }) {
+  const summaryId = `game-summary-${item.id}`;
+  const regionId = `game-region-${item.id}`;
+
+  return (
+    <div style={styles.gameCard}>
+      <button
+        type="button"
+        style={styles.gameSummary}
+        onClick={onToggle}
+        id={summaryId}
+        aria-controls={regionId}
+        aria-expanded={isOpen}
+      >
+        <span style={styles.gameDate}>{game.match_date || '—'}</span>
+        <span style={styles.gameText}>{game.opponent || '—'}</span>
+        <span style={{ ...styles.gameChevron, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+      </button>
+
+      {isOpen && (
+        <div id={regionId} role="region" aria-labelledby={summaryId} style={styles.gameDetails}>
+          <div style={styles.field}>
+            <label style={styles.label}>Match date *</label>
+            <input
+              type="date"
+              value={game.match_date || ''}
+              onChange={(e) => onEditGameField(item.id, 'match_date', e.target.value)}
+              style={styles.input}
+            />
+          </div>
+          <div style={styles.field}>
+            <label style={styles.label}>Opponent *</label>
+            <input
+              value={game.opponent || ''}
+              onChange={(e) => onEditGameField(item.id, 'opponent', e.target.value)}
+              style={styles.input}
+            />
+          </div>
+          <div style={styles.field}>
+            <label style={styles.label}>Competition *</label>
+            <input
+              value={game.competition || ''}
+              onChange={(e) => onEditGameField(item.id, 'competition', e.target.value)}
+              style={styles.input}
+            />
+          </div>
+          <div style={styles.field}>
+            <label style={styles.label}>Season *</label>
+            <input
+              value={game.season || ''}
+              onChange={(e) => onEditGameField(item.id, 'season', e.target.value)}
+              style={styles.input}
+            />
+          </div>
+          <div style={styles.field}>
+            <label style={styles.label}>Team level *</label>
+            <input
+              value={game.team_level || ''}
+              onChange={(e) => onEditGameField(item.id, 'team_level', e.target.value)}
+              style={styles.input}
+            />
+          </div>
+          <div style={styles.gameActions}>
+            <a href={item.external_url || '#'} target="_blank" rel="noreferrer" style={styles.linkBtn}>
+              Open
+            </a>
+            <button type="button" style={styles.smallBtnPrimary} onClick={() => onSaveGameRow(item.id)}>
+              Save
+            </button>
+            <button
+              type="button"
+              style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
+              onClick={() => onDeleteGame(item.id)}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FeaturedPreview({ imgPath, getSigned }) {
   const [url, setUrl] = useState('');
   useEffect(() => { (async () => setUrl(await getSigned(imgPath || '')))(); }, [imgPath]);
