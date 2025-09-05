@@ -189,6 +189,9 @@ const styles = {
     flex: 1, fontSize: 14, color: '#111827', overflow: 'hidden',
     textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 8,
   },
+  gameSeason: {
+    fontSize: 14, color: '#111827', whiteSpace: 'nowrap', marginLeft: 8, flexShrink: 0,
+  },
   gameChevron: { width: 16, height: 16, transition: 'transform 0.2s', flexShrink: 0 },
   gameDetails: { padding: 12, borderTop: '1px solid #EEE', display: 'flex', flexDirection: 'column', gap: 8 },
   gameActions: { display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' },
@@ -1622,6 +1625,7 @@ function GameAccordionItem({ item, game, isOpen, onToggle, onEditGameField, onSa
         aria-expanded={isOpen}
       >
         <span style={styles.gameDate}>{game.match_date || '—'}</span>
+        <span style={styles.gameSeason}>{game.season || '—'}</span>
         <span style={styles.gameText}>{game.opponent || '—'}</span>
         <span style={{ ...styles.gameChevron, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
       </button>
