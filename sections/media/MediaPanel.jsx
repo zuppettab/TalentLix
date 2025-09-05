@@ -165,8 +165,8 @@ const styles = {
   galleryThumbCell: { width: 100, textAlign: 'center', verticalAlign: 'middle' },
   galleryTitleCell: { width: '18%', minWidth: 120 },
   galleryCaptionCell: { width: '25%', minWidth: 160 },
-  galleryTagsCell: { width: '25%', minWidth: 160 },
-  galleryActionCell: { textAlign: 'right', whiteSpace: 'nowrap' },
+  galleryTagsCell: { width: '35%', minWidth: 220 },
+  galleryActionCell: { display: 'flex', justifyContent: 'flex-end', whiteSpace: 'nowrap' },
 
   // Table (games)
   tableWrap: { overflowX: 'auto', border: '1px solid #EEE', borderRadius: 10, background: '#FFF' },
@@ -1545,7 +1545,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                         style={styles.input}
                       />
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), display: 'flex', justifyContent: 'flex-end', whiteSpace: 'nowrap' }}>
                       <a href={item.external_url || '#'} target="_blank" rel="noreferrer" style={styles.linkBtn}>Open</a>
                       <span style={{ margin: '0 6px' }}>|</span>
                       <button type="button" style={styles.linkBtn} onClick={() => onSaveGameRow(item.id)}>Save</button>
