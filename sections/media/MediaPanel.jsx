@@ -16,7 +16,7 @@ import { supabase as sb } from '../../utils/supabaseClient';
 const supabase = sb;
 
 // ------------------------------ COSTANTI & LIMITI ------------------------------
-const BUCKET = 'media';
+const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'media';
 
 // CAP rigidi
 const CAP = {
@@ -267,9 +267,16 @@ const readVideoMetaAndThumb = ({ file, captureThumb = true, targetLongSide = 128
 
 // Upload Blob in storage
 const uploadBlob = async (path, blob) => {
-  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { upsert: true });
-  if (error) throw error;
-  return path;
+  try {
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, blob, { upsert: true, contentType: blob.type });
+    if (error) throw error;
+    return path;
+  } catch (e) {
+    console.error('Supabase upload error:', e);
+    throw e;
+  }
 };
 
 // Rimozione sicura storage (ignora errori)
@@ -456,7 +463,9 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
       // carica file
       const path = pathPhotoFeatured(slotKey);
-      const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, { upsert: true, contentType: file.type });
       if (error) throw error;
 
       const cat =
@@ -504,8 +513,8 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       }
       setStatus({ type: 'success', msg: 'Saved ✓' });
     } catch (e4) {
-      console.error(e4);
-      setStatus({ type: 'error', msg: 'Upload failed' });
+      console.error('Supabase upload error:', e4);
+      setStatus({ type: 'error', msg: e4.message || 'Upload failed' });
     } finally {
       // reset input per poter ricaricare stesso file
       e.target.value = '';
@@ -552,7 +561,9 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
       // upload video
       const vPath = pathVideoIntro(file.name);
-      const { error } = await supabase.storage.from(BUCKET).upload(vPath, file, { upsert: true });
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(vPath, file, { upsert: true, contentType: file.type });
       if (error) throw error;
 
       if (intro?.id) {
@@ -599,8 +610,8 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
       setStatus({ type: 'success', msg: 'Saved ✓' });
     } catch (e4) {
-      console.error(e4);
-      setStatus({ type: 'error', msg: 'Upload failed' });
+      console.error('Supabase upload error:', e4);
+      setStatus({ type: 'error', msg: e4.message || 'Upload failed' });
     } finally {
       e.target.value = '';
     }
@@ -644,7 +655,9 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       if (meta.thumbBlob) { thumbPath = pathVideoThumb(); await uploadBlob(thumbPath, meta.thumbBlob); }
 
       const vPath = pathVideoHighlight(file.name);
-      const { error } = await supabase.storage.from(BUCKET).upload(vPath, file, { upsert: true });
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(vPath, file, { upsert: true, contentType: file.type });
       if (error) throw error;
 
       const nextOrder = highlights.length ? Math.max(...highlights.map(i => Number(i.sort_order||0))) + 1 : 0;
@@ -671,8 +684,8 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       setHighlights(list);
       setStatus({ type: 'success', msg: 'Saved ✓' });
     } catch (e4) {
-      console.error(e4);
-      setStatus({ type: 'error', msg: 'Upload failed' });
+      console.error('Supabase upload error:', e4);
+      setStatus({ type: 'error', msg: e4.message || 'Upload failed' });
     } finally {
       e.target.value = '';
     }
@@ -752,7 +765,9 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       }
 
       const vPath = pathVideoHighlight(file.name);
-      const { error } = await supabase.storage.from(BUCKET).upload(vPath, file, { upsert: true });
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(vPath, file, { upsert: true, contentType: file.type });
       if (error) throw error;
 
       if (item.storage_path) await removeStorageIfAny(item.storage_path);
@@ -777,8 +792,8 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       setHighlights((p) => p.map(x => x.id === item.id ? data : x).sort(sortByOrder));
       setStatus({ type: 'success', msg: 'Saved ✓' });
     } catch (e) {
-      console.error(e);
-      setStatus({ type: 'error', msg: 'Replace failed' });
+      console.error('Supabase upload error:', e);
+      setStatus({ type: 'error', msg: e.message || 'Replace failed' });
     }
   };
 
@@ -864,7 +879,9 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
         const dims = await readImageDims(file);
         const p = pathPhotoGallery(file.name);
-        const { error } = await supabase.storage.from(BUCKET).upload(p, file, { upsert: true });
+        const { error } = await supabase.storage
+          .from(BUCKET)
+          .upload(p, file, { upsert: true, contentType: file.type });
         if (error) throw error;
 
         const nextOrder = gallery.length
@@ -891,8 +908,8 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       }
       setStatus({ type: 'success', msg: 'Saved ✓' });
     } catch (e3) {
-      console.error(e3);
-      setStatus({ type: 'error', msg: 'Upload failed' });
+      console.error('Supabase upload error:', e3);
+      setStatus({ type: 'error', msg: e3.message || 'Upload failed' });
     } finally {
       e.target.value = '';
     }
