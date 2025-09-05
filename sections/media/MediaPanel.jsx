@@ -105,6 +105,7 @@ const styles = {
   box: { gridColumn: '1 / -1', border: '1px solid #EEE', borderRadius: 10, background: '#FFF', padding: 12 },
   boxGrid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
   boxGridMobile: { gridTemplateColumns: '1fr' },
+  gameForm: { display: 'grid', gridTemplateColumns: '150px 1fr', columnGap: 16, rowGap: 12 },
 
   // Featured 3 slot
   featuredWrap: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 },
@@ -1404,37 +1405,30 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
         <div style={styles.sectionTitle}>Full Games (max 10 — external links only)</div>
         <div style={styles.subnote}>Automatically sorted by match date (<code>match_date</code>) descending.</div>
 
-        <div style={{ ...styles.boxGrid2, ...(isMobile ? styles.boxGridMobile : null), marginBottom: 8 }}>
-          <div className="col">
-            <label style={styles.label}>URL (YouTube/Vimeo) *</label>
-            <input value={addGame.url} onChange={(e) => setAddGame((p) => ({ ...p, url: e.target.value, err: '' }))}
-                   style={styles.input} placeholder="Paste URL…" disabled={addGameDisabled}/>
-          </div>
-          <div className="col">
-            <label style={styles.label}>Match date *</label>
-            <input type="date" value={addGame.match_date} onChange={(e) => setAddGame((p) => ({ ...p, match_date: e.target.value, err: '' }))}
-                   style={styles.input} disabled={addGameDisabled}/>
-          </div>
-          <div className="col">
-            <label style={styles.label}>Opponent *</label>
-            <input value={addGame.opponent} onChange={(e) => setAddGame((p) => ({ ...p, opponent: e.target.value, err: '' }))}
-                   style={styles.input} disabled={addGameDisabled}/>
-          </div>
-          <div className="col">
-            <label style={styles.label}>Competition *</label>
-            <input value={addGame.competition} onChange={(e) => setAddGame((p) => ({ ...p, competition: e.target.value, err: '' }))}
-                   style={styles.input} disabled={addGameDisabled}/>
-          </div>
-          <div className="col">
-            <label style={styles.label}>Season *</label>
-            <input value={addGame.season} onChange={(e) => setAddGame((p) => ({ ...p, season: e.target.value, err: '' }))}
-                   style={styles.input} placeholder="e.g. 2024/25" disabled={addGameDisabled}/>
-          </div>
-          <div className="col">
-            <label style={styles.label}>Team level *</label>
-            <input value={addGame.team_level} onChange={(e) => setAddGame((p) => ({ ...p, team_level: e.target.value, err: '' }))}
-                   style={styles.input} placeholder="e.g. U17 Elite" disabled={addGameDisabled}/>
-          </div>
+        <div style={{ ...styles.gameForm, ...(isMobile ? styles.boxGridMobile : null), marginBottom: 8 }}>
+          <label style={styles.label}>URL (YouTube/Vimeo) *</label>
+          <input value={addGame.url} onChange={(e) => setAddGame((p) => ({ ...p, url: e.target.value, err: '' }))}
+                 style={styles.input} placeholder="Paste URL…" disabled={addGameDisabled}/>
+
+          <label style={styles.label}>Match date *</label>
+          <input type="date" value={addGame.match_date} onChange={(e) => setAddGame((p) => ({ ...p, match_date: e.target.value, err: '' }))}
+                 style={styles.input} disabled={addGameDisabled}/>
+
+          <label style={styles.label}>Opponent *</label>
+          <input value={addGame.opponent} onChange={(e) => setAddGame((p) => ({ ...p, opponent: e.target.value, err: '' }))}
+                 style={styles.input} disabled={addGameDisabled}/>
+
+          <label style={styles.label}>Competition *</label>
+          <input value={addGame.competition} onChange={(e) => setAddGame((p) => ({ ...p, competition: e.target.value, err: '' }))}
+                 style={styles.input} disabled={addGameDisabled}/>
+
+          <label style={styles.label}>Season *</label>
+          <input value={addGame.season} onChange={(e) => setAddGame((p) => ({ ...p, season: e.target.value, err: '' }))}
+                 style={styles.input} placeholder="e.g. 2024/25" disabled={addGameDisabled}/>
+
+          <label style={styles.label}>Team level *</label>
+          <input value={addGame.team_level} onChange={(e) => setAddGame((p) => ({ ...p, team_level: e.target.value, err: '' }))}
+                 style={styles.input} placeholder="e.g. U17 Elite" disabled={addGameDisabled}/>
         </div>
 
         <div style={styles.fieldRow}>
