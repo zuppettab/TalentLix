@@ -955,6 +955,42 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     if (status.type) setStatus({ type: '', msg: '' });
   };
 
+  const onSaveGalleryRow = async (id) => {
+    const row = gallery.find(i => i.id === id);
+    if (!row) return;
+    try {
+      const payload = {
+        title: row.title || null,
+        caption: row.caption || null,
+        tags: Array.isArray(row.tags)
+          ? row.tags
+          : (row.tags ? String(row.tags).split(',').map(s => s.trim()).filter(Boolean) : []),
+      };
+      const { error } = await supabase.from(TBL_MEDIA).update(payload).eq('id', id);
+      if (error) throw error;
+      const newSnapshotGallery = snapshot.gallery.some(g => g.id === id)
+        ? snapshot.gallery.map(g => (g.id === id ? { ...row } : g))
+        : [...snapshot.gallery, { ...row }];
+      setSnapshot(prev => ({ ...prev, gallery: newSnapshotGallery }));
+      const galleryDirty = gallery.some(g => {
+        const snap = newSnapshotGallery.find(s => s.id === g.id);
+        if (!snap) return true;
+        const tagsA = Array.isArray(g.tags) ? g.tags.join(',') : '';
+        const tagsB = Array.isArray(snap.tags) ? snap.tags.join(',') : '';
+        return (g.title || '') !== (snap.title || '') ||
+               (g.caption || '') !== (snap.caption || '') ||
+               tagsA !== tagsB ||
+               Number(g.sort_order || 0) !== Number(snap.sort_order || 0);
+      });
+      const highlightsDirty = JSON.stringify(highlights) !== JSON.stringify(snapshot.highlights);
+      setDirty(galleryDirty || highlightsDirty);
+      setStatus({ type: 'success', msg: 'Saved ✓' });
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: 'error', msg: 'Save failed' });
+    }
+  };
+
   const onDeleteGallery = async (id, storage_path) => {
     const ok = window.confirm('Remove this photo from Gallery?');
     if (!ok) return;
@@ -1424,10 +1460,9 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                     />
                   </td>
                   <td style={{ ...styles.galleryTd, ...styles.galleryActionCell }}>
-                    <button type="button" style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
-                            onClick={() => onDeleteGallery(it.id, it.storage_path)}>
-                      Delete
-                    </button>
+                    <button type="button" style={styles.linkBtn} onClick={() => onSaveGalleryRow(it.id)}>Save</button>
+                    <span style={{ margin: '0 6px' }}>|</span>
+                    <button type="button" style={{ ...styles.linkBtn, color: '#b00' }} onClick={() => onDeleteGallery(it.id, it.storage_path)}>Delete</button>
                   </td>
                 </tr>
               ))}
