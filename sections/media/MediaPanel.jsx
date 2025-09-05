@@ -191,7 +191,7 @@ const styles = {
   },
   gameChevron: { width: 16, height: 16, transition: 'transform 0.2s', flexShrink: 0 },
   gameDetails: { padding: 12, borderTop: '1px solid #EEE', display: 'flex', flexDirection: 'column', gap: 8 },
-  gameActions: { display: 'flex', gap: 8, marginTop: 8 },
+  gameActions: { display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' },
 
   // Drag handle + area drop
   draggable: { cursor: 'grab' },
