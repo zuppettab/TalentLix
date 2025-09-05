@@ -149,7 +149,7 @@ const styles = {
 
   // Gallery table
   galleryTableWrap: { overflowX: 'auto', border: '1px solid #EEE', borderRadius: 10, background: '#FFF' },
-  galleryTable: { width: '100%', borderCollapse: 'separate', borderSpacing: 0 },
+  galleryTable: { width: '100%', borderCollapse: 'separate', borderSpacing: '8px 0' },
   galleryTh: { textAlign: 'left', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE', whiteSpace: 'nowrap' },
   galleryThRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
   galleryTd: { fontSize: 14, padding: '10px 12px', borderBottom: '1px solid #F5F5F5', verticalAlign: 'top' },
@@ -161,7 +161,7 @@ const styles = {
 
   // Table (games)
   tableWrap: { overflowX: 'auto', border: '1px solid #EEE', borderRadius: 10, background: '#FFF' },
-  table: { width: '100%', borderCollapse: 'separate', borderSpacing: 0 },
+  table: { width: '100%', borderCollapse: 'separate', borderSpacing: '8px 0' },
   th: { textAlign: 'left', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE', whiteSpace: 'nowrap' },
   thRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
   thMobile: { padding: '12px 20px', minWidth: 180 },
