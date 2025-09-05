@@ -118,7 +118,17 @@ const styles = {
   },
 
   // Player video
-  videoPoster: { width: 220, height: 124, borderRadius: 8, background: '#EEE', border: '1px solid #DDD', objectFit: 'cover' },
+  mediaPreview: {
+    width: '100%',
+    maxWidth: 560,
+    aspectRatio: '16 / 9',
+    background: '#000',
+    border: '1px solid #EEE',
+    borderRadius: 10,
+    objectFit: 'cover',
+    overflow: 'hidden',
+    display: 'block'
+  },
   videoRow: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
 
   // Liste
@@ -1544,17 +1554,17 @@ function HLPlayer({ item, getSigned, usePoster }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>
         {!showEmbed ? (
           <>
-            {poster ? <img alt="Poster" src={poster} style={styles.videoPoster} /> : <div style={styles.videoPoster} />}
+            {poster ? <img alt="Poster" src={poster} style={styles.mediaPreview} /> : <div style={styles.mediaPreview} />}
             <button type="button" style={styles.smallBtnPrimary} onClick={() => setShowEmbed(true)}>
               Play
             </button>
           </>
         ) : (
-          <div style={{ position: 'relative', paddingTop: '56.25%', width: '100%', maxWidth: 560, background: '#000', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={styles.mediaPreview}>
             <iframe
               title="Highlight"
               src={buildEmbedUrl(item.external_url)}
-              style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', border:'0' }}
+              style={{ width: '100%', height: '100%', border: '0', display: 'block' }}
               allow="autoplay; encrypted-media; picture-in-picture"
               allowFullScreen
             />
@@ -1572,7 +1582,7 @@ function HLPlayer({ item, getSigned, usePoster }) {
         controls
         preload="metadata"
         poster={poster || undefined}
-        style={{ maxWidth: 560, width: '100%', borderRadius: 10, border: '1px solid #EEE', background:'#000' }}
+        style={styles.mediaPreview}
         src={src || ''}
       />
     </div>
