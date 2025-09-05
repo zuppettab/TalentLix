@@ -71,6 +71,15 @@ const styles = {
     fontSize: 14,
     background: '#FFF'
   },
+  galleryInput: {
+    width: '100%',
+    height: 36,
+    padding: '8px 10px',
+    border: '1px solid #E0E0E0',
+    borderRadius: 10,
+    fontSize: 14,
+    background: '#FFF'
+  },
   textarea: {
     minHeight: 70,
     padding: '10px 12px',
@@ -154,9 +163,9 @@ const styles = {
   galleryThRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
   galleryTd: { fontSize: 14, padding: '10px 12px', borderBottom: '1px solid #F5F5F5', verticalAlign: 'top' },
   galleryThumbCell: { width: 80, textAlign: 'center' },
-  galleryTitleCell: { width: '20%', minWidth: 160 },
-  galleryCaptionCell: { width: '30%', minWidth: 240 },
-  galleryTagsCell: { width: '30%', minWidth: 200 },
+  galleryTitleCell: { width: '18%', minWidth: 120 },
+  galleryCaptionCell: { width: '25%', minWidth: 160 },
+  galleryTagsCell: { width: '25%', minWidth: 160 },
   galleryActionCell: { textAlign: 'right', whiteSpace: 'nowrap' },
 
   // Table (games)
@@ -1439,10 +1448,10 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                     <GalleryIconLink item={it} getSigned={getSignedUrl} />
                   </td>
                   <td style={{ ...styles.galleryTd, ...styles.galleryTitleCell }}>
-                    <input value={it.title || ''} onChange={(e) => editGalleryField(it.id, 'title', e.target.value)} style={styles.input}/>
+                    <input value={it.title || ''} onChange={(e) => editGalleryField(it.id, 'title', e.target.value)} style={styles.galleryInput}/>
                   </td>
                   <td style={{ ...styles.galleryTd, ...styles.galleryCaptionCell }}>
-                    <input value={it.caption || ''} onChange={(e) => editGalleryField(it.id, 'caption', e.target.value)} style={styles.input}/>
+                    <input value={it.caption || ''} onChange={(e) => editGalleryField(it.id, 'caption', e.target.value)} style={styles.galleryInput}/>
                   </td>
                   <td style={{ ...styles.galleryTd, ...styles.galleryTagsCell }}>
                     <CreatableSelect
