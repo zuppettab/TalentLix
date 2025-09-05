@@ -842,44 +842,6 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     }
   };
 
-  const onReplaceHLLink = async (item, url) => {
-    const plat = detectPlatform(url);
-    if (!plat) { alert('Invalid URL (YouTube/Vimeo).'); return; }
-    try {
-      // se aveva storage, rimuovi
-      if (item.storage_path) await removeStorageIfAny(item.storage_path);
-      // se aveva thumb interna e NON http, rimuovi (manteniamo solo thumbs provider o nuove)
-      if (item.thumbnail_path && !isHttpUrl(item.thumbnail_path)) await removeStorageIfAny(item.thumbnail_path);
-
-      let thumb = '';
-      if (plat === 'youtube') {
-        const id = parseYouTubeId(url);
-        if (id) thumb = youTubeThumb(id);
-      }
-      const { data, error } = await supabase
-        .from(TBL_MEDIA)
-        .update({
-          storage_path: null,
-          external_url: url,
-          source_platform: plat,
-          duration_seconds: null,
-          width: null, height: null,
-          file_size_bytes: null,
-          thumbnail_path: thumb || null,
-          uploaded_at: new Date().toISOString(),
-        })
-        .eq('id', item.id)
-        .select()
-        .single();
-      if (error) throw error;
-      setHighlights((p) => p.map(x => x.id === item.id ? data : x).sort(sortByOrder));
-      setStatus({ type: 'success', msg: 'Saved ✓' });
-    } catch (e) {
-      console.error(e);
-      setStatus({ type: 'error', msg: 'Replace failed' });
-    }
-  };
-
   // Edit campi testuali (title/caption/tags) — si salvano con Save Bar
   const editHLField = (id, key, val) => {
     setHighlights((p) => p.map(i => i.id === id ? { ...i, [key]: val } : i));
@@ -1298,15 +1260,17 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
         </div>
 
         {/* Azioni add */}
-        <div style={styles.fieldRow}>
-          <input type="file" accept="video/mp4,video/quicktime,video/webm" ref={hlUploadInputRef} onChange={onPickHLUpload} style={{ display: 'none' }}/>
-          <button type="button" onClick={() => !addHLDisabled && hlUploadInputRef.current?.click()}
-                  style={addHLDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
-                  disabled={addHLDisabled}>
-            + Add Upload
-          </button>
+        <div style={{ ...styles.fieldRow, flexDirection: 'column', alignItems: 'center', rowGap: 8 }}>
+          <div>
+            <input type="file" accept="video/mp4,video/quicktime,video/webm" ref={hlUploadInputRef} onChange={onPickHLUpload} style={{ display: 'none' }}/>
+            <button type="button" onClick={() => !addHLDisabled && hlUploadInputRef.current?.click()}
+                    style={addHLDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
+                    disabled={addHLDisabled}>
+              + Add Upload
+            </button>
+          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
             <input
               placeholder="Paste YouTube/Vimeo URL…"
               value={addLinkHL.url}
@@ -1353,12 +1317,13 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                       <label htmlFor={`repl-hl-${it.id}`} style={{ ...styles.smallBtn, cursor: 'pointer' }}>Replace</label>
                     </>
                   ) : (
-                    <button type="button" style={styles.smallBtn}
-                            onClick={() => {
-                              const url = prompt('Nuovo URL YouTube/Vimeo', it.external_url || '');
-                              if (url) onReplaceHLLink(it, url);
-                            }}>
-                      Replace link
+                    <button
+                      type="button"
+                      onClick={onSave}
+                      style={isSaveDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
+                      disabled={isSaveDisabled}
+                    >
+                      Save
                     </button>
                   )}
                   <button type="button" style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
@@ -1372,7 +1337,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
               <HLPlayer item={it} getSigned={getSignedUrl} usePoster={usePoster} />
 
               {/* Campi testuali (salvati con Save Bar) */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', rowGap: 12, marginTop: 8 }}>
                 <div>
                   <label style={styles.label}>Title</label>
                   <input value={it.title || ''} onChange={(e) => editHLField(it.id, 'title', e.target.value)} style={styles.input}/>
@@ -1790,14 +1755,24 @@ function HLPlayer({ item, getSigned, usePoster }) {
 
   if (item.external_url) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>
+      <div style={{ marginTop: 6 }}>
         {!showEmbed ? (
-          <>
+          <div style={{ position: 'relative', width: '100%', maxWidth: 320, margin: '0 auto' }}>
             {poster ? <img alt="Poster" src={poster} style={styles.mediaPreview} /> : <div style={styles.mediaPreview} />}
-            <button type="button" style={styles.smallBtnPrimary} onClick={() => setShowEmbed(true)}>
+            <button
+              type="button"
+              style={{
+                ...styles.smallBtnPrimary,
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
+              onClick={() => setShowEmbed(true)}
+            >
               Play
             </button>
-          </>
+          </div>
         ) : (
           <div style={styles.mediaPreview}>
             <iframe
