@@ -137,7 +137,7 @@ const styles = {
   // Player video
   mediaPreview: {
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 420,
     aspectRatio: '16 / 9',
     background: '#000',
     border: '1px solid #EEE',
@@ -1757,7 +1757,7 @@ function HLPlayer({ item, getSigned, usePoster }) {
     return (
       <div style={{ marginTop: 6 }}>
         {!showEmbed ? (
-          <div style={{ position: 'relative', width: '100%', maxWidth: 320, margin: '0 auto' }}>
+          <div style={{ position: 'relative', width: '100%', maxWidth: 420, margin: '0 auto' }}>
             {poster ? <img alt="Poster" src={poster} style={styles.mediaPreview} /> : <div style={styles.mediaPreview} />}
             <button
               type="button"
