@@ -365,7 +365,7 @@ export default function Dashboard() {
                 {current === 'awards' && (
                   <AwardsWidget athleteId={athlete?.id} isMobile={isMobile} />
                 )}
-                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'physical' && current !== 'awards' && (
+                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'media' && current !== 'physical' && current !== 'awards' && (
                   <p style={styles.placeholder}>TODO — “{sectionObj?.title}”</p>
                 )}
 

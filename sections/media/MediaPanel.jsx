@@ -400,24 +400,24 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
   // ---------------- VALIDAZIONI PRE-CHECK ----------------
   const checkPhoto = (file) => {
-    if (!isImageFile(file)) return `Formato non valido. Consenti JPG/PNG/WEBP.`;
+    if (!isImageFile(file)) return `Invalid format. Allow JPG/PNG/WEBP.`;
     const mb = bytesToMB(file.size);
-    if (mb > LIM.PHOTO_MAX_MB) return `File troppo grande (${mb}MB). Max ${LIM.PHOTO_MAX_MB}MB.`;
+    if (mb > LIM.PHOTO_MAX_MB) return `File too large (${mb}MB). Max ${LIM.PHOTO_MAX_MB}MB.`;
     return '';
   };
   const checkVideo = (file, kind) => {
-    if (!isVideoFile(file)) return `Formato non valido. Consenti MP4/MOV/WEBM.`;
+    if (!isVideoFile(file)) return `Invalid format. Allow MP4/MOV/WEBM.`;
     const mb = bytesToMB(file.size);
-    if (kind === 'intro' && mb > LIM.INTRO_MAX_MB) return `File troppo grande (${mb}MB). Max ${LIM.INTRO_MAX_MB}MB.`;
-    if (kind === 'highlight' && mb > LIM.HL_MAX_MB) return `File troppo grande (${mb}MB). Max ${LIM.HL_MAX_MB}MB.`;
+    if (kind === 'intro' && mb > LIM.INTRO_MAX_MB) return `File too large (${mb}MB). Max ${LIM.INTRO_MAX_MB}MB.`;
+    if (kind === 'highlight' && mb > LIM.HL_MAX_MB) return `File too large (${mb}MB). Max ${LIM.HL_MAX_MB}MB.`;
     return '';
   };
   const checkVideoMeta = ({ duration, width, height }, kind) => {
-    if (!duration || duration <= 0) return 'Video corrotto o metadati mancanti.';
-    if (kind === 'intro' && duration > LIM.INTRO_MAX_SEC) return `Durata ${duration}s oltre ${LIM.INTRO_MAX_SEC}s (Intro).`;
-    if (kind === 'highlight' && duration > LIM.HL_MAX_SEC) return `Durata ${duration}s oltre ${LIM.HL_MAX_SEC}s (Highlight).`;
+    if (!duration || duration <= 0) return 'Corrupted video or missing metadata.';
+    if (kind === 'intro' && duration > LIM.INTRO_MAX_SEC) return `Duration ${duration}s exceeds ${LIM.INTRO_MAX_SEC}s (Intro).`;
+    if (kind === 'highlight' && duration > LIM.HL_MAX_SEC) return `Duration ${duration}s exceeds ${LIM.HL_MAX_SEC}s (Highlight).`;
     const maxSide = Math.max(Number(width || 0), Number(height || 0));
-    if (maxSide && maxSide > LIM.MAX_DIM_PX) return `Risoluzione troppo alta (${width}×${height}). Limite ≤ 4K.`;
+    if (maxSide && maxSide > LIM.MAX_DIM_PX) return `Resolution too high (${width}×${height}). Limit ≤ 4K.`;
     return '';
   };
 
@@ -628,7 +628,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (highlights.length >= CAP.HIGHLIGHTS) {
-      alert('Limite raggiunto: sostituisci o elimina un highlight esistente.');
+      alert('Limit reached: replace or remove an existing highlight.');
       e.target.value = ''; return;
     }
 
@@ -681,12 +681,12 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   // Add Link (YouTube/Vimeo)
   const onAddHLLink = async () => {
     if (highlights.length >= CAP.HIGHLIGHTS) {
-      setAddLinkHL((p) => ({ ...p, err: 'Limite raggiunto: sostituisci o elimina.' }));
+      setAddLinkHL((p) => ({ ...p, err: 'Limit reached: replace or remove.' }));
       return;
     }
     const url = (addLinkHL.url || '').trim();
     const plat = detectPlatform(url);
-    if (!plat) { setAddLinkHL((p) => ({ ...p, err: 'URL non valido (YouTube/Vimeo).' })); return; }
+    if (!plat) { setAddLinkHL((p) => ({ ...p, err: 'Invalid URL (YouTube/Vimeo).' })); return; }
 
     try {
       let thumb = '';
@@ -784,7 +784,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
   const onReplaceHLLink = async (item, url) => {
     const plat = detectPlatform(url);
-    if (!plat) { alert('URL non valido (YouTube/Vimeo).'); return; }
+    if (!plat) { alert('Invalid URL (YouTube/Vimeo).'); return; }
     try {
       // se aveva storage, rimuovi
       if (item.storage_path) await removeStorageIfAny(item.storage_path);
@@ -853,7 +853,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     const room = CAP.GALLERY - gallery.length;
     const accepted = files.slice(0, Math.max(0, room));
     if (!accepted.length) {
-      alert('Limite raggiunto: sostituisci o elimina dalla Gallery per caricare altri elementi.');
+      alert('Limit reached: replace or remove from the Gallery to upload more items.');
       e.target.value=''; return;
     }
 
@@ -939,17 +939,17 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   // ---------------- GAMES (solo link + metadati) ----------------
   const onAddGame = async () => {
     if (games.length >= CAP.GAMES) {
-      setAddGame((p) => ({ ...p, err: 'Limite raggiunto: sostituisci o elimina.' }));
+      setAddGame((p) => ({ ...p, err: 'Limit reached: replace or remove.' }));
       return;
     }
     const url = (addGame.url || '').trim();
     const plat = detectPlatform(url);
-    if (!plat) { setAddGame((p) => ({ ...p, err: 'URL non valido (YouTube/Vimeo).' })); return; }
+    if (!plat) { setAddGame((p) => ({ ...p, err: 'Invalid URL (YouTube/Vimeo).' })); return; }
 
     const req = ['match_date','opponent','competition','season','team_level'];
     for (const k of req) {
       if (!String(addGame[k] || '').trim()) {
-        setAddGame((p) => ({ ...p, err: 'Compila tutti i campi obbligatori della gara.' }));
+        setAddGame((p) => ({ ...p, err: 'Fill in all required fields for the game.' }));
         return;
       }
     }
@@ -1008,7 +1008,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     const req = ['match_date','opponent','competition','season','team_level'];
     for (const k of req) {
       if (!String(row.game[k] || '').trim()) {
-        alert('Compila tutti i campi obbligatori della gara.');
+        alert('Fill in all required fields for the game.');
         return;
       }
     }
@@ -1127,7 +1127,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       {/* FEATURED PHOTOS */}
       <div style={styles.box}>
         <div style={styles.sectionTitle}>Featured Photos (3)</div>
-        <div style={styles.subnote}>Headshot, In gara #1, In gara #2 — anteprima grande; Replace/Remove.</div>
+        <div style={styles.subnote}>Headshot, In game #1, In game #2 — large preview; Replace/Remove.</div>
         <div style={{ ...styles.featuredWrap, ...(isMobile ? { gridTemplateColumns: '1fr' } : null) }}>
           {/* Headshot */}
           <div style={styles.featuredSlot}>
@@ -1144,7 +1144,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
           {/* Game #1 */}
           <div style={styles.featuredSlot}>
-            <div style={styles.label}>In gara #1</div>
+            <div style={styles.label}>In game #1</div>
             <FeaturedPreview imgPath={featured.g1?.storage_path} getSigned={useImageSigned} />
             <div style={styles.fieldRow}>
               <input type="file" accept="image/*" ref={g1InputRef} onChange={(e) => onPickFeatured(e, 'g1')} style={{ display: 'none' }}/>
@@ -1157,7 +1157,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
           {/* Game #2 */}
           <div style={styles.featuredSlot}>
-            <div style={styles.label}>In gara #2</div>
+            <div style={styles.label}>In game #2</div>
             <FeaturedPreview imgPath={featured.g2?.storage_path} getSigned={useImageSigned} />
             <div style={styles.fieldRow}>
               <input type="file" accept="image/*" ref={g2InputRef} onChange={(e) => onPickFeatured(e, 'g2')} style={{ display: 'none' }}/>
@@ -1173,12 +1173,12 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       {/* INTRO VIDEO */}
       <div style={styles.box}>
         <div style={styles.sectionTitle}>Video Intro (1)</div>
-        <div style={styles.subnote}>≤ 120s, ≤ 4K, ≤ 800MB. MP4/MOV/WEBM. Player inline, poster generato.</div>
+        <div style={styles.subnote}>≤ 120s, ≤ 4K, ≤ 800MB. MP4/MOV/WEBM. Inline player, poster generated.</div>
         <div style={styles.videoRow}>
           {intro ? (
             <VideoPlayer item={intro} getSigned={getSignedUrl} usePoster={usePoster} />
           ) : (
-            <div style={{ fontSize: 12, color: '#666' }}>Nessun video caricato.</div>
+            <div style={{ fontSize: 12, color: '#666' }}>No videos uploaded.</div>
           )}
         </div>
         <div style={{ ...styles.fieldRow, marginTop: 8 }}>
@@ -1192,9 +1192,9 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
       {/* HIGHLIGHTS */}
       <div style={styles.box}>
-        <div style={styles.sectionTitle}>Highlights (max 3 — upload o link)</div>
-        <div style={styles.subnote}>Poster/thumbnail sempre presente; drag & drop per ordinare; edit di title/caption/tags; player inline.  
-          {addHLDisabled && <strong style={{ color: '#b00' }}> Limite raggiunto: sostituisci o elimina.</strong>}
+        <div style={styles.sectionTitle}>Highlights (max 3 — upload or link)</div>
+        <div style={styles.subnote}>Poster/thumbnail always present; drag & drop to sort; edit title/caption/tags; inline player.
+          {addHLDisabled && <strong style={{ color: '#b00' }}> Limit reached: replace or remove.</strong>}
         </div>
 
         {/* Azioni add */}
@@ -1203,12 +1203,12 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
           <button type="button" onClick={() => !addHLDisabled && hlUploadInputRef.current?.click()}
                   style={addHLDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
                   disabled={addHLDisabled}>
-            + Aggiungi Upload
+            + Add Upload
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <input
-              placeholder="Incolla URL YouTube/Vimeo…"
+              placeholder="Paste YouTube/Vimeo URL…"
               value={addLinkHL.url}
               onChange={(e) => { setAddLinkHL({ url: e.target.value, err: '' }); }}
               disabled={addHLDisabled}
@@ -1217,7 +1217,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
             <button type="button" onClick={onAddHLLink}
                     style={addHLDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
                     disabled={addHLDisabled}>
-              + Aggiungi Link
+              + Add Link
             </button>
           </div>
         </div>
@@ -1286,7 +1286,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                 <label style={styles.label}>Tags</label>
                 <CreatableSelect
                   isMulti
-                  placeholder="Aggiungi tag…"
+                  placeholder="Add tag…"
                   value={(Array.isArray(it.tags) ? it.tags : []).map(t => ({ value: t, label: t }))}
                   onChange={(opts) => editHLField(it.id, 'tags', (Array.isArray(opts) ? opts.map(o => o.value) : []))}
                   styles={{
@@ -1301,7 +1301,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
             </div>
           ))}
           {highlights.length === 0 && (
-            <div style={{ fontSize: 12, color: '#666' }}>Nessun highlight.</div>
+            <div style={{ fontSize: 12, color: '#666' }}>No highlights.</div>
           )}
         </div>
       </div>
@@ -1309,8 +1309,8 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       {/* PHOTO GALLERY */}
       <div style={styles.box}>
         <div style={styles.sectionTitle}>Photo Gallery (max 6)</div>
-        <div style={styles.subnote}>Gestione elementi, nessuna anteprima. Drag & drop per ordinare.  
-          {addGalDisabled && <strong style={{ color: '#b00' }}> Limite raggiunto: sostituisci o elimina.</strong>}
+        <div style={styles.subnote}>Manage items, no preview. Drag & drop to sort.
+          {addGalDisabled && <strong style={{ color: '#b00' }}> Limit reached: replace or remove.</strong>}
         </div>
 
         <div style={styles.fieldRow}>
@@ -1318,7 +1318,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
           <button type="button" onClick={() => !addGalDisabled && galleryInputRef.current?.click()}
                   style={addGalDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
                   disabled={addGalDisabled}>
-            + Aggiungi foto
+            + Add photo
           </button>
         </div>
 
@@ -1336,7 +1336,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                  }}>
               <div style={styles.itemHeader}>
                 <div>
-                  <div style={styles.itemTitle}>Foto #{idx + 1}</div>
+                  <div style={styles.itemTitle}>Photo #{idx + 1}</div>
                   <div style={styles.itemMeta}>
                     {elide(it.storage_path || it.external_url || '', 48)} • {(bytesToMB(it.file_size_bytes)||0)}MB
                   </div>
@@ -1362,7 +1362,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                 <label style={styles.label}>Tags</label>
                 <CreatableSelect
                   isMulti
-                  placeholder="Aggiungi tag…"
+                  placeholder="Add tag…"
                   value={(Array.isArray(it.tags) ? it.tags : []).map(t => ({ value: t, label: t }))}
                   onChange={(opts) => editGalleryField(it.id, 'tags', (Array.isArray(opts) ? opts.map(o => o.value) : []))}
                   styles={{
@@ -1377,46 +1377,46 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
             </div>
           ))}
           {gallery.length === 0 && (
-            <div style={{ fontSize: 12, color: '#666' }}>Nessuna foto in gallery.</div>
+            <div style={{ fontSize: 12, color: '#666' }}>No photos in gallery.</div>
           )}
         </div>
       </div>
 
       {/* FULL MATCHES (GAMES) */}
       <div style={styles.box}>
-        <div style={styles.sectionTitle}>Partite intere (max 10 — solo link esterni)</div>
-        <div style={styles.subnote}>Ordinamento automatico per data gara (<code>match_date</code>) decrescente.</div>
+        <div style={styles.sectionTitle}>Full Games (max 10 — external links only)</div>
+        <div style={styles.subnote}>Automatically sorted by match date (<code>match_date</code>) descending.</div>
 
         <div style={{ ...styles.boxGrid2, ...(isMobile ? styles.boxGridMobile : null), marginBottom: 8 }}>
           <div className="col">
             <label style={styles.label}>URL (YouTube/Vimeo) *</label>
             <input value={addGame.url} onChange={(e) => setAddGame((p) => ({ ...p, url: e.target.value, err: '' }))}
-                   style={styles.input} placeholder="Incolla URL…" disabled={addGameDisabled}/>
+                   style={styles.input} placeholder="Paste URL…" disabled={addGameDisabled}/>
           </div>
           <div className="col">
-            <label style={styles.label}>Data gara *</label>
+            <label style={styles.label}>Match date *</label>
             <input type="date" value={addGame.match_date} onChange={(e) => setAddGame((p) => ({ ...p, match_date: e.target.value, err: '' }))}
                    style={styles.input} disabled={addGameDisabled}/>
           </div>
           <div className="col">
-            <label style={styles.label}>Avversario *</label>
+            <label style={styles.label}>Opponent *</label>
             <input value={addGame.opponent} onChange={(e) => setAddGame((p) => ({ ...p, opponent: e.target.value, err: '' }))}
                    style={styles.input} disabled={addGameDisabled}/>
           </div>
           <div className="col">
-            <label style={styles.label}>Competizione *</label>
+            <label style={styles.label}>Competition *</label>
             <input value={addGame.competition} onChange={(e) => setAddGame((p) => ({ ...p, competition: e.target.value, err: '' }))}
                    style={styles.input} disabled={addGameDisabled}/>
           </div>
           <div className="col">
             <label style={styles.label}>Season *</label>
             <input value={addGame.season} onChange={(e) => setAddGame((p) => ({ ...p, season: e.target.value, err: '' }))}
-                   style={styles.input} placeholder="es. 2024/25" disabled={addGameDisabled}/>
+                   style={styles.input} placeholder="e.g. 2024/25" disabled={addGameDisabled}/>
           </div>
           <div className="col">
-            <label style={styles.label}>Livello squadra *</label>
+            <label style={styles.label}>Team level *</label>
             <input value={addGame.team_level} onChange={(e) => setAddGame((p) => ({ ...p, team_level: e.target.value, err: '' }))}
-                   style={styles.input} placeholder="es. U17 Eccellenza" disabled={addGameDisabled}/>
+                   style={styles.input} placeholder="e.g. U17 Elite" disabled={addGameDisabled}/>
           </div>
         </div>
 
@@ -1424,10 +1424,10 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
           <button type="button" onClick={onAddGame}
                   style={addGameDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
                   disabled={addGameDisabled}>
-            + Aggiungi partita
+            + Add match
           </button>
           {addGame.err && <div style={styles.error}>{addGame.err}</div>}
-          {addGameDisabled && <div style={{ color: '#b00', fontSize: 12 }}>Limite raggiunto: sostituisci o elimina.</div>}
+          {addGameDisabled && <div style={{ color: '#b00', fontSize: 12 }}>Limit reached: replace or remove.</div>}
         </div>
 
         <div style={styles.list}>
@@ -1441,7 +1441,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <a href={item.external_url || '#'} target="_blank" rel="noreferrer" style={styles.linkBtn}>Apri</a>
+                  <a href={item.external_url || '#'} target="_blank" rel="noreferrer" style={styles.linkBtn}>Open</a>
                   <button type="button" style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
                           onClick={() => onDeleteGame(item.id)}>Delete</button>
                 </div>
@@ -1449,15 +1449,15 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
               <div style={{ ...styles.boxGrid2, ...(isMobile ? styles.boxGridMobile : null), marginTop: 8 }}>
                 <div>
-                  <label style={styles.label}>Data gara *</label>
+                  <label style={styles.label}>Match date *</label>
                   <input type="date" value={game.match_date || ''} onChange={(e) => onEditGameField(item.id, 'match_date', e.target.value)} style={styles.input}/>
                 </div>
                 <div>
-                  <label style={styles.label}>Avversario *</label>
+                  <label style={styles.label}>Opponent *</label>
                   <input value={game.opponent || ''} onChange={(e) => onEditGameField(item.id, 'opponent', e.target.value)} style={styles.input}/>
                 </div>
                 <div>
-                  <label style={styles.label}>Competizione *</label>
+                  <label style={styles.label}>Competition *</label>
                   <input value={game.competition || ''} onChange={(e) => onEditGameField(item.id, 'competition', e.target.value)} style={styles.input}/>
                 </div>
                 <div>
@@ -1465,7 +1465,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                   <input value={game.season || ''} onChange={(e) => onEditGameField(item.id, 'season', e.target.value)} style={styles.input}/>
                 </div>
                 <div>
-                  <label style={styles.label}>Livello squadra *</label>
+                  <label style={styles.label}>Team level *</label>
                   <input value={game.team_level || ''} onChange={(e) => onEditGameField(item.id, 'team_level', e.target.value)} style={styles.input}/>
                 </div>
                 <div style={{ alignSelf: 'end' }}>
@@ -1475,7 +1475,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
             </div>
           ))}
           {games.length === 0 && (
-            <div style={{ fontSize: 12, color: '#666' }}>Nessuna partita inserita.</div>
+            <div style={{ fontSize: 12, color: '#666' }}>No matches added.</div>
           )}
         </div>
       </div>
