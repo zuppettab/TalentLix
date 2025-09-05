@@ -1674,9 +1674,13 @@ function GameAccordionItem({ item, game, isOpen, onToggle, onEditGameField, onSa
             />
           </div>
           <div style={styles.gameActions}>
-            <a href={item.external_url || '#'} target="_blank" rel="noreferrer" style={styles.linkBtn}>
+            <button
+              type="button"
+              style={styles.smallBtn}
+              onClick={() => window.open(item.external_url || '#', '_blank', 'noopener,noreferrer')}
+            >
               Open
-            </a>
+            </button>
             <button type="button" style={styles.smallBtnPrimary} onClick={() => onSaveGameRow(item.id)}>
               Save
             </button>
