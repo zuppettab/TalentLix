@@ -7,6 +7,7 @@ import PersonalPanel from '../sections/personal/PersonalPanel';
 import ContactsPanel from '../sections/contacts/ContactsPanel';
 import SportInfoPanel from '../sections/sports/SportInfoPanel';
 import PhysicalPanel from '../sections/physical/PhysicalPanel';
+import MediaPanel from '../sections/media/MediaPanel';
 import AwardsWidget from '../sections/awards/AwardsWidget';
 
 const ATHLETE_TABLE = 'athlete';
