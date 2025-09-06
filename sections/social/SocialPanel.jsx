@@ -395,28 +395,53 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
           />
         </div>
         <div className="row" style={{ ...styles.fieldRow, gap: 16, marginBottom: 12 }}>
-          <div style={{ display: 'flex', gap: 16 }}>
-            <div style={styles.checkboxRow}>
-              <input
-                id="add-public"
-                type="checkbox"
-                checked={!!add.is_public}
-                onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
-                aria-label="Public"
-              />
-              <label htmlFor="add-public" style={{ marginLeft: 4 }}>Public</label>
+          {isMobile ? (
+            <>
+              <div style={{ ...styles.field, flexBasis: '100%' }}>
+                <label htmlFor="add-public" style={styles.label}>Public</label>
+                <input
+                  id="add-public"
+                  type="checkbox"
+                  checked={!!add.is_public}
+                  onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
+                  aria-label="Public"
+                />
+              </div>
+              <div style={{ ...styles.field, flexBasis: '100%' }}>
+                <label htmlFor="add-primary" style={styles.label}>Primary</label>
+                <input
+                  id="add-primary"
+                  type="checkbox"
+                  checked={!!add.is_primary}
+                  onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
+                  aria-label="Primary"
+                />
+              </div>
+            </>
+          ) : (
+            <div style={{ display: 'flex', gap: 16 }}>
+              <div style={styles.checkboxRow}>
+                <input
+                  id="add-public"
+                  type="checkbox"
+                  checked={!!add.is_public}
+                  onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
+                  aria-label="Public"
+                />
+                <label htmlFor="add-public" style={{ marginLeft: 4 }}>Public</label>
+              </div>
+              <div style={styles.checkboxRow}>
+                <input
+                  id="add-primary"
+                  type="checkbox"
+                  checked={!!add.is_primary}
+                  onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
+                  aria-label="Primary"
+                />
+                <label htmlFor="add-primary" style={{ marginLeft: 4 }}>Primary</label>
+              </div>
             </div>
-            <div style={styles.checkboxRow}>
-              <input
-                id="add-primary"
-                type="checkbox"
-                checked={!!add.is_primary}
-                onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
-                aria-label="Primary"
-              />
-              <label htmlFor="add-primary" style={{ marginLeft: 4 }}>Primary</label>
-            </div>
-          </div>
+          )}
           <button
             type="button"
             onClick={addRow}
