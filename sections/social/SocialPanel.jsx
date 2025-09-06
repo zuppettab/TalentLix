@@ -493,14 +493,16 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                       aria-label="Primary"
                     />
                   </td>
-                  <td style={{ ...styles.td, verticalAlign: 'middle', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-                    <button
-                      type="button"
-                      style={{ ...styles.linkBtn, color: '#b00' }}
-                      onClick={() => deleteRow(r.id)}
-                    >
-                      Delete
-                    </button>
+                  <td style={{ ...styles.td, verticalAlign: 'middle' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: '100%', gap: 8 }}>
+                      <button
+                        type="button"
+                        style={{ ...styles.linkBtn, color: '#b00' }}
+                        onClick={() => deleteRow(r.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )) : (
