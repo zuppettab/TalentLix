@@ -377,24 +377,26 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
           />
         </div>
         <div className="row" style={{ ...styles.fieldRow, gap: 16, marginBottom: 12 }}>
-          <div style={styles.checkboxRow}>
-            <input
-              id="add-public"
-              type="checkbox"
-              checked={!!add.is_public}
-              onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
-              title="Public"
-            />
-          </div>
-          <div style={styles.checkboxRow}>
-            <input
-              id="add-primary"
-              type="checkbox"
-              checked={!!add.is_primary}
-              onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
-              title="Primary"
-            />
-          </div>
+        <div style={styles.checkboxRow}>
+          <input
+            id="add-public"
+            type="checkbox"
+            checked={!!add.is_public}
+            onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
+            aria-label="Public"
+          />
+          <label htmlFor="add-public" style={{ marginLeft: 4 }}>Public</label>
+        </div>
+        <div style={styles.checkboxRow}>
+          <input
+            id="add-primary"
+            type="checkbox"
+            checked={!!add.is_primary}
+            onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
+            aria-label="Primary"
+          />
+          <label htmlFor="add-primary" style={{ marginLeft: 4 }}>Primary</label>
+        </div>
           <button
             type="button"
             onClick={addRow}
@@ -415,8 +417,8 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                 <th style={styles.th}>Platform</th>
                 <th style={styles.th}>Handle</th>
                 <th style={styles.th}>Profile URL</th>
-                <th style={styles.thChk} title="Public">✓</th>
-                <th style={styles.thChk} title="Primary">★</th>
+                <th style={styles.thChk}>Public</th>
+                <th style={styles.thChk}>Primary</th>
                 <th style={styles.thRight}>Actions</th>
               </tr>
             </thead>
@@ -459,6 +461,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                       type="checkbox"
                       checked={!!r.is_public}
                       onChange={() => onTogglePublic(r.id)}
+                      aria-label="Public"
                     />
                   </td>
                   <td style={styles.tdChk}>
@@ -467,6 +470,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                       type="checkbox"
                       checked={!!r.is_primary}
                       onChange={() => onTogglePrimary(r.id)}
+                      aria-label="Primary"
                     />
                   </td>
                   <td style={{ ...styles.td, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -593,24 +597,26 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
           </div>
 
           <div style={styles.fieldRow}>
-            <div style={styles.checkboxRow}>
+            <label style={styles.checkboxRow} htmlFor={`pub-m-${row.id}`}>
               <input
                 id={`pub-m-${row.id}`}
                 type="checkbox"
                 checked={!!row.is_public}
                 onChange={() => onTogglePublic(row.id)}
-                title="Public"
+                aria-label="Public"
               />
-            </div>
-            <div style={styles.checkboxRow}>
+              <span style={{ marginLeft: 4 }}>Public</span>
+            </label>
+            <label style={styles.checkboxRow} htmlFor={`pri-m-${row.id}`}>
               <input
                 id={`pri-m-${row.id}`}
                 type="checkbox"
                 checked={!!row.is_primary}
                 onChange={() => onTogglePrimary(row.id)}
-                title="Primary"
+                aria-label="Primary"
               />
-            </div>
+              <span style={{ marginLeft: 4 }}>Primary</span>
+            </label>
           </div>
 
           <div style={styles.actions}>
