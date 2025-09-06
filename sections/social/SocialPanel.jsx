@@ -4,10 +4,9 @@
 // - Nessun campo marcato “obbligatorio” a livello di UI; tuttavia, per coerenza con il DB
 //   (NOT NULL su platform e profile_url) la card segnala in modo coerente l’assenza e non salva la riga incompleta.
 // - Mobile first: tabella su desktop, accordion su mobile.
-// - Ordinamento tramite drag&drop e pulsanti ↑/↓ -> sort_order persistito con Save.
 // - Un solo profilo "primario" per atleta: enforced lato UI (il toggle su uno spegne gli altri).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase as sb } from '../../utils/supabaseClient';
 
 const supabase = sb;
@@ -50,7 +49,6 @@ const styles = {
     fontSize: 14,
     background: '#FFF'
   },
-  checkboxRow: { display: 'flex', alignItems: 'center', gap: 8 },
   error: { fontSize: 12, color: '#b00' },
 
   // Bottoni (coerenti)
@@ -91,9 +89,6 @@ const styles = {
   details: { padding: 12, borderTop: '1px solid #EEE', display: 'flex', flexDirection: 'column', gap: 8 },
   actions: { display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end', flexWrap: 'wrap' },
 
-  // Drag & Drop
-  draggable: { cursor: 'grab' },
-  droptarget: { outline: '2px dashed rgba(39,227,218,0.5)' },
 
   // Save Bar allineata alle altre card
   saveBar: {
@@ -122,9 +117,6 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
 
   // Stato ADD (riga nuova)
   const [add, setAdd] = useState({ platform: '', handle: '', profile_url: '', is_public: true, is_primary: false, err: '' });
-
-  // Drag&Drop
-  const [drag, setDrag] = useState({ type: '', from: -1, to: -1 });
 
   useEffect(() => {
     let mounted = true;
@@ -210,37 +202,6 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Delete failed' });
     }
-  };
-
-  // ---------------- Ordinamento ----------------
-  const onDragStart = (idx) => setDrag({ type: 'row', from: idx, to: idx });
-  const onDragOver  = (e, idx) => { e.preventDefault(); setDrag(d => d.type === 'row' ? { ...d, to: idx } : d); };
-  const onDrop      = () => {
-    if (drag.type !== 'row') return;
-    const { from, to } = drag;
-    if (from === to || from < 0 || to < 0) { setDrag({ type: '', from: -1, to: -1 }); return; }
-    const arr = [...rows];
-    const [item] = arr.splice(from, 1);
-    arr.splice(to, 0, item);
-    const arr2 = arr.map((it, i) => ({ ...it, sort_order: i }));
-    setRows(arr2);
-    setDrag({ type: '', from: -1, to: -1 });
-    setDirty(true);
-    if (status.type) setStatus({ type: '', msg: '' });
-  };
-
-  const moveRow = (id, delta) => {
-    setRows(prev => {
-      const idx = prev.findIndex(r => r.id === id);
-      const newIdx = idx + delta;
-      if (idx === -1 || newIdx < 0 || newIdx >= prev.length) return prev;
-      const arr = [...prev];
-      const [item] = arr.splice(idx, 1);
-      arr.splice(newIdx, 0, item);
-      return arr.map((it, i) => ({ ...it, sort_order: i }));
-    });
-    setDirty(true);
-    if (status.type) setStatus({ type: '', msg: '' });
   };
 
   // ---------------- VALIDAZIONE SOFT (coerente con DB NOT NULL su platform/profile_url) ----------------
@@ -371,12 +332,12 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
       <div>
         <div style={styles.sectionTitle}>Social Profiles</div>
         <div style={styles.subnote}>
-          Aggiungi i profili social dell’atleta. Drag & drop per riordinare; “Primary” ne consente uno solo.
+          Aggiungi i profili social dell’atleta. “Primary” ne consente uno solo.
         </div>
       </div>
 
       {/* FORM AGGIUNTA */}
-      <div style={{ ...styles.grid2, ...(isMobile ? styles.grid2Mobile : null) }}>
+      <div style={{ ...styles.grid, gap: 16 }}>
         <div className="row" style={styles.field}>
           <label style={styles.label}>Platform</label>
           <input
@@ -408,27 +369,27 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
             style={styles.input}
           />
         </div>
-        <div className="row" style={{ ...styles.field, justifyContent: 'flex-end' }}>
-          <div style={styles.checkboxRow}>
-            <input
-              id="add-public"
-              type="checkbox"
-              checked={!!add.is_public}
-              onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
-            />
-            <label htmlFor="add-public" style={{ fontSize: 13 }}>Public</label>
-          </div>
-          <div style={styles.checkboxRow}>
-            <input
-              id="add-primary"
-              type="checkbox"
-              checked={!!add.is_primary}
-              onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
-            />
-            <label htmlFor="add-primary" style={{ fontSize: 13 }}>Primary</label>
-          </div>
-          <button type="button" onClick={addRow} style={styles.smallBtnPrimary}>+ Add</button>
-          {add.err && <div style={styles.error}>{add.err}</div>}
+        <div className="row" style={{ ...styles.fieldRow, gap: 16, marginBottom: 12 }}>
+          <input
+            type="checkbox"
+            checked={!!add.is_public}
+            onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
+            aria-label="Public"
+          />
+          <input
+            type="checkbox"
+            checked={!!add.is_primary}
+            onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
+            aria-label="Primary"
+          />
+          <button
+            type="button"
+            onClick={addRow}
+            style={{ ...styles.smallBtnPrimary, marginLeft: 'auto' }}
+          >
+            + Add
+          </button>
+          {add.err && <div style={{ ...styles.error, flexBasis: '100%' }}>{add.err}</div>}
         </div>
       </div>
 
@@ -438,7 +399,6 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>#</th>
                 <th style={styles.th}>Platform</th>
                 <th style={styles.th}>Handle</th>
                 <th style={styles.th}>Profile URL</th>
@@ -448,19 +408,8 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
               </tr>
             </thead>
             <tbody>
-              {rows.length > 0 ? rows.map((r, idx) => (
-                <tr key={r.id}
-                    draggable
-                    onDragStart={() => onDragStart(idx)}
-                    onDragOver={(e) => onDragOver(e, idx)}
-                    onDrop={onDrop}
-                    style={{
-                      ...(drag.type === 'row' && drag.to === idx ? styles.droptarget : null),
-                      ...(drag.type === 'row' ? styles.draggable : null)
-                    }}>
-                  <td style={styles.td} title="Drag to sort">
-                    <span style={{ cursor: 'grab' }}>↕</span>
-                  </td>
+              {rows.length > 0 ? rows.map((r) => (
+                <tr key={r.id}>
                   <td style={styles.td}>
                     <input
                       list="platform-suggestions"
@@ -492,26 +441,20 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                     )}
                   </td>
                   <td style={styles.td}>
-                    <div style={styles.checkboxRow}>
-                      <input
-                        id={`pub-${r.id}`}
-                        type="checkbox"
-                        checked={!!r.is_public}
-                        onChange={() => onTogglePublic(r.id)}
-                      />
-                      <label htmlFor={`pub-${r.id}`} style={{ fontSize: 13 }}>Public</label>
-                    </div>
+                    <input
+                      type="checkbox"
+                      checked={!!r.is_public}
+                      onChange={() => onTogglePublic(r.id)}
+                      aria-label="Public"
+                    />
                   </td>
                   <td style={styles.td}>
-                    <div style={styles.checkboxRow}>
-                      <input
-                        id={`pri-${r.id}`}
-                        type="checkbox"
-                        checked={!!r.is_primary}
-                        onChange={() => onTogglePrimary(r.id)}
-                      />
-                      <label htmlFor={`pri-${r.id}`} style={{ fontSize: 13 }}>Primary</label>
-                    </div>
+                    <input
+                      type="checkbox"
+                      checked={!!r.is_primary}
+                      onChange={() => onTogglePrimary(r.id)}
+                      aria-label="Primary"
+                    />
                   </td>
                   <td style={{ ...styles.td, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                     <a className="open-link"
@@ -521,9 +464,6 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                        style={styles.linkBtn}>
                       Open
                     </a>
-                    <span style={{ margin: '0 6px' }}>|</span>
-                    <button type="button" style={styles.linkBtn} onClick={() => moveRow(r.id, -1)}>↑</button>
-                    <button type="button" style={styles.linkBtn} onClick={() => moveRow(r.id, +1)}>↓</button>
                     <span style={{ margin: '0 6px' }}>|</span>
                     <button
                       type="button"
@@ -536,7 +476,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                 </tr>
               )) : (
                 <tr>
-                  <td style={styles.td} colSpan={7}><span style={{ fontSize: 12, color: '#666' }}>No social profiles added.</span></td>
+                  <td style={styles.td} colSpan={6}><span style={{ fontSize: 12, color: '#666' }}>No social profiles added.</span></td>
                 </tr>
               )}
             </tbody>
@@ -551,8 +491,6 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
               onField={onField}
               onTogglePublic={onTogglePublic}
               onTogglePrimary={onTogglePrimary}
-              onMoveUp={() => moveRow(r.id, -1)}
-              onMoveDown={() => moveRow(r.id, +1)}
               onDelete={() => deleteRow(r.id)}
               rowError={rowErrors[r.id]}
             />
@@ -585,7 +523,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
 }
 
 // ---------------- SUB-COMPONENTE — Mobile Accordion ----------------
-function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, onMoveUp, onMoveDown, onDelete, rowError }) {
+function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, onDelete, rowError }) {
   const [open, setOpen] = useState(false);
   const summaryId = `social-summary-${row.id}`;
   const regionId  = `social-region-${row.id}`;
@@ -642,29 +580,21 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
           </div>
 
           <div style={styles.fieldRow}>
-            <div style={styles.checkboxRow}>
-              <input
-                id={`pub-m-${row.id}`}
-                type="checkbox"
-                checked={!!row.is_public}
-                onChange={() => onTogglePublic(row.id)}
-              />
-              <label htmlFor={`pub-m-${row.id}`} style={{ fontSize: 13 }}>Public</label>
-            </div>
-            <div style={styles.checkboxRow}>
-              <input
-                id={`pri-m-${row.id}`}
-                type="checkbox"
-                checked={!!row.is_primary}
-                onChange={() => onTogglePrimary(row.id)}
-              />
-              <label htmlFor={`pri-m-${row.id}`} style={{ fontSize: 13 }}>Primary</label>
-            </div>
+            <input
+              type="checkbox"
+              checked={!!row.is_public}
+              onChange={() => onTogglePublic(row.id)}
+              aria-label="Public"
+            />
+            <input
+              type="checkbox"
+              checked={!!row.is_primary}
+              onChange={() => onTogglePrimary(row.id)}
+              aria-label="Primary"
+            />
           </div>
 
           <div style={styles.actions}>
-            <button type="button" style={styles.smallBtn} onClick={onMoveUp}>↑</button>
-            <button type="button" style={styles.smallBtn} onClick={onMoveDown}>↓</button>
             <a href={(row.profile_url || '#')} target="_blank" rel="noopener,noreferrer" style={styles.smallBtn}>
               Open
             </a>
