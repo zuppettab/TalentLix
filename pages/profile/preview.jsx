@@ -172,6 +172,34 @@ function Lightbox({ items, index, onClose, onPrev, onNext }) {
   );
 }
 
+// ---- Measurements table
+function Measurements({ physical }) {
+  if (!physical) return null;
+  const rows = [
+    { label: 'Measured', value: fmtDate(physical.physical_measured_at) },
+    { label: 'Height', value: physical.height_cm ? `${physical.height_cm} cm` : '' },
+    { label: 'Weight', value: physical.weight_kg ? `${physical.weight_kg} kg` : '' },
+    { label: 'Wingspan', value: physical.wingspan_cm ? `${physical.wingspan_cm} cm` : '' },
+    { label: 'Standing reach', value: physical.standing_reach_cm ? `${physical.standing_reach_cm} cm` : '' },
+    { label: 'Body fat', value: physical.body_fat_percent ? `${physical.body_fat_percent}%` : '' },
+    { label: 'Dominant hand', value: physical.dominant_hand || '' },
+    { label: 'Dominant foot', value: physical.dominant_foot || '' },
+    { label: 'Dominant eye', value: physical.dominant_eye || '' },
+  ];
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
+      <tbody>
+        {rows.filter(r => r.value).map(({ label, value }) => (
+          <tr key={label}>
+            <th style={{ textAlign: 'left', padding: '4px 8px', borderBottom: `1px solid ${TOKENS.border}` }}>{label}</th>
+            <td style={{ textAlign: 'right', padding: '4px 8px', borderBottom: `1px solid ${TOKENS.border}` }}>{value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export default function ProfilePreviewPage() {
   const router = useRouter();
   const getSigned = useSignedUrlCache();
