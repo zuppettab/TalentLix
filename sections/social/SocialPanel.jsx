@@ -357,7 +357,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
       <div>
         <div style={styles.sectionTitle}>Social Profiles</div>
         <div style={styles.subnote}>
-          Aggiungi i profili social dell’atleta. “Primary” ne consente uno solo.
+          Add your social profiles. You can add only one “Primary”.
         </div>
       </div>
 
