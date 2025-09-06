@@ -8,6 +8,7 @@
 // - Un solo profilo "primario" per atleta: enforced lato UI (il toggle su uno spegne gli altri).
 
 import { useEffect, useState } from 'react';
+import { FiLink } from 'react-icons/fi';
 import { supabase as sb } from '../../utils/supabaseClient';
 
 const supabase = sb;
@@ -53,6 +54,9 @@ const styles = {
   checkboxRow: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
   thChk: { textAlign: 'center', fontSize: 12, fontWeight: 700, padding: '10px 6px', borderBottom: '1px solid #EEE', width: 40 },
   tdChk: { fontSize: 14, padding: '10px 6px', borderBottom: '1px solid #F5F5F5', textAlign: 'center', width: 40 },
+  thUrl: { textAlign: 'center', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE', width: 60 },
+  tdUrl: { fontSize: 14, padding: '10px 12px', borderBottom: '1px solid #F5F5F5', textAlign: 'center', width: 60 },
+  urlIcon: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#1976d2' },
   error: { fontSize: 12, color: '#b00' },
 
   // Bottoni (coerenti)
@@ -416,7 +420,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
               <tr>
                 <th style={styles.th}>Platform</th>
                 <th style={styles.th}>Handle</th>
-                <th style={styles.th}>Profile URL</th>
+                <th style={styles.thUrl}>Profile URL</th>
                 <th style={styles.thChk}>Public</th>
                 <th style={styles.thChk}>Primary</th>
                 <th style={styles.thRight}>Actions</th>
@@ -444,15 +448,17 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                       style={styles.input}
                     />
                   </td>
-                  <td style={styles.td}>
-                    <input
-                      value={r.profile_url || ''}
-                      onChange={(e) => onField(r.id, 'profile_url', e.target.value)}
-                      placeholder="https://…"
-                      style={styles.input}
-                    />
-                    {rowErrors[r.id] && !String(r.profile_url || '').trim() && (
-                      <div style={styles.error}>URL is required.</div>
+                  <td style={styles.tdUrl}>
+                    {r.profile_url && (
+                      <a
+                        href={r.profile_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={r.profile_url}
+                        style={styles.urlIcon}
+                      >
+                        <FiLink />
+                      </a>
                     )}
                   </td>
                   <td style={styles.tdChk}>
@@ -474,14 +480,6 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                     />
                   </td>
                   <td style={{ ...styles.td, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                    <a className="open-link"
-                       href={(r.profile_url || '#')}
-                       target="_blank"
-                       rel="noreferrer"
-                       style={styles.linkBtn}>
-                      Open
-                    </a>
-                    <span style={{ margin: '0 6px' }}>|</span>
                     <button
                       type="button"
                       style={{ ...styles.linkBtn, color: '#b00' }}
@@ -620,8 +618,14 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
           </div>
 
           <div style={styles.actions}>
-            <a href={(row.profile_url || '#')} target="_blank" rel="noopener,noreferrer" style={styles.smallBtn}>
-              Open
+            <a
+              href={(row.profile_url || '#')}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={row.profile_url}
+              style={{ ...styles.smallBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <FiLink />
             </a>
             <button type="button" style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }} onClick={onDelete}>
               Delete
