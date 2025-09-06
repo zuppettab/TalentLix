@@ -637,25 +637,27 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
             {rowError && !String(row.profile_url || '').trim() && <div style={styles.error}>URL is required.</div>}
           </div>
 
-          <div style={styles.field}>
-            <label htmlFor={`pub-m-${row.id}`} style={styles.label}>Public</label>
-            <input
-              id={`pub-m-${row.id}`}
-              type="checkbox"
-              checked={!!row.is_public}
-              onChange={() => onTogglePublic(row.id)}
-              aria-label="Public"
-            />
-          </div>
-          <div style={styles.field}>
-            <label htmlFor={`pri-m-${row.id}`} style={styles.label}>Primary</label>
-            <input
-              id={`pri-m-${row.id}`}
-              type="checkbox"
-              checked={!!row.is_primary}
-              onChange={() => onTogglePrimary(row.id)}
-              aria-label="Primary"
-            />
+          <div style={{ ...styles.fieldRow, gap: 16, marginBottom: 12 }}>
+            <div style={styles.checkboxRow}>
+              <input
+                id={`pub-m-${row.id}`}
+                type="checkbox"
+                checked={!!row.is_public}
+                onChange={() => onTogglePublic(row.id)}
+                aria-label="Public"
+              />
+              <label htmlFor={`pub-m-${row.id}`} style={styles.label}>Public</label>
+            </div>
+            <div style={styles.checkboxRow}>
+              <input
+                id={`pri-m-${row.id}`}
+                type="checkbox"
+                checked={!!row.is_primary}
+                onChange={() => onTogglePrimary(row.id)}
+                aria-label="Primary"
+              />
+              <label htmlFor={`pri-m-${row.id}`} style={styles.label}>Primary</label>
+            </div>
           </div>
 
           <div style={styles.actions}>
