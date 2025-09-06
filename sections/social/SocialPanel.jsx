@@ -396,9 +396,8 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
         </div>
         <div className="row" style={{ ...styles.fieldRow, gap: 16, marginBottom: 12 }}>
           {isMobile ? (
-            <>
-              <div style={{ ...styles.field, flexBasis: '100%' }}>
-                <label htmlFor="add-public" style={styles.label}>Public</label>
+            <div style={{ ...styles.fieldRow, flexBasis: '100%', gap: 16 }}>
+              <div style={styles.checkboxRow}>
                 <input
                   id="add-public"
                   type="checkbox"
@@ -406,9 +405,9 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                   onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
                   aria-label="Public"
                 />
+                <label htmlFor="add-public" style={{ marginLeft: 4 }}>Public</label>
               </div>
-              <div style={{ ...styles.field, flexBasis: '100%' }}>
-                <label htmlFor="add-primary" style={styles.label}>Primary</label>
+              <div style={styles.checkboxRow}>
                 <input
                   id="add-primary"
                   type="checkbox"
@@ -416,8 +415,9 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                   onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
                   aria-label="Primary"
                 />
+                <label htmlFor="add-primary" style={{ marginLeft: 4 }}>Primary</label>
               </div>
-            </>
+            </div>
           ) : (
             <div style={{ display: 'flex', gap: 16 }}>
               <div style={styles.checkboxRow}>
