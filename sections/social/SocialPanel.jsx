@@ -33,6 +33,7 @@ const styles = {
 
   field: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 },
   fieldRow: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
+  toggleRow: { display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', columnGap: 8, whiteSpace: 'nowrap' },
   label: { fontSize: 13, fontWeight: 600 },
   input: {
     width: '100%',
@@ -394,35 +395,39 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
             style={styles.input}
           />
         </div>
-        <div className="row" style={{ ...styles.fieldRow, gap: 16, marginBottom: 12 }}>
-          {isMobile ? (
-            <>
-              <div style={{ ...styles.field, flexBasis: '100%', marginBottom: 0 }}>
-                <div style={styles.checkboxRow}>
-                  <input
-                    id="add-public"
-                    type="checkbox"
-                    checked={!!add.is_public}
-                    onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
-                    aria-label="Public"
-                  />
-                  <label htmlFor="add-public" style={{ marginLeft: 4 }}>Public</label>
-                </div>
-              </div>
-              <div style={{ ...styles.field, flexBasis: '100%', marginBottom: 0 }}>
-                <div style={styles.checkboxRow}>
-                  <input
-                    id="add-primary"
-                    type="checkbox"
-                    checked={!!add.is_primary}
-                    onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
-                    aria-label="Primary"
-                  />
-                  <label htmlFor="add-primary" style={{ marginLeft: 4 }}>Primary</label>
-                </div>
-              </div>
-            </>
-          ) : (
+        {isMobile ? (
+          <>
+            <div className="row" style={styles.toggleRow}>
+              <input
+                id="add-public"
+                type="checkbox"
+                checked={!!add.is_public}
+                onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
+                aria-label="Public"
+              />
+              <label htmlFor="add-public" style={styles.label}>Public</label>
+            </div>
+            <div className="row" style={styles.toggleRow}>
+              <input
+                id="add-primary"
+                type="checkbox"
+                checked={!!add.is_primary}
+                onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
+                aria-label="Primary"
+              />
+              <label htmlFor="add-primary" style={styles.label}>Primary</label>
+            </div>
+            <button
+              type="button"
+              onClick={addRow}
+              style={{ ...styles.smallBtnPrimary, width: '100%' }}
+            >
+              + Add
+            </button>
+            {add.err && <div style={styles.error}>{add.err}</div>}
+          </>
+        ) : (
+          <div className="row" style={{ ...styles.fieldRow, gap: 16, marginBottom: 12 }}>
             <div style={{ display: 'flex', gap: 16 }}>
               <div style={styles.checkboxRow}>
                 <input
@@ -445,16 +450,16 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                 <label htmlFor="add-primary" style={{ marginLeft: 4 }}>Primary</label>
               </div>
             </div>
-          )}
-          <button
-            type="button"
-            onClick={addRow}
-            style={{ ...styles.smallBtnPrimary, flexBasis: '100%' }}
-          >
-            + Add
-          </button>
-          {add.err && <div style={{ ...styles.error, flexBasis: '100%' }}>{add.err}</div>}
-        </div>
+            <button
+              type="button"
+              onClick={addRow}
+              style={{ ...styles.smallBtnPrimary, flexBasis: '100%' }}
+            >
+              + Add
+            </button>
+            {add.err && <div style={{ ...styles.error, flexBasis: '100%' }}>{add.err}</div>}
+          </div>
+        )}
       </div>
 
       {/* LISTA — DESKTOP: tabella / MOBILE: accordion */}
@@ -641,29 +646,25 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
             {rowError && !String(row.profile_url || '').trim() && <div style={styles.error}>URL is required.</div>}
           </div>
 
-          <div style={styles.field}>
-            <div style={styles.checkboxRow}>
-              <input
-                id={`pub-m-${row.id}`}
-                type="checkbox"
-                checked={!!row.is_public}
-                onChange={() => onTogglePublic(row.id)}
-                aria-label="Public"
-              />
-              <label htmlFor={`pub-m-${row.id}`} style={styles.label}>Public</label>
-            </div>
+          <div style={styles.toggleRow}>
+            <input
+              id={`pub-m-${row.id}`}
+              type="checkbox"
+              checked={!!row.is_public}
+              onChange={() => onTogglePublic(row.id)}
+              aria-label="Public"
+            />
+            <label htmlFor={`pub-m-${row.id}`} style={styles.label}>Public</label>
           </div>
-          <div style={styles.field}>
-            <div style={styles.checkboxRow}>
-              <input
-                id={`pri-m-${row.id}`}
-                type="checkbox"
-                checked={!!row.is_primary}
-                onChange={() => onTogglePrimary(row.id)}
-                aria-label="Primary"
-              />
-              <label htmlFor={`pri-m-${row.id}`} style={styles.label}>Primary</label>
-            </div>
+          <div style={styles.toggleRow}>
+            <input
+              id={`pri-m-${row.id}`}
+              type="checkbox"
+              checked={!!row.is_primary}
+              onChange={() => onTogglePrimary(row.id)}
+              aria-label="Primary"
+            />
+            <label htmlFor={`pri-m-${row.id}`} style={styles.label}>Primary</label>
           </div>
 
           <div style={styles.actions}>
