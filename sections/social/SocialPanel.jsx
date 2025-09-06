@@ -610,8 +610,11 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
             {rowError && !String(row.profile_url || '').trim() && <div style={styles.error}>URL is required.</div>}
           </div>
 
-          <div style={styles.fieldRow}>
-            <label style={styles.checkboxRow} htmlFor={`pub-m-${row.id}`}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label
+              style={{ display: 'flex', alignItems: 'center', width: '100%' }}
+              htmlFor={`pub-m-${row.id}`}
+            >
               <input
                 id={`pub-m-${row.id}`}
                 type="checkbox"
@@ -621,7 +624,10 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
               />
               <span style={{ marginLeft: 4 }}>Public</span>
             </label>
-            <label style={styles.checkboxRow} htmlFor={`pri-m-${row.id}`}>
+            <label
+              style={{ display: 'flex', alignItems: 'center', width: '100%' }}
+              htmlFor={`pri-m-${row.id}`}
+            >
               <input
                 id={`pri-m-${row.id}`}
                 type="checkbox"
