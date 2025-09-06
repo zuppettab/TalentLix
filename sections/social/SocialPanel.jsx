@@ -559,7 +559,7 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
   const summaryId = `social-summary-${row.id}`;
   const regionId  = `social-region-${row.id}`;
 
-  const title = [row.platform || '—', row.handle ? `• ${row.handle}` : '', row.profile_url ? `• ${row.profile_url}` : '']
+  const title = [row.platform || '—', row.handle ? `• ${row.handle}` : '']
     .filter(Boolean).join(' ');
 
   return (
