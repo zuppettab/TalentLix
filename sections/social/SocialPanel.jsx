@@ -396,28 +396,32 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
         </div>
         <div className="row" style={{ ...styles.fieldRow, gap: 16, marginBottom: 12 }}>
           {isMobile ? (
-            <div style={{ ...styles.fieldRow, flexBasis: '100%', gap: 16 }}>
-              <div style={styles.checkboxRow}>
-                <input
-                  id="add-public"
-                  type="checkbox"
-                  checked={!!add.is_public}
-                  onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
-                  aria-label="Public"
-                />
-                <label htmlFor="add-public" style={{ marginLeft: 4 }}>Public</label>
+            <>
+              <div style={{ ...styles.field, flexBasis: '100%', marginBottom: 0 }}>
+                <div style={styles.checkboxRow}>
+                  <input
+                    id="add-public"
+                    type="checkbox"
+                    checked={!!add.is_public}
+                    onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
+                    aria-label="Public"
+                  />
+                  <label htmlFor="add-public" style={{ marginLeft: 4 }}>Public</label>
+                </div>
               </div>
-              <div style={styles.checkboxRow}>
-                <input
-                  id="add-primary"
-                  type="checkbox"
-                  checked={!!add.is_primary}
-                  onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
-                  aria-label="Primary"
-                />
-                <label htmlFor="add-primary" style={{ marginLeft: 4 }}>Primary</label>
+              <div style={{ ...styles.field, flexBasis: '100%', marginBottom: 0 }}>
+                <div style={styles.checkboxRow}>
+                  <input
+                    id="add-primary"
+                    type="checkbox"
+                    checked={!!add.is_primary}
+                    onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
+                    aria-label="Primary"
+                  />
+                  <label htmlFor="add-primary" style={{ marginLeft: 4 }}>Primary</label>
+                </div>
               </div>
-            </div>
+            </>
           ) : (
             <div style={{ display: 'flex', gap: 16 }}>
               <div style={styles.checkboxRow}>
@@ -637,7 +641,7 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
             {rowError && !String(row.profile_url || '').trim() && <div style={styles.error}>URL is required.</div>}
           </div>
 
-          <div style={{ ...styles.fieldRow, gap: 16, marginBottom: 12 }}>
+          <div style={styles.field}>
             <div style={styles.checkboxRow}>
               <input
                 id={`pub-m-${row.id}`}
@@ -648,6 +652,8 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
               />
               <label htmlFor={`pub-m-${row.id}`} style={styles.label}>Public</label>
             </div>
+          </div>
+          <div style={styles.field}>
             <div style={styles.checkboxRow}>
               <input
                 id={`pri-m-${row.id}`}
