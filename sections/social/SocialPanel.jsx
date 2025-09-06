@@ -50,7 +50,9 @@ const styles = {
     fontSize: 14,
     background: '#FFF'
   },
-  checkboxRow: { display: 'flex', alignItems: 'center', gap: 8 },
+  checkboxRow: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  thChk: { textAlign: 'center', fontSize: 12, fontWeight: 700, padding: '10px 6px', borderBottom: '1px solid #EEE', width: 40 },
+  tdChk: { fontSize: 14, padding: '10px 6px', borderBottom: '1px solid #F5F5F5', textAlign: 'center', width: 40 },
   error: { fontSize: 12, color: '#b00' },
 
   // Bottoni (coerenti)
@@ -381,8 +383,8 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
               type="checkbox"
               checked={!!add.is_public}
               onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
+              title="Public"
             />
-            <label htmlFor="add-public" style={{ fontSize: 13 }}>Public</label>
           </div>
           <div style={styles.checkboxRow}>
             <input
@@ -390,8 +392,8 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
               type="checkbox"
               checked={!!add.is_primary}
               onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
+              title="Primary"
             />
-            <label htmlFor="add-primary" style={{ fontSize: 13 }}>Primary</label>
           </div>
           <button
             type="button"
@@ -413,8 +415,8 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                 <th style={styles.th}>Platform</th>
                 <th style={styles.th}>Handle</th>
                 <th style={styles.th}>Profile URL</th>
-                <th style={styles.th}>Public</th>
-                <th style={styles.th}>Primary</th>
+                <th style={styles.thChk} title="Public">✓</th>
+                <th style={styles.thChk} title="Primary">★</th>
                 <th style={styles.thRight}>Actions</th>
               </tr>
             </thead>
@@ -451,27 +453,21 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                       <div style={styles.error}>URL is required.</div>
                     )}
                   </td>
-                  <td style={styles.td}>
-                    <div style={styles.checkboxRow}>
-                      <input
-                        id={`pub-${r.id}`}
-                        type="checkbox"
-                        checked={!!r.is_public}
-                        onChange={() => onTogglePublic(r.id)}
-                      />
-                      <label htmlFor={`pub-${r.id}`} style={{ fontSize: 13 }}>Public</label>
-                    </div>
+                  <td style={styles.tdChk}>
+                    <input
+                      id={`pub-${r.id}`}
+                      type="checkbox"
+                      checked={!!r.is_public}
+                      onChange={() => onTogglePublic(r.id)}
+                    />
                   </td>
-                  <td style={styles.td}>
-                    <div style={styles.checkboxRow}>
-                      <input
-                        id={`pri-${r.id}`}
-                        type="checkbox"
-                        checked={!!r.is_primary}
-                        onChange={() => onTogglePrimary(r.id)}
-                      />
-                      <label htmlFor={`pri-${r.id}`} style={{ fontSize: 13 }}>Primary</label>
-                    </div>
+                  <td style={styles.tdChk}>
+                    <input
+                      id={`pri-${r.id}`}
+                      type="checkbox"
+                      checked={!!r.is_primary}
+                      onChange={() => onTogglePrimary(r.id)}
+                    />
                   </td>
                   <td style={{ ...styles.td, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                     <a className="open-link"
@@ -603,8 +599,8 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
                 type="checkbox"
                 checked={!!row.is_public}
                 onChange={() => onTogglePublic(row.id)}
+                title="Public"
               />
-              <label htmlFor={`pub-m-${row.id}`} style={{ fontSize: 13 }}>Public</label>
             </div>
             <div style={styles.checkboxRow}>
               <input
@@ -612,8 +608,8 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
                 type="checkbox"
                 checked={!!row.is_primary}
                 onChange={() => onTogglePrimary(row.id)}
+                title="Primary"
               />
-              <label htmlFor={`pri-m-${row.id}`} style={{ fontSize: 13 }}>Primary</label>
             </div>
           </div>
 
