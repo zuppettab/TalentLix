@@ -33,7 +33,6 @@ const styles = {
 
   field: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 },
   fieldRow: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
-  toggleRow: { display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', columnGap: 8, whiteSpace: 'nowrap' },
   label: { fontSize: 13, fontWeight: 600 },
   input: {
     width: '100%',
@@ -397,7 +396,8 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
         </div>
         {isMobile ? (
           <>
-            <div className="row" style={styles.toggleRow}>
+            <div style={styles.field}>
+              <label htmlFor="add-public" style={styles.label}>Public</label>
               <input
                 id="add-public"
                 type="checkbox"
@@ -405,9 +405,9 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                 onChange={() => setAdd(s => ({ ...s, is_public: !s.is_public }))}
                 aria-label="Public"
               />
-              <label htmlFor="add-public" style={styles.label}>Public</label>
             </div>
-            <div className="row" style={styles.toggleRow}>
+            <div style={styles.field}>
+              <label htmlFor="add-primary" style={styles.label}>Primary</label>
               <input
                 id="add-primary"
                 type="checkbox"
@@ -415,7 +415,6 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                 onChange={() => setAdd(s => ({ ...s, is_primary: !s.is_primary }))}
                 aria-label="Primary"
               />
-              <label htmlFor="add-primary" style={styles.label}>Primary</label>
             </div>
             <button
               type="button"
@@ -646,7 +645,8 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
             {rowError && !String(row.profile_url || '').trim() && <div style={styles.error}>URL is required.</div>}
           </div>
 
-          <div style={styles.toggleRow}>
+          <div style={styles.field}>
+            <label htmlFor={`pub-m-${row.id}`} style={styles.label}>Public</label>
             <input
               id={`pub-m-${row.id}`}
               type="checkbox"
@@ -654,9 +654,9 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
               onChange={() => onTogglePublic(row.id)}
               aria-label="Public"
             />
-            <label htmlFor={`pub-m-${row.id}`} style={styles.label}>Public</label>
           </div>
-          <div style={styles.toggleRow}>
+          <div style={styles.field}>
+            <label htmlFor={`pri-m-${row.id}`} style={styles.label}>Primary</label>
             <input
               id={`pri-m-${row.id}`}
               type="checkbox"
@@ -664,7 +664,6 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
               onChange={() => onTogglePrimary(row.id)}
               aria-label="Primary"
             />
-            <label htmlFor={`pri-m-${row.id}`} style={styles.label}>Primary</label>
           </div>
 
           <div style={styles.actions}>
