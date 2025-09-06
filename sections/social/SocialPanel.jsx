@@ -52,8 +52,22 @@ const styles = {
     background: '#FFF'
   },
   checkboxRow: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  thChk: { textAlign: 'center', fontSize: 12, fontWeight: 700, padding: '10px 6px', borderBottom: '1px solid #EEE', width: 40 },
-  tdChk: { fontSize: 14, padding: '10px 6px', borderBottom: '1px solid #F5F5F5', textAlign: 'center', width: 40 },
+    thChk: {
+      textAlign: 'center',
+      fontSize: 12,
+      fontWeight: 700,
+      padding: '10px 6px',
+      borderBottom: '1px solid #EEE',
+      width: 60,
+      whiteSpace: 'nowrap'
+    },
+    tdChk: {
+      fontSize: 14,
+      padding: '10px 6px',
+      borderBottom: '1px solid #F5F5F5',
+      textAlign: 'center',
+      width: 60
+    },
   thUrl: { textAlign: 'center', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE', width: 60 },
   tdUrl: { fontSize: 14, padding: '10px 12px', borderBottom: '1px solid #F5F5F5', textAlign: 'center', width: 60 },
   urlIcon: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#1976d2' },
@@ -417,19 +431,19 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
         <div style={styles.tableWrap}>
           <table style={styles.table}>
             <thead>
-              <tr>
-                <th style={styles.th}>Platform</th>
-                <th style={styles.th}>Handle</th>
-                <th style={styles.thUrl}>Profile URL</th>
-                <th style={styles.thChk}>Public</th>
-                <th style={styles.thChk}>Primary</th>
-                <th style={styles.thRight}>Actions</th>
-              </tr>
+                <tr>
+                  <th style={{ ...styles.th, width: 120 }}>Platform</th>
+                  <th style={{ ...styles.th, width: 150 }}>Handle</th>
+                  <th style={styles.thUrl}>Profile URL</th>
+                  <th style={styles.thChk}>Public</th>
+                  <th style={styles.thChk}>Primary</th>
+                  <th style={styles.thRight}>Actions</th>
+                </tr>
             </thead>
             <tbody>
               {rows.length > 0 ? rows.map((r) => (
                 <tr key={r.id}>
-                  <td style={styles.td}>
+                  <td style={{ ...styles.td, width: 120 }}>
                     <input
                       list="platform-suggestions"
                       value={r.platform || ''}
@@ -440,7 +454,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                       <div style={styles.error}>Platform is required.</div>
                     )}
                   </td>
-                  <td style={styles.td}>
+                  <td style={{ ...styles.td, width: 150 }}>
                     <input
                       value={r.handle || ''}
                       onChange={(e) => onField(r.id, 'handle', e.target.value)}
@@ -479,7 +493,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                       aria-label="Primary"
                     />
                   </td>
-                  <td style={{ ...styles.td, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <td style={{ ...styles.td, verticalAlign: 'middle', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
                     <button
                       type="button"
                       style={{ ...styles.linkBtn, color: '#b00' }}
