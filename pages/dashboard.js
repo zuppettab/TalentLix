@@ -196,7 +196,7 @@ export default function Dashboard() {
   // --- Stili dinamici derivati (mobile vs desktop)
   const headerStyle = { ...styles.header, ...(isMobile ? styles.headerMobile : null) };
   const headerLeftStyle = { ...styles.headerLeft, ...(isMobile ? styles.headerLeftMobile : null) };
-  const authWrapStyle = { ...(isMobile ? styles.authWrapMobileSlot : {}) };
+  const headerRightStyle = { display: 'flex', alignItems: 'center', gap: 12, ...(isMobile ? styles.authWrapMobileSlot : {}) };
 
   const subHeaderStyle = { ...styles.subHeader, ...(isMobile ? styles.subHeaderMobile : null) };
   const progressBarStyle = { ...styles.progressBar, ...(isMobile ? { width: '100%' } : null) };
@@ -214,7 +214,16 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={authWrapStyle}>
+        <div style={headerRightStyle}>
+          <a
+            href="/profile/preview"
+            style={styles.link}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Preview
+          </a>
+          {!isMobile && <span style={{ margin: '0 8px' }}>|</span>}
           <AuthControl
             email={user?.email}
             avatarUrl={athlete?.profile_picture_url}

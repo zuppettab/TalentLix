@@ -13,9 +13,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import {
-  Play, Mail, Phone, Globe, MapPin, BadgeCheck, ShieldCheck, Link as LinkIcon,
-  ChevronRight, ChevronDown, ExternalLink, Verified, Image as ImageIcon, Video, Award
-} from 'lucide-react';
+  FiPlay as Play,
+  FiMail as Mail,
+  FiPhone as Phone,
+  FiGlobe as Globe,
+  FiMapPin as MapPin,
+  FiCheckCircle as BadgeCheck,
+  FiShield as ShieldCheck,
+  FiLink as LinkIcon,
+  FiChevronRight as ChevronRight,
+  FiChevronDown as ChevronDown,
+  FiExternalLink as ExternalLink,
+  FiCheck as Verified,
+  FiImage as ImageIcon,
+  FiVideo as Video,
+  FiAward as Award,
+} from 'react-icons/fi';
 import { supabase } from '../../utils/supabaseClient';
 
 // ---- Costanti stile (coerenti con il progetto)
