@@ -376,7 +376,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
       </div>
 
       {/* FORM AGGIUNTA */}
-      <div style={{ ...styles.grid2, ...(isMobile ? styles.grid2Mobile : null) }}>
+      <div style={{ ...styles.grid, gap: 16 }}>
         <div className="row" style={styles.field}>
           <label style={styles.label}>Platform</label>
           <input
@@ -408,7 +408,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
             style={styles.input}
           />
         </div>
-        <div className="row" style={{ ...styles.field, justifyContent: 'flex-end' }}>
+        <div className="row" style={{ ...styles.fieldRow, gap: 16, marginBottom: 12 }}>
           <div style={styles.checkboxRow}>
             <input
               id="add-public"
@@ -427,8 +427,14 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
             />
             <label htmlFor="add-primary" style={{ fontSize: 13 }}>Primary</label>
           </div>
-          <button type="button" onClick={addRow} style={styles.smallBtnPrimary}>+ Add</button>
-          {add.err && <div style={styles.error}>{add.err}</div>}
+          <button
+            type="button"
+            onClick={addRow}
+            style={{ ...styles.smallBtnPrimary, marginLeft: 'auto' }}
+          >
+            + Add
+          </button>
+          {add.err && <div style={{ ...styles.error, flexBasis: '100%' }}>{add.err}</div>}
         </div>
       </div>
 
