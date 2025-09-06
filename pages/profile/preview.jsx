@@ -394,6 +394,37 @@ export default function ProfilePreviewPage() {
   const signed = async (path) => (path ? await getSigned(BUCKET_MEDIA, path) : '');
   const signedDoc = async (path) => (path ? await getSigned(BUCKET_DOCS, path) : '');
 
+  // --- Hero: prepara visualizzazione (poster/thumbnail + tipo)
+  const heroIsVideo = !!(
+    hero &&
+    ((hero.storage_path && hero.mime_type?.startsWith('video/')) ||
+      (hero.external_url && youTubeId(hero.external_url)))
+  );
+  const [heroSrc, setHeroSrc] = useState('');
+  const [heroPoster, setHeroPoster] = useState('');
+  useEffect(() => {
+    (async () => {
+      if (!hero) {
+        setHeroSrc('');
+        setHeroPoster('');
+        return;
+      }
+      // Se YouTube link
+      if (hero.external_url && youTubeId(hero.external_url)) {
+        const id = youTubeId(hero.external_url);
+        setHeroSrc(`https://www.youtube.com/embed/${id}`);
+        setHeroPoster(youTubeThumb(id));
+        return;
+      }
+      // Se file su storage
+      const m = hero.mime_type || '';
+      const url = hero.storage_path ? await signed(hero.storage_path) : '';
+      const poster = hero.poster_path ? await signed(hero.poster_path) : '';
+      setHeroSrc(url);
+      setHeroPoster(poster || (m.startsWith('video/') ? '' : url));
+    })();
+  }, [hero]);
+
   // ---- Render
   if (!sessionChecked) return null;
 
@@ -448,29 +479,6 @@ export default function ProfilePreviewPage() {
 
   // --- Featured/Gallery per Lightbox
   const galleryItems = (media.gallery || []).map(g => ({ url: g.poster_path || g.thumb_path || g.storage_path, alt: g.title || 'Foto' }));
-
-  // --- Hero: prepara visualizzazione (poster/thumbnail + tipo)
-  const heroIsVideo = !!(hero && (hero.storage_path && hero.mime_type?.startsWith('video/')) || (hero.external_url && (youTubeId(hero.external_url))));
-  const [heroSrc, setHeroSrc] = useState('');
-  const [heroPoster, setHeroPoster] = useState('');
-  useEffect(() => {
-    (async () => {
-      if (!hero) { setHeroSrc(''); setHeroPoster(''); return; }
-      // Se YouTube link
-      if (hero.external_url && youTubeId(hero.external_url)) {
-        const id = youTubeId(hero.external_url);
-        setHeroSrc(`https://www.youtube.com/embed/${id}`);
-        setHeroPoster(youTubeThumb(id));
-        return;
-      }
-      // Se file su storage
-      const m = hero.mime_type || '';
-      const url = hero.storage_path ? await signed(hero.storage_path) : '';
-      const poster = hero.poster_path ? await signed(hero.poster_path) : '';
-      setHeroSrc(url);
-      setHeroPoster(poster || (m.startsWith('video/') ? '' : url));
-    })();
-  }, [hero]);
 
   return (
     <div style={{ minHeight: '100vh', background: '#FFF' }}>
