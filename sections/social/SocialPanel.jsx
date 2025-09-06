@@ -4,10 +4,10 @@
 // - Nessun campo marcato “obbligatorio” a livello di UI; tuttavia, per coerenza con il DB
 //   (NOT NULL su platform e profile_url) la card segnala in modo coerente l’assenza e non salva la riga incompleta.
 // - Mobile first: tabella su desktop, accordion su mobile.
-// - Ordinamento tramite drag&drop e pulsanti ↑/↓ -> sort_order persistito con Save.
+// - L'ordinamento è automatico: sort_order viene aggiornato sequenzialmente al salvataggio.
 // - Un solo profilo "primario" per atleta: enforced lato UI (il toggle su uno spegne gli altri).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase as sb } from '../../utils/supabaseClient';
 
 const supabase = sb;
@@ -91,10 +91,6 @@ const styles = {
   details: { padding: 12, borderTop: '1px solid #EEE', display: 'flex', flexDirection: 'column', gap: 8 },
   actions: { display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end', flexWrap: 'wrap' },
 
-  // Drag & Drop
-  draggable: { cursor: 'grab' },
-  droptarget: { outline: '2px dashed rgba(39,227,218,0.5)' },
-
   // Save Bar allineata alle altre card
   saveBar: {
     gridColumn: '1 / -1',
@@ -122,9 +118,6 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
 
   // Stato ADD (riga nuova)
   const [add, setAdd] = useState({ platform: '', handle: '', profile_url: '', is_public: true, is_primary: false, err: '' });
-
-  // Drag&Drop
-  const [drag, setDrag] = useState({ type: '', from: -1, to: -1 });
 
   useEffect(() => {
     let mounted = true;
@@ -212,36 +205,6 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
     }
   };
 
-  // ---------------- Ordinamento ----------------
-  const onDragStart = (idx) => setDrag({ type: 'row', from: idx, to: idx });
-  const onDragOver  = (e, idx) => { e.preventDefault(); setDrag(d => d.type === 'row' ? { ...d, to: idx } : d); };
-  const onDrop      = () => {
-    if (drag.type !== 'row') return;
-    const { from, to } = drag;
-    if (from === to || from < 0 || to < 0) { setDrag({ type: '', from: -1, to: -1 }); return; }
-    const arr = [...rows];
-    const [item] = arr.splice(from, 1);
-    arr.splice(to, 0, item);
-    const arr2 = arr.map((it, i) => ({ ...it, sort_order: i }));
-    setRows(arr2);
-    setDrag({ type: '', from: -1, to: -1 });
-    setDirty(true);
-    if (status.type) setStatus({ type: '', msg: '' });
-  };
-
-  const moveRow = (id, delta) => {
-    setRows(prev => {
-      const idx = prev.findIndex(r => r.id === id);
-      const newIdx = idx + delta;
-      if (idx === -1 || newIdx < 0 || newIdx >= prev.length) return prev;
-      const arr = [...prev];
-      const [item] = arr.splice(idx, 1);
-      arr.splice(newIdx, 0, item);
-      return arr.map((it, i) => ({ ...it, sort_order: i }));
-    });
-    setDirty(true);
-    if (status.type) setStatus({ type: '', msg: '' });
-  };
 
   // ---------------- VALIDAZIONE SOFT (coerente con DB NOT NULL su platform/profile_url) ----------------
   const validateRow = (r) => {
@@ -266,12 +229,15 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
       if (primaries.length > 1) {
         // Forziamo il primo come primary e spegniamo gli altri
         const firstId = primaries[0].id;
-        setRows(prev => prev.map(r => ({ ...r, is_primary: r.id === firstId })));
+        setRows(prev => prev.map(r => ({ ...r, is_primary: r.id === firstId }))); 
       }
+
+      // sort_order sequenziale
+      const ordered = rows.map((r, idx) => ({ ...r, sort_order: idx }));
 
       // Validazione riga-per-riga
       const errs = {};
-      for (const r of rows) {
+      for (const r of ordered) {
         const e = validateRow(r);
         if (e) errs[r.id] = e;
       }
@@ -283,8 +249,8 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
       }
 
       // Split insert/update
-      const toInsert = rows.filter(r => String(r.id).startsWith('tmp-') || r.id == null);
-      const toUpdate = rows.filter(r => !(String(r.id).startsWith('tmp-')) && r.id != null);
+      const toInsert = ordered.filter(r => String(r.id).startsWith('tmp-') || r.id == null);
+      const toUpdate = ordered.filter(r => !(String(r.id).startsWith('tmp-')) && r.id != null);
 
       // INSERTS
       for (const r of toInsert) {
@@ -371,7 +337,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
       <div>
         <div style={styles.sectionTitle}>Social Profiles</div>
         <div style={styles.subnote}>
-          Aggiungi i profili social dell’atleta. Drag & drop per riordinare; “Primary” ne consente uno solo.
+          Aggiungi i profili social dell’atleta. “Primary” ne consente uno solo.
         </div>
       </div>
 
@@ -444,7 +410,6 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>#</th>
                 <th style={styles.th}>Platform</th>
                 <th style={styles.th}>Handle</th>
                 <th style={styles.th}>Profile URL</th>
@@ -454,19 +419,8 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
               </tr>
             </thead>
             <tbody>
-              {rows.length > 0 ? rows.map((r, idx) => (
-                <tr key={r.id}
-                    draggable
-                    onDragStart={() => onDragStart(idx)}
-                    onDragOver={(e) => onDragOver(e, idx)}
-                    onDrop={onDrop}
-                    style={{
-                      ...(drag.type === 'row' && drag.to === idx ? styles.droptarget : null),
-                      ...(drag.type === 'row' ? styles.draggable : null)
-                    }}>
-                  <td style={styles.td} title="Drag to sort">
-                    <span style={{ cursor: 'grab' }}>↕</span>
-                  </td>
+              {rows.length > 0 ? rows.map((r) => (
+                <tr key={r.id}>
                   <td style={styles.td}>
                     <input
                       list="platform-suggestions"
@@ -528,9 +482,6 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                       Open
                     </a>
                     <span style={{ margin: '0 6px' }}>|</span>
-                    <button type="button" style={styles.linkBtn} onClick={() => moveRow(r.id, -1)}>↑</button>
-                    <button type="button" style={styles.linkBtn} onClick={() => moveRow(r.id, +1)}>↓</button>
-                    <span style={{ margin: '0 6px' }}>|</span>
                     <button
                       type="button"
                       style={{ ...styles.linkBtn, color: '#b00' }}
@@ -542,7 +493,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                 </tr>
               )) : (
                 <tr>
-                  <td style={styles.td} colSpan={7}><span style={{ fontSize: 12, color: '#666' }}>No social profiles added.</span></td>
+                  <td style={styles.td} colSpan={6}><span style={{ fontSize: 12, color: '#666' }}>No social profiles added.</span></td>
                 </tr>
               )}
             </tbody>
@@ -557,8 +508,6 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
               onField={onField}
               onTogglePublic={onTogglePublic}
               onTogglePrimary={onTogglePrimary}
-              onMoveUp={() => moveRow(r.id, -1)}
-              onMoveDown={() => moveRow(r.id, +1)}
               onDelete={() => deleteRow(r.id)}
               rowError={rowErrors[r.id]}
             />
@@ -591,7 +540,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
 }
 
 // ---------------- SUB-COMPONENTE — Mobile Accordion ----------------
-function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, onMoveUp, onMoveDown, onDelete, rowError }) {
+function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, onDelete, rowError }) {
   const [open, setOpen] = useState(false);
   const summaryId = `social-summary-${row.id}`;
   const regionId  = `social-region-${row.id}`;
@@ -669,8 +618,6 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
           </div>
 
           <div style={styles.actions}>
-            <button type="button" style={styles.smallBtn} onClick={onMoveUp}>↑</button>
-            <button type="button" style={styles.smallBtn} onClick={onMoveDown}>↓</button>
             <a href={(row.profile_url || '#')} target="_blank" rel="noopener,noreferrer" style={styles.smallBtn}>
               Open
             </a>
