@@ -246,6 +246,7 @@ export default function AthleteShowcaseCard({ athleteId }) {
 
   // Load
   useEffect(() => {
+    if (!athleteId) return; // avoid queries without athleteId
     let mounted = true;
     (async () => {
       try {
@@ -455,6 +456,7 @@ export default function AthleteShowcaseCard({ athleteId }) {
   };
 
   // ---------- Render ----------
+  if (!athleteId) return null; // nothing to show until athleteId available
   if (loading) {
     return (
       <div style={styles.container}>
