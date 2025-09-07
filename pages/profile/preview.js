@@ -68,7 +68,7 @@ export default function ProfilePreviewPage() {
       {!athleteId ? (
         <div style={{ maxWidth: 960, margin: '40px auto', padding: '0 16px' }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Missing athlete id</h1>
-          <p>Apri come <code>/profile/preview?id=&lt;athleteId&gt;</code>.</p>
+          <p>Open as <code>/profile/preview?id=&lt;athleteId&gt;</code>.</p>
         </div>
       ) : <PreviewCard athleteId={String(athleteId)} /> }
     </>
@@ -286,7 +286,7 @@ function PreviewCard({ athleteId }) {
       <div style={S.card}>
 
         {/* HERO compatto */}
-        <section style={S.hero} aria-label="Header profilo">
+        <section style={S.hero} aria-label="Profile header">
           {avatarUrl
             ? <img src={avatarUrl} alt={`${fullName} avatar`} style={S.avatar}/>
             : <div style={S.avatarFallback}>{initials(fullName)}</div>
@@ -388,8 +388,8 @@ function PreviewCard({ athleteId }) {
             </section>
 
             {/* CARRIERA */}
-            <section style={S.section} aria-label="Carriera">
-              <div style={S.titleRow}><Calendar size={18}/><h2 style={S.h2}>Carriera</h2></div>
+            <section style={S.section} aria-label="Career">
+              <div style={S.titleRow}><Calendar size={18}/><h2 style={S.h2}>Career</h2></div>
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 {(career||[]).map(row => (
                   <div key={row.id} style={S.seasonCard}>
@@ -409,8 +409,8 @@ function PreviewCard({ athleteId }) {
             </section>
 
             {/* PROFILO */}
-            <section style={S.section} aria-label="Profilo">
-              <div style={S.titleRow}><User size={18}/><h2 style={S.h2}>Profilo</h2></div>
+            <section style={S.section} aria-label="Profile">
+              <div style={S.titleRow}><User size={18}/><h2 style={S.h2}>Profile</h2></div>
               <div style={S.profileGrid}>
                 <Info label="Date of birth" value={`${athlete?.date_of_birth ? fmtDate(athlete.date_of_birth) : '—'}${typeof age==='number' ? ` · ${age} y/o` : ''}`}/>
                 <Info label="Nationality" value={`${natFlag ? natFlag+' ' : ''}${athlete?.nationality || '—'}`}/>
@@ -436,7 +436,7 @@ function PreviewCard({ athleteId }) {
           <div style={S.colB}>
 
             {/* FISICO */}
-            <section style={S.section} aria-label="Fisico">
+            <section style={S.section} aria-label="Physical data">
               <div style={S.titleRow}><Ruler size={18}/><h2 style={S.h2}>Physical data</h2></div>
               <div style={S.facts}>
                 <Fact label="Height" value={physical?.height_cm ? `${physical.height_cm} cm` : '—'} icon={<Ruler size={16}/>}/>
@@ -465,7 +465,7 @@ function PreviewCard({ athleteId }) {
             )}
 
             {/* CONTATTI */}
-            <section style={S.section} aria-label="Contatti">
+            <section style={S.section} aria-label="Contacts">
               <div style={S.titleRow}><Phone size={18}/><h2 style={S.h2}>Contacts</h2></div>
               <div style={{ display:'grid', gap:10 }}>
                 <div style={S.row}><Mail size={16}/><strong>{email || '—'}</strong></div>
@@ -494,7 +494,7 @@ function PreviewCard({ athleteId }) {
               </div>
             )}
             <div style={{ marginTop:10, display:'flex', justifyContent:'flex-end' }}>
-              <button type="button" onClick={()=>setLightbox({ open:false })} style={S.btn}>Chiudi</button>
+              <button type="button" onClick={()=>setLightbox({ open:false })} style={S.btn}>Close</button>
             </div>
           </div>
         </div>
@@ -579,7 +579,7 @@ function GamesBlock({ games }) {
       <div>
         {item.external_url ? (
           <a href={item.external_url} target="_blank" rel="noreferrer" style={{ fontWeight:700, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
-            Guarda <ExternalLink size={16}/>
+            Watch <ExternalLink size={16}/>
           </a>
         ) : <span style={{ color:'#666' }}>—</span>}
       </div>
@@ -614,12 +614,12 @@ function AwardCard({ r }) {
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         {r.evidence_external_url && (
           <a href={r.evidence_external_url} target="_blank" rel="noreferrer" style={{ fontWeight:700, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
-            Apri link <ExternalLink size={16}/>
+            Open link <ExternalLink size={16}/>
           </a>
         )}
         {!r.evidence_external_url && r.evidence_signed_url && (
           <a href={r.evidence_signed_url} target="_blank" rel="noreferrer" style={{ fontWeight:700, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
-            Apri documento <ExternalLink size={16}/>
+            Open document <ExternalLink size={16}/>
           </a>
         )}
       </div>
@@ -638,9 +638,9 @@ function renderMeasures(p){
   if(!rows.length) return null;
   return (
     <details style={{ marginTop:12 }}>
-      <summary style={{ cursor:'pointer', fontWeight:800 }}>Vedi tutte le misure</summary>
+      <summary style={{ cursor:'pointer', fontWeight:800 }}>View all measurements</summary>
       <div style={{ marginTop:10 }}>
-        <div style={{ fontSize:12, color:'#666', marginBottom:8 }}>Ultima rilevazione: {fmtDate(p?.physical_measured_at || p?.performance_measured_at)}</div>
+        <div style={{ fontSize:12, color:'#666', marginBottom:8 }}>Last measurement: {fmtDate(p?.physical_measured_at || p?.performance_measured_at)}</div>
         <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:'0 8px' }}>
           <tbody>{rows.map(([l,v],i)=>(
             <tr key={i}>
