@@ -215,13 +215,6 @@ export default function Dashboard() {
         </div>
 
         <div style={headerRightStyle}>
-          <button
-            onClick={() => setSection('showcase')}
-            style={{ ...styles.link, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-          >
-            Preview
-          </button>
-          {!isMobile && <span style={{ margin: '0 8px' }}>|</span>}
           <AuthControl
             email={user?.email}
             avatarUrl={athlete?.profile_picture_url}

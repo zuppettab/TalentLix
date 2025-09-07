@@ -9,11 +9,10 @@ export const SECTIONS = [
   { id: 'awards',    title: 'Awards' },
   { id: 'media',     title: 'Media' },
   { id: 'social',    title: 'Social' },
-  { id: 'showcase',  title: 'Profile preview' },
   { id: 'privacy',   title: 'Privacy & consent' },
 ];
 
-/** @type {'personal'|'contacts'|'sports'|'physical'|'media'|'social'|'awards'|'privacy'|'showcase'} */
+/** @type {'personal'|'contacts'|'sports'|'physical'|'media'|'social'|'awards'|'privacy'} */
 export const DEFAULT_SECTION = 'personal';
 
 /** Validate a section id coming from the URL (e.g. ?section=...). */
