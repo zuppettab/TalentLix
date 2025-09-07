@@ -1040,13 +1040,15 @@ export default function AthleteShowcaseCard({ athleteId }) {
 // ---- Support: immagine async con signed URL + onClick (lightbox) ----
 function AsyncImage({ alt, path, getSigned, style, onClick }) {
   const [src, setSrc] = useState('');
-  useEffect(()=> { (async()=> {
-    if (!path) return;
-    const url = isHttpUrl(path) ? path : await getSigned(path);
-    setSrc(url || '');
-  })(); }, [path]);
+  useEffect(() => {
+    (async () => {
+      if (!path) return;
+      const url = isHttpUrl(path) ? path : await getSigned(path);
+      setSrc(url || '');
+    })();
+  }, [path, getSigned]);
   return (
-    <img alt={alt} src={src} loading="lazy" decoding="async" style={{ ...style, cursor:'zoom-in' }} onClick={()=>onClick?.(src)} />
+    <img alt={alt} src={src} loading="lazy" decoding="async" style={{ ...style, cursor: 'zoom-in' }} onClick={() => onClick?.(src)} />
   );
 }
 
