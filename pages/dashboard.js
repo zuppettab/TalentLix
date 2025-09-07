@@ -10,7 +10,6 @@ import PhysicalPanel from '../sections/physical/PhysicalPanel';
 import MediaPanel from '../sections/media/MediaPanel';
 import SocialPanel from '../sections/social/SocialPanel';
 import AwardsWidget from '../sections/awards/AwardsWidget';
-import AthleteShowcaseCard from '../components/AthleteShowcaseCard';
 
 const ATHLETE_TABLE = 'athlete';
 
@@ -216,13 +215,6 @@ export default function Dashboard() {
         </div>
 
         <div style={headerRightStyle}>
-          <button
-            onClick={() => setSection('showcase')}
-            style={{ ...styles.link, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-          >
-            Preview
-          </button>
-          {!isMobile && <span style={{ margin: '0 8px' }}>|</span>}
           <AuthControl
             email={user?.email}
             avatarUrl={athlete?.profile_picture_url}
@@ -377,10 +369,7 @@ export default function Dashboard() {
                 {current === 'awards' && (
                   <AwardsWidget athleteId={athlete?.id} isMobile={isMobile} />
                 )}
-                {current === 'showcase' && (
-                  <AthleteShowcaseCard athleteId={athlete?.id} />
-                )}
-                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'media' && current !== 'social' && current !== 'physical' && current !== 'awards' && current !== 'showcase' && (
+                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'media' && current !== 'social' && current !== 'physical' && current !== 'awards' && (
                   <p style={styles.placeholder}>TODO — “{sectionObj?.title}”</p>
                 )}
 
