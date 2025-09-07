@@ -220,6 +220,7 @@ export default function Dashboard() {
             avatarUrl={athlete?.profile_picture_url}
             onLogout={handleLogout}
             compact={isMobile}
+            athleteId={athlete?.id}
           />
         </div>
       </header>
@@ -383,12 +384,15 @@ export default function Dashboard() {
 }
 
 /** Login/logout in alto a destra */
-function AuthControl({ email, avatarUrl, onLogout, compact }) {
+function AuthControl({ email, avatarUrl, onLogout, compact, athleteId }) {
   return (
     <div style={{ ...styles.authWrap, ...(compact ? styles.authWrapMobile : null) }}>
       <a href="/index" style={styles.link}>Home</a>
       <span style={{ margin: '0 8px' }}>|</span>
-      <a href="/profile/preview" style={styles.link}>Preview</a>
+      {athleteId
+        ? <a href={`/profile/preview?id=${athleteId}`} style={styles.link}>Preview</a>
+        : <a style={{ ...styles.link, pointerEvents: 'none', opacity: 0.5 }}>Preview</a>
+      }
       {!compact && <span style={{ margin: '0 8px' }}>|</span>}
       <div style={styles.authBox}>
         {avatarUrl
