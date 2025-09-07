@@ -387,6 +387,8 @@ function AuthControl({ email, avatarUrl, onLogout, compact }) {
   return (
     <div style={{ ...styles.authWrap, ...(compact ? styles.authWrapMobile : null) }}>
       <a href="/index" style={styles.link}>Home</a>
+      <span style={{ margin: '0 8px' }}>|</span>
+      <a href="/profile/preview" style={styles.link}>Preview</a>
       {!compact && <span style={{ margin: '0 8px' }}>|</span>}
       <div style={styles.authBox}>
         {avatarUrl
