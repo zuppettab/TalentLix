@@ -14,7 +14,7 @@ import { supabase as sb } from '../utils/supabaseClient';
 import {
   Play, Film, Image as ImageIcon, ChevronRight, ChevronDown,
   Calendar, Award as AwardIcon, Medal, Phone, Mail, Globe, MapPin, User, Flag, ExternalLink,
-  CheckCircle, ShieldCheck, Ruler, Scale, MoveHorizontal, Hand, Footprints, Activity, X as XIcon, Youtube, Instagram, Facebook, Linkedin
+  CheckCircle, ShieldCheck, Ruler, Scale, MoveHorizontal, Hand, Activity, X as XIcon, Youtube, Instagram, Facebook, Linkedin
 } from 'lucide-react';
 
 const supabase = sb;
