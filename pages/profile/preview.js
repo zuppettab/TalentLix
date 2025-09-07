@@ -721,4 +721,3 @@ if (typeof document !== 'undefined' && !document.getElementById('showcase-resp-c
   }`;
   document.head.appendChild(el);
 }
-Secondo me manco utilities hanno fatto fatti lo shampoo amor
