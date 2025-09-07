@@ -8,7 +8,7 @@
 // - Join meta partite: media_item + media_game_meta  
 // - Schemi tabelle (campi chiave): media_item/media_game_meta/athlete/contacts_verification/physical_data/athlete_career 
 // - Supabase client centralizzato  :contentReference[oaicite:13]{index=13}
-
+'use client';
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { supabase as sb } from '../utils/supabaseClient';
 import {
