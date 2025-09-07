@@ -9,8 +9,9 @@
 // - Schemi tabelle (campi chiave): media_item/media_game_meta/athlete/contacts_verification/physical_data/athlete_career 
 // - Supabase client centralizzato  :contentReference[oaicite:13]{index=13}
 'use client';
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase as sb } from '../utils/supabaseClient';
+import { useSignedUrlCache } from '../utils/useSignedUrlCache';
 import {
   Play, Film, Image as ImageIcon, ChevronRight, ChevronDown,
   Calendar, Award as AwardIcon, Medal, Phone, Mail, Globe, MapPin, User, Flag, ExternalLink,
@@ -118,22 +119,6 @@ const flagFromCountry = (name='') => {
   return chars.join('');
 };
 
-// Cache Signed URL 60s
-function useSignedUrlCache(bucket) {
-  const cacheRef = useRef(new Map());
-  return useCallback(async (storagePath) => {
-    if (!storagePath) return '';
-    const k = `${bucket}:${storagePath}`;
-    const hit = cacheRef.current.get(k);
-    const now = Date.now();
-    if (hit && hit.exp > now + 2000) return hit.url;
-    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(storagePath, 60);
-    if (error) return '';
-    const url = data?.signedUrl || '';
-    cacheRef.current.set(k, { url, exp: now + 55_000 });
-    return url;
-  }, [bucket]);
-}
 
 // ---------- Stili (inline, coerenti token progetto) ----------
 const styles = {
