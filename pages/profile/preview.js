@@ -175,8 +175,18 @@ export default function ProfilePreview() {
 
         // ---- Media grouping (intro/featured/highlight/full_match/gallery)
         if (mediaRes.status === 'fulfilled') {
-          const rows = safeArray(mediaRes.value?.data);
-          const byCat = (c) => rows.filter(r => (r?.category || '').toLowerCase() === c);
+          const rows = safeArray(mediaRes.value?.data).map(r => {
+            const cat = (r?.category || '').toLowerCase();
+            const mapped = {
+              featured_headshot: 'featured',
+              featured_game1: 'featured',
+              featured_game2: 'featured',
+              game: 'full_match',
+            }[cat] || cat;
+            return { ...r, category: mapped };
+          });
+
+          const byCat = (c) => rows.filter(r => r.category === c);
           const intro = byCat('intro')[0] || null;
           const featured = byCat('featured').slice(0, 3);
           const highlights = byCat('highlight').slice(0, 3);
