@@ -65,12 +65,14 @@ export default function ProfilePreviewPage() {
   return (
     <>
       <Head><title>Profile preview</title></Head>
-      {!athleteId ? (
-        <div style={{ maxWidth: 960, margin: '40px auto', padding: '0 16px' }}>
-          <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Missing athlete id</h1>
-          <p>Apri come <code>/profile/preview?id=&lt;athleteId&gt;</code>.</p>
-        </div>
-      ) : <PreviewCard athleteId={String(athleteId)} /> }
+      <div style={{ fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif' }}>
+        {!athleteId ? (
+          <div style={{ maxWidth: 960, margin: '40px auto', padding: '0 16px' }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Missing athlete id</h1>
+            <p>Apri come <code>/profile/preview?id=&lt;athleteId&gt;</code>.</p>
+          </div>
+        ) : <PreviewCard athleteId={String(athleteId)} /> }
+      </div>
     </>
   );
 }
