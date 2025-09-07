@@ -1,7 +1,7 @@
 // pages/profile/preview.js
-// Pagina STANDALONE (solo lettura) – niente sub‑nav, hero compatto con avatar,
-// sezioni: Media · Sport (attuale) · Carriera · Profilo · Fisico · Social · Contatti · Premi.
-// Import Supabase: percorso corretto da /pages/profile/*  -> '../../utils/supabaseClient'  ✅
+// Standalone page (read-only) – no sub‑nav, compact hero with avatar,
+// sections: Media · Sport (current) · Career · Profile · Physical · Social · Contacts · Awards.
+// Supabase import: correct path from /pages/profile/*  -> '../../utils/supabaseClient'  ✅
 import React, { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -14,8 +14,8 @@ import {
 
 const supabase = sb;
 
-/* ------------------------------ Costanti ------------------------------ */
-// Categorie media (allineate alla tua MediaPanel)  ✅
+/* ------------------------------ Constants ------------------------------ */
+// Media categories (aligned with your MediaPanel)  ✅
 const CAT = {
   FEATURED_HEAD: 'featured_headshot',
   FEATURED_G1:   'featured_game1',
@@ -24,12 +24,12 @@ const CAT = {
   INTRO:         'intro',
   HIGHLIGHT:     'highlight',
   GAME:          'game',
-}; // (stesse chiavi usate in MediaPanel)  :contentReference[oaicite:3]{index=3}
+}; // (same keys used in MediaPanel)  :contentReference[oaicite:3]{index=3}
 
 const BUCKET_MEDIA = 'media';
 const BUCKET_DOCS  = 'documents';
 
-// Cache semplice per signed URL (NO hook -> niente #310)
+// Simple cache for signed URL (no hook -> no #310)
 const signedCache = new Map();
 async function getSigned(bucket, path) {
   if (!path) return '';
@@ -49,7 +49,7 @@ async function getSigned(bucket, path) {
 const clamp = (n, a, b) => Math.min(Math.max(Number(n || 0), a), b);
 const isHttp = (u='') => /^https?:\/\//i.test(String(u||''));
 const fmtDate = (iso) => { if (!iso) return '—'; try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'2-digit'});} catch { return String(iso); } };
-const fmtSeason = (start, end) => { const s=String(start||''); const e=String(end||''); return s && e ? `${s}/${(e.length===4?e.slice(2):e)}` : (s || '—'); }; // coerente con SeasonAccordionItem  :contentReference[oaicite:4]{index=4}
+const fmtSeason = (start, end) => { const s=String(start||''); const e=String(end||''); return s && e ? `${s}/${(e.length===4?e.slice(2):e)}` : (s || '—'); }; // consistent with SeasonAccordionItem  :contentReference[oaicite:4]{index=4}
 const calcAge = (dob) => { if(!dob) return null; const [y,m,d]=String(dob).split('-').map(Number); const b=new Date(y,(m||1)-1,d||1); if(Number.isNaN(b)) return null; const n=new Date(); let a=n.getFullYear()-b.getFullYear(); const mo=n.getMonth()-b.getMonth(); if(mo<0||(mo===0&&n.getDate()<b.getDate())) a--; return a; };
 const initials = (name='') => (name.trim().split(/\s+/).map(s=>s[0]).slice(0,2).join('')||'A').toUpperCase();
 const flagFromCountry = (name='') => { const s=String(name).trim().toLowerCase(); const map={italy:'IT', italia:'IT', france:'FR', spain:'ES', germany:'DE', usa:'US', uk:'GB', romania:'RO', portugal:'PT', poland:'PL', greece:'GR'}; const code=/^[a-z]{2}$/.test(s)?s.toUpperCase():map[s]||''; if(!code) return ''; const A=0x1F1E6, base='A'.charCodeAt(0); return [...code].map(c=>String.fromCodePoint(A+(c.charCodeAt(0)-base))).join(''); };
@@ -58,7 +58,7 @@ const vmId=(url)=>{const m=String(url||'').match(/vimeo\.com\/(\d+)/i); return m
 const embedUrl=(url)=> ytId(url)?`https://www.youtube.com/embed/${ytId(url)}?rel=0` : (vmId(url)?`https://player.vimeo.com/video/${vmId(url)}`:url);
 const contractText = (v) => v==='free_agent'?'Free agent': v==='under_contract'?'Under contract': v==='on_loan'?'On loan':'—';
 
-/* ------------------------------ Pagina ------------------------------ */
+/* ------------------------------ Page ------------------------------ */
 export default function ProfilePreviewPage() {
   const router = useRouter();
   const athleteId = useMemo(() => router.query.id || router.query.athleteId || '', [router.query]);
@@ -69,7 +69,7 @@ export default function ProfilePreviewPage() {
         {!athleteId ? (
           <div style={{ maxWidth: 960, margin: '40px auto', padding: '0 16px' }}>
             <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Missing athlete id</h1>
-            <p>Apri come <code>/profile/preview?id=&lt;athleteId&gt;</code>.</p>
+            <p>Open as <code>/profile/preview?id=&lt;athleteId&gt;</code>.</p>
           </div>
         ) : <PreviewCard athleteId={String(athleteId)} /> }
       </div>
@@ -77,15 +77,15 @@ export default function ProfilePreviewPage() {
   );
 }
 
-/* ------------------------------ Card principale ------------------------------ */
+/* ------------------------------ Main card ------------------------------ */
 function PreviewCard({ athleteId }) {
   const [loading, setLoading] = useState(true);
 
   const [athlete, setAthlete]   = useState(null);
   const [email, setEmail]       = useState('');
-  const [sports, setSports]     = useState(null);   // record attuale (sports_experiences)
+  const [sports, setSports]     = useState(null);   // current record (sports_experiences)
   const [career, setCareer]     = useState([]);     // athlete_career[]
-  const [physical, setPhysical] = useState(null);   // physical_data (ultima)
+  const [physical, setPhysical] = useState(null);   // physical_data (latest)
   const [contacts, setContacts] = useState(null);   // contacts_verification
   const [social, setSocial]     = useState([]);     // social_profiles[]
   const [awards, setAwards]     = useState([]);     // awards_recognitions[]
@@ -93,18 +93,18 @@ function PreviewCard({ athleteId }) {
 
   const [lightbox, setLightbox] = useState({ open:false, type:'', src:'', title:'' });
 
-  // Load (solo client)
+  // Load (client only)
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         setLoading(true);
 
-        // Athlete + email utente
+        // Athlete + user email
         const { data: a } = await supabase.from('athlete').select('*').eq('id', athleteId).single();
         const { data: { user } } = await supabase.auth.getUser();
 
-        // Sport attuale
+        // Current sport
         const { data: sp } = await supabase
           .from('sports_experiences')
           .select('id, sport, role, secondary_role, team, category, playing_style, seeking_team, contract_status, contract_end_date, preferred_regions, trial_window, agent_name, agency_name')
@@ -112,7 +112,7 @@ function PreviewCard({ athleteId }) {
           .order('id', { ascending:false })
           .limit(1);
 
-        // Carriera (desc)  ✅
+        // Career (desc)  ✅
         const { data: car } = await supabase
           .from('athlete_career')
           .select('*')
@@ -120,14 +120,14 @@ function PreviewCard({ athleteId }) {
           .order('season_start', { ascending:false })
           .order('id', { ascending:false });
 
-        // Physical ultimo
+        // Latest physical data
         const { data: pd } = await supabase
           .from('physical_data').select('*')
           .eq('athlete_id', athleteId)
           .order('id', { ascending:false })
           .limit(1);
 
-        // Contacts/verifiche
+        // Contacts/verification
         const { data: cv } = await supabase
           .from('contacts_verification').select('*')
           .eq('athlete_id', athleteId).single();
@@ -139,7 +139,7 @@ function PreviewCard({ athleteId }) {
           .order('sort_order', { ascending:true })
           .order('created_at', { ascending:true });
 
-        // Awards (pre-firma documento se c’è)
+        // Awards (pre-sign document if present)
         const { data: aw } = await supabase
           .from('awards_recognitions').select('*')
           .eq('athlete_id', athleteId)
@@ -151,7 +151,7 @@ function PreviewCard({ athleteId }) {
           evidence_signed_url: r.evidence_file_path ? (await getSigned(BUCKET_DOCS, r.evidence_file_path)) : ''
         })));
 
-        // Media (stesse categorie della MediaPanel)  ✅
+        // Media (same categories as MediaPanel)  ✅
         const { data: rows } = await supabase.from('media_item').select('*').eq('athlete_id', athleteId);
         const byCat = (c) => (rows||[]).filter(r => (r.category||'')===c);
         const one   = (c) => (rows||[]).find(r => (r.category||'')===c) || null;
@@ -187,14 +187,14 @@ function PreviewCard({ athleteId }) {
     return () => { alive = false; };
   }, [athleteId]);
 
-  /* --------------- Dati derivati --------------- */
+  /* --------------- Derived data --------------- */
   const fullName = `${athlete?.first_name||''} ${athlete?.last_name||''}`.trim() || '—';
   const age = calcAge(athlete?.date_of_birth);
   const natFlag = flagFromCountry(athlete?.nationality) || '';
   const completion = clamp(athlete?.completion_percentage, 0, 100);
   const currentSeason = (career||[]).find(c => c.is_current) || null;
 
-  // Avatar: profile -> featured headshot -> iniziali
+  // Avatar: profile -> featured headshot -> initials
   const [avatarUrl, setAvatarUrl] = useState('');
   useEffect(() => { (async () => {
     const raw = athlete?.profile_picture_url || media.featured?.head?.storage_path || '';
@@ -210,7 +210,7 @@ function PreviewCard({ athleteId }) {
     return rows.sort((a,b)=>rank(a.profile_url)-rank(b.profile_url));
   }, [social]);
 
-  /* --------------- Stili inline (coerenti) --------------- */
+  /* --------------- Inline styles (consistent) --------------- */
   const S = {
     container:{ maxWidth:1280, margin:'0 auto', padding:16 },
     card:{ borderRadius:16, boxShadow:'0 8px 24px rgba(0,0,0,0.08)', background:'#fff', overflow:'hidden' },
@@ -287,8 +287,8 @@ function PreviewCard({ athleteId }) {
     <div style={S.container}>
       <div style={S.card}>
 
-        {/* HERO compatto */}
-        <section style={S.hero} aria-label="Header profilo">
+          {/* Compact HERO */}
+          <section style={S.hero} aria-label="Profile header">
           {avatarUrl
             ? <img src={avatarUrl} alt={`${fullName} avatar`} style={S.avatar}/>
             : <div style={S.avatarFallback}>{initials(fullName)}</div>
@@ -371,7 +371,7 @@ function PreviewCard({ athleteId }) {
               )}
             </section>
 
-            {/* SPORT (attuale) */}
+            {/* SPORT (current) */}
             <section style={S.section} aria-label="Sport">
               <div style={S.titleRow}><Medal size={18}/><h2 style={S.h2}>Sport</h2></div>
               <div style={S.sportGrid}>
@@ -389,9 +389,9 @@ function PreviewCard({ athleteId }) {
               </div>
             </section>
 
-            {/* CARRIERA */}
-            <section style={S.section} aria-label="Carriera">
-              <div style={S.titleRow}><Calendar size={18}/><h2 style={S.h2}>Carriera</h2></div>
+            {/* CAREER */}
+            <section style={S.section} aria-label="Career">
+              <div style={S.titleRow}><Calendar size={18}/><h2 style={S.h2}>Career</h2></div>
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 {(career||[]).map(row => (
                   <div key={row.id} style={S.seasonCard}>
@@ -410,9 +410,9 @@ function PreviewCard({ athleteId }) {
               </div>
             </section>
 
-            {/* PROFILO */}
-            <section style={S.section} aria-label="Profilo">
-              <div style={S.titleRow}><User size={18}/><h2 style={S.h2}>Profilo</h2></div>
+            {/* PROFILE */}
+            <section style={S.section} aria-label="Profile">
+              <div style={S.titleRow}><User size={18}/><h2 style={S.h2}>Profile</h2></div>
               <div style={S.profileGrid}>
                 <Info label="Date of birth" value={`${athlete?.date_of_birth ? fmtDate(athlete.date_of_birth) : '—'}${typeof age==='number' ? ` · ${age} y/o` : ''}`}/>
                 <Info label="Nationality" value={`${natFlag ? natFlag+' ' : ''}${athlete?.nationality || '—'}`}/>
@@ -423,7 +423,7 @@ function PreviewCard({ athleteId }) {
               </div>
             </section>
 
-            {/* PREMI */}
+            {/* AWARDS */}
             <section style={S.section} aria-label="Awards">
               <div style={S.titleRow}><AwardIcon size={18}/><h2 style={S.h2}>Awards</h2></div>
               {!(awards||[]).length ? <div style={S.empty}>—</div> : (
@@ -437,9 +437,9 @@ function PreviewCard({ athleteId }) {
           {/* COL B */}
           <div style={S.colB}>
 
-            {/* FISICO */}
-            <section style={S.section} aria-label="Fisico">
-              <div style={S.titleRow}><Ruler size={18}/><h2 style={S.h2}>Physical data</h2></div>
+              {/* PHYSICAL */}
+              <section style={S.section} aria-label="Physical data">
+                <div style={S.titleRow}><Ruler size={18}/><h2 style={S.h2}>Physical data</h2></div>
               <div style={S.facts}>
                 <Fact label="Height" value={physical?.height_cm ? `${physical.height_cm} cm` : '—'} icon={<Ruler size={16}/>}/>
                 <Fact label="Weight" value={physical?.weight_kg ? `${physical.weight_kg} kg` : '—'} icon={<Scale size={16}/>}/>
@@ -466,8 +466,8 @@ function PreviewCard({ athleteId }) {
               </section>
             )}
 
-            {/* CONTATTI */}
-            <section style={S.section} aria-label="Contatti">
+              {/* CONTACTS */}
+              <section style={S.section} aria-label="Contacts">
               <div style={S.titleRow}><Phone size={18}/><h2 style={S.h2}>Contacts</h2></div>
               <div style={{ display:'grid', gap:10 }}>
                 <div style={S.row}><Mail size={16}/><strong>{email || '—'}</strong></div>
@@ -496,13 +496,13 @@ function PreviewCard({ athleteId }) {
               </div>
             )}
             <div style={{ marginTop:10, display:'flex', justifyContent:'flex-end' }}>
-              <button type="button" onClick={()=>setLightbox({ open:false })} style={S.btn}>Chiudi</button>
+                <button type="button" onClick={()=>setLightbox({ open:false })} style={S.btn}>Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Responsive minima */}
+        {/* Minimal responsiveness */}
       <style jsx global>{`
         @media (max-width: 1023px) {
           div[style*="grid-template-columns:2fr 1fr"] { grid-template-columns: 1fr !important; }
@@ -512,7 +512,7 @@ function PreviewCard({ athleteId }) {
   );
 }
 
-/* ------------------------------ Subcomponenti ------------------------------ */
+/* ------------------------------ Subcomponents ------------------------------ */
 function Info({ label, value }) {
   return (
     <div style={{ display:'grid', gridTemplateColumns:'140px 1fr', gap:8 }}>
@@ -580,9 +580,9 @@ function GamesBlock({ games }) {
       </div>
       <div>
         {item.external_url ? (
-          <a href={item.external_url} target="_blank" rel="noreferrer" style={{ fontWeight:700, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
-            Guarda <ExternalLink size={16}/>
-          </a>
+            <a href={item.external_url} target="_blank" rel="noreferrer" style={{ fontWeight:700, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
+              Watch <ExternalLink size={16}/>
+            </a>
         ) : <span style={{ color:'#666' }}>—</span>}
       </div>
     </div>
@@ -615,14 +615,14 @@ function AwardCard({ r }) {
       </div>
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         {r.evidence_external_url && (
-          <a href={r.evidence_external_url} target="_blank" rel="noreferrer" style={{ fontWeight:700, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
-            Apri link <ExternalLink size={16}/>
-          </a>
+            <a href={r.evidence_external_url} target="_blank" rel="noreferrer" style={{ fontWeight:700, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
+              Open link <ExternalLink size={16}/>
+            </a>
         )}
         {!r.evidence_external_url && r.evidence_signed_url && (
-          <a href={r.evidence_signed_url} target="_blank" rel="noreferrer" style={{ fontWeight:700, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
-            Apri documento <ExternalLink size={16}/>
-          </a>
+            <a href={r.evidence_signed_url} target="_blank" rel="noreferrer" style={{ fontWeight:700, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
+              Open document <ExternalLink size={16}/>
+            </a>
         )}
       </div>
     </div>
@@ -640,9 +640,9 @@ function renderMeasures(p){
   if(!rows.length) return null;
   return (
     <details style={{ marginTop:12 }}>
-      <summary style={{ cursor:'pointer', fontWeight:800 }}>Vedi tutte le misure</summary>
+        <summary style={{ cursor:'pointer', fontWeight:800 }}>View all measurements</summary>
       <div style={{ marginTop:10 }}>
-        <div style={{ fontSize:12, color:'#666', marginBottom:8 }}>Ultima rilevazione: {fmtDate(p?.physical_measured_at || p?.performance_measured_at)}</div>
+        <div style={{ fontSize:12, color:'#666', marginBottom:8 }}>Last measurement: {fmtDate(p?.physical_measured_at || p?.performance_measured_at)}</div>
         <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:'0 8px' }}>
           <tbody>{rows.map(([l,v],i)=>(
             <tr key={i}>
