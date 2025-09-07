@@ -262,7 +262,7 @@ function PreviewCard({ athleteId }) {
     empty:{ fontSize:12, color:'#666' },
 
     lightbox:{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex:50, display:'grid', placeItems:'center', padding:16 },
-    lightboxInner:{ width:'min(96vw,1200px)', maxHeight:'90vh' },
+    lightboxInner:{ width:'min(90vw,800px)', maxHeight:'90vh' },
     btn:{ height:36, padding:'0 14px', borderRadius:8, border:'1px solid #eee', background:'#fff', cursor:'pointer', fontWeight:500 },
   };
 
@@ -542,12 +542,18 @@ function IntroPlayer({ item }) {
   if (!item) return null;
   if (item.external_url) {
     return (
-      <div style={{ position:'relative', width:'100%', paddingTop:'56.25%', borderRadius:12, overflow:'hidden', background:'#000', marginBottom: 10 }}>
-        <iframe title={item.title||'Intro'} src={embedUrl(item.external_url)} style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen/>
+      <div style={{ maxWidth: 720, margin:'0 auto' }}>
+        <div style={{ position:'relative', width:'100%', paddingTop:'56.25%', borderRadius:12, overflow:'hidden', background:'#000', marginBottom: 10 }}>
+          <iframe title={item.title||'Intro'} src={embedUrl(item.external_url)} style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen/>
+        </div>
       </div>
     );
   }
-  return <video controls preload="metadata" poster={poster||undefined} style={{ width:'100%', borderRadius:12, display:'block', background:'#000', marginBottom: 10 }} src={src||''}/>;
+  return (
+    <div style={{ maxWidth: 720, margin:'0 auto' }}>
+      <video controls preload="metadata" poster={poster||undefined} style={{ width:'100%', borderRadius:12, display:'block', background:'#000', marginBottom: 10 }} src={src||''}/>
+    </div>
+  );
 }
 function HLCard({ it, idx, onOpen }) {
   const [poster, setPoster] = useState(''); const [src, setSrc] = useState('');
