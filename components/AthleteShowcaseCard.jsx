@@ -14,7 +14,8 @@ import { supabase as sb } from '../utils/supabaseClient';
 import {
   Play, Film, Image as ImageIcon, ChevronRight, ChevronDown,
   Calendar, Award as AwardIcon, Medal, Phone, Mail, Globe, MapPin, User, Flag, ExternalLink,
-  CheckCircle, ShieldCheck, Ruler, Scale, MoveHorizontal, Hand, Activity, X as XIcon, Youtube, Instagram, Facebook, Linkedin
+  CheckCircle, ShieldCheck, Ruler, Scale, MoveHorizontal, Hand, Activity, X as XIcon, Youtube, Instagram, Facebook, Linkedin,
+  Footprints
 } from 'lucide-react';
 
 const supabase = sb;
@@ -920,7 +921,7 @@ export default function AthleteShowcaseCard({ athleteId }) {
                 <div style={styles.factItem}><Scale size={16}/><div><div style={styles.small}>Peso</div><div style={{ fontWeight:800 }}>{physical?.weight_kg ? `${physical.weight_kg} kg` : '—'}</div></div></div>
                 <div style={styles.factItem}><MoveHorizontal size={16}/><div><div style={styles.small}>Apertura</div><div style={{ fontWeight:800 }}>{physical?.wingspan_cm ? `${physical.wingspan_cm} cm` : '—'}</div></div></div>
                 <div style={styles.factItem}><Hand size={16}/><div><div style={styles.small}>Mano dominante</div><div style={{ fontWeight:800 }}>{physical?.dominant_hand || '—'}</div></div></div>
-                <div style={styles.factItem}><MoveHorizontal size={16}/><div><div style={styles.small}>Piede dominante</div><div style={{ fontWeight:800 }}>{physical?.dominant_foot || '—'}</div></div></div>
+                <div style={styles.factItem}><Footprints size={16}/><div><div style={styles.small}>Piede dominante</div><div style={{ fontWeight:800 }}>{physical?.dominant_foot || '—'}</div></div></div>
                 <div style={styles.factItem}><Activity size={16}/><div><div style={styles.small}>Occhio dominante</div><div style={{ fontWeight:800 }}>{physical?.dominant_eye || '—'}</div></div></div>
               </div>
 
