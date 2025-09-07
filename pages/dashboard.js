@@ -10,7 +10,6 @@ import PhysicalPanel from '../sections/physical/PhysicalPanel';
 import MediaPanel from '../sections/media/MediaPanel';
 import SocialPanel from '../sections/social/SocialPanel';
 import AwardsWidget from '../sections/awards/AwardsWidget';
-import AthleteShowcaseCard from '../components/AthleteShowcaseCard';
 
 const ATHLETE_TABLE = 'athlete';
 
@@ -377,10 +376,7 @@ export default function Dashboard() {
                 {current === 'awards' && (
                   <AwardsWidget athleteId={athlete?.id} isMobile={isMobile} />
                 )}
-                {current === 'showcase' && (
-                  <AthleteShowcaseCard athleteId={athlete?.id} />
-                )}
-                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'media' && current !== 'social' && current !== 'physical' && current !== 'awards' && current !== 'showcase' && (
+                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'media' && current !== 'social' && current !== 'physical' && current !== 'awards' && (
                   <p style={styles.placeholder}>TODO — “{sectionObj?.title}”</p>
                 )}
 
