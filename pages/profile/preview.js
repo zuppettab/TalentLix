@@ -216,10 +216,10 @@ function PreviewCard({ athleteId }) {
     card:{ borderRadius:16, boxShadow:'0 8px 24px rgba(0,0,0,0.08)', background:'#fff', overflow:'hidden' },
     hero:{ display:'grid', gridTemplateColumns:'auto 1fr', gap:16, padding:16, alignItems:'center', borderBottom:'1px solid #eee' },
     avatar:{ width:96, height:96, borderRadius:'50%', objectFit:'cover', display:'block', border:'2px solid #fff', boxShadow:'0 2px 8px rgba(0,0,0,0.12)' },
-    avatarFallback:{ width:96, height:96, borderRadius:'50%', display:'grid', placeItems:'center', background:'linear-gradient(135deg,#27E3DA,#F7B84E)', color:'#111', fontWeight:500, fontSize:28 },
+    avatarFallback:{ width:96, height:96, borderRadius:'50%', display:'grid', placeItems:'center', background:'linear-gradient(135deg,#27E3DA,#F7B84E)', color:'#111', fontWeight:400, fontSize:28 },
     h1:{ fontSize:26, lineHeight:1.15, fontWeight:900, margin:0 },
     chips:{ display:'flex', gap:8, flexWrap:'wrap' },
-    chip:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', background:'#fff', fontSize:13, fontWeight:500 },
+    chip:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', background:'#fff', fontSize:13, fontWeight:400 },
     progressRow:{ display:'grid', gridTemplateColumns:'auto 1fr auto', gap:8, alignItems:'center', marginTop:2 },
     progressBar:{ height:8, borderRadius:999, background:'#eee', overflow:'hidden' },
     progressFill:{ height:'100%', background:'linear-gradient(90deg,#27E3DA,#F7B84E)' },
@@ -244,18 +244,18 @@ function PreviewCard({ athleteId }) {
     seasonCard:{ border:'1px solid #eee', borderRadius:12, padding:12, background:'#fff' },
     seasonHeader:{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' },
     seasonLeft:{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' },
-    pill:{ display:'inline-flex', alignItems:'center', gap:6, padding:'4px 8px', borderRadius:999, border:'1px solid #e5e7eb', background:'#fff', fontSize:12, fontWeight:500 },
+    pill:{ display:'inline-flex', alignItems:'center', gap:6, padding:'4px 8px', borderRadius:999, border:'1px solid #e5e7eb', background:'#fff', fontSize:12, fontWeight:400 },
     pillSport:{ background:'#eef6ff', borderColor:'#dbeafe' },
     pillCurrent:{ background:'#dcfce7', borderColor:'#86efac' },
-    seasonBadge:{ fontWeight:500, background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:8, padding:'2px 8px', fontSize:12 },
-    seasonTeam:{ fontWeight:500, marginLeft:'auto' },
+    seasonBadge:{ fontWeight:400, background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:8, padding:'2px 8px', fontSize:12 },
+    seasonTeam:{ fontWeight:400, marginLeft:'auto' },
     seasonRow:{ marginTop:6, color:'#333' },
 
     profileGrid:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 },
     facts:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 },
 
     row:{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' },
-    badge:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', fontSize:13, fontWeight:500 },
+    badge:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', fontSize:13, fontWeight:400 },
     small:{ fontSize:12, color:'#666' },
     socialItem:{ border:'1px solid #eee', borderRadius:12, padding:10, display:'flex', alignItems:'center', gap:10, textDecoration:'none', background:'#fff' },
 
@@ -263,7 +263,7 @@ function PreviewCard({ athleteId }) {
 
     lightbox:{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex:50, display:'grid', placeItems:'center', padding:16 },
     lightboxInner:{ width:'min(90vw,800px)', maxHeight:'90vh' },
-    btn:{ height:36, padding:'0 14px', borderRadius:8, border:'1px solid #eee', background:'#fff', cursor:'pointer', fontWeight:500 },
+    btn:{ height:36, padding:'0 14px', borderRadius:8, border:'1px solid #eee', background:'#fff', cursor:'pointer', fontWeight:400 },
   };
 
   if (loading) {
@@ -458,7 +458,7 @@ function PreviewCard({ athleteId }) {
                 <div style={{ display:'grid', gap:8 }}>
                   {socialSorted.map(s => (
                     <a key={s.id} href={s.profile_url} target="_blank" rel="noreferrer" style={S.socialItem}>
-                      <span style={{ fontWeight:500, color:'#111', overflow:'hidden', textOverflow:'ellipsis' }}>{s.platform || 'Profile'}</span>
+                      <span style={{ fontWeight:400, color:'#111', overflow:'hidden', textOverflow:'ellipsis' }}>{s.platform || 'Profile'}</span>
                       <ExternalLink size={16} style={{ marginLeft:'auto', color:'#1976d2' }}/>
                     </a>
                   ))}
@@ -470,8 +470,8 @@ function PreviewCard({ athleteId }) {
               <section style={S.section} aria-label="Contacts">
               <div style={S.titleRow}><Phone size={18}/><h2 style={S.h2}>Contacts</h2></div>
               <div style={{ display:'grid', gap:10 }}>
-                <div style={S.row}><Mail size={16}/><strong>{email || '—'}</strong></div>
-                <div style={S.row}><Phone size={16}/><strong>{athlete?.phone || contacts?.phone_number || '—'}</strong></div>
+                <div style={S.row}><Mail size={16}/><span>{email || '—'}</span></div>
+                <div style={S.row}><Phone size={16}/><span>{athlete?.phone || contacts?.phone_number || '—'}</span></div>
                 <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                   <span style={{ ...S.badge, background: contacts?.phone_verified ? '#dcfce7' : '#f3f4f6' }}><CheckCircle size={14}/> Phone {contacts?.phone_verified ? 'verified' : 'not verified'}</span>
                   <span style={{ ...S.badge, background: contacts?.id_verified ? '#dcfce7' : '#f3f4f6' }}><ShieldCheck size={14}/> ID {contacts?.id_verified ? 'verified' : 'not verified'}</span>
@@ -487,7 +487,7 @@ function PreviewCard({ athleteId }) {
       {lightbox.open && (
         <div role="dialog" aria-modal="true" aria-label="Media viewer" style={S.lightbox} onClick={()=>setLightbox({open:false})}>
           <div style={S.lightboxInner} onClick={(e)=>e.stopPropagation()}>
-            <div style={{ color:'#fff', fontWeight:500, marginBottom:8 }}>{lightbox.title}</div>
+            <div style={{ color:'#fff', fontWeight:400, marginBottom:8 }}>{lightbox.title}</div>
             {lightbox.type === 'image' ? (
               <img alt={lightbox.title} src={lightbox.src} style={{ width:'100%', height:'auto', borderRadius:12, display:'block' }}/>
             ) : (
@@ -517,14 +517,14 @@ function Info({ label, value }) {
   return (
     <div style={{ display:'grid', gridTemplateColumns:'140px 1fr', gap:8 }}>
       <div style={{ fontSize:12, color:'#666' }}>{label}</div>
-      <div style={{ fontWeight:500 }}>{value || '—'}</div>
+      <div style={{ fontWeight:400 }}>{value || '—'}</div>
     </div>
   );
 }
 function Fact({ label, value, icon }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:8, padding:10, borderRadius:12, background:'#fafafa', border:'1px solid #eee' }}>
-      {icon}<div><div style={{ fontSize:12, color:'#666' }}>{label}</div><div style={{ fontWeight:500 }}>{value}</div></div>
+      {icon}<div><div style={{ fontSize:12, color:'#666' }}>{label}</div><div style={{ fontWeight:400 }}>{value}</div></div>
     </div>
   );
 }
@@ -567,8 +567,8 @@ function HLCard({ it, idx, onOpen }) {
     <div style={{ border:'1px solid #eee', borderRadius:14, overflow:'hidden', background:'#fafafa', scrollSnapAlign:'start' }}>
       {poster ? <img alt={title} src={poster} style={{ width:'100%', aspectRatio:'16/9', objectFit:'cover', display:'block' }}/> : <div style={{ width:'100%', aspectRatio:'16/9', display:'grid', placeItems:'center', background:'#111', color:'#eee' }}><Film size={18}/> No poster</div>}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:10 }}>
-        <div style={{ fontWeight:500, fontSize:14, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:220 }}>{title}</div>
-        <button type="button" onClick={open} style={{ height:32, padding:'0 12px', borderRadius:8, border:'none', background:'linear-gradient(90deg,#27E3DA,#F7B84E)', color:'#fff', fontWeight:500, cursor:'pointer' }}>
+        <div style={{ fontWeight:400, fontSize:14, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:220 }}>{title}</div>
+        <button type="button" onClick={open} style={{ height:32, padding:'0 12px', borderRadius:8, border:'none', background:'linear-gradient(90deg,#27E3DA,#F7B84E)', color:'#fff', fontWeight:400, cursor:'pointer' }}>
           <Play size={16}/>
         </button>
       </div>
@@ -586,7 +586,7 @@ function GamesBlock({ games }) {
       </div>
       <div>
         {item.external_url ? (
-            <a href={item.external_url} target="_blank" rel="noreferrer" style={{ fontWeight:500, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
+            <a href={item.external_url} target="_blank" rel="noreferrer" style={{ fontWeight:400, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
               Watch <ExternalLink size={16}/>
             </a>
         ) : <span style={{ color:'#666' }}>—</span>}
@@ -600,7 +600,7 @@ function GamesBlock({ games }) {
         return (
           <div key={season} style={{ border:'1px solid #eee', borderRadius:12, marginBottom:8, background:'#fff' }}>
             <button type="button" onClick={()=>toggle(season)} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer' }} aria-expanded={opened}>
-              <span style={{ fontWeight:500, display:'flex', alignItems:'center', gap:8 }}><Calendar size={16}/> {season}</span>
+              <span style={{ fontWeight:400, display:'flex', alignItems:'center', gap:8 }}><Calendar size={16}/> {season}</span>
               {opened ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
             </button>
             {opened && <div style={{ padding:12, borderTop:'1px solid #eee' }}>{bySeason[season].map(({item,meta}) => <Item key={item.id} item={item} meta={meta}/>)}</div>}
@@ -615,18 +615,18 @@ function AwardCard({ r }) {
   return (
     <div style={{ border:'1px solid #eee', borderRadius:12, background:'#fff', padding:12, display:'grid', gridTemplateColumns:'1fr auto', gap:8, boxShadow:'0 1px 0 rgba(0,0,0,0.02)' }}>
       <div>
-        <div style={{ fontWeight:500 }}>{r.title || '—'}</div>
+        <div style={{ fontWeight:400 }}>{r.title || '—'}</div>
         <div style={{ fontSize:12, color:'#666', marginTop:2 }}>{sub}</div>
         {r.description && <div style={{ marginTop:6, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{r.description}</div>}
       </div>
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         {r.evidence_external_url && (
-            <a href={r.evidence_external_url} target="_blank" rel="noreferrer" style={{ fontWeight:500, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
+            <a href={r.evidence_external_url} target="_blank" rel="noreferrer" style={{ fontWeight:400, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
               Open link <ExternalLink size={16}/>
             </a>
         )}
         {!r.evidence_external_url && r.evidence_signed_url && (
-            <a href={r.evidence_signed_url} target="_blank" rel="noreferrer" style={{ fontWeight:500, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
+            <a href={r.evidence_signed_url} target="_blank" rel="noreferrer" style={{ fontWeight:400, color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
               Open document <ExternalLink size={16}/>
             </a>
         )}
@@ -646,13 +646,13 @@ function renderMeasures(p){
   if(!rows.length) return null;
   return (
     <details style={{ marginTop:12 }}>
-        <summary style={{ cursor:'pointer', fontWeight:500 }}>View all measurements</summary>
+        <summary style={{ cursor:'pointer', fontWeight:400 }}>View all measurements</summary>
       <div style={{ marginTop:10 }}>
         <div style={{ fontSize:12, color:'#666', marginBottom:8 }}>Last measurement: {fmtDate(p?.physical_measured_at || p?.performance_measured_at)}</div>
         <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:'0 8px' }}>
           <tbody>{rows.map(([l,v],i)=>(
             <tr key={i}>
-              <td style={{ width:'50%', padding:'10px 12px', background:'#fafafa', borderTopLeftRadius:10, borderBottomLeftRadius:10, fontWeight:500 }}>{l}</td>
+              <td style={{ width:'50%', padding:'10px 12px', background:'#fafafa', borderTopLeftRadius:10, borderBottomLeftRadius:10, fontWeight:400 }}>{l}</td>
               <td style={{ width:'50%', padding:'10px 12px', background:'#fff', borderTopRightRadius:10, borderBottomRightRadius:10, border:'1px solid #eee', borderLeft:'none' }}>{v}</td>
             </tr>
           ))}</tbody>
