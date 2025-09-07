@@ -234,7 +234,7 @@ function PreviewCard({ athleteId }) {
     h2:{ fontSize:18, lineHeight:1.2, margin:0, fontWeight:900 },
     h3:{ fontSize:14, margin:'10px 0 8px', fontWeight:800 },
 
-    hlCarousel:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(260px,1fr)', gap:12, scrollSnapType:'x mandatory', overflowX:'auto', paddingBottom:6 },
+    hlCarousel:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(200px,260px)', gap:12, scrollSnapType:'x mandatory', overflowX:'auto', paddingBottom:6 },
     photosGrid:{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 },
     photoThumb:{ width:'100%', aspectRatio:'3/2', objectFit:'cover', borderRadius:12, display:'block', cursor:'zoom-in' },
     strip:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(120px,140px)', gap:8, overflowX:'auto' },
@@ -542,16 +542,16 @@ function IntroPlayer({ item }) {
   if (!item) return null;
   if (item.external_url) {
     return (
-      <div style={{ maxWidth: 720, margin:'0 auto' }}>
+      <div style={{ maxWidth: 480, margin:'0 auto' }}>
         <div style={{ position:'relative', width:'100%', paddingTop:'56.25%', borderRadius:12, overflow:'hidden', background:'#000', marginBottom: 10 }}>
-          <iframe title={item.title||'Intro'} src={embedUrl(item.external_url)} style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen/>
+          <iframe title={item.title||'Intro'} src={embedUrl(item.external_url)} style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0, aspectRatio:'16/9' }} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen/>
         </div>
       </div>
     );
   }
   return (
-    <div style={{ maxWidth: 720, margin:'0 auto' }}>
-      <video controls preload="metadata" poster={poster||undefined} style={{ width:'100%', borderRadius:12, display:'block', background:'#000', marginBottom: 10 }} src={src||''}/>
+    <div style={{ maxWidth: 480, margin:'0 auto' }}>
+      <video controls preload="metadata" poster={poster||undefined} style={{ width:'100%', borderRadius:12, display:'block', background:'#000', marginBottom: 10, aspectRatio:'16/9' }} src={src||''}/>
     </div>
   );
 }
@@ -564,7 +564,7 @@ function HLCard({ it, idx, onOpen }) {
   const title = it.title || `Highlight #${idx+1}`;
   const open = () => onOpen(it.external_url ? embedUrl(it.external_url) : src, title);
   return (
-    <div style={{ border:'1px solid #eee', borderRadius:14, overflow:'hidden', background:'#fafafa', scrollSnapAlign:'start' }}>
+    <div style={{ border:'1px solid #eee', borderRadius:14, overflow:'hidden', background:'#fafafa', scrollSnapAlign:'start', maxWidth:260 }}>
       {poster ? <img alt={title} src={poster} style={{ width:'100%', aspectRatio:'16/9', objectFit:'cover', display:'block' }}/> : <div style={{ width:'100%', aspectRatio:'16/9', display:'grid', placeItems:'center', background:'#111', color:'#eee' }}><Film size={18}/> No poster</div>}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:10 }}>
         <div style={{ fontWeight:500, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:220 }}>{title}</div>
