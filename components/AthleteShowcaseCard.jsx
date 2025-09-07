@@ -9,7 +9,7 @@
 // - Schemi tabelle (campi chiave): media_item/media_game_meta/athlete/contacts_verification/physical_data/athlete_career 
 // - Supabase client centralizzato  :contentReference[oaicite:13]{index=13}
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { supabase as sb } from '../utils/supabaseClient';
 import {
   Play, Film, Image as ImageIcon, ChevronRight, ChevronDown,
@@ -121,7 +121,7 @@ const flagFromCountry = (name='') => {
 // Cache Signed URL 60s
 function useSignedUrlCache(bucket) {
   const cacheRef = useRef(new Map());
-  return async (storagePath) => {
+  return useCallback(async (storagePath) => {
     if (!storagePath) return '';
     const k = `${bucket}:${storagePath}`;
     const hit = cacheRef.current.get(k);
@@ -132,7 +132,7 @@ function useSignedUrlCache(bucket) {
     const url = data?.signedUrl || '';
     cacheRef.current.set(k, { url, exp: now + 55_000 });
     return url;
-  };
+  }, [bucket]);
 }
 
 // ---------- Stili (inline, coerenti token progetto) ----------
@@ -429,7 +429,7 @@ export default function AthleteShowcaseCard({ athleteId }) {
         setHeroPoster('');
       }
     })();
-  }, [hero, getSignedMedia]);
+  }, [hero]);
 
   // ---- “Attualmente:” (team · categoria · lega) ----
   const currentCar = useMemo(() => (career || []).find(c => c.is_current) || null, [career]);
@@ -1044,7 +1044,7 @@ function AsyncImage({ alt, path, getSigned, style, onClick }) {
     if (!path) return;
     const url = isHttpUrl(path) ? path : await getSigned(path);
     setSrc(url || '');
-  })(); }, [path, getSigned]);
+  })(); }, [path]);
   return (
     <img alt={alt} src={src} loading="lazy" decoding="async" style={{ ...style, cursor:'zoom-in' }} onClick={()=>onClick?.(src)} />
   );
