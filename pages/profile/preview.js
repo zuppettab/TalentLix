@@ -217,9 +217,9 @@ function PreviewCard({ athleteId }) {
     hero:{ display:'grid', gridTemplateColumns:'auto 1fr', gap:16, padding:16, alignItems:'center', borderBottom:'1px solid #eee' },
     avatar:{ width:96, height:96, borderRadius:'50%', objectFit:'cover', display:'block', border:'2px solid #fff', boxShadow:'0 2px 8px rgba(0,0,0,0.12)' },
     avatarFallback:{ width:96, height:96, borderRadius:'50%', display:'grid', placeItems:'center', background:'linear-gradient(135deg,#27E3DA,#F7B84E)', color:'#111', fontWeight:500, fontSize:28 },
-    h1:{ fontSize:26, lineHeight:1.15, fontWeight:900, margin:0 },
+    h1:{ fontSize:22, lineHeight:1.15, fontWeight:900, margin:0 },
     chips:{ display:'flex', gap:8, flexWrap:'wrap' },
-    chip:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', background:'#fff', fontSize:13, fontWeight:500 },
+    chip:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', background:'#fff', fontSize:12, fontWeight:500 },
     progressRow:{ display:'grid', gridTemplateColumns:'auto 1fr auto', gap:8, alignItems:'center', marginTop:2 },
     progressBar:{ height:8, borderRadius:999, background:'#eee', overflow:'hidden' },
     progressFill:{ height:'100%', background:'linear-gradient(90deg,#27E3DA,#F7B84E)' },
@@ -231,8 +231,8 @@ function PreviewCard({ athleteId }) {
 
     section:{ border:'1px solid #eee', borderRadius:16, padding:16, background:'#fff' },
     titleRow:{ display:'flex', alignItems:'center', gap:10, marginBottom:8 },
-    h2:{ fontSize:20, lineHeight:1.2, margin:0, fontWeight:900 },
-    h3:{ fontSize:16, margin:'10px 0 8px', fontWeight:800 },
+    h2:{ fontSize:18, lineHeight:1.2, margin:0, fontWeight:900 },
+    h3:{ fontSize:14, margin:'10px 0 8px', fontWeight:800 },
 
     hlCarousel:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(260px,1fr)', gap:12, scrollSnapType:'x mandatory', overflowX:'auto', paddingBottom:6 },
     photosGrid:{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 },
@@ -255,7 +255,7 @@ function PreviewCard({ athleteId }) {
     facts:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 },
 
     row:{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' },
-    badge:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', fontSize:13, fontWeight:500 },
+    badge:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', fontSize:12, fontWeight:500 },
     small:{ fontSize:12, color:'#666' },
     socialItem:{ border:'1px solid #eee', borderRadius:12, padding:10, display:'flex', alignItems:'center', gap:10, textDecoration:'none', background:'#fff' },
 
@@ -567,7 +567,7 @@ function HLCard({ it, idx, onOpen }) {
     <div style={{ border:'1px solid #eee', borderRadius:14, overflow:'hidden', background:'#fafafa', scrollSnapAlign:'start' }}>
       {poster ? <img alt={title} src={poster} style={{ width:'100%', aspectRatio:'16/9', objectFit:'cover', display:'block' }}/> : <div style={{ width:'100%', aspectRatio:'16/9', display:'grid', placeItems:'center', background:'#111', color:'#eee' }}><Film size={18}/> No poster</div>}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:10 }}>
-        <div style={{ fontWeight:500, fontSize:14, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:220 }}>{title}</div>
+        <div style={{ fontWeight:500, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:220 }}>{title}</div>
         <button type="button" onClick={open} style={{ height:32, padding:'0 12px', borderRadius:8, border:'none', background:'linear-gradient(90deg,#27E3DA,#F7B84E)', color:'#fff', fontWeight:500, cursor:'pointer' }}>
           <Play size={16}/>
         </button>
