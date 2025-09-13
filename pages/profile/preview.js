@@ -519,8 +519,9 @@ function PreviewCard({ athleteId }) {
 
         {/* Minimal responsiveness */}
       <style jsx global>{`
-        @media (max-width: 1023px) {
+        @media (max-width: 768px) {
           div[style*="grid-template-columns:2fr 1fr"] { grid-template-columns: 1fr !important; }
+          div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>
