@@ -226,7 +226,6 @@ function PreviewCard({ athleteId }) {
     progressFill:{ height:'100%', background:'linear-gradient(90deg,#27E3DA,#F7B84E)' },
     progressPct:{ fontSize:12, color:'#666' },
 
-    grid:{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:24, padding:16 },
     colA:{ display:'flex', flexDirection:'column', gap:24 },
     colB:{ display:'flex', flexDirection:'column', gap:24 },
 
@@ -238,11 +237,9 @@ function PreviewCard({ athleteId }) {
     mediaCard:{ border:'1px solid #eee', borderRadius:16, padding:16, background:'#fff', marginTop:12 },
 
     hlCarousel:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(260px,1fr)', gap:12, scrollSnapType:'x mandatory', overflowX:'auto', paddingBottom:6 },
-    photosGrid:{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 },
     photoThumb:{ width:'100%', aspectRatio:'3/2', objectFit:'cover', borderRadius:12, display:'block', cursor:'zoom-in' },
     strip:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(120px,140px)', gap:8, overflowX:'auto' },
 
-    sportGrid:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 },
 
     seasonCard:{ border:'1px solid #eee', borderRadius:12, padding:12, background:'#fff' },
     seasonHeader:{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' },
@@ -254,8 +251,6 @@ function PreviewCard({ athleteId }) {
     seasonTeam:{ marginLeft:'auto' },
     seasonRow:{ marginTop:6, color:'#333' },
 
-    profileGrid:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 },
-    facts:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 },
 
     row:{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' },
     badge:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', fontSize:12 },
@@ -312,7 +307,7 @@ function PreviewCard({ athleteId }) {
         </section>
 
         {/* GRID */}
-        <div style={S.grid}>
+        <div className="mainGrid">
           {/* COL A */}
           <div style={S.colA}>
 
@@ -326,7 +321,7 @@ function PreviewCard({ athleteId }) {
                 {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).length ? (
                   <div style={S.mediaCard}>
                     <div style={S.titleRow}><Image size={16}/><h3 style={{ ...S.h3, margin:0 }}>Featured photos</h3></div>
-                    <div style={S.photosGrid}>
+                    <div className="photosGrid threeCol">
                       {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).map((ph,i)=>(
                         <SignedImg key={ph.id} path={ph.storage_path || ph.thumbnail_path} style={S.photoThumb}
                                    alt={`Featured #${i+1}`} bucket={BUCKET_MEDIA}
@@ -389,7 +384,7 @@ function PreviewCard({ athleteId }) {
             {/* SPORT (current) */}
             <section style={S.section} aria-label="Sport">
               <div style={S.titleRow}><Medal size={18}/><h2 style={S.h2}>Sport</h2></div>
-              <div style={S.sportGrid}>
+              <div className="sportGrid twoCol">
                 <Info label="Sport" value={sports?.sport || currentSeason?.sport || '—'}/>
                 <Info label="Role" value={[sports?.role, sports?.secondary_role].filter(Boolean).join(' / ') || currentSeason?.role || '—'}/>
                 <Info label="Team" value={sports?.team || currentSeason?.team_name || '—'}/>
@@ -428,7 +423,7 @@ function PreviewCard({ athleteId }) {
             {/* PROFILE */}
             <section style={S.section} aria-label="Profile">
               <div style={S.titleRow}><User size={18}/><h2 style={S.h2}>Profile</h2></div>
-              <div style={S.profileGrid}>
+              <div className="profileGrid twoCol">
                 <Info label="Date of birth" value={`${athlete?.date_of_birth ? fmtDate(athlete.date_of_birth) : '—'}${typeof age==='number' ? ` · ${age} y/o` : ''}`}/>
                 <Info label="Nationality" value={`${natFlag ? natFlag+' ' : ''}${athlete?.nationality || '—'}`}/>
                 <Info label="Birth city" value={athlete?.birth_city || '—'}/>
@@ -455,7 +450,7 @@ function PreviewCard({ athleteId }) {
               {/* PHYSICAL */}
               <section style={S.section} aria-label="Physical data">
                 <div style={S.titleRow}><Ruler size={18}/><h2 style={S.h2}>Physical data</h2></div>
-              <div style={S.facts}>
+              <div className="facts twoCol">
                 <Fact label="Height" value={physical?.height_cm ? `${physical.height_cm} cm` : '—'} icon={<Ruler size={16}/>}/>
                 <Fact label="Weight" value={physical?.weight_kg ? `${physical.weight_kg} kg` : '—'} icon={<Scale size={16}/>}/>
                 <Fact label="Wingspan" value={physical?.wingspan_cm ? `${physical.wingspan_cm} cm` : '—'} icon={<MoveHorizontal size={16}/>}/>
@@ -518,10 +513,38 @@ function PreviewCard({ athleteId }) {
       )}
 
         {/* Minimal responsiveness */}
-      <style jsx global>{`
+      <style jsx>{`
+        .mainGrid {
+          display: grid;
+          gap: 24px;
+          padding: 16px;
+          grid-template-columns: 2fr 1fr;
+        }
+        .twoCol {
+          display: grid;
+          gap: 12px;
+          grid-template-columns: 1fr 1fr;
+        }
+        .threeCol {
+          display: grid;
+          gap: 12px;
+          grid-template-columns: 1fr 1fr 1fr;
+        }
+        .photosGrid img { width: 100%; }
         @media (max-width: 768px) {
-          div[style*="grid-template-columns:2fr 1fr"] { grid-template-columns: 1fr !important; }
-          div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+          .mainGrid,
+          .twoCol,
+          .threeCol {
+            grid-template-columns: 1fr;
+          }
+          .photosGrid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+        @media (max-width: 480px) {
+          .photosGrid {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </div>
