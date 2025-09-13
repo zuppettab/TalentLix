@@ -138,12 +138,10 @@ const styles = {
   mediaPreview: {
     width: '100%',
     maxWidth: 420,
-    aspectRatio: '16 / 9',
+    height: 'auto',
     background: '#000',
     border: '1px solid #EEE',
     borderRadius: 10,
-    objectFit: 'cover',
-    overflow: 'hidden',
     display: 'block',
     margin: '0 auto'
   },
