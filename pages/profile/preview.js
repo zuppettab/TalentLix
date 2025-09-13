@@ -519,8 +519,17 @@ function PreviewCard({ athleteId }) {
 
         {/* Minimal responsiveness */}
       <style jsx global>{`
-        @media (max-width: 1023px) {
-          div[style*="grid-template-columns:2fr 1fr"] { grid-template-columns: 1fr !important; }
+        @media (max-width: 768px) {
+          /* collapse main layout and secondary grids */
+          div[style*="grid-template-columns:2fr 1fr"] { grid-template-columns: 1fr !important; gap:16px !important; }
+          div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+          div[style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns: 1fr 1fr !important; }
+
+          /* stack hero header */
+          section[aria-label="Profile header"] { grid-template-columns: 1fr !important; text-align: center; }
+          section[aria-label="Profile header"] > :first-child { margin: 0 auto 12px !important; }
+          section[aria-label="Profile header"] > div:last-child { display: flex !important; flex-direction: column; align-items: center; }
+          section[aria-label="Profile header"] div[style*="flex-wrap:wrap"] { justify-content: center !important; }
         }
       `}</style>
     </div>
