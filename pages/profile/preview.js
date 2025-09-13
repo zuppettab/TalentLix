@@ -9,7 +9,8 @@ import { supabase as sb } from '../../utils/supabaseClient';
 import {
   Play, Film, ChevronRight, ChevronDown, ExternalLink,
   Calendar, Award as AwardIcon, Medal, Phone, Mail, Globe, User,
-  CheckCircle, ShieldCheck, Ruler, Scale, MoveHorizontal, Hand, Footprints, Activity
+  CheckCircle, ShieldCheck, Ruler, Scale, MoveHorizontal, Hand, Footprints, Activity,
+  Image, Images, PlayCircle, Clapperboard, Video
 } from 'lucide-react';
 
 const supabase = sb;
@@ -234,6 +235,8 @@ function PreviewCard({ athleteId }) {
     h2:{ fontSize:18, lineHeight:1.2, margin:0, fontWeight:900 },
     h3:{ fontSize:14, margin:'10px 0 8px', fontWeight:800 },
 
+    mediaCard:{ border:'1px solid #eee', borderRadius:16, padding:16, background:'#fff', marginTop:12 },
+
     hlCarousel:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(260px,1fr)', gap:12, scrollSnapType:'x mandatory', overflowX:'auto', paddingBottom:6 },
     photosGrid:{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 },
     photoThumb:{ width:'100%', aspectRatio:'3/2', objectFit:'cover', borderRadius:12, display:'block', cursor:'zoom-in' },
@@ -319,65 +322,65 @@ function PreviewCard({ athleteId }) {
 
               {/* Photo sections */}
 
-              {/* Featured photos */}
-              {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).length ? (
-                <>
-                  <h3 style={S.h3}>Featured photos</h3>
-                  <div style={S.photosGrid}>
-                    {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).map((ph,i)=>(
-                      <SignedImg key={ph.id} path={ph.storage_path || ph.thumbnail_path} style={S.photoThumb}
-                                 alt={`Featured #${i+1}`} bucket={BUCKET_MEDIA}
-                                 onClick={(src)=>setLightbox({ open:true, type:'image', src, title: ph.title || `Photo #${i+1}` })}/>
-                    ))}
+                {/* Featured photos */}
+                {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).length ? (
+                  <div style={S.mediaCard}>
+                    <div style={S.titleRow}><Image size={16}/><h3 style={{ ...S.h3, margin:0 }}>Featured photos</h3></div>
+                    <div style={S.photosGrid}>
+                      {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).map((ph,i)=>(
+                        <SignedImg key={ph.id} path={ph.storage_path || ph.thumbnail_path} style={S.photoThumb}
+                                   alt={`Featured #${i+1}`} bucket={BUCKET_MEDIA}
+                                   onClick={(src)=>setLightbox({ open:true, type:'image', src, title: ph.title || `Photo #${i+1}`})}/>
+                      ))}
+                    </div>
                   </div>
-                </>
-              ) : null}
+                ) : null}
 
-              {/* Gallery */}
-              {!!(media.gallery||[]).length && (
-                <>
-                  <h3 style={S.h3}>Gallery</h3>
-                  <div style={S.strip}>
-                    {media.gallery.map((g,i)=>(
-                      <SignedImg key={g.id} path={g.storage_path || g.thumbnail_path}
-                                 bucket={BUCKET_MEDIA}
-                                 style={{ width:'100%', aspectRatio:'1/1', objectFit:'cover', borderRadius:12, display:'block',cursor:'zoom-in' }}
-                                 alt={g.title || `Photo ${i+1}`}
-                                 onClick={(src)=>setLightbox({ open:true, type:'image', src, title: g.title || `Photo ${i+1}` })}/>
-                    ))}
+                {/* Gallery */}
+                {!!(media.gallery||[]).length && (
+                  <div style={S.mediaCard}>
+                    <div style={S.titleRow}><Images size={16}/><h3 style={{ ...S.h3, margin:0 }}>Gallery</h3></div>
+                    <div style={S.strip}>
+                      {media.gallery.map((g,i)=>(
+                        <SignedImg key={g.id} path={g.storage_path || g.thumbnail_path}
+                                   bucket={BUCKET_MEDIA}
+                                   style={{ width:'100%', aspectRatio:'1/1', objectFit:'cover', borderRadius:12, display:'block',cursor:'zoom-in' }}
+                                   alt={g.title || `Photo ${i+1}`}
+                                   onClick={(src)=>setLightbox({ open:true, type:'image', src, title: g.title || `Photo ${i+1}` })}/>
+                      ))}
+                    </div>
                   </div>
-                </>
-              )}
+                )}
 
               {/* Video sections */}
 
-              {/* Intro */}
-              {media.intro && (
-                <>
-                  <h3 style={S.h3}>Intro</h3>
-                  <IntroPlayer item={media.intro} />
-                </>
-              )}
-
-              {/* Highlights */}
-              {!!(media.highlights||[]).length && (
-                <>
-                  <h3 style={S.h3}>Highlights</h3>
-                  <div style={S.hlCarousel}>
-                    {media.highlights.map((it, idx) => (
-                      <HLCard key={it.id} it={it} idx={idx} onOpen={(src,title)=>setLightbox({open:true,type:'video',src,title})}/>
-                    ))}
+                {/* Intro */}
+                {media.intro && (
+                  <div style={S.mediaCard}>
+                    <div style={S.titleRow}><PlayCircle size={16}/><h3 style={{ ...S.h3, margin:0 }}>Intro</h3></div>
+                    <IntroPlayer item={media.intro} />
                   </div>
-                </>
-              )}
+                )}
 
-              {/* Full games */}
-              {!!(media.games||[]).length && (
-                <>
-                  <h3 style={S.h3}>Full games</h3>
-                  <GamesBlock games={media.games}/>
-                </>
-              )}
+                {/* Highlights */}
+                {!!(media.highlights||[]).length && (
+                  <div style={S.mediaCard}>
+                    <div style={S.titleRow}><Clapperboard size={16}/><h3 style={{ ...S.h3, margin:0 }}>Highlights</h3></div>
+                    <div style={S.hlCarousel}>
+                      {media.highlights.map((it, idx) => (
+                        <HLCard key={it.id} it={it} idx={idx} onOpen={(src,title)=>setLightbox({open:true,type:'video',src,title})}/>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Full games */}
+                {!!(media.games||[]).length && (
+                  <div style={S.mediaCard}>
+                    <div style={S.titleRow}><Video size={16}/><h3 style={{ ...S.h3, margin:0 }}>Full games</h3></div>
+                    <GamesBlock games={media.games}/>
+                  </div>
+                )}
             </section>
 
             {/* SPORT (current) */}
