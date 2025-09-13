@@ -387,13 +387,15 @@ export default function Dashboard() {
 function AuthControl({ email, avatarUrl, onLogout, compact, athleteId }) {
   return (
     <div style={{ ...styles.authWrap, ...(compact ? styles.authWrapMobile : null) }}>
-      <a href="/index" style={styles.link}>Home</a>
-      <span style={{ margin: '0 8px' }}>|</span>
-      {athleteId
-        ? <a href={`/profile/preview?id=${athleteId}`} style={styles.link}>Preview</a>
-        : <a style={{ ...styles.link, pointerEvents: 'none', opacity: 0.5 }}>Preview</a>
-      }
-      {!compact && <span style={{ margin: '0 8px' }}>|</span>}
+      <div style={styles.linkGroup}>
+        <a href="/index" style={styles.link}>Home</a>
+        <span>|</span>
+        {athleteId
+          ? <a href={`/profile/preview?id=${athleteId}`} style={styles.link}>Preview</a>
+          : <a style={{ ...styles.link, pointerEvents: 'none', opacity: 0.5 }}>Preview</a>
+        }
+        {!compact && <span>|</span>}
+      </div>
       <div style={styles.authBox}>
         {avatarUrl
           ? <img src={avatarUrl} alt="Avatar" style={styles.authAvatar} />
@@ -498,6 +500,7 @@ const styles = {
 
   authWrap: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
   authWrapMobile: { width: '100%', justifyContent: 'space-between' },
+  linkGroup: { display: 'flex', alignItems: 'center', gap: 8 },
   authBox: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', border: '1px solid #E0E0E0', borderRadius: 8, background: '#FFF' },
   authAvatar: { width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' },
   authAvatarPlaceholder: { width: 28, height: 28, borderRadius: '50%', background: '#EEE' },
