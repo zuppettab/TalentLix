@@ -317,6 +317,8 @@ function PreviewCard({ athleteId }) {
             <section style={S.section} aria-label="Media">
               <div style={S.titleRow}><Film size={18}/><h2 style={S.h2}>Media</h2></div>
 
+              {/* Photo sections */}
+
               {/* Featured photos */}
               {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).length ? (
                 <>
@@ -331,8 +333,31 @@ function PreviewCard({ athleteId }) {
                 </>
               ) : null}
 
+              {/* Gallery */}
+              {!!(media.gallery||[]).length && (
+                <>
+                  <h3 style={S.h3}>Gallery</h3>
+                  <div style={S.strip}>
+                    {media.gallery.map((g,i)=>(
+                      <SignedImg key={g.id} path={g.storage_path || g.thumbnail_path}
+                                 bucket={BUCKET_MEDIA}
+                                 style={{ width:'100%', aspectRatio:'1/1', objectFit:'cover', borderRadius:12, display:'block',cursor:'zoom-in' }}
+                                 alt={g.title || `Photo ${i+1}`}
+                                 onClick={(src)=>setLightbox({ open:true, type:'image', src, title: g.title || `Photo ${i+1}` })}/>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Video sections */}
+
               {/* Intro */}
-              {media.intro && <IntroPlayer item={media.intro} />}
+              {media.intro && (
+                <>
+                  <h3 style={S.h3}>Intro</h3>
+                  <IntroPlayer item={media.intro} />
+                </>
+              )}
 
               {/* Highlights */}
               {!!(media.highlights||[]).length && (
@@ -351,22 +376,6 @@ function PreviewCard({ athleteId }) {
                 <>
                   <h3 style={S.h3}>Full games</h3>
                   <GamesBlock games={media.games}/>
-                </>
-              )}
-
-              {/* Gallery */}
-              {!!(media.gallery||[]).length && (
-                <>
-                  <h3 style={S.h3}>Gallery</h3>
-                  <div style={S.strip}>
-                    {media.gallery.map((g,i)=>(
-                      <SignedImg key={g.id} path={g.storage_path || g.thumbnail_path}
-                                 bucket={BUCKET_MEDIA}
-                                 style={{ width:'100%', aspectRatio:'1/1', objectFit:'cover', borderRadius:12, display:'block', cursor:'zoom-in' }}
-                                 alt={g.title || `Photo ${i+1}`}
-                                 onClick={(src)=>setLightbox({ open:true, type:'image', src, title: g.title || `Photo ${i+1}` })}/>
-                    ))}
-                  </div>
                 </>
               )}
             </section>
