@@ -317,6 +317,20 @@ function PreviewCard({ athleteId }) {
             <section style={S.section} aria-label="Media">
               <div style={S.titleRow}><Film size={18}/><h2 style={S.h2}>Media</h2></div>
 
+              {/* Featured photos */}
+              {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).length ? (
+                <>
+                  <h3 style={S.h3}>Featured photos</h3>
+                  <div style={S.photosGrid}>
+                    {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).map((ph,i)=>(
+                      <SignedImg key={ph.id} path={ph.storage_path || ph.thumbnail_path} style={S.photoThumb}
+                                 alt={`Featured #${i+1}`} bucket={BUCKET_MEDIA}
+                                 onClick={(src)=>setLightbox({ open:true, type:'image', src, title: ph.title || `Photo #${i+1}` })}/>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+
               {/* Intro */}
               {media.intro && <IntroPlayer item={media.intro} />}
 
@@ -332,19 +346,13 @@ function PreviewCard({ athleteId }) {
                 </>
               )}
 
-              {/* Featured photos */}
-              {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).length ? (
+              {/* Full games */}
+              {!!(media.games||[]).length && (
                 <>
-                  <h3 style={S.h3}>Featured photos</h3>
-                  <div style={S.photosGrid}>
-                    {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).map((ph,i)=>(
-                      <SignedImg key={ph.id} path={ph.storage_path || ph.thumbnail_path} style={S.photoThumb}
-                                 alt={`Featured #${i+1}`} bucket={BUCKET_MEDIA}
-                                 onClick={(src)=>setLightbox({ open:true, type:'image', src, title: ph.title || `Photo #${i+1}` })}/>
-                    ))}
-                  </div>
+                  <h3 style={S.h3}>Full games</h3>
+                  <GamesBlock games={media.games}/>
                 </>
-              ) : null}
+              )}
 
               {/* Gallery */}
               {!!(media.gallery||[]).length && (
@@ -359,14 +367,6 @@ function PreviewCard({ athleteId }) {
                                  onClick={(src)=>setLightbox({ open:true, type:'image', src, title: g.title || `Photo ${i+1}` })}/>
                     ))}
                   </div>
-                </>
-              )}
-
-              {/* Full games */}
-              {!!(media.games||[]).length && (
-                <>
-                  <h3 style={S.h3}>Full games</h3>
-                  <GamesBlock games={media.games}/>
                 </>
               )}
             </section>
