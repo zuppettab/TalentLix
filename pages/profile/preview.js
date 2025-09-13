@@ -10,7 +10,7 @@ import {
   Play, Film, ChevronRight, ChevronDown, ExternalLink,
   Calendar, Award as AwardIcon, Medal, Phone, Mail, Globe, User,
   CheckCircle, ShieldCheck, Ruler, Scale, MoveHorizontal, Hand, Footprints, Activity,
-  Image, Images, PlayCircle, Clapperboard, Video
+  Image, GalleryVertical, PlayCircle, Clapperboard, Video
 } from 'lucide-react';
 
 const supabase = sb;
@@ -339,7 +339,10 @@ function PreviewCard({ athleteId }) {
                 {/* Gallery */}
                 {!!(media.gallery||[]).length && (
                   <div style={S.mediaCard}>
-                    <div style={S.titleRow}><Images size={16}/><h3 style={{ ...S.h3, margin:0 }}>Gallery</h3></div>
+                    <div style={S.titleRow}>
+                      <GalleryVertical size={16}/>
+                      <h3 style={{ ...S.h3, margin: 0 }}>Gallery</h3>
+                    </div>
                     <div style={S.strip}>
                       {media.gallery.map((g,i)=>(
                         <SignedImg key={g.id} path={g.storage_path || g.thumbnail_path}
