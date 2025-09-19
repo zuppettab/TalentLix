@@ -24,6 +24,9 @@ const MSG = {
   category: 'Category is required',
   years_experience_int: 'Years must be an integer',
   years_experience_range: 'Years must be between 0 and 60',
+  contract_end_date_invalid: 'Contract end date must be a valid date (YYYY-MM-DD)',
+  trial_start_invalid: 'Trial start must be a valid date (YYYY-MM-DD)',
+  trial_end_invalid: 'Trial end must be a valid date (YYYY-MM-DD)',
   trial_window_incomplete: 'Both trial dates are required',
   trial_window_order: 'Start date must be before or equal to end date',
 
@@ -47,6 +50,15 @@ const parseDateRange = (rng) => {
 };
 
 const buildDateRange = (start, end) => (start && end ? `[${start},${end}]` : null);
+
+const isValidISODate = (value) => {
+  const str = (value ?? '').toString().trim();
+  if (!str) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return false;
+  const [year, month, day] = str.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.toISOString().slice(0, 10) === str;
+};
 
 // ---- react-select styles (coerenti) ----
 const makeSelectStyles = (hasError) => ({
@@ -204,12 +216,30 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
       if (!Number.isInteger(n)) return MSG.years_experience_int;
       if (n < 0 || n > 60) return MSG.years_experience_range;
     }
+    if (name === 'contract_end_date') {
+      const v = (value ?? '').toString().trim();
+      if (v === '') return '';
+      if (!isValidISODate(v)) return MSG.contract_end_date_invalid;
+    }
+    if (name === 'trial_start') {
+      if (!state.seeking_team) return '';
+      const v = (value ?? '').toString().trim();
+      if (v === '') return '';
+      if (!isValidISODate(v)) return MSG.trial_start_invalid;
+    }
+    if (name === 'trial_end') {
+      if (!state.seeking_team) return '';
+      const v = (value ?? '').toString().trim();
+      if (v === '') return '';
+      if (!isValidISODate(v)) return MSG.trial_end_invalid;
+    }
     if (name === 'trial_window') {
       if (!state.seeking_team) return '';
-      const s = (state.trial_start || '').trim();
-      const e = (state.trial_end || '').trim();
+      const s = (state.trial_start ?? '').toString().trim();
+      const e = (state.trial_end ?? '').toString().trim();
       if ((!s && !e)) return ''; // totalmente opzionale
       if ((s && !e) || (!s && e)) return MSG.trial_window_incomplete;
+      if (!isValidISODate(s) || !isValidISODate(e)) return '';
       if (s > e) return MSG.trial_window_order;
     }
     return '';
@@ -225,6 +255,12 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
       const e = validateField('years_experience', state.years_experience, state);
       if (e) out.years_experience = e;
     }
+    const contractErr = validateField('contract_end_date', state.contract_end_date, state);
+    if (contractErr) out.contract_end_date = contractErr;
+    const trialStartErr = validateField('trial_start', state.trial_start, state);
+    if (trialStartErr) out.trial_start = trialStartErr;
+    const trialEndErr = validateField('trial_end', state.trial_end, state);
+    if (trialEndErr) out.trial_end = trialEndErr;
     const tw = validateField('trial_window', null, state);
     if (tw) out.trial_window = tw;
     return out;
@@ -232,18 +268,33 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
 
   // ----------------------- INPUT HANDLERS -----------------------
   const setField = (name, value) => {
-    setForm((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => {
-      const next = { ...prev };
-      if (REQUIRED.includes(name) || name === 'years_experience') {
-        const err = validateField(name, value, { ...form, [name]: value });
-        next[name] = err || undefined;
-      }
-      if (name === 'trial_start' || name === 'trial_end' || name === 'seeking_team') {
-        const err = validateField('trial_window', null, { ...form, [name]: value });
-        next.trial_window = err || undefined;
-      }
-      return next;
+    setForm((prev) => {
+      const nextForm = { ...prev, [name]: value };
+      setErrors((prevErrors) => {
+        const nextErrors = { ...prevErrors };
+        const applyError = (key, err) => {
+          if (err) nextErrors[key] = err;
+          else delete nextErrors[key];
+        };
+
+        if (REQUIRED.includes(name)) {
+          applyError(name, validateField(name, value, nextForm));
+        }
+        if (name === 'years_experience') {
+          applyError('years_experience', validateField('years_experience', nextForm.years_experience, nextForm));
+        }
+        if (name === 'contract_end_date') {
+          applyError('contract_end_date', validateField('contract_end_date', nextForm.contract_end_date, nextForm));
+        }
+        if (name === 'trial_start' || name === 'trial_end' || name === 'seeking_team') {
+          applyError('trial_start', validateField('trial_start', nextForm.trial_start, nextForm));
+          applyError('trial_end', validateField('trial_end', nextForm.trial_end, nextForm));
+          applyError('trial_window', validateField('trial_window', null, nextForm));
+        }
+
+        return nextErrors;
+      });
+      return nextForm;
     });
     setDirty(true);
     if (status.type) setStatus({ type: '', msg: '' });
@@ -492,8 +543,9 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
           name="contract_end_date"
           value={form.contract_end_date}
           onChange={(e) => setField('contract_end_date', e.target.value)}
-          style={styles.input}
+          style={{ ...styles.input, borderColor: errors.contract_end_date ? '#b00' : '#E0E0E0' }}
         />
+        {errors.contract_end_date && <div style={styles.error}>{errors.contract_end_date}</div>}
       </div>
 
       <div style={styles.field}>
@@ -543,8 +595,9 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
                 name="trial_start"
                 value={form.trial_start}
                 onChange={(e) => setField('trial_start', e.target.value)}
-                style={styles.input}
+                style={{ ...styles.input, borderColor: errors.trial_start ? '#b00' : '#E0E0E0' }}
               />
+              {errors.trial_start && <div style={styles.error}>{errors.trial_start}</div>}
               <small style={{ color: '#666' }}>Start</small>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -553,8 +606,9 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
                 name="trial_end"
                 value={form.trial_end}
                 onChange={(e) => setField('trial_end', e.target.value)}
-                style={styles.input}
+                style={{ ...styles.input, borderColor: errors.trial_end ? '#b00' : '#E0E0E0' }}
               />
+              {errors.trial_end && <div style={styles.error}>{errors.trial_end}</div>}
               <small style={{ color: '#666' }}>End</small>
             </div>
           </div>
