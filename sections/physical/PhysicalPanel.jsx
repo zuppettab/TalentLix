@@ -174,8 +174,8 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
     }
 
     // Numerici con range plausibili
-    const n = Number(value);
-    if (Number.isNaN(n)) return ''; // lasciamo vuoti/strings non numerici silenziosi
+    const n = parseDecimalFromUI(value);
+    if (n == null) return '';
     switch (name) {
       case 'height_cm': return inRange(n, 100, 250, 'cm', 'Height');
       case 'weight_kg': return inRange(n, 30, 200, 'kg', 'Weight');
@@ -335,49 +335,49 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
       />
 
       <NumberField
-        label="Height (cm)"
+        label="Height (cm, use comma)"
         name="height_cm"
         value={form.height_cm}
         onChange={(v) => setField('height_cm', v)}
         error={errors.height_cm}
         step="0.1"
-        placeholder="e.g., 185.0"
+        placeholder="e.g. 185,0 (use comma)"
       />
       <NumberField
-        label="Weight (kg)"
+        label="Weight (kg, use comma)"
         name="weight_kg"
         value={form.weight_kg}
         onChange={(v) => setField('weight_kg', v)}
         error={errors.weight_kg}
         step="0.1"
-        placeholder="e.g., 78.5"
+        placeholder="e.g. 78,5 (use comma)"
       />
       <NumberField
-        label="Wingspan / Arm span (cm)"
+        label="Wingspan / Arm span (cm, use comma)"
         name="wingspan_cm"
         value={form.wingspan_cm}
         onChange={(v) => setField('wingspan_cm', v)}
         error={errors.wingspan_cm}
         step="0.1"
-        placeholder="e.g., 190.0"
+        placeholder="e.g. 190,0 (use comma)"
       />
       <NumberField
-        label="Standing reach (cm)"
+        label="Standing reach (cm, use comma)"
         name="standing_reach_cm"
         value={form.standing_reach_cm}
         onChange={(v) => setField('standing_reach_cm', v)}
         error={errors.standing_reach_cm}
         step="1"
-        placeholder="e.g., 240"
+        placeholder="e.g. 240 (use comma for decimals)"
       />
       <NumberField
-        label="Body fat (%)"
+        label="Body fat (%, use comma)"
         name="body_fat_percent"
         value={form.body_fat_percent}
         onChange={(v) => setField('body_fat_percent', v)}
         error={errors.body_fat_percent}
         step="0.1"
-        placeholder="e.g., 12.5"
+        placeholder="e.g. 12,5 (use comma)"
       />
 
       <SelectInline
@@ -429,98 +429,98 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
 
       {/* Forza/Esplosività */}
       <NumberField
-        label="Grip strength L (kg)"
+        label="Grip strength L (kg, use comma)"
         name="grip_strength_left_kg"
         value={form.grip_strength_left_kg}
         onChange={(v) => setField('grip_strength_left_kg', v)}
         error={errors.grip_strength_left_kg}
         step="0.1"
-        placeholder="e.g., 44.0"
+        placeholder="e.g. 44,0 (use comma)"
       />
       <NumberField
-        label="Grip strength R (kg)"
+        label="Grip strength R (kg, use comma)"
         name="grip_strength_right_kg"
         value={form.grip_strength_right_kg}
         onChange={(v) => setField('grip_strength_right_kg', v)}
         error={errors.grip_strength_right_kg}
         step="0.1"
-        placeholder="e.g., 46.0"
+        placeholder="e.g. 46,0 (use comma)"
       />
       <NumberField
-        label="Vertical jump (CMJ) (cm)"
+        label="Vertical jump (CMJ) (cm, use comma)"
         name="vertical_jump_cmj_cm"
         value={form.vertical_jump_cmj_cm}
         onChange={(v) => setField('vertical_jump_cmj_cm', v)}
         error={errors.vertical_jump_cmj_cm}
         step="1"
-        placeholder="e.g., 38"
+        placeholder="e.g. 38 (use comma for decimals)"
       />
       <NumberField
-        label="Standing long jump (cm)"
+        label="Standing long jump (cm, use comma)"
         name="standing_long_jump_cm"
         value={form.standing_long_jump_cm}
         onChange={(v) => setField('standing_long_jump_cm', v)}
         error={errors.standing_long_jump_cm}
         step="1"
-        placeholder="e.g., 240"
+        placeholder="e.g. 240 (use comma for decimals)"
       />
 
       {/* Velocità/Agilità */}
       <NumberField
-        label="Sprint 10 m (s)"
+        label="Sprint 10 m (s, use comma)"
         name="sprint_10m_s"
         value={form.sprint_10m_s}
         onChange={(v) => setField('sprint_10m_s', v)}
         error={errors.sprint_10m_s}
         step="0.001"
-        placeholder="e.g., 1.850"
+        placeholder="e.g. 1,850 (use comma)"
       />
       <NumberField
-        label="Sprint 20 m (s)"
+        label="Sprint 20 m (s, use comma)"
         name="sprint_20m_s"
         value={form.sprint_20m_s}
         onChange={(v) => setField('sprint_20m_s', v)}
         error={errors.sprint_20m_s}
         step="0.001"
-        placeholder="e.g., 3.250"
+        placeholder="e.g. 3,250 (use comma)"
       />
       <NumberField
-        label="Pro agility 5–10–5 (s)"
+        label="Pro agility 5–10–5 (s, use comma)"
         name="pro_agility_5_10_5_s"
         value={form.pro_agility_5_10_5_s}
         onChange={(v) => setField('pro_agility_5_10_5_s', v)}
         error={errors.pro_agility_5_10_5_s}
         step="0.001"
-        placeholder="e.g., 4.400"
+        placeholder="e.g. 4,400 (use comma)"
       />
 
       {/* Mobilità/Core/Endurance */}
       <NumberField
-        label="Sit & reach (cm)"
+        label="Sit & reach (cm, use comma)"
         name="sit_and_reach_cm"
         value={form.sit_and_reach_cm}
         onChange={(v) => setField('sit_and_reach_cm', v)}
         error={errors.sit_and_reach_cm}
         step="1"
-        placeholder="e.g., 25"
+        placeholder="e.g. 25 (use comma for decimals)"
       />
       <NumberField
-        label="Plank hold (s)"
+        label="Plank hold (s, use comma)"
         name="plank_hold_s"
         value={form.plank_hold_s}
         onChange={(v) => setField('plank_hold_s', v)}
         error={errors.plank_hold_s}
         step="1"
-        placeholder="e.g., 120"
+        placeholder="e.g. 120 (use comma for decimals)"
       />
       <NumberField
-        label="Cooper 12’ (m)"
+        label="Cooper 12’ (m, use comma)"
         name="cooper_12min_m"
         value={form.cooper_12min_m}
         onChange={(v) => setField('cooper_12min_m', v)}
         error={errors.cooper_12min_m}
         step="1"
-        placeholder="e.g., 2700"
+        placeholder="e.g. 2700 (use comma for decimals)"
       />
 
       <TextField
@@ -585,16 +585,22 @@ function DateField({ label, name, value, onChange, error, min, max }) {
 }
 
 function NumberField({ label, name, value, onChange, error, step = '1', placeholder }) {
+  const handleChange = (e) => {
+    const normalized = normalizeDecimalInput(e.target.value);
+    onChange(normalized);
+  };
+
   return (
     <div style={styles.field}>
       <label style={styles.label}>{label}</label>
       <input
-        type="number"
+        type="text"
+        inputMode="decimal"
         name={name}
-        value={value}
+        value={value == null ? '' : String(value)}
         placeholder={placeholder}
-        step={step}
-        onChange={(e) => onChange(e.target.value)}
+        data-step={step}
+        onChange={handleChange}
         style={{ ...styles.input, borderColor: error ? '#b00' : '#E0E0E0' }}
         aria-invalid={!!error}
       />
@@ -670,7 +676,7 @@ function toISODate(v) {
   } catch { return ''; }
 }
 function toStr(v) {
-  return (v === null || v === undefined) ? '' : String(v);
+  return formatDecimalForUI(v);
 }
 function normStr(v) {
   const s = (v ?? '').toString().trim();
@@ -681,16 +687,12 @@ function nullIfEmpty(v) {
   return s === '' ? null : s;
 }
 function toNumOrNull(v) {
-  const s = (v ?? '').toString().trim();
-  if (s === '') return null;
-  const n = Number(s);
-  return Number.isNaN(n) ? null : n;
+  const n = parseDecimalFromUI(v);
+  return n == null ? null : n;
 }
 function toIntOrNull(v) {
-  const s = (v ?? '').toString().trim();
-  if (s === '') return null;
-  const n = Number(s);
-  return Number.isNaN(n) ? null : Math.trunc(n);
+  const n = parseDecimalFromUI(v);
+  return n == null ? null : Math.trunc(n);
 }
 function labelOf(name) {
   const map = {
@@ -702,6 +704,61 @@ function labelOf(name) {
 function inRange(n, min, max, unit, label) {
   if (n < min || n > max) return MSG.range(label, min, max, unit);
   return '';
+}
+
+function formatDecimalForUI(value) {
+  const normalized = normalizeDecimalInput(value);
+  return normalized;
+}
+
+function parseDecimalFromUI(value) {
+  const normalized = normalizeDecimalInput(value);
+  if (normalized === '' || normalized === '-') return null;
+  const parsed = Number(normalized.replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeDecimalInput(value) {
+  if (value === null || value === undefined) return '';
+  let s = value.toString();
+  if (s === '') return '';
+  s = s.replace(/\s+/g, '');
+  s = s.replace(/\./g, ',');
+  s = s.replace(/[^0-9,-]/g, '');
+
+  let sign = '';
+  if (s.startsWith('-')) {
+    sign = '-';
+    s = s.slice(1);
+  }
+  s = s.replace(/-/g, '');
+
+  const hadComma = s.includes(',');
+  let parts = s.split(',');
+  if (parts.length > 2) {
+    parts = [parts[0], parts.slice(1).join('')];
+  }
+  let integerPart = parts[0] || '';
+  let decimalPart = parts[1] || '';
+
+  if (!hadComma && integerPart === '' && sign) {
+    return '-';
+  }
+  if (!hadComma && integerPart === '') {
+    return '';
+  }
+
+  if (hadComma && integerPart === '') {
+    integerPart = '0';
+  }
+
+  let result = sign + integerPart;
+  if (hadComma) {
+    result += ',';
+    result += decimalPart;
+  }
+
+  return result;
 }
 
 /* -------------------- STYLES (coerenti con le altre card) -------------------- */
