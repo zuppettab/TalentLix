@@ -40,16 +40,47 @@ const MSG = {
 };
 
 // ---- helpers: daterange <-> 2 date ----
+const shiftDate = (isoDate, days) => {
+  const str = (isoDate ?? '').toString().trim();
+  if (!str) return '';
+  if (!days || !Number.isFinite(days)) return str;
+
+  const [year, month, day] = str.split('-').map(Number);
+  if ([year, month, day].some(Number.isNaN)) return str;
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(date.getTime())) return str;
+
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
 const parseDateRange = (rng) => {
   if (!rng || typeof rng !== 'string') return { start: '', end: '' };
-  const m = rng.match(/^[\[\(]\s*"?(\d{4}-\d{2}-\d{2})"?\s*,\s*"?(\d{4}-\d{2}-\d{2})"?\s*[\]\)]$/);
-  if (m) return { start: m[1], end: m[2] };
-  const all = rng.match(/(\d{4}-\d{2}-\d{2})/g);
-  if (all && all.length >= 2) return { start: all[0], end: all[1] };
+  const str = rng.trim();
+  const exclusiveEnd = str.endsWith(')');
+
+  const m = str.match(/^[\[\(]\s*"?(\d{4}-\d{2}-\d{2})"?\s*,\s*"?(\d{4}-\d{2}-\d{2})"?\s*[\]\)]$/);
+  if (m) {
+    const end = exclusiveEnd ? shiftDate(m[2], -1) : m[2];
+    return { start: m[1], end };
+  }
+
+  const all = str.match(/(\d{4}-\d{2}-\d{2})/g);
+  if (all && all.length >= 2) {
+    const end = exclusiveEnd ? shiftDate(all[1], -1) : all[1];
+    return { start: all[0], end };
+  }
   return { start: '', end: '' };
 };
 
-const buildDateRange = (start, end) => (start && end ? `[${start},${end}]` : null);
+const buildDateRange = (start, end) => {
+  const s = (start ?? '').toString().trim();
+  const e = (end ?? '').toString().trim();
+  if (!s || !e) return null;
+  const exclusiveEnd = shiftDate(e, 1);
+  return `[${s},${exclusiveEnd})`;
+};
 
 const isValidISODate = (value) => {
   const str = (value ?? '').toString().trim();
