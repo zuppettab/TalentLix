@@ -1268,6 +1268,8 @@ const styles = {
     borderRadius: 10,
     fontSize: 14,
     background: '#FFF',
+    width: '100%',
+    boxSizing: 'border-box',
   },
   careerInput: {
     height: 38,
@@ -1276,6 +1278,8 @@ const styles = {
     borderRadius: 10,
     fontSize: 14,
     background: '#FFF',
+    width: '100%',
+    boxSizing: 'border-box',
   },
   error: { fontSize: 12, color: '#b00' },
 
