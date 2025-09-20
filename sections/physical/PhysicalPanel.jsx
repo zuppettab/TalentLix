@@ -15,7 +15,7 @@ const LATERALITY = [
   { value: '', label: '—' },
   { value: 'left', label: 'Left' },
   { value: 'right', label: 'Right' },
-  { value: 'ambi', label: 'Ambidextrous' },
+  { value: 'ambidextrous', label: 'Ambidextrous' },
   { value: 'unknown', label: 'Unknown' },
 ];
 
@@ -128,9 +128,9 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
             wingspan_cm: toStr(last.wingspan_cm),
             standing_reach_cm: toStr(last.standing_reach_cm),
             body_fat_percent: toStr(last.body_fat_percent),
-            dominant_hand: last.dominant_hand || '',
-            dominant_foot: last.dominant_foot || '',
-            dominant_eye: last.dominant_eye || '',
+            dominant_hand: normalizeLateralityFromDb(last.dominant_hand),
+            dominant_foot: normalizeLateralityFromDb(last.dominant_foot),
+            dominant_eye: normalizeLateralityFromDb(last.dominant_eye),
             physical_notes: last.physical_notes || '',
 
             performance_measured_at: toISODate(last.performance_measured_at),
@@ -759,6 +759,14 @@ function normalizeDecimalInput(value) {
   }
 
   return result;
+}
+
+function normalizeLateralityFromDb(value) {
+  const normalized = (value ?? '').toString().trim().toLowerCase();
+  if (!normalized) return '';
+  if (normalized === 'ambi') return 'ambidextrous';
+  if (['left', 'right', 'ambidextrous', 'unknown'].includes(normalized)) return normalized;
+  return normalized;
 }
 
 /* -------------------- STYLES (coerenti con le altre card) -------------------- */
