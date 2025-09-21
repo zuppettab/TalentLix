@@ -10,6 +10,7 @@ import PhysicalPanel from '../sections/physical/PhysicalPanel';
 import MediaPanel from '../sections/media/MediaPanel';
 import SocialPanel from '../sections/social/SocialPanel';
 import AwardsWidget from '../sections/awards/AwardsWidget';
+import PrivacyPanel from '../sections/privacy/PrivacyPanel';
 
 const ATHLETE_TABLE = 'athlete';
 
@@ -85,7 +86,13 @@ export default function Dashboard() {
                   profile_published,
                   completion_percentage,
                   current_step,
-                  needs_parental_authorization
+                  needs_parental_authorization,
+                  gdpr_accepted,
+                  gdpr_accepted_at,
+                  guardian_first_name,
+                  guardian_last_name,
+                  parental_consent,
+                  parental_consent_at
                 `)
 
           .eq('id', u.id)
@@ -370,7 +377,10 @@ export default function Dashboard() {
                 {current === 'awards' && (
                   <AwardsWidget athleteId={athlete?.id} isMobile={isMobile} />
                 )}
-                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'media' && current !== 'social' && current !== 'physical' && current !== 'awards' && (
+                {current === 'privacy' && (
+                  <PrivacyPanel athlete={athlete} />
+                )}
+                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'media' && current !== 'social' && current !== 'physical' && current !== 'awards' && current !== 'privacy' && (
                   <p style={styles.placeholder}>TODO — “{sectionObj?.title}”</p>
                 )}
 
