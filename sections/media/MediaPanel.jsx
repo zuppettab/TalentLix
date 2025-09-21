@@ -9,7 +9,7 @@
 // - react-select/creatable (per i tag)
 // Non usa librerie DnD esterne: drag&drop HTML5 semplice per Gallery/Highlights.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CreatableSelect from 'react-select/creatable';
 import { supabase as sb } from '../../utils/supabaseClient';
 
@@ -401,6 +401,10 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   const [status, setStatus]   = useState({ type: '', msg: '' });
   const [dirty, setDirty]     = useState(false);
 
+  const notifyParent = useCallback((fresh = null) => {
+    if (onSaved) onSaved(fresh);
+  }, [onSaved]);
+
   // Data snapshot (per confronto)
   const [snapshot, setSnapshot] = useState({
     featured: { head: null, g1: null, g2: null }, // media_item
@@ -611,6 +615,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
         setFeatured((p) => ({ ...p, [slotKey]: data }));
       }
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e4) {
       console.error(e4);
       setStatus({ type: 'error', msg: 'Upload failed' });
@@ -630,6 +635,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       await supabase.from(TBL_MEDIA).delete().eq('id', prev.id);
       setFeatured((p) => ({ ...p, [slotKey]: null }));
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Delete failed' });
@@ -706,6 +712,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       }
 
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e4) {
       console.error(e4);
       setStatus({ type: 'error', msg: 'Upload failed' });
@@ -724,6 +731,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       await supabase.from(TBL_MEDIA).delete().eq('id', intro.id);
       setIntro(null);
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Delete failed' });
@@ -780,6 +788,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       const list = [...highlights, data].sort(sortByOrder);
       setHighlights(list);
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e4) {
       console.error(e4);
       setStatus({ type: 'error', msg: 'Upload failed' });
@@ -826,6 +835,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       setHighlights((p) => [...p, data].sort(sortByOrder));
       setAddLinkHL({ url: '', err: '' });
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e) {
       console.error(e);
       setAddLinkHL((p) => ({ ...p, err: 'Add failed' }));
@@ -842,6 +852,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       setHighlights((p) => p.filter(i => i.id !== id).map((i, idx) => ({ ...i, sort_order: idx })));
       setDirty(true); // riordino implicito
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e) {
       console.error(e); setStatus({ type: 'error', msg: 'Delete failed' });
     }
@@ -889,6 +900,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
       setHighlights((p) => p.map(x => x.id === item.id ? data : x).sort(sortByOrder));
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Replace failed' });
@@ -967,6 +979,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
         setGallery((g) => [...g, data].sort(sortByOrder));
       }
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e3) {
       console.error(e3);
       setStatus({ type: 'error', msg: 'Upload failed' });
@@ -1011,6 +1024,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       const highlightsDirty = JSON.stringify(highlights) !== JSON.stringify(snapshot.highlights);
       setDirty(galleryDirty || highlightsDirty);
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Save failed' });
@@ -1026,6 +1040,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       setGallery((p) => p.filter(i => i.id !== id).map((i, idx) => ({ ...i, sort_order: idx })));
       setDirty(true);
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Delete failed' });
@@ -1121,6 +1136,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       }}, ...p].sort(sortGamesDesc));
       setAddGame({ url: '', match_date: '', opponent: '', competition: '', season: '', team_level: '', err: '' });
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e) {
       console.error(e);
       setAddGame((p) => ({ ...p, err: 'Add failed' }));
@@ -1157,6 +1173,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       // ordine automatico per data: ri-ordina la lista
       setGames((p) => [...p].sort(sortGamesDesc));
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Save failed' });
@@ -1171,6 +1188,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       await supabase.from(TBL_MEDIA).delete().eq('id', media_item_id);
       setGames((p) => p.filter(g => g.item.id !== media_item_id));
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      notifyParent();
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Delete failed' });
@@ -1221,10 +1239,8 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       setStatus({ type: 'success', msg: 'Saved ✓' });
 
       // callback parent (coerente con altre card)
-      if (onSaved) {
-        const { data: fresh } = await supabase.from('athlete').select('*').eq('id', athlete.id).single();
-        onSaved(fresh || null);
-      }
+      const { data: fresh } = await supabase.from('athlete').select('*').eq('id', athlete.id).single();
+      notifyParent(fresh || null);
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Save failed' });
