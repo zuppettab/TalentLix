@@ -7,7 +7,7 @@
 // - L'ordinamento è automatico: sort_order viene aggiornato sequenzialmente al salvataggio.
 // - Un solo profilo "primario" per atleta: enforced lato UI (il toggle su uno spegne gli altri).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FiLink } from 'react-icons/fi';
 import { supabase as sb } from '../../utils/supabaseClient';
 
@@ -138,6 +138,9 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
 
   // Stato ADD (riga nuova)
   const [add, setAdd] = useState({ platform: '', handle: '', profile_url: '', is_public: true, is_primary: false, err: '' });
+  const platformInputRef = useRef(null);
+  const handleInputRef = useRef(null);
+  const profileUrlInputRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -186,14 +189,38 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
 
   // ---------------- Aggiungi / Elimina ----------------
   const addRow = () => {
+    const platform = String(add.platform || '').trim();
+    const handle = String(add.handle || '').trim();
+    const profileUrl = String(add.profile_url || '').trim();
+
+    if (!platform || !handle || !profileUrl) {
+      setAdd(prev => ({
+        ...prev,
+        platform,
+        handle,
+        profile_url: profileUrl,
+        err: 'Fill Platform, Handle, and URL before adding.',
+      }));
+
+      const targetRef = !platform
+        ? platformInputRef
+        : !handle
+          ? handleInputRef
+          : profileUrlInputRef;
+      if (targetRef?.current) {
+        targetRef.current.focus();
+      }
+      return;
+    }
+
     const tempId = `tmp-${Date.now()}`;
     const nextOrder = rows.length ? Math.max(...rows.map(r => Number(r.sort_order || 0))) + 1 : 0;
     const newRow = {
       id: tempId,
       athlete_id: athlete.id,
-      platform: add.platform || '',
-      handle: add.handle || '',
-      profile_url: add.profile_url || '',
+      platform,
+      handle,
+      profile_url: profileUrl,
       is_public: !!add.is_public,
       is_primary: !!add.is_primary,
       sort_order: nextOrder,
@@ -371,6 +398,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
             onChange={(e) => setAdd(s => ({ ...s, platform: e.target.value, err: '' }))}
             placeholder="e.g. Instagram / X / TikTok…"
             style={styles.input}
+            ref={platformInputRef}
           />
           <datalist id="platform-suggestions">
             {PLATFORM_SUGGESTIONS.map(p => <option key={p} value={p} />)}
@@ -383,6 +411,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
             onChange={(e) => setAdd(s => ({ ...s, handle: e.target.value, err: '' }))}
             placeholder="@username"
             style={styles.input}
+            ref={handleInputRef}
           />
         </div>
         <div className="row" style={styles.field}>
@@ -392,6 +421,7 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
             onChange={(e) => setAdd(s => ({ ...s, profile_url: e.target.value, err: '' }))}
             placeholder="https://…"
             style={styles.input}
+            ref={profileUrlInputRef}
           />
         </div>
         {isMobile ? (
