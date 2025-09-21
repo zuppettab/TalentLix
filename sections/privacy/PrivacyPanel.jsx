@@ -49,7 +49,23 @@ export default function PrivacyPanel({ athlete }) {
       })
       .then((html) => {
         if (!active) return;
-        setPolicyHtml(html);
+        let sanitizedHtml = html;
+
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          if (doc) {
+            const root = doc.querySelector('main') || doc.body;
+            if (root) {
+              root.querySelectorAll('style').forEach((el) => el.remove());
+              sanitizedHtml = root.innerHTML;
+            }
+          }
+        } catch (parseError) {
+          console.warn('Failed to sanitize GDPR policy HTML', parseError);
+        }
+
+        setPolicyHtml(sanitizedHtml);
         setPolicyStatus('ready');
       })
       .catch((err) => {
