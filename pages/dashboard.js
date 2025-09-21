@@ -1,8 +1,9 @@
 // /pages/dashboard.js
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { SECTIONS, DEFAULT_SECTION, isValidSection } from '../utils/dashboardSections';
 import { supabase } from '../utils/supabaseClient';
+import { computeProfileCompletion, MEDIA_CATEGORIES } from '../utils/profileCompletion';
 import PersonalPanel from '../sections/personal/PersonalPanel';
 import ContactsPanel from '../sections/contacts/ContactsPanel';
 import SportInfoPanel from '../sections/sports/SportInfoPanel';
@@ -48,6 +49,225 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [savingPublish, setSavingPublish] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [cardData, setCardData] = useState({
+    contactsVerification: null,
+    sportsExperience: null,
+    physical: null,
+    awards: [],
+    mediaItems: [],
+    mediaGameMeta: [],
+    socialProfiles: [],
+  });
+
+  const athleteRef = useRef(null);
+  const cardDataRef = useRef(cardData);
+
+  useEffect(() => { athleteRef.current = athlete; }, [athlete]);
+  useEffect(() => { cardDataRef.current = cardData; }, [cardData]);
+
+  const fetchContactsVerification = useCallback(async (athleteId) => {
+    const { data, error } = await supabase
+      .from('contacts_verification')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    if (data && typeof data.review_status === 'string') {
+      data.review_status = data.review_status.trim().toLowerCase();
+    }
+    return data || null;
+  }, [supabase]);
+
+  const fetchLatestSportExperience = useCallback(async (athleteId) => {
+    const { data, error } = await supabase
+      .from('sports_experiences')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .order('id', { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    return Array.isArray(data) && data[0] ? data[0] : null;
+  }, [supabase]);
+
+  const fetchPhysicalData = useCallback(async (athleteId) => {
+    const { data, error } = await supabase
+      .from('physical_data')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .order('id', { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    return Array.isArray(data) && data[0] ? data[0] : null;
+  }, [supabase]);
+
+  const fetchAwardsData = useCallback(async (athleteId) => {
+    const { data, error } = await supabase
+      .from('awards_recognitions')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .order('season_start', { ascending: false })
+      .order('date_awarded', { ascending: false })
+      .order('id', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }, [supabase]);
+
+  const fetchMediaData = useCallback(async (athleteId) => {
+    const { data, error } = await supabase
+      .from('media_item')
+      .select('*')
+      .eq('athlete_id', athleteId);
+    if (error) throw error;
+    const items = data || [];
+    const gameIds = items
+      .filter(item => (item?.category || '') === MEDIA_CATEGORIES.GAME)
+      .map(item => item.id);
+    let gameMeta = [];
+    if (gameIds.length) {
+      const { data: metaRows, error: metaError } = await supabase
+        .from('media_game_meta')
+        .select('*')
+        .in('media_item_id', gameIds);
+      if (metaError) throw metaError;
+      gameMeta = metaRows || [];
+    }
+    return { items, gameMeta };
+  }, [supabase]);
+
+  const fetchSocialProfiles = useCallback(async (athleteId) => {
+    const { data, error } = await supabase
+      .from('social_profiles')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }, [supabase]);
+
+  const applyDerivedFields = useCallback((base, overrides = {}) => {
+    if (!base) return base;
+    const next = { ...base };
+    const cv = overrides.contactsVerification ?? cardDataRef.current.contactsVerification;
+    if (cv) {
+      next.residence_city = cv.residence_city || '';
+      next.residence_country = cv.residence_country || '';
+    } else {
+      next.residence_city = next.residence_city || '';
+      next.residence_country = next.residence_country || '';
+    }
+    const sports = overrides.sportsExperience ?? cardDataRef.current.sportsExperience;
+    if (sports) {
+      next.seeking_team = !!sports.seeking_team;
+    } else if (next.seeking_team == null) {
+      next.seeking_team = false;
+    }
+    return next;
+  }, []);
+
+  const recomputeCompletion = useCallback(async ({ overrides = {}, athleteOverride } = {}) => {
+    const currentAthlete = athleteOverride
+      ? athleteOverride
+      : applyDerivedFields(athleteRef.current, overrides);
+    if (!currentAthlete?.id) return;
+
+    const currentCardData = cardDataRef.current;
+    const helperInput = {
+      athlete: currentAthlete,
+      contactsVerification: overrides.contactsVerification ?? currentCardData.contactsVerification,
+      sportsExperience: overrides.sportsExperience ?? currentCardData.sportsExperience,
+      physical: overrides.physical ?? currentCardData.physical,
+      awards: overrides.awards ?? currentCardData.awards,
+      mediaItems: overrides.mediaItems ?? currentCardData.mediaItems,
+      mediaGameMeta: overrides.mediaGameMeta ?? currentCardData.mediaGameMeta,
+      socialProfiles: overrides.socialProfiles ?? currentCardData.socialProfiles,
+    };
+
+    const { completion } = computeProfileCompletion(helperInput);
+    const clamped = Math.max(40, Math.min(100, Math.round(completion)));
+    const currentCompletion = Number(currentAthlete.completion_percentage ?? 0);
+
+    if (currentCompletion !== clamped) {
+      try {
+        const { data: updated, error } = await supabase
+          .from(ATHLETE_TABLE)
+          .update({ completion_percentage: clamped })
+          .eq('id', currentAthlete.id)
+          .select()
+          .single();
+        if (error) throw error;
+        setAthlete(applyDerivedFields(updated, overrides));
+      } catch (err) {
+        console.error(err);
+        setAthlete(prev => {
+          const base = prev ? { ...prev } : { ...(currentAthlete || {}) };
+          return applyDerivedFields({ ...base, completion_percentage: clamped }, overrides);
+        });
+      }
+    } else if (athleteOverride) {
+      setAthlete(prev => {
+        const base = prev ? { ...prev, ...athleteOverride } : { ...athleteOverride };
+        return applyDerivedFields({ ...base, completion_percentage: clamped }, overrides);
+      });
+    } else {
+      setAthlete(prev => (prev ? { ...prev, completion_percentage: clamped } : prev));
+    }
+  }, [applyDerivedFields]);
+
+  const handleSectionSaved = useCallback(async (sectionId, nextAthlete = null) => {
+    const baseAthlete = nextAthlete ? { ...(athleteRef.current || {}), ...nextAthlete } : athleteRef.current;
+    const athleteId = nextAthlete?.id || baseAthlete?.id;
+    if (!athleteId) return;
+
+    const overrides = {};
+    try {
+      if (sectionId === 'contacts') {
+        overrides.contactsVerification = await fetchContactsVerification(athleteId);
+      } else if (sectionId === 'sports') {
+        overrides.sportsExperience = await fetchLatestSportExperience(athleteId);
+      } else if (sectionId === 'physical') {
+        overrides.physical = await fetchPhysicalData(athleteId);
+      } else if (sectionId === 'awards') {
+        overrides.awards = await fetchAwardsData(athleteId);
+      } else if (sectionId === 'media') {
+        const mediaData = await fetchMediaData(athleteId);
+        overrides.mediaItems = mediaData.items;
+        overrides.mediaGameMeta = mediaData.gameMeta;
+      } else if (sectionId === 'social') {
+        overrides.socialProfiles = await fetchSocialProfiles(athleteId);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
+    if (Object.keys(overrides).length) {
+      setCardData(prev => ({ ...prev, ...overrides }));
+    }
+
+    const mergedAthlete = baseAthlete ? applyDerivedFields(baseAthlete, overrides) : baseAthlete;
+    if (mergedAthlete) {
+      setAthlete(mergedAthlete);
+    }
+
+    await recomputeCompletion({ overrides, athleteOverride: mergedAthlete });
+  }, [
+    fetchAwardsData,
+    fetchContactsVerification,
+    fetchLatestSportExperience,
+    fetchMediaData,
+    fetchPhysicalData,
+    fetchSocialProfiles,
+    applyDerivedFields,
+    recomputeCompletion,
+  ]);
+
+  const handlePersonalSaved = useCallback((next) => handleSectionSaved('personal', next), [handleSectionSaved]);
+  const handleContactsSaved = useCallback((next) => handleSectionSaved('contacts', next), [handleSectionSaved]);
+  const handleSportsSaved = useCallback((next) => handleSectionSaved('sports', next), [handleSectionSaved]);
+  const handleMediaSaved = useCallback((next) => handleSectionSaved('media', next), [handleSectionSaved]);
+  const handleSocialSaved = useCallback((next) => handleSectionSaved('social', next), [handleSectionSaved]);
+  const handlePhysicalSaved = useCallback((next) => handleSectionSaved('physical', next), [handleSectionSaved]);
+  const handleAwardsSaved = useCallback(() => handleSectionSaved('awards'), [handleSectionSaved]);
 
   useEffect(() => {
     let mounted = true;
@@ -113,30 +333,37 @@ export default function Dashboard() {
           return;
         }
 
-        // merge dei campi residenza da contacts_verification
-    const { data: cv } = await supabase
-      .from('contacts_verification')
-      .select('residence_city,residence_country')
-      .eq('athlete_id', u.id)
-      .single();
-    
-    const { data: expRows } = await supabase
-      .from('sports_experiences')
-      .select('seeking_team')
-      .eq('athlete_id', u.id)
-      .order('id', { ascending: false })
-      .limit(1);
+        let contactsRow = null;
+        let sportsRow = null;
+        let physicalRow = null;
+        let awardsRows = [];
+        let mediaResult = { items: [], gameMeta: [] };
+        let socialRows = [];
 
-    const latestSeeking = Array.isArray(expRows) && expRows.length > 0 ? !!expRows[0].seeking_team : false;
+        try { contactsRow = await fetchContactsVerification(u.id); } catch (err) { console.error(err); }
+        try { sportsRow = await fetchLatestSportExperience(u.id); } catch (err) { console.error(err); }
+        try { physicalRow = await fetchPhysicalData(u.id); } catch (err) { console.error(err); }
+        try { awardsRows = await fetchAwardsData(u.id); } catch (err) { console.error(err); }
+        try { mediaResult = await fetchMediaData(u.id); } catch (err) { console.error(err); mediaResult = { items: [], gameMeta: [] }; }
+        try { socialRows = await fetchSocialProfiles(u.id); } catch (err) { console.error(err); }
 
-    const merged = {
-      ...data,
-      residence_city: cv?.residence_city || '',
-      residence_country: cv?.residence_country || '',
-      seeking_team: latestSeeking,
-    };
+        const overrides = {
+          contactsVerification: contactsRow,
+          sportsExperience: sportsRow,
+          physical: physicalRow,
+          awards: awardsRows,
+          mediaItems: mediaResult.items,
+          mediaGameMeta: mediaResult.gameMeta,
+          socialProfiles: socialRows,
+        };
 
-    if (mounted) setAthlete(merged);
+        const merged = applyDerivedFields(data, overrides);
+
+        if (mounted) {
+          setCardData(overrides);
+          setAthlete(merged);
+          await recomputeCompletion({ overrides, athleteOverride: merged });
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -154,11 +381,21 @@ export default function Dashboard() {
     });
 
     return () => { sub.subscription?.unsubscribe?.(); mounted = false; };
-  }, [router]);
+  }, [
+    router,
+    fetchAwardsData,
+    fetchContactsVerification,
+    fetchLatestSportExperience,
+    fetchMediaData,
+    fetchPhysicalData,
+    fetchSocialProfiles,
+    applyDerivedFields,
+    recomputeCompletion,
+  ]);
 
   const fullName = [athlete?.first_name, athlete?.last_name].filter(Boolean).join(' ') || 'Full Name';
   const isPublished = !!athlete?.profile_published;
-  const completion = Math.min(100, Math.max(0, Number(athlete?.completion_percentage ?? 40)));
+  const completion = Math.max(40, Math.min(100, Number(athlete?.completion_percentage ?? 40)));
 
   const togglePublish = async () => {
     if (!athlete) return;
@@ -360,25 +597,25 @@ export default function Dashboard() {
               <h2 style={styles.panelTitle}>{sectionObj?.title}</h2>
               <div className="panel-body-mobile-fix" style={styles.panelBody}>
                 {current === 'personal' && (
-                  <PersonalPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
+                  <PersonalPanel athlete={athlete} onSaved={handlePersonalSaved} isMobile={isMobile} />
                 )}
                 {current === 'contacts' && (
-                  <ContactsPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
+                  <ContactsPanel athlete={athlete} onSaved={handleContactsSaved} isMobile={isMobile} />
                 )}
                 {current === 'sports' && (
-                  <SportInfoPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
+                  <SportInfoPanel athlete={athlete} onSaved={handleSportsSaved} isMobile={isMobile} />
                 )}
                 {current === 'media' && (
-                 <MediaPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
+                 <MediaPanel athlete={athlete} onSaved={handleMediaSaved} isMobile={isMobile} />
                 )}
                 {current === 'social' && (
-                  <SocialPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
+                  <SocialPanel athlete={athlete} onSaved={handleSocialSaved} isMobile={isMobile} />
                 )}
                 {current === 'physical' && (
-                  <PhysicalPanel athlete={athlete} onSaved={setAthlete} isMobile={isMobile} />
+                  <PhysicalPanel athlete={athlete} onSaved={handlePhysicalSaved} isMobile={isMobile} />
                 )}
                 {current === 'awards' && (
-                  <AwardsWidget athleteId={athlete?.id} isMobile={isMobile} />
+                  <AwardsWidget athleteId={athlete?.id} isMobile={isMobile} onSaved={handleAwardsSaved} />
                 )}
                 {current === 'privacy' && (
                   <PrivacyPanel athlete={athlete} />

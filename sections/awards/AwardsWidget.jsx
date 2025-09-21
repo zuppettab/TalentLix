@@ -24,7 +24,7 @@ const getFileNameFromPath = (p) => {
   return ix >= 0 ? s.slice(ix + 1) : s;
 };
 
-export default function AwardsWidget({ athleteId, isMobile }) {
+export default function AwardsWidget({ athleteId, isMobile, onSaved }) {
   const [rows, setRows] = useState([]);
   const [cLoading, setCLoading] = useState(true);
   const [cStatus, setCStatus] = useState({ type: '', msg: '' });
@@ -211,6 +211,7 @@ export default function AwardsWidget({ athleteId, isMobile }) {
       setAddEvidenceName('');
       setCStatus({ type: 'success', msg: 'Saved ✓' });
       await loadRows();
+      onSaved?.();
     } catch (e) {
       console.error(e);
       setCStatus({ type: 'error', msg: 'Save failed' });
@@ -274,6 +275,7 @@ export default function AwardsWidget({ athleteId, isMobile }) {
       setEditEvidenceName('');
       setCStatus({ type: 'success', msg: 'Saved ✓' });
       await loadRows();
+      onSaved?.();
     } catch (e) {
       console.error(e);
       setCStatus({ type: 'error', msg: 'Save failed' });
@@ -292,6 +294,7 @@ export default function AwardsWidget({ athleteId, isMobile }) {
       if (error) throw error;
       setCStatus({ type: 'success', msg: 'Deleted ✓' });
       await loadRows();
+      onSaved?.();
     } catch (e) {
       console.error(e);
       setCStatus({ type: 'error', msg: 'Delete failed' });
