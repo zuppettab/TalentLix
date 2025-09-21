@@ -60,6 +60,10 @@ const [errors, setErrors] = useState({});
   phone: '',
   residence_city: '',
   residence_country: '',
+  guardian_first_name: '',
+  guardian_last_name: '',
+  parental_consent: false,
+  parental_consent_at: null,
   // —— STEP 3
   sport: '',
   main_role: '',
@@ -145,6 +149,10 @@ useEffect(() => {
     let nextForm = {
       ...formData,
       ...athleteWithoutFlag,
+      guardian_first_name: athleteData?.guardian_first_name ?? '',
+      guardian_last_name: athleteData?.guardian_last_name ?? '',
+      parental_consent: athleteData?.parental_consent ?? false,
+      parental_consent_at: athleteData?.parental_consent_at ?? null,
       seeking_team: false,
       gdpr_accepted: athleteData?.gdpr_accepted ?? false,
       gdpr_accepted_at: athleteData?.gdpr_accepted_at ?? null,
@@ -366,6 +374,9 @@ useEffect(() => {
       };
 
   const finalizeProfile = async () => {
+    const guardianFirstName = (formData.guardian_first_name || '').trim();
+    const guardianLastName = (formData.guardian_last_name || '').trim();
+
     const { error } = await supabase.from('athlete')
       .update({
         completion_percentage: 40,
@@ -373,6 +384,10 @@ useEffect(() => {
         profile_published: formData.profile_published,
         gdpr_accepted: formData.gdpr_accepted,
         gdpr_accepted_at: formData.gdpr_accepted_at,
+        guardian_first_name: guardianFirstName || null,
+        guardian_last_name: guardianLastName || null,
+        parental_consent: !!formData.parental_consent,
+        parental_consent_at: formData.parental_consent ? formData.parental_consent_at : null,
       })
       .eq('id', user.id);
     if (!error) router.push('/dashboard');
@@ -1261,6 +1276,7 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep, errors, setError
 const Step4 = ({ formData, setFormData, finalize }) => {
   const [gdprHtml, setGdprHtml] = useState('');
   const [hasScrolled, setHasScrolled] = useState(false);
+  const [parentalErrors, setParentalErrors] = useState({});
   const gdprAccepted = !!formData.gdpr_accepted;
 
   // fetch GDPR HTML
@@ -1298,6 +1314,13 @@ const Step4 = ({ formData, setFormData, finalize }) => {
   })();
 
   const avatarSize = 'clamp(110px, 28vw, 140px)';
+  const needsGuardianInfo = Boolean(formData.needs_parental_authorization) || (age != null && age < 14);
+
+  useEffect(() => {
+    if (!needsGuardianInfo) {
+      setParentalErrors({});
+    }
+  }, [needsGuardianInfo]);
 
   return (
     <>
@@ -1396,6 +1419,102 @@ const Step4 = ({ formData, setFormData, finalize }) => {
         </div>
       </div>
 
+      {needsGuardianInfo && (
+        <div
+          style={{
+            background:'#fff',
+            border:'1px solid #eee',
+            borderRadius:12,
+            padding:16,
+            marginTop:18,
+            boxShadow:'0 6px 14px rgba(0,0,0,0.04)'
+          }}
+        >
+          <div style={{ fontWeight:800, marginBottom:8 }}>Parental / Guardian Consent</div>
+          <p style={{ marginTop:0, fontSize:14, color:'#555' }}>
+            A parent or legal guardian must authorise this profile before it can be published.
+          </p>
+          <div style={{ display:'grid', gap:12 }}>
+            <div style={{ display:'grid', gap:6 }}>
+              <label style={{ fontSize:13, fontWeight:600, textAlign:'left' }}>Guardian First Name</label>
+              <input
+                style={styles.input}
+                name="guardian_first_name"
+                value={formData.guardian_first_name || ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData(prev => ({ ...prev, guardian_first_name: value }));
+                  setParentalErrors(prev => {
+                    if (!prev.guardian_first_name) return prev;
+                    const next = { ...prev };
+                    delete next.guardian_first_name;
+                    return next;
+                  });
+                }}
+                placeholder="Enter guardian first name"
+              />
+              {parentalErrors.guardian_first_name && (
+                <span style={{ color:'#b00', fontSize:12, textAlign:'left' }}>
+                  {parentalErrors.guardian_first_name}
+                </span>
+              )}
+            </div>
+            <div style={{ display:'grid', gap:6 }}>
+              <label style={{ fontSize:13, fontWeight:600, textAlign:'left' }}>Guardian Last Name</label>
+              <input
+                style={styles.input}
+                name="guardian_last_name"
+                value={formData.guardian_last_name || ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData(prev => ({ ...prev, guardian_last_name: value }));
+                  setParentalErrors(prev => {
+                    if (!prev.guardian_last_name) return prev;
+                    const next = { ...prev };
+                    delete next.guardian_last_name;
+                    return next;
+                  });
+                }}
+                placeholder="Enter guardian last name"
+              />
+              {parentalErrors.guardian_last_name && (
+                <span style={{ color:'#b00', fontSize:12, textAlign:'left' }}>
+                  {parentalErrors.guardian_last_name}
+                </span>
+              )}
+            </div>
+            <label style={{ textAlign:'left', display:'flex', alignItems:'center', gap:8 }}>
+              <input
+                type="checkbox"
+                checked={!!formData.parental_consent}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setFormData(prev => ({
+                    ...prev,
+                    parental_consent: checked,
+                    parental_consent_at: checked
+                      ? (prev.parental_consent_at || new Date().toISOString())
+                      : null,
+                  }));
+                  setParentalErrors(prev => {
+                    if (!prev.parental_consent) return prev;
+                    const next = { ...prev };
+                    delete next.parental_consent;
+                    return next;
+                  });
+                }}
+              />
+              I confirm that I am the legal guardian and authorise the use of this profile.
+            </label>
+            {parentalErrors.parental_consent && (
+              <span style={{ color:'#b00', fontSize:12, textAlign:'left' }}>
+                {parentalErrors.parental_consent}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* GDPR BOX */}
       <div
         className="gdpr-box"
@@ -1441,11 +1560,32 @@ const Step4 = ({ formData, setFormData, finalize }) => {
       <button
         style={gdprAccepted ? { ...styles.button, marginTop:4 } : { ...styles.buttonDisabled, marginTop:4 }}
         onClick={() => {
-          if (gdprAccepted) {
-            finalize();
-          } else {
+          if (!gdprAccepted) {
             alert("You must read and accept the GDPR policy before proceeding.");
+            return;
           }
+
+          if (needsGuardianInfo) {
+            const nextErrors = {};
+            if (!(formData.guardian_first_name || '').trim()) {
+              nextErrors.guardian_first_name = 'Guardian first name is required.';
+            }
+            if (!(formData.guardian_last_name || '').trim()) {
+              nextErrors.guardian_last_name = 'Guardian last name is required.';
+            }
+            if (!formData.parental_consent) {
+              nextErrors.parental_consent = 'Guardian consent must be granted.';
+            }
+
+            setParentalErrors(nextErrors);
+
+            if (Object.keys(nextErrors).length > 0) {
+              alert('Please complete the guardian consent information.');
+              return;
+            }
+          }
+
+          finalize();
         }}
         disabled={!gdprAccepted}
         aria-label="Confirm and go to dashboard"
