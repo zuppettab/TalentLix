@@ -70,6 +70,8 @@ const [errors, setErrors] = useState({});
   seeking_team: false,     // NUOVO (checkbox)
   // ——
   profile_published: false,
+  gdpr_accepted: false,
+  gdpr_accepted_at: null,
 });
 
   const loadLatestExperience = async (athleteId, base = {}) => {
@@ -140,7 +142,13 @@ useEffect(() => {
     // 2) Base form: merge ATHLETE (seeking_team ignorato)
     setAthlete(athleteData);
     const { seeking_team: _ignored, ...athleteWithoutFlag } = athleteData || {};
-    let nextForm = { ...formData, ...athleteWithoutFlag, seeking_team: false };
+    let nextForm = {
+      ...formData,
+      ...athleteWithoutFlag,
+      seeking_team: false,
+      gdpr_accepted: athleteData?.gdpr_accepted ?? false,
+      gdpr_accepted_at: athleteData?.gdpr_accepted_at ?? null,
+    };
     
     // Carica anche RESIDENCE da contacts_verification
     const { data: cvRow } = await supabase
@@ -363,6 +371,8 @@ useEffect(() => {
         completion_percentage: 40,
         current_step: null,
         profile_published: formData.profile_published,
+        gdpr_accepted: formData.gdpr_accepted,
+        gdpr_accepted_at: formData.gdpr_accepted_at,
       })
       .eq('id', user.id);
     if (!error) router.push('/dashboard');
@@ -1251,7 +1261,7 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep, errors, setError
 const Step4 = ({ formData, setFormData, finalize }) => {
   const [gdprHtml, setGdprHtml] = useState('');
   const [hasScrolled, setHasScrolled] = useState(false);
-  const [gdprAccepted, setGdprAccepted] = useState(false);
+  const gdprAccepted = !!formData.gdpr_accepted;
 
   // fetch GDPR HTML
   useEffect(() => {
@@ -1404,7 +1414,14 @@ const Step4 = ({ formData, setFormData, finalize }) => {
           type="checkbox"
           disabled={!hasScrolled}
           checked={gdprAccepted}
-          onChange={(e) => setGdprAccepted(e.target.checked)}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            setFormData(prev => ({
+              ...prev,
+              gdpr_accepted: checked,
+              gdpr_accepted_at: checked ? new Date().toISOString() : null,
+            }));
+          }}
         />{' '}
         I have read and agree to the GDPR Compliance Policy
       </label>
