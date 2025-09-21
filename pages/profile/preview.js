@@ -47,6 +47,8 @@ async function getSigned(bucket, path) {
 }
 
 /* ------------------------------ Helpers ------------------------------ */
+const SUPABASE_LATERALITY = ['Left', 'Right', 'Ambidextrous', 'Unknown'];
+
 const clamp = (n, a, b) => Math.min(Math.max(Number(n || 0), a), b);
 const isHttp = (u='') => /^https?:\/\//i.test(String(u||''));
 const fmtDate = (iso) => { if (!iso) return '—'; try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'2-digit'});} catch { return String(iso); } };
@@ -58,6 +60,49 @@ const ytId=(url)=>{try{const u=new URL(String(url)); if(u.hostname.includes('you
 const vmId=(url)=>{const m=String(url||'').match(/vimeo\.com\/(\d+)/i); return m?m[1]:null;};
 const embedUrl=(url)=> ytId(url)?`https://www.youtube.com/embed/${ytId(url)}?rel=0` : (vmId(url)?`https://player.vimeo.com/video/${vmId(url)}`:url);
 const contractText = (v) => v==='free_agent'?'Free agent': v==='under_contract'?'Under contract': v==='on_loan'?'On loan':'—';
+const lateralityLabel = (value) => {
+  const normalized = normalizeLateralityValue(value);
+  if (!normalized) return '—';
+  const labels = {
+    Left: 'Left',
+    Right: 'Right',
+    Ambidextrous: 'Ambidextrous',
+    Unknown: 'Unknown',
+  };
+  return labels[normalized] || normalized;
+};
+
+function normalizeLateralityValue(value) {
+  const raw = (value ?? '').toString().trim();
+  if (raw === '') return '';
+
+  const direct = SUPABASE_LATERALITY.find((opt) => opt.toLowerCase() === raw.toLowerCase());
+  if (direct) return direct;
+
+  const lower = raw.toLowerCase();
+  if (lower === 'l' || lower.startsWith('left')) return 'Left';
+  if (lower === 'r' || lower.startsWith('right')) return 'Right';
+  if (
+    lower === 'ambi' ||
+    lower.startsWith('ambi') ||
+    lower === 'both' ||
+    lower === 'either'
+  ) {
+    return 'Ambidextrous';
+  }
+  if (
+    lower === 'unknown' ||
+    lower === 'unk' ||
+    lower === 'n/a' ||
+    lower === 'na' ||
+    lower === 'none' ||
+    lower === 'unspecified'
+  ) {
+    return 'Unknown';
+  }
+
+  return '';
+}
 
 /* ------------------------------ Page ------------------------------ */
 export default function ProfilePreviewPage() {
@@ -454,9 +499,9 @@ function PreviewCard({ athleteId }) {
                 <Fact label="Height" value={physical?.height_cm ? `${physical.height_cm} cm` : '—'} icon={<Ruler size={16}/>}/>
                 <Fact label="Weight" value={physical?.weight_kg ? `${physical.weight_kg} kg` : '—'} icon={<Scale size={16}/>}/>
                 <Fact label="Wingspan" value={physical?.wingspan_cm ? `${physical.wingspan_cm} cm` : '—'} icon={<MoveHorizontal size={16}/>}/>
-                <Fact label="Dominant hand" value={physical?.dominant_hand || '—'} icon={<Hand size={16}/>}/>
-                <Fact label="Dominant foot" value={physical?.dominant_foot || '—'} icon={<Footprints size={16}/>}/>
-                <Fact label="Dominant eye"  value={physical?.dominant_eye  || '—'} icon={<Activity size={16}/>}/>
+                <Fact label="Dominant hand" value={lateralityLabel(physical?.dominant_hand)} icon={<Hand size={16}/>}/>
+                <Fact label="Dominant foot" value={lateralityLabel(physical?.dominant_foot)} icon={<Footprints size={16}/>}/>
+                <Fact label="Dominant eye"  value={lateralityLabel(physical?.dominant_eye)} icon={<Activity size={16}/>}/>
               </div>
               {renderMeasures(physical)}
             </section>

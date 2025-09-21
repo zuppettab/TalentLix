@@ -11,12 +11,10 @@ const PHYSICAL_TABLE = 'physical_data';
 const REQUIRED = []; 
 
 // Opzioni laterality coerenti e multi-sport
+const SUPABASE_LATERALITY = ['Left', 'Right', 'Ambidextrous', 'Unknown'];
 const LATERALITY = [
   { value: '', label: '—' },
-  { value: 'left', label: 'Left' },
-  { value: 'right', label: 'Right' },
-  { value: 'ambi', label: 'Ambidextrous' },
-  { value: 'unknown', label: 'Unknown' },
+  ...SUPABASE_LATERALITY.map((value) => ({ value, label: value })),
 ];
 
 // Messaggi errore base
@@ -128,9 +126,9 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
             wingspan_cm: toStr(last.wingspan_cm),
             standing_reach_cm: toStr(last.standing_reach_cm),
             body_fat_percent: toStr(last.body_fat_percent),
-            dominant_hand: last.dominant_hand || '',
-            dominant_foot: last.dominant_foot || '',
-            dominant_eye: last.dominant_eye || '',
+            dominant_hand: lateralityForForm(last.dominant_hand),
+            dominant_foot: lateralityForForm(last.dominant_foot),
+            dominant_eye: lateralityForForm(last.dominant_eye),
             physical_notes: last.physical_notes || '',
 
             performance_measured_at: toISODate(last.performance_measured_at),
@@ -239,9 +237,9 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         wingspan_cm: toNumOrNull(form.wingspan_cm),
         standing_reach_cm: toIntOrNull(form.standing_reach_cm),
         body_fat_percent: toNumOrNull(form.body_fat_percent),
-        dominant_hand: normStr(form.dominant_hand),
-        dominant_foot: normStr(form.dominant_foot),
-        dominant_eye: normStr(form.dominant_eye),
+        dominant_hand: lateralityForPayload(form.dominant_hand),
+        dominant_foot: lateralityForPayload(form.dominant_foot),
+        dominant_eye: lateralityForPayload(form.dominant_eye),
         physical_notes: normStr(form.physical_notes),
 
         performance_measured_at: nullIfEmpty(form.performance_measured_at),
@@ -678,6 +676,13 @@ function toISODate(v) {
 function toStr(v) {
   return formatDecimalForUI(v);
 }
+function lateralityForForm(v) {
+  return normalizeLateralityValue(v) || '';
+}
+function lateralityForPayload(v) {
+  const normalized = normalizeLateralityValue(v);
+  return normalized || null;
+}
 function normStr(v) {
   const s = (v ?? '').toString().trim();
   return s === '' ? null : s;
@@ -759,6 +764,38 @@ function normalizeDecimalInput(value) {
   }
 
   return result;
+}
+
+function normalizeLateralityValue(value) {
+  const raw = (value ?? '').toString().trim();
+  if (raw === '') return '';
+
+  const direct = SUPABASE_LATERALITY.find((opt) => opt.toLowerCase() === raw.toLowerCase());
+  if (direct) return direct;
+
+  const lower = raw.toLowerCase();
+  if (lower === 'l' || lower.startsWith('left')) return 'Left';
+  if (lower === 'r' || lower.startsWith('right')) return 'Right';
+  if (
+    lower === 'ambi' ||
+    lower.startsWith('ambi') ||
+    lower === 'both' ||
+    lower === 'either'
+  ) {
+    return 'Ambidextrous';
+  }
+  if (
+    lower === 'unknown' ||
+    lower === 'unk' ||
+    lower === 'n/a' ||
+    lower === 'na' ||
+    lower === 'none' ||
+    lower === 'unspecified'
+  ) {
+    return 'Unknown';
+  }
+
+  return '';
 }
 
 /* -------------------- STYLES (coerenti con le altre card) -------------------- */
