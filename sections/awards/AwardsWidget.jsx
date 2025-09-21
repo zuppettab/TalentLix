@@ -440,135 +440,177 @@ export default function AwardsWidget({ athleteId, isMobile }) {
             <tbody>
               {rows.map((r) => {
                 const isEditing = editId === r.id;
+                if (isEditing) {
+                  return (
+                    <tr key={r.id}>
+                      <td colSpan={8} style={{ padding: 0, background: '#FAFAFA', borderBottom: '1px solid #F5F5F5' }}>
+                        <div style={{ ...styles.desktopForm, margin: 0 }}>
+                          <div style={styles.desktopField}>
+                            <label style={styles.sublabel}>Season start</label>
+                            <div>
+                              <input
+                                type="number"
+                                value={edit.season_start}
+                                onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
+                                style={{ ...styles.careerInput, borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
+                              />
+                              {editErrors.season_start && <div style={styles.error}>{editErrors.season_start}</div>}
+                            </div>
+                          </div>
+                          <div style={styles.desktopField}>
+                            <label style={styles.sublabel}>Season end</label>
+                            <div>
+                              <input
+                                type="number"
+                                value={edit.season_end}
+                                onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
+                                style={{ ...styles.careerInput, borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
+                              />
+                              {editErrors.season_end && <div style={styles.error}>{editErrors.season_end}</div>}
+                            </div>
+                          </div>
+                          <div style={styles.desktopField}>
+                            <label style={styles.sublabel}>Title</label>
+                            <div>
+                              <input
+                                value={edit.title}
+                                onChange={(e) => setEdit((p) => ({ ...p, title: e.target.value }))}
+                                style={styles.careerInput}
+                              />
+                            </div>
+                          </div>
+                          <div style={styles.desktopField}>
+                            <label style={styles.sublabel}>Awarding entity</label>
+                            <div>
+                              <input
+                                value={edit.awarding_entity}
+                                onChange={(e) => setEdit((p) => ({ ...p, awarding_entity: e.target.value }))}
+                                style={styles.careerInput}
+                              />
+                            </div>
+                          </div>
+                          <div style={styles.desktopField}>
+                            <label style={styles.sublabel}>Date awarded</label>
+                            <div>
+                              <input
+                                type="date"
+                                value={edit.date_awarded}
+                                onChange={(e) => setEdit((p) => ({ ...p, date_awarded: e.target.value }))}
+                                style={{ ...styles.careerInput, borderColor: editErrors.date_awarded ? '#b00' : '#E0E0E0' }}
+                              />
+                              {editErrors.date_awarded && <div style={styles.error}>{editErrors.date_awarded}</div>}
+                            </div>
+                          </div>
+                          <div style={styles.desktopField}>
+                            <label style={styles.sublabel}>Evidence file</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <button type="button" style={styles.smallBtn} onClick={clickEditEvidence}>Choose file</button>
+                              <span style={{ fontSize: 14 }}>{editEvidenceName || getFileNameFromPath(edit.evidence_file_path) || 'No file'}</span>
+                            </div>
+                          </div>
+                          <div style={styles.desktopField}>
+                            <label style={styles.sublabel}>Evidence external URL</label>
+                            <div>
+                              <input
+                                value={edit.evidence_external_url}
+                                onChange={(e) => setEdit((p) => ({ ...p, evidence_external_url: e.target.value }))}
+                                style={styles.careerInput}
+                              />
+                            </div>
+                          </div>
+                          <div style={styles.desktopField}>
+                            <label style={styles.sublabel}>Description</label>
+                            <div>
+                              <textarea
+                                rows={3}
+                                value={edit.description}
+                                onChange={(e) => setEdit((p) => ({ ...p, description: e.target.value }))}
+                                style={{ ...styles.careerInput, height: 'auto', paddingTop: 8, paddingBottom: 8 }}
+                                placeholder="Optional notes…"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div style={styles.desktopFormActions}>
+                          <button
+                            type="button"
+                            style={styles.smallBtnPrimary}
+                            onClick={() => onEditSave(r.id)}
+                            disabled={rowBusy === r.id}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            style={styles.smallBtn}
+                            onClick={onEditCancel}
+                            disabled={rowBusy === r.id}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
                 return (
                   <tr key={r.id}>
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
-                      {isEditing ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                          <input
-                            type="number"
-                            value={edit.season_start}
-                            onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
-                            style={{ ...styles.careerInput, borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
-                          />
-                          <input
-                            type="number"
-                            value={edit.season_end}
-                            onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
-                            style={{ ...styles.careerInput, borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
-                          />
+                      <span>{formatSeason(r.season_start, r.season_end)}</span>
+                    </td>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>{r.title || '—'}</td>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>{r.awarding_entity || '—'}</td>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>{formatDate(r.date_awarded)}</td>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
+                      {r.description ? (
+                        <div style={styles.descCell} title={r.description}>
+                          {r.description}
                         </div>
                       ) : (
-                        <span>{formatSeason(r.season_start, r.season_end)}</span>
-                      )}
-                      {(isEditing && (editErrors.season_start || editErrors.season_end)) && (
-                        <div style={styles.error}>{editErrors.season_start || editErrors.season_end}</div>
-                      )}
-                    </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
-                      {isEditing ? (
-                        <input
-                          value={edit.title}
-                          onChange={(e) => setEdit((p) => ({ ...p, title: e.target.value }))}
-                          style={styles.careerInput}
-                        />
-                      ) : (r.title || '—')}
-                    </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
-                      {isEditing ? (
-                        <input
-                          value={edit.awarding_entity}
-                          onChange={(e) => setEdit((p) => ({ ...p, awarding_entity: e.target.value }))}
-                          style={styles.careerInput}
-                        />
-                      ) : (r.awarding_entity || '—')}
-                    </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null) }}>
-                      {isEditing ? (
-                        <input
-                          type="date"
-                          value={edit.date_awarded}
-                          onChange={(e) => setEdit((p) => ({ ...p, date_awarded: e.target.value }))}
-                          style={{ ...styles.careerInput, borderColor: editErrors.date_awarded ? '#b00' : '#E0E0E0' }}
-                        />
-                      ) : (formatDate(r.date_awarded))}
-                      {isEditing && editErrors.date_awarded && <div style={styles.error}>{editErrors.date_awarded}</div>}
-                    </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), ...(isEditing ? { minWidth: 200 } : null) }}>
-                      {isEditing ? (
-                        <textarea
-                          rows={2}
-                          value={edit.description}
-                          onChange={(e) => setEdit((p) => ({ ...p, description: e.target.value }))}
-                          style={{ ...styles.careerInput, height: 'auto', paddingTop: 8, paddingBottom: 8 }}
-                        />
-                      ) : (
-                        r.description ? (
-                          <div style={styles.descCell} title={r.description}>
-                            {r.description}
-                          </div>
-                        ) : (
-                          '—'
-                        )
+                        '—'
                       )}
                     </td>
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), ...styles.evidenceCell }}>
-                      {isEditing ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <button type="button" style={styles.smallBtn} onClick={clickEditEvidence}>Choose file</button>
-                          <span style={{ fontSize: 14 }}>{editEvidenceName || getFileNameFromPath(edit.evidence_file_path) || 'No file'}</span>
-                        </div>
+                      {r.evidence_file_path ? (
+                        <a
+                          href={r.evidence_signed_url}
+                          title={getFileNameFromPath(r.evidence_file_path)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          📄
+                        </a>
                       ) : (
-                        r.evidence_file_path ? (
-                          <a
-                            href={r.evidence_signed_url}
-                            title={getFileNameFromPath(r.evidence_file_path)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            📄
-                          </a>
-                        ) : (
-                          '—'
-                        )
+                        '—'
                       )}
                     </td>
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), ...styles.linkCell }}>
-                      {isEditing ? (
-                        <input
-                          value={edit.evidence_external_url}
-                          onChange={(e) => setEdit((p) => ({ ...p, evidence_external_url: e.target.value }))}
-                          style={styles.careerInput}
-                        />
+                      {r.evidence_external_url ? (
+                        <a
+                          href={r.evidence_external_url}
+                          title={r.evidence_external_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          🔗
+                        </a>
                       ) : (
-                        r.evidence_external_url ? (
-                          <a
-                            href={r.evidence_external_url}
-                            title={r.evidence_external_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            🔗
-                          </a>
-                        ) : (
-                          '—'
-                        )
+                        '—'
                       )}
                     </td>
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      {!isEditing ? (
-                        <>
-                          <button type="button" style={styles.linkBtn} onClick={() => onEdit(r)} disabled={rowBusy === r.id}>Edit</button>
-                          <span style={{ margin: '0 6px' }}>|</span>
-                          <button type="button" style={{ ...styles.linkBtn, color: '#b00' }} onClick={() => onDelete(r.id)} disabled={rowBusy === r.id}>Delete</button>
-                        </>
-                      ) : (
-                        <>
-                          <button type="button" style={styles.linkBtn} onClick={() => onEditSave(r.id)} disabled={rowBusy === r.id}>Save</button>
-                          <span style={{ margin: '0 6px' }}>|</span>
-                          <button type="button" style={styles.linkBtn} onClick={onEditCancel} disabled={rowBusy === r.id}>Cancel</button>
-                        </>
-                      )}
+                      <button type="button" style={styles.linkBtn} onClick={() => onEdit(r)} disabled={rowBusy === r.id}>
+                        Edit
+                      </button>
+                      <span style={{ margin: '0 6px' }}>|</span>
+                      <button
+                        type="button"
+                        style={{ ...styles.linkBtn, color: '#b00' }}
+                        onClick={() => onDelete(r.id)}
+                        disabled={rowBusy === r.id}
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 );
@@ -928,6 +970,13 @@ const styles = {
     border: '1px dashed #E0E0E0',
     borderRadius: 10,
     background: '#FAFAFA',
+  },
+  desktopFormActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 8,
+    padding: '0 12px 12px',
   },
 
   // Mobile season accordion (stessi token della Season card)
