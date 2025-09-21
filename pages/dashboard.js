@@ -306,7 +306,6 @@ export default function Dashboard() {
                 width: 100% !important;
                 max-width: 100% !important;
                 box-sizing: border-box !important;
-                white-space: normal !important;
                 font-size: 14px !important;
                 line-height: 1.2 !important;
               }
@@ -324,6 +323,10 @@ export default function Dashboard() {
                 display: inline-flex !important;
                 align-items: center !important;
                 justify-content: center !important;
+                width: auto !important;
+                max-width: 100% !important;
+                white-space: nowrap !important;
+                flex-shrink: 0 !important;
               }
               .panel-body-mobile-fix button > * { display: inline !important; }
               .panel-body-mobile-fix button::before,
