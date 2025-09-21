@@ -221,6 +221,11 @@ const styles = {
   statusTextERR:{ marginLeft: 10, fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', color: '#b00' },
 };
 
+const primaryCtaStyles = {
+  enabled: { ...styles.saveBtn, ...styles.saveBtnEnabled },
+  disabled: { ...styles.saveBtn, ...styles.saveBtnDisabled },
+};
+
 // ------------------------------ UTILS ------------------------------
 const nowTs = () => Date.now();
 const bytesToMB = (b) => Math.round((Number(b || 0) / (1024 * 1024)) * 10) / 10;
@@ -1232,8 +1237,8 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   if (loading) return <div style={{ padding: 8, color: '#666' }}>Loading…</div>;
 
   const saveBtnStyle = isSaveDisabled
-    ? { ...styles.saveBtn, ...styles.saveBtnDisabled }
-    : { ...styles.saveBtn, ...styles.saveBtnEnabled };
+    ? primaryCtaStyles.disabled
+    : primaryCtaStyles.enabled;
 
   // Pulsanti Add disabilitati a cap
   const addGalDisabled = gallery.length >= CAP.GALLERY;
@@ -1405,7 +1410,9 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                       <button
                         type="button"
                         onClick={() => { if (!hlReplacingId) { hlReplaceRefs.current[it.id]?.click(); } }}
-                        style={hlReplacingId ? styles.smallBtnDisabled : styles.smallBtnPrimary}
+                        style={isMobile
+                          ? (hlReplacingId ? primaryCtaStyles.disabled : primaryCtaStyles.enabled)
+                          : (hlReplacingId ? styles.smallBtnDisabled : styles.smallBtnPrimary)}
                         disabled={Boolean(hlReplacingId)}
                       >
                         Replace
