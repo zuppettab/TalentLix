@@ -43,7 +43,7 @@ const LIM = {
   INTRO_MAX_MB: 800,
   INTRO_MAX_SEC: 120,
   HL_MAX_MB: 2000,    // 2.0 GB in MB
-  HL_MAX_SEC: 300,    // 5 min
+  HL_MAX_SEC: 180,    // 3 min
   MAX_DIM_PX: 4096,   // check "≤4K": dimensione massima lato lungo
 };
 
@@ -413,6 +413,8 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   const [games, setGames]           = useState([]);
   const [openGameId, setOpenGameId] = useState(null);
   const [openGalleryId, setOpenGalleryId] = useState(null);
+  const [hlUploading, setHlUploading] = useState(false);
+  const [hlReplacingId, setHlReplacingId] = useState(null);
 
   // UI stati locali (add forms)
   const headInputRef = useRef(null);
@@ -421,6 +423,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   const galleryInputRef = useRef(null);
   const introInputRef   = useRef(null);
   const hlUploadInputRef = useRef(null);
+  const hlReplaceRefs = useRef({});
 
   const [addLinkHL, setAddLinkHL] = useState({ url: '', err: '' });
   const [addGame, setAddGame] = useState({
@@ -513,7 +516,9 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   const checkVideoMeta = ({ duration, width, height }, kind) => {
     if (!duration || duration <= 0) return 'Corrupted video or missing metadata.';
     if (kind === 'intro' && duration > LIM.INTRO_MAX_SEC) return `Duration ${duration}s exceeds ${LIM.INTRO_MAX_SEC}s (Intro).`;
-    if (kind === 'highlight' && duration > LIM.HL_MAX_SEC) return `Duration ${duration}s exceeds ${LIM.HL_MAX_SEC}s (Highlight).`;
+    if (kind === 'highlight' && duration > LIM.HL_MAX_SEC) {
+      return `Duration ${duration}s exceeds the 3-minute upload limit (${LIM.HL_MAX_SEC}s). For longer videos, use "Add Link".`;
+    }
     const maxSide = Math.max(Number(width || 0), Number(height || 0));
     if (maxSide && maxSide > LIM.MAX_DIM_PX) return `Resolution too high (${width}×${height}). Limit ≤ 4K.`;
     return '';
@@ -723,6 +728,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   // ---------------- HIGHLIGHTS ----------------
   // Add Upload
   const onPickHLUpload = async (e) => {
+    if (hlUploading) { e.target.value = ''; return; }
     const file = e.target.files?.[0];
     if (!file) return;
     if (highlights.length >= CAP.HIGHLIGHTS) {
@@ -733,10 +739,11 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     const err = checkVideo(file, 'highlight');
     if (err) { alert(err); e.target.value=''; return; }
 
+    setHlUploading(true);
     try {
       const meta = await readVideoMetaAndThumb({ file, captureThumb: true, targetLongSide: 1280 });
       const metaErr = checkVideoMeta(meta, 'highlight');
-      if (metaErr) { alert(metaErr); e.target.value=''; return; }
+      if (metaErr) { alert(metaErr); return; }
 
       let thumbPath = null;
       if (meta.thumbBlob) { thumbPath = pathVideoThumb(); await uploadBlob(thumbPath, meta.thumbBlob); }
@@ -772,6 +779,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       console.error(e4);
       setStatus({ type: 'error', msg: 'Upload failed' });
     } finally {
+      setHlUploading(false);
       e.target.value = '';
     }
   };
@@ -835,8 +843,10 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   };
 
   const onReplaceHLUpload = async (item, file) => {
+    if (hlReplacingId && hlReplacingId !== item.id) return;
     const err = checkVideo(file, 'highlight');
     if (err) { alert(err); return; }
+    setHlReplacingId(item.id);
     try {
       const meta = await readVideoMetaAndThumb({ file, captureThumb: true, targetLongSide: 1280 });
       const metaErr = checkVideoMeta(meta, 'highlight');
@@ -877,6 +887,8 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Replace failed' });
+    } finally {
+      setHlReplacingId(null);
     }
   };
 
@@ -1227,6 +1239,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   const addGalDisabled = gallery.length >= CAP.GALLERY;
   const addHLDisabled  = highlights.length >= CAP.HIGHLIGHTS;
   const addGameDisabled= games.length >= CAP.GAMES;
+  const addHLUploadDisabled = addHLDisabled || hlUploading;
 
   // helper per poster (thumbnail_path può essere storage path o assoluto http)
   const usePoster = async (thumbPath) => {
@@ -1310,19 +1323,25 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       {/* HIGHLIGHTS */}
       <div style={styles.box}>
         <div style={styles.sectionTitle}>Highlights (max 3 — upload or link)</div>
-        <div style={styles.subnote}>Poster/thumbnail always present; drag & drop to sort; edit title/caption/tags; inline player.
+        <div style={styles.subnote}>Poster/thumbnail always present; drag & drop to sort; edit title/caption/tags; inline player. Uploads capped at 3 minutes — use "Add Link" for longer footage.
           {addHLDisabled && <strong style={{ color: '#b00' }}> Limit reached: replace or remove.</strong>}
         </div>
 
         {/* Azioni add */}
         <div style={{ ...styles.fieldRow, flexDirection: 'column', alignItems: 'center', rowGap: 8 }}>
+          <div style={{ fontSize: 12, color: '#666', textAlign: 'center', maxWidth: 460 }}>
+            Upload clips up to 3 minutes. Need longer footage? Use "+ Add Link" to embed YouTube or Vimeo videos.
+          </div>
           <div>
             <input type="file" accept="video/mp4,video/quicktime,video/webm" ref={hlUploadInputRef} onChange={onPickHLUpload} style={{ display: 'none' }}/>
-            <button type="button" onClick={() => !addHLDisabled && hlUploadInputRef.current?.click()}
-                    style={addHLDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
-                    disabled={addHLDisabled}>
-              + Add Upload
+            <button type="button" onClick={() => !addHLUploadDisabled && hlUploadInputRef.current?.click()}
+                    style={addHLUploadDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
+                    disabled={addHLUploadDisabled}>
+              {hlUploading ? 'Uploading…' : '+ Add Upload'}
             </button>
+            {hlUploading && (
+              <div style={{ fontSize: 12, color: '#666', marginTop: 6, textAlign: 'center' }}>Uploading highlight…</div>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -1366,10 +1385,34 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   {!it.external_url ? (
                     <>
-                      <input type="file" accept="video/mp4,video/quicktime,video/webm"
-                             onChange={(e) => { const f = e.target.files?.[0]; if (f) onReplaceHLUpload(it, f); e.target.value=''; }}
-                             style={{ display: 'none' }} id={`repl-hl-${it.id}`} />
-                      <label htmlFor={`repl-hl-${it.id}`} style={{ ...styles.smallBtn, cursor: 'pointer' }}>Replace</label>
+                      <input
+                        type="file"
+                        accept="video/mp4,video/quicktime,video/webm"
+                        ref={(el) => {
+                          if (el) {
+                            hlReplaceRefs.current[it.id] = el;
+                          } else {
+                            delete hlReplaceRefs.current[it.id];
+                          }
+                        }}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) onReplaceHLUpload(it, f);
+                          e.target.value='';
+                        }}
+                        style={{ display: 'none' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => { if (!hlReplacingId) { hlReplaceRefs.current[it.id]?.click(); } }}
+                        style={hlReplacingId ? styles.smallBtnDisabled : styles.smallBtnPrimary}
+                        disabled={Boolean(hlReplacingId)}
+                      >
+                        Replace
+                      </button>
+                      {hlReplacingId === it.id && (
+                        <span style={{ fontSize: 12, color: '#666', marginLeft: 4 }}>Uploading…</span>
+                      )}
                     </>
                   ) : (
                     <button
