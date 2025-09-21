@@ -292,13 +292,38 @@ const readVideoMetaAndThumb = ({ file, captureThumb = true, targetLongSide = 128
     const url = URL.createObjectURL(file);
     const v = document.createElement('video');
     v.preload = 'metadata';
-    v.src = url;
+
+    v.onerror = () => {
+      v.onloadedmetadata = null;
+      v.onerror = null;
+      URL.revokeObjectURL(url);
+      resolve({ duration: 0, width: null, height: null, thumbBlob: null });
+    };
+
     v.onloadedmetadata = async () => {
       const duration = Math.round(v.duration || 0);
       const width = v.videoWidth || null;
       const height = v.videoHeight || null;
 
-      // Clip al secondo 1 per catturare poster
+      let cancelled = false;
+      const finalize = (blob) => {
+        if (cancelled) return;
+        cancelled = true;
+        clearTimeout(timeout);
+        v.onseeked = null;
+        v.onerror = null;
+        v.onloadedmetadata = null;
+        URL.revokeObjectURL(url);
+        resolve({ duration, width, height, thumbBlob: blob || null });
+      };
+
+      const timeout = setTimeout(() => finalize(null), 2000);
+
+      v.onerror = () => {
+        clearTimeout(timeout);
+        finalize(null);
+      };
+
       const doCapture = async () => {
         try {
           v.currentTime = Math.min(1, (duration || 1) * 0.1);
@@ -307,14 +332,10 @@ const readVideoMetaAndThumb = ({ file, captureThumb = true, targetLongSide = 128
         }
       };
 
-      const finalize = (blob) => {
-        URL.revokeObjectURL(url);
-        resolve({ duration, width, height, thumbBlob: blob || null });
-      };
-
       if (!captureThumb) return finalize(null);
 
       v.onseeked = () => {
+        clearTimeout(timeout);
         try {
           const canvas = document.createElement('canvas');
           const scale = (width && height)
@@ -329,10 +350,15 @@ const readVideoMetaAndThumb = ({ file, captureThumb = true, targetLongSide = 128
           finalize(null);
         }
       };
+
       // Avvia capture
       doCapture();
     };
-    v.onerror = () => { URL.revokeObjectURL(url); resolve({ duration: 0, width: null, height: null, thumbBlob: null }); };
+
+    v.src = url;
+    try {
+      if (typeof v.load === 'function') v.load();
+    } catch {}
   });
 
 // Upload Blob in storage
