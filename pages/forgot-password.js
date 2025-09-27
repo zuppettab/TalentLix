@@ -22,8 +22,9 @@ export default function ForgotPassword() {
     e.preventDefault();
     setError('');
     setMessage('');
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.talentlix.com';
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://talent-lix.vercel.app/reset-password',
+      redirectTo: `${siteUrl}/reset-password`,
     });
     if (error) setError(error.message);
     else setMessage('If an account exists for this email, you will receive a password reset link.');
