@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Supabase Test</title>
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+    const supabaseUrl = `${import.meta.env.NEXT_PUBLIC_SUPABASE_URL}`;
+    const supabaseAnonKey = `${import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    async function test() {
+      const { data, error } = await supabase.from('test_table').select('*');
+      if (error) {
+        document.body.innerHTML = '<h2 style="color:red;">❌ Connessione fallita</h2><p>' + error.message + '</p>';
+      } else {
+        document.body.innerHTML = '<h2 style="color:green;">✅ Connessione riuscita!</h2><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+      }
+    }
+
+    test();
+  </script>
+</head>
+<body>
+  <h1>Test Supabase in corso...</h1>
+</body>
+</html>
