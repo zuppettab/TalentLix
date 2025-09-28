@@ -47,8 +47,6 @@ async function getSigned(bucket, path) {
 }
 
 /* ------------------------------ Helpers ------------------------------ */
-const SUPABASE_LATERALITY = ['Left', 'Right', 'Ambidextrous', 'Unknown'];
-
 const clamp = (n, a, b) => Math.min(Math.max(Number(n || 0), a), b);
 const isHttp = (u='') => /^https?:\/\//i.test(String(u||''));
 const fmtDate = (iso) => { if (!iso) return '—'; try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'2-digit'});} catch { return String(iso); } };
@@ -60,49 +58,6 @@ const ytId=(url)=>{try{const u=new URL(String(url)); if(u.hostname.includes('you
 const vmId=(url)=>{const m=String(url||'').match(/vimeo\.com\/(\d+)/i); return m?m[1]:null;};
 const embedUrl=(url)=> ytId(url)?`https://www.youtube.com/embed/${ytId(url)}?rel=0` : (vmId(url)?`https://player.vimeo.com/video/${vmId(url)}`:url);
 const contractText = (v) => v==='free_agent'?'Free agent': v==='under_contract'?'Under contract': v==='on_loan'?'On loan':'—';
-const lateralityLabel = (value) => {
-  const normalized = normalizeLateralityValue(value);
-  if (!normalized) return '—';
-  const labels = {
-    Left: 'Left',
-    Right: 'Right',
-    Ambidextrous: 'Ambidextrous',
-    Unknown: 'Unknown',
-  };
-  return labels[normalized] || normalized;
-};
-
-function normalizeLateralityValue(value) {
-  const raw = (value ?? '').toString().trim();
-  if (raw === '') return '';
-
-  const direct = SUPABASE_LATERALITY.find((opt) => opt.toLowerCase() === raw.toLowerCase());
-  if (direct) return direct;
-
-  const lower = raw.toLowerCase();
-  if (lower === 'l' || lower.startsWith('left')) return 'Left';
-  if (lower === 'r' || lower.startsWith('right')) return 'Right';
-  if (
-    lower === 'ambi' ||
-    lower.startsWith('ambi') ||
-    lower === 'both' ||
-    lower === 'either'
-  ) {
-    return 'Ambidextrous';
-  }
-  if (
-    lower === 'unknown' ||
-    lower === 'unk' ||
-    lower === 'n/a' ||
-    lower === 'na' ||
-    lower === 'none' ||
-    lower === 'unspecified'
-  ) {
-    return 'Unknown';
-  }
-
-  return '';
-}
 
 /* ------------------------------ Page ------------------------------ */
 export default function ProfilePreviewPage() {
@@ -138,7 +93,6 @@ function PreviewCard({ athleteId }) {
   const [media, setMedia]       = useState({ featured:{}, intro:null, highlights:[], gallery:[], games:[] });
 
   const [lightbox, setLightbox] = useState({ open:false, type:'', src:'', title:'' });
-  const [contentReady, setContentReady] = useState(false);
 
   // Load (client only)
   useEffect(() => {
@@ -310,122 +264,26 @@ function PreviewCard({ athleteId }) {
     btn:{ height:36, padding:'0 14px', borderRadius:8, border:'1px solid #eee', background:'#fff', cursor:'pointer' },
   };
 
-  useEffect(() => {
-    if (loading) {
-      setContentReady(false);
-      return;
-    }
-    if (typeof window === 'undefined') {
-      setContentReady(true);
-      return;
-    }
-    const frame = window.requestAnimationFrame(() => setContentReady(true));
-    return () => window.cancelAnimationFrame(frame);
-  }, [loading]);
-
   if (loading) {
     return (
-      <div style={S.container} className="preview-container">
-        <div style={S.card} className="preview-card-shell preview-skeleton">
-          <div className="skeleton-hero">
-            <div className="skeleton-avatar shimmer" />
-            <div className="skeleton-hero-body">
-              <div className="skeleton-line w-60 shimmer" />
-              <div className="skeleton-line w-40 shimmer" />
-              <div className="skeleton-progress">
-                <div className="skeleton-line w-30 shimmer" />
-                <div className="skeleton-progress-bar">
-                  <div className="skeleton-progress-fill shimmer" />
-                </div>
-                <div className="skeleton-line w-15 shimmer" />
-              </div>
+      <div style={S.container}>
+        <div style={S.card}>
+          <div style={S.hero}>
+            <div style={S.avatarFallback}>··</div>
+            <div>
+              <div style={{ height:18, width:220, background:'#eee', borderRadius:6, marginBottom:6 }}/>
+              <div style={{ height:12, width:140, background:'#eee', borderRadius:6 }}/>
             </div>
           </div>
-          <div className="skeleton-main">
-            <div className="skeleton-grid">
-              <div className="skeleton-column">
-                <div className="skeleton-section">
-                  <div className="skeleton-title shimmer" />
-                  <div className="skeleton-subtitle shimmer" />
-                  <div className="skeleton-media-grid">
-                    <div className="skeleton-media-card shimmer" />
-                    <div className="skeleton-media-card shimmer" />
-                    <div className="skeleton-media-card shimmer" />
-                  </div>
-                  <div className="skeleton-media-row shimmer" />
-                  <div className="skeleton-media-row shimmer" />
-                </div>
-                <div className="skeleton-section">
-                  <div className="skeleton-title shimmer" />
-                  <div className="skeleton-info-grid">
-                    {Array.from({ length: 6 }).map((_, idx) => (
-                      <div key={idx} className="skeleton-info-line shimmer" />
-                    ))}
-                  </div>
-                </div>
-                <div className="skeleton-section">
-                  <div className="skeleton-title shimmer" />
-                  <div className="skeleton-list">
-                    {Array.from({ length: 3 }).map((_, idx) => (
-                      <div key={idx} className="skeleton-list-item shimmer" />
-                    ))}
-                  </div>
-                </div>
-                <div className="skeleton-section">
-                  <div className="skeleton-title shimmer" />
-                  <div className="skeleton-info-grid two">
-                    {Array.from({ length: 4 }).map((_, idx) => (
-                      <div key={idx} className="skeleton-info-line shimmer" />
-                    ))}
-                  </div>
-                </div>
-                <div className="skeleton-section">
-                  <div className="skeleton-title shimmer" />
-                  <div className="skeleton-list">
-                    {Array.from({ length: 2 }).map((_, idx) => (
-                      <div key={idx} className="skeleton-list-item shimmer" />
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="skeleton-column">
-                <div className="skeleton-section">
-                  <div className="skeleton-title shimmer" />
-                  <div className="skeleton-info-grid">
-                    {Array.from({ length: 6 }).map((_, idx) => (
-                      <div key={idx} className="skeleton-info-line shimmer" />
-                    ))}
-                  </div>
-                  <div className="skeleton-details shimmer" />
-                </div>
-                <div className="skeleton-section">
-                  <div className="skeleton-title shimmer" />
-                  <div className="skeleton-list">
-                    {Array.from({ length: 3 }).map((_, idx) => (
-                      <div key={idx} className="skeleton-list-item shimmer" />
-                    ))}
-                  </div>
-                </div>
-                <div className="skeleton-section">
-                  <div className="skeleton-title shimmer" />
-                  <div className="skeleton-list">
-                    {Array.from({ length: 3 }).map((_, idx) => (
-                      <div key={idx} className="skeleton-list-item shimmer" />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <div style={{ padding:16 }}>Loading…</div>
         </div>
-        <PreviewStyles />
       </div>
     );
   }
 
   return (
-    <div style={S.container} className="preview-container">
-      <div style={S.card} className={`preview-card-shell ${contentReady ? 'is-visible' : ''}`}>
+    <div style={S.container}>
+      <div style={S.card}>
 
           {/* Compact HERO */}
           <section style={S.hero} aria-label="Profile header">
@@ -596,9 +454,9 @@ function PreviewCard({ athleteId }) {
                 <Fact label="Height" value={physical?.height_cm ? `${physical.height_cm} cm` : '—'} icon={<Ruler size={16}/>}/>
                 <Fact label="Weight" value={physical?.weight_kg ? `${physical.weight_kg} kg` : '—'} icon={<Scale size={16}/>}/>
                 <Fact label="Wingspan" value={physical?.wingspan_cm ? `${physical.wingspan_cm} cm` : '—'} icon={<MoveHorizontal size={16}/>}/>
-                <Fact label="Dominant hand" value={lateralityLabel(physical?.dominant_hand)} icon={<Hand size={16}/>}/>
-                <Fact label="Dominant foot" value={lateralityLabel(physical?.dominant_foot)} icon={<Footprints size={16}/>}/>
-                <Fact label="Dominant eye"  value={lateralityLabel(physical?.dominant_eye)} icon={<Activity size={16}/>}/>
+                <Fact label="Dominant hand" value={physical?.dominant_hand || '—'} icon={<Hand size={16}/>}/>
+                <Fact label="Dominant foot" value={physical?.dominant_foot || '—'} icon={<Footprints size={16}/>}/>
+                <Fact label="Dominant eye"  value={physical?.dominant_eye  || '—'} icon={<Activity size={16}/>}/>
               </div>
               {renderMeasures(physical)}
             </section>
@@ -654,220 +512,42 @@ function PreviewCard({ athleteId }) {
         </div>
       )}
 
-        <PreviewStyles />
+        {/* Minimal responsiveness */}
+      <style jsx>{`
+        .mainGrid {
+          display: grid;
+          gap: 24px;
+          padding: 16px;
+          grid-template-columns: 2fr 1fr;
+        }
+        .twoCol {
+          display: grid;
+          gap: 12px;
+          grid-template-columns: 1fr 1fr;
+        }
+        .threeCol {
+          display: grid;
+          gap: 12px;
+          grid-template-columns: 1fr 1fr 1fr;
+        }
+        .photosGrid img { width: 100%; }
+        @media (max-width: 768px) {
+          .mainGrid,
+          .twoCol,
+          .threeCol {
+            grid-template-columns: 1fr;
+          }
+          .photosGrid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+        @media (max-width: 480px) {
+          .photosGrid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </div>
-  );
-}
-
-function PreviewStyles() {
-  return (
-    <style jsx>{`
-      .preview-card-shell {
-        opacity: 0;
-        transform: translateY(16px);
-        transition: opacity 0.4s ease, transform 0.4s ease;
-      }
-      .preview-card-shell.is-visible {
-        opacity: 1;
-        transform: translateY(0);
-      }
-      .preview-skeleton {
-        opacity: 1;
-        transform: translateY(0);
-        animation: skeletonFade 0.4s ease both;
-      }
-      .skeleton-hero {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 16px;
-        padding: 16px;
-        align-items: center;
-        border-bottom: 1px solid #edf1f5;
-      }
-      .skeleton-hero-body {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .skeleton-avatar {
-        width: 96px;
-        height: 96px;
-        border-radius: 50%;
-      }
-      .skeleton-line {
-        height: 12px;
-        border-radius: 8px;
-      }
-      .skeleton-line.w-60 { width: 60%; }
-      .skeleton-line.w-40 { width: 40%; }
-      .skeleton-line.w-30 { width: 30%; }
-      .skeleton-line.w-15 { width: 15%; }
-      .skeleton-progress {
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        gap: 12px;
-        align-items: center;
-      }
-      .skeleton-progress-bar {
-        height: 8px;
-        border-radius: 999px;
-        background: #e5e7eb;
-        overflow: hidden;
-      }
-      .skeleton-progress-fill {
-        height: 100%;
-        width: 70%;
-        border-radius: 999px;
-      }
-      .skeleton-main {
-        padding: 16px;
-      }
-      .skeleton-grid {
-        display: grid;
-        gap: 24px;
-        grid-template-columns: 2fr 1fr;
-      }
-      .skeleton-column {
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-      }
-      .skeleton-section {
-        border: 1px solid #eee;
-        border-radius: 16px;
-        padding: 16px;
-        background: #fff;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-      .skeleton-title {
-        height: 18px;
-        width: 40%;
-        border-radius: 10px;
-      }
-      .skeleton-subtitle {
-        height: 12px;
-        width: 30%;
-        border-radius: 8px;
-      }
-      .skeleton-media-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
-      }
-      .skeleton-media-card {
-        aspect-ratio: 3 / 2;
-        border-radius: 12px;
-      }
-      .skeleton-media-row {
-        height: 100px;
-        border-radius: 14px;
-      }
-      .skeleton-info-grid {
-        display: grid;
-        gap: 12px;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .skeleton-info-grid.two {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .skeleton-info-line {
-        height: 14px;
-        border-radius: 10px;
-      }
-      .skeleton-list {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .skeleton-list-item {
-        height: 48px;
-        border-radius: 12px;
-      }
-      .skeleton-details {
-        height: 80px;
-        border-radius: 12px;
-      }
-      .preview-skeleton .shimmer,
-      .preview-skeleton .skeleton-avatar,
-      .preview-skeleton .skeleton-line,
-      .preview-skeleton .skeleton-media-card,
-      .preview-skeleton .skeleton-media-row,
-      .preview-skeleton .skeleton-info-line,
-      .preview-skeleton .skeleton-list-item,
-      .preview-skeleton .skeleton-details,
-      .preview-skeleton .skeleton-progress-fill {
-        background: #f3f4f6;
-        position: relative;
-        overflow: hidden;
-      }
-      .preview-skeleton .shimmer::after,
-      .preview-skeleton .skeleton-avatar::after,
-      .preview-skeleton .skeleton-line::after,
-      .preview-skeleton .skeleton-media-card::after,
-      .preview-skeleton .skeleton-media-row::after,
-      .preview-skeleton .skeleton-info-line::after,
-      .preview-skeleton .skeleton-list-item::after,
-      .preview-skeleton .skeleton-details::after,
-      .preview-skeleton .skeleton-progress-fill::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        transform: translateX(-100%);
-        background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
-        animation: shimmer 1.6s infinite;
-      }
-      .mainGrid {
-        display: grid;
-        gap: 24px;
-        padding: 16px;
-        grid-template-columns: 2fr 1fr;
-      }
-      .twoCol {
-        display: grid;
-        gap: 12px;
-        grid-template-columns: 1fr 1fr;
-      }
-      .threeCol {
-        display: grid;
-        gap: 12px;
-        grid-template-columns: 1fr 1fr 1fr;
-      }
-      .photosGrid img { width: 100%; }
-      @keyframes shimmer {
-        100% { transform: translateX(100%); }
-      }
-      @keyframes skeletonFade {
-        from {
-          opacity: 0;
-          transform: translateY(16px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-      @media (max-width: 768px) {
-        .mainGrid,
-        .twoCol,
-        .threeCol,
-        .skeleton-grid,
-        .skeleton-info-grid,
-        .skeleton-info-grid.two {
-          grid-template-columns: 1fr;
-        }
-        .skeleton-media-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-      }
-      @media (max-width: 480px) {
-        .skeleton-media-grid,
-        .photosGrid {
-          grid-template-columns: 1fr;
-        }
-      }
-    `}</style>
   );
 }
 
