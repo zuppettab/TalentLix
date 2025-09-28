@@ -3,6 +3,7 @@
 // sections/sports/SportInfoPanel.jsx
 // @ts-check
 import { useEffect, useMemo, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
@@ -1090,7 +1091,9 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                 <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Category</th>
                 <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>League</th>
                 <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Current</th>
-                <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobile : null) }}>Actions</th>
+                <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobile : null) }}>
+                  <span style={styles.srOnly}>Row actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -1190,11 +1193,26 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
                     </td>
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {!isEditing ? (
-                        <>
-                          <button type="button" style={styles.linkBtn} onClick={() => onEdit(r)} disabled={rowBusy === r.id}>Edit</button>
-                          <span style={{ margin: '0 6px' }}>|</span>
-                          <button type="button" style={{ ...styles.linkBtn, color: '#b00' }} onClick={() => onDelete(r.id)} disabled={rowBusy === r.id}>Delete</button>
-                        </>
+                        <div style={styles.tableActions}>
+                          <button
+                            type="button"
+                            style={styles.iconBtn}
+                            onClick={() => onEdit(r)}
+                            disabled={rowBusy === r.id}
+                            aria-label="Edit season"
+                          >
+                            <Pencil size={16} aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            style={{ ...styles.iconBtn, color: '#b00' }}
+                            onClick={() => onDelete(r.id)}
+                            disabled={rowBusy === r.id}
+                            aria-label="Delete season"
+                          >
+                            <Trash2 size={16} aria-hidden="true" />
+                          </button>
+                        </div>
                       ) : (
                         <>
                           <button type="button" style={styles.linkBtn} onClick={() => onEditSave(r.id)} disabled={rowBusy === r.id}>Save</button>
@@ -1249,6 +1267,14 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
 }
 
 // ----------------------- STYLES (identici / armonizzati) -----------------------
+const baseLinkBtn = {
+  background: 'transparent',
+  border: 'none',
+  color: '#1976d2',
+  cursor: 'pointer',
+  fontWeight: 600,
+};
+
 const styles = {
   grid: {
     display: 'grid',
@@ -1327,12 +1353,17 @@ const styles = {
     fontWeight: 600,
   },
   linkBtn: {
-    background: 'transparent',
-    border: 'none',
+    ...baseLinkBtn,
     padding: 0,
-    color: '#1976d2',
-    cursor: 'pointer',
-    fontWeight: 600,
+  },
+  iconBtn: {
+    ...baseLinkBtn,
+    padding: 4,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    lineHeight: 1,
   },
   tableWrap: {
     overflowX: 'auto',
@@ -1420,5 +1451,17 @@ const styles = {
   seasonDetailRow: { display: 'flex', flexDirection: 'column', gap: 4 },
   seasonLabel: { fontSize: 12, color: '#6B7280' },
   seasonValue: { fontSize: 14, color: '#111827' },
-  seasonActions: { display: 'flex', gap: 8, marginTop: 8 },
+  tableActions: { display: 'inline-flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' },
+  seasonActions: { display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' },
+  srOnly: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: 'hidden',
+    clip: 'rect(0, 0, 0, 0)',
+    whiteSpace: 'nowrap',
+    border: 0,
+  },
 };
