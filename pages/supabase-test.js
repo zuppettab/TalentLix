@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import Link from 'next/link';
 
 const TEST_TABLE = 'health_checks';
 const TABLE_TEST_MATRIX = [
@@ -401,6 +402,11 @@ export default function SupabaseTestPage() {
     <main style={styles.page}>
       <section style={styles.card}>
         <h1>Supabase Connectivity Test</h1>
+        <p style={styles.navigationLink}>
+          <Link href="/security-check" style={styles.navigationAnchor}>
+            Vai al security check runner →
+          </Link>
+        </p>
         <p>
           Set <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> in your environment before
           running <code>npm run dev</code> or building the project. Both variables must point to a Supabase project. You
@@ -596,6 +602,14 @@ const styles = {
     maxWidth: '720px',
     width: '100%',
     boxShadow: '0 12px 40px rgba(15, 23, 42, 0.08)',
+  },
+  navigationLink: {
+    margin: '0.5rem 0 1.25rem',
+  },
+  navigationAnchor: {
+    color: '#2563eb',
+    fontWeight: 600,
+    textDecoration: 'none',
   },
   statusRow: {
     display: 'flex',
