@@ -170,6 +170,62 @@ const styles = {
     display: 'block',
     margin: '0 auto'
   },
+  introWrapper: {
+    position: 'relative',
+    width: '100%',
+    maxWidth: 420,
+    margin: '0 auto',
+    borderRadius: 10,
+    overflow: 'hidden',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 220,
+  },
+  introPlaceholder: {
+    width: '100%',
+    minHeight: 220,
+    borderRadius: 10,
+    border: '1px solid #EEE',
+    background: '#F7F7F7',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#666',
+    fontSize: 12,
+    padding: 16,
+    textAlign: 'center',
+  },
+  introOverlay: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'column',
+    gap: 8,
+    background: 'rgba(255, 255, 255, 0.75)',
+    borderRadius: 10,
+  },
+  introSpinner: {
+    width: 32,
+    height: 32,
+    borderRadius: '50%',
+    border: '3px solid #27E3DA',
+    borderTopColor: '#F7B84E',
+    animation: 'profilePreviewSpin 1s linear infinite',
+  },
+  srOnly: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: 'hidden',
+    clip: 'rect(0, 0, 0, 0)',
+    whiteSpace: 'nowrap',
+    border: 0,
+  },
   videoRow: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
 
   // Liste
@@ -448,6 +504,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   const [games, setGames]           = useState([]);
   const [openGameId, setOpenGameId] = useState(null);
   const [openGalleryId, setOpenGalleryId] = useState(null);
+  const [introUploading, setIntroUploading] = useState(false);
   const [hlUploading, setHlUploading] = useState(false);
   const [hlReplacingId, setHlReplacingId] = useState(null);
 
@@ -670,6 +727,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
   // ---------------- INTRO VIDEO (Upload/Replace/Remove) ----------------
   const onPickIntro = async (e) => {
+    if (introUploading) { e.target.value = ''; return; }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -677,6 +735,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     const err = checkVideo(file, 'intro');
     if (err) { alert(err); return; }
 
+    setIntroUploading(true);
     try {
       // metadati & poster
       const meta = await readVideoMetaAndThumb({ file, captureThumb: true, targetLongSide: 1280 });
@@ -744,6 +803,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       setStatus({ type: 'error', msg: 'Upload failed' });
     } finally {
       e.target.value = '';
+      setIntroUploading(false);
     }
   };
 
@@ -1300,7 +1360,8 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
   // ---------------- UI ----------------
   return (
-    <div style={{ ...styles.grid, ...(isMobile ? styles.gridMobile : null) }}>
+    <>
+      <div style={{ ...styles.grid, ...(isMobile ? styles.gridMobile : null) }}>
       {/* FEATURED PHOTOS */}
       <div style={styles.box}>
         <div style={styles.sectionTitle}>Featured Photos (3)</div>
@@ -1352,15 +1413,36 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
         <div style={styles.sectionTitle}>Video Intro (1)</div>
         <div style={styles.subnote}>≤ 120s, ≤ 4K, ≤ 800MB. MP4/MOV/WEBM. Inline player, poster generated.</div>
         <div style={styles.videoRow}>
-          {intro ? (
-            <VideoPlayer item={intro} getSigned={getSignedUrl} usePoster={usePoster} />
-          ) : (
-            <div style={{ fontSize: 12, color: '#666' }}>No videos uploaded.</div>
-          )}
+          <div style={styles.introWrapper}>
+            {intro ? (
+              <VideoPlayer item={intro} getSigned={getSignedUrl} usePoster={usePoster} />
+            ) : (
+              <div style={styles.introPlaceholder}>No videos uploaded.</div>
+            )}
+            {introUploading && (
+              <div style={styles.introOverlay} role="status" aria-live="polite" aria-atomic="true">
+                <div style={styles.introSpinner} aria-hidden="true" />
+                <span style={styles.srOnly}>Uploading intro video…</span>
+              </div>
+            )}
+          </div>
         </div>
         <div style={{ ...styles.fieldRow, marginTop: 8 }}>
-          <input type="file" accept="video/mp4,video/quicktime,video/webm" ref={introInputRef} onChange={onPickIntro} style={{ display: 'none' }}/>
-          <button type="button" onClick={() => introInputRef.current?.click()} style={styles.smallBtnPrimary}>{intro ? 'Replace' : 'Upload video'}</button>
+          <input
+            type="file"
+            accept="video/mp4,video/quicktime,video/webm"
+            ref={introInputRef}
+            onChange={onPickIntro}
+            style={{ display: 'none' }}
+          />
+          <button
+            type="button"
+            onClick={() => { if (!introUploading) introInputRef.current?.click(); }}
+            style={introUploading ? styles.smallBtnDisabled : styles.smallBtnPrimary}
+            disabled={introUploading}
+          >
+            {introUploading ? 'Uploading…' : (intro ? 'Replace' : 'Upload video')}
+          </button>
           {intro && (
             <button type="button" onClick={onRemoveIntro} style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}>Remove</button>
           )}
@@ -1800,7 +1882,14 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
           </span>
         )}
       </div>
-    </div>
+      </div>
+      <style jsx>{`
+        @keyframes profilePreviewSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
+    </>
   );
 }
 
