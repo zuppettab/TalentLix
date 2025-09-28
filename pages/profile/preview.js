@@ -229,6 +229,10 @@ function PreviewCard({ athleteId }) {
     colA:{ display:'flex', flexDirection:'column', gap:24 },
     colB:{ display:'flex', flexDirection:'column', gap:24 },
 
+    loaderContainer:{ display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16, padding:48, textAlign:'center' },
+    spinner:{ width:48, height:48, borderRadius:'50%', border:'4px solid #27E3DA', borderTopColor:'#F7B84E', animation:'profilePreviewSpin 1s linear infinite' },
+    srOnly:{ position:'absolute', width:1, height:1, padding:0, margin:-1, overflow:'hidden', clip:'rect(0,0,0,0)', whiteSpace:'nowrap', border:0 },
+
     section:{ border:'1px solid #eee', borderRadius:16, padding:16, background:'#fff' },
     titleRow:{ display:'flex', alignItems:'center', gap:10, marginBottom:8 },
     h2:{ fontSize:18, lineHeight:1.2, margin:0, fontWeight:900 },
@@ -268,14 +272,16 @@ function PreviewCard({ athleteId }) {
     return (
       <div style={S.container}>
         <div style={S.card}>
-          <div style={S.hero}>
-            <div style={S.avatarFallback}>··</div>
-            <div>
-              <div style={{ height:18, width:220, background:'#eee', borderRadius:6, marginBottom:6 }}/>
-              <div style={{ height:12, width:140, background:'#eee', borderRadius:6 }}/>
-            </div>
+          <div style={S.loaderContainer} role="status" aria-live="polite">
+            <div style={S.spinner} aria-hidden="true" />
+            <span style={S.srOnly}>Loading profile…</span>
           </div>
-          <div style={{ padding:16 }}>Loading…</div>
+          <style jsx>{`
+            @keyframes profilePreviewSpin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
         </div>
       </div>
     );
