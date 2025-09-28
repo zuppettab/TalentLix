@@ -15,6 +15,11 @@ import PrivacyPanel from '../sections/privacy/PrivacyPanel';
 
 const ATHLETE_TABLE = 'athlete';
 
+const SECTION_TITLE_BY_ID = SECTIONS.reduce((acc, section) => {
+  acc[section.id] = section.title;
+  return acc;
+}, {});
+
 // --- Hook responsive (JS, niente CSS esterno)
 function useIsMobile(breakpointPx = 480) {
   const [isMobile, setIsMobile] = useState(false);
@@ -58,9 +63,12 @@ export default function Dashboard() {
     mediaGameMeta: [],
     socialProfiles: [],
   });
+  const [completionBreakdown, setCompletionBreakdown] = useState(null);
+  const [completionTooltipOpen, setCompletionTooltipOpen] = useState(false);
 
   const athleteRef = useRef(null);
   const cardDataRef = useRef(cardData);
+  const tooltipWrapRef = useRef(null);
 
   useEffect(() => { athleteRef.current = athlete; }, [athlete]);
   useEffect(() => { cardDataRef.current = cardData; }, [cardData]);
@@ -183,7 +191,8 @@ export default function Dashboard() {
       socialProfiles: overrides.socialProfiles ?? currentCardData.socialProfiles,
     };
 
-    const { completion } = computeProfileCompletion(helperInput);
+    const { completion, breakdown } = computeProfileCompletion(helperInput);
+    setCompletionBreakdown(breakdown);
     const clamped = Math.max(40, Math.min(100, Math.round(completion)));
     const currentCompletion = Number(currentAthlete.completion_percentage ?? 0);
 
@@ -396,6 +405,35 @@ export default function Dashboard() {
   const fullName = [athlete?.first_name, athlete?.last_name].filter(Boolean).join(' ') || 'Full Name';
   const isPublished = !!athlete?.profile_published;
   const completion = Math.max(40, Math.min(100, Number(athlete?.completion_percentage ?? 40)));
+  const tooltipId = 'profile-completion-tooltip';
+
+  const breakdownReady = completionBreakdown != null;
+
+  const missingSections = useMemo(() => {
+    if (!completionBreakdown) return [];
+    return Object.entries(completionBreakdown)
+      .filter(([, info]) => info && info.contributes === false)
+      .map(([sectionId]) => SECTION_TITLE_BY_ID[sectionId] || sectionId);
+  }, [completionBreakdown]);
+
+  const handleTooltipKeyDown = useCallback((event) => {
+    if (event.key === 'Escape' && completionTooltipOpen) {
+      event.preventDefault();
+      setCompletionTooltipOpen(false);
+    }
+  }, [completionTooltipOpen]);
+
+  useEffect(() => {
+    if (!completionTooltipOpen) return;
+    const handleClick = (event) => {
+      if (!tooltipWrapRef.current) return;
+      if (!tooltipWrapRef.current.contains(event.target)) {
+        setCompletionTooltipOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [completionTooltipOpen]);
 
   const togglePublish = async () => {
     if (!athlete) return;
@@ -491,8 +529,48 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <div style={{ ...styles.progressWrap, ...(isMobile ? styles.progressWrapMobile : null) }}>
-          <div style={styles.progressLabel}>Profile completion</div>
+        <div
+          ref={tooltipWrapRef}
+          style={{ ...styles.progressWrap, ...(isMobile ? styles.progressWrapMobile : null) }}
+        >
+          <div style={styles.progressLabelWrap}>
+            <span style={styles.progressLabel}>Profile completion</span>
+            <button
+              type="button"
+              onClick={() => setCompletionTooltipOpen(prev => !prev)}
+              onKeyDown={handleTooltipKeyDown}
+              onBlur={(event) => {
+                if (!tooltipWrapRef.current) return;
+                if (event.relatedTarget && tooltipWrapRef.current.contains(event.relatedTarget)) return;
+                setCompletionTooltipOpen(false);
+              }}
+              aria-label="Show details about profile completion"
+              aria-expanded={completionTooltipOpen}
+              aria-controls={completionTooltipOpen ? tooltipId : undefined}
+              aria-describedby={completionTooltipOpen ? tooltipId : undefined}
+              style={styles.tooltipButton}
+            >
+              ?
+            </button>
+            {completionTooltipOpen && (
+              <div id={tooltipId} role="tooltip" style={styles.tooltipBox}>
+                {!breakdownReady ? (
+                  <div style={styles.tooltipTitle}>Loading completion details…</div>
+                ) : missingSections.length ? (
+                  <>
+                    <div style={styles.tooltipTitle}>Finish these sections to boost your profile:</div>
+                    <ul style={styles.tooltipList}>
+                      {missingSections.map((label) => (
+                        <li key={label} style={styles.tooltipListItem}>{label}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <div style={styles.tooltipTitle}>All set! Every section is contributing.</div>
+                )}
+              </div>
+            )}
+          </div>
           <div style={progressBarStyle}>
             <div style={{ ...styles.progressFill, width: `${completion}%` }} />
           </div>
@@ -790,10 +868,44 @@ const styles = {
 
   progressWrap: { display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' },
   progressWrapMobile: { marginLeft: 0, order: 3, flexDirection: 'column', alignItems: 'stretch', gap: 8 },
+  progressLabelWrap: { display: 'flex', alignItems: 'center', gap: 8, position: 'relative' },
   progressLabel: { fontSize: 12, opacity: 0.7 },
   progressBar: { width: 180, height: 8, background: '#EEE', borderRadius: 999 },
   progressFill: { height: '100%', background: 'linear-gradient(90deg, #27E3DA 0%, #F7B84E 100%)', borderRadius: 999 },
   progressPct: { fontSize: 12, opacity: 0.8, minWidth: 32, textAlign: 'right' },
+  tooltipButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 20,
+    height: 20,
+    borderRadius: '50%',
+    border: '1px solid #27E3DA',
+    background: '#FFFFFF',
+    color: '#27E3DA',
+    fontSize: 12,
+    cursor: 'pointer',
+    padding: 0,
+    lineHeight: 1,
+  },
+  tooltipBox: {
+    position: 'absolute',
+    top: 'calc(100% + 8px)',
+    right: 0,
+    width: 220,
+    background: '#FFFFFF',
+    border: '1px solid #E0E0E0',
+    borderRadius: 10,
+    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.12)',
+    padding: '12px 14px',
+    fontSize: 12,
+    lineHeight: 1.5,
+    color: '#000',
+    zIndex: 20,
+  },
+  tooltipTitle: { fontWeight: 600, marginBottom: 6 },
+  tooltipList: { margin: 0, padding: 0, listStyle: 'none' },
+  tooltipListItem: { margin: '4px 0', paddingLeft: 0 },
 
   // --- Nastro tabs mobile (3 bottoni in primo piano)
   mobileTabsWrap: {
