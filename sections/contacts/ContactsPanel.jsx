@@ -996,11 +996,19 @@ const styles = {
   // Progress & badges
   // Desktop: progress compatto a sinistra. Mobile: progress full-width su riga dedicata.
   progressLeft:        { marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 10, minWidth: 220, whiteSpace: 'nowrap' },
-  progressLeftMobile:  { flexBasis: '100%', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', marginBottom: 6 },
+  progressLeftMobile:  {
+    flexBasis: '100%',
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 8,
+    rowGap: 4,
+    flexWrap: 'wrap',
+    marginBottom: 6
+  },
   progressTrack:       { width: 200, height: 8, background: '#EEE', borderRadius: 999, overflow: 'hidden' },
   progressTrackMobile: { width: '100%', height: 8, background: '#EEE', borderRadius: 999, overflow: 'hidden' },
   progressFill: { height: '100%', background: 'linear-gradient(90deg, #27E3DA, #F7B84E)' },
-  progressText: { fontSize: 12, fontWeight: 600, color: '#333', whiteSpace: 'nowrap' },
+  progressText: { fontSize: 12, fontWeight: 600, color: '#333' },
   badgePending:  { fontSize: 12, fontWeight: 600, color: '#8A6D3B' },
   badgeApproved: { fontSize: 12, fontWeight: 600, color: '#2E7D32' },
   badgeRejected: { fontSize: 12, fontWeight: 600, color: '#B00020' },
