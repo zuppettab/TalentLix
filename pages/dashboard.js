@@ -419,12 +419,10 @@ export default function Dashboard() {
   const sectionStatus = useMemo(() => {
     const statusMap = {};
     for (const section of SECTIONS) {
-      let status = 'unknown';
-      if (section.id !== 'personal' && section.id !== 'privacy') {
-        const info = completionBreakdown?.[section.id];
-        if (info && typeof info.contributes === 'boolean') {
-          status = info.contributes ? 'complete' : 'incomplete';
-        }
+      let status = section.id === 'personal' || section.id === 'privacy' ? 'complete' : 'unknown';
+      const info = completionBreakdown?.[section.id];
+      if (info && typeof info.contributes === 'boolean') {
+        status = info.contributes ? 'complete' : 'incomplete';
       }
       statusMap[section.id] = status;
     }
