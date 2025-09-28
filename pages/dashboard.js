@@ -590,8 +590,18 @@ export default function Dashboard() {
             }
           `}</style>
 
+          <style jsx>{`
+            @keyframes profilePreviewSpin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+
           {loading ? (
-            <div style={styles.skeleton}>Loading…</div>
+            <div style={styles.loaderContainer} role="status" aria-live="polite">
+              <div style={styles.spinner} aria-hidden="true" />
+              <span style={styles.srOnly}>Loading profile…</span>
+            </div>
           ) : (
             <>
               <h2 style={styles.panelTitle}>{sectionObj?.title}</h2>
@@ -871,7 +881,36 @@ const styles = {
   panelBody: { padding: 8, minWidth: 0, maxWidth: '100%', overflowX: 'visible', wordBreak: 'break-word' },
   placeholder: { color: '#666' },
 
-  skeleton: { padding: 16, color: '#666', fontStyle: 'italic' },
+  loaderContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'column',
+    gap: 16,
+    padding: 48,
+    textAlign: 'center',
+    minHeight: 'calc(100vh - 32px)',
+    width: '100%'
+  },
+  spinner: {
+    width: 48,
+    height: 48,
+    borderRadius: '50%',
+    border: '4px solid #27E3DA',
+    borderTopColor: '#F7B84E',
+    animation: 'profilePreviewSpin 1s linear infinite'
+  },
+  srOnly: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: 'hidden',
+    clip: 'rect(0,0,0,0)',
+    whiteSpace: 'nowrap',
+    border: 0
+  },
 
   // touch-friendly
   touchBtn: { minHeight: 44 }
