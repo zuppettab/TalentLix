@@ -1,4 +1,5 @@
 import Select from 'react-select';
+import { Pencil, Trash2 } from 'lucide-react';
 import sports from '../../utils/sports';
 
 const formatSeason = (start, end) => {
@@ -167,8 +168,24 @@ export default function SeasonAccordionItem({
                 <span style={styles.seasonValue}>{row.is_current ? 'Yes' : '—'}</span>
               </div>
               <div style={styles.seasonActions}>
-                <button type="button" style={styles.linkBtn} onClick={onEdit} disabled={busy}>Edit</button>
-                <button type="button" style={{ ...styles.linkBtn, color: '#b00' }} onClick={onDelete} disabled={busy}>Delete</button>
+                <button
+                  type="button"
+                  style={styles.iconBtn}
+                  onClick={onEdit}
+                  disabled={busy}
+                  aria-label="Edit season"
+                >
+                  <Pencil size={16} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  style={{ ...styles.iconBtn, color: '#b00' }}
+                  onClick={onDelete}
+                  disabled={busy}
+                  aria-label="Delete season"
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                </button>
               </div>
             </>
           )}
