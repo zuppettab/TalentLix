@@ -245,38 +245,6 @@ const styles = {
   saveBtnDisabled: { background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' },
   statusTextOK: { marginLeft: 10, fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', color: '#2E7D32' },
   statusTextERR:{ marginLeft: 10, fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', color: '#b00' },
-
-  // Spinner
-  spinnerContainer: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
-  spinnerFill: { width: '100%', height: '100%' },
-  spinner: {
-    width: 36,
-    height: 36,
-    borderRadius: '50%',
-    border: '3px solid rgba(17, 24, 39, 0.12)',
-    borderTopColor: '#27E3DA',
-    animation: 'mediaPanelSpin 0.9s linear infinite',
-  },
-  srOnly: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    padding: 0,
-    margin: -1,
-    overflow: 'hidden',
-    clip: 'rect(0, 0, 0, 0)',
-    whiteSpace: 'nowrap',
-    border: 0,
-  },
-  spinnerNotice: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    color: '#666',
-    fontSize: 12,
-    marginTop: 8,
-  },
 };
 
 const primaryCtaStyles = {
@@ -480,13 +448,8 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   const [games, setGames]           = useState([]);
   const [openGameId, setOpenGameId] = useState(null);
   const [openGalleryId, setOpenGalleryId] = useState(null);
-
-  // Uploading flags
-  const [featuredUploading, setFeaturedUploading] = useState({ head: false, g1: false, g2: false });
-  const [introUploading, setIntroUploading] = useState(false);
-  const [galleryUploading, setGalleryUploading] = useState([]); // [{ id, name }]
-  const [hlAddUploading, setHlAddUploading] = useState(false);
-  const [hlReplacingIds, setHlReplacingIds] = useState([]);
+  const [hlUploading, setHlUploading] = useState(false);
+  const [hlReplacingId, setHlReplacingId] = useState(null);
 
   // UI stati locali (add forms)
   const headInputRef = useRef(null);
@@ -619,17 +582,12 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
   // ---------------- FEATURED PHOTOS (Upload/Replace/Remove) ----------------
   const onPickFeatured = async (e, slotKey) => {
-    if (featuredUploading[slotKey]) {
-      e.target.value = '';
-      return;
-    }
     const file = e.target.files?.[0];
     if (!file) return;
 
     const err = checkPhoto(file);
     if (err) { alert(err); return; }
 
-    setFeaturedUploading((p) => ({ ...p, [slotKey]: true }));
     try {
       // leggi dimensioni
       const { width, height } = await readImageDims(file);
@@ -690,7 +648,6 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     } finally {
       // reset input per poter ricaricare stesso file
       e.target.value = '';
-      setFeaturedUploading((p) => ({ ...p, [slotKey]: false }));
     }
   };
 
@@ -713,10 +670,6 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
   // ---------------- INTRO VIDEO (Upload/Replace/Remove) ----------------
   const onPickIntro = async (e) => {
-    if (introUploading) {
-      e.target.value = '';
-      return;
-    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -724,7 +677,6 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     const err = checkVideo(file, 'intro');
     if (err) { alert(err); return; }
 
-    setIntroUploading(true);
     try {
       // metadati & poster
       const meta = await readVideoMetaAndThumb({ file, captureThumb: true, targetLongSide: 1280 });
@@ -792,7 +744,6 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       setStatus({ type: 'error', msg: 'Upload failed' });
     } finally {
       e.target.value = '';
-      setIntroUploading(false);
     }
   };
 
@@ -816,7 +767,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   // ---------------- HIGHLIGHTS ----------------
   // Add Upload
   const onPickHLUpload = async (e) => {
-    if (hlAddUploading) { e.target.value = ''; return; }
+    if (hlUploading) { e.target.value = ''; return; }
     const file = e.target.files?.[0];
     if (!file) return;
     if (highlights.length >= CAP.HIGHLIGHTS) {
@@ -827,7 +778,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     const err = checkVideo(file, 'highlight');
     if (err) { alert(err); e.target.value=''; return; }
 
-    setHlAddUploading(true);
+    setHlUploading(true);
     try {
       const meta = await readVideoMetaAndThumb({ file, captureThumb: true, targetLongSide: 1280 });
       const metaErr = checkVideoMeta(meta, 'highlight');
@@ -868,7 +819,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       console.error(e4);
       setStatus({ type: 'error', msg: 'Upload failed' });
     } finally {
-      setHlAddUploading(false);
+      setHlUploading(false);
       e.target.value = '';
     }
   };
@@ -934,10 +885,10 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   };
 
   const onReplaceHLUpload = async (item, file) => {
-    if (hlReplacingIds.includes(item.id)) return;
+    if (hlReplacingId && hlReplacingId !== item.id) return;
     const err = checkVideo(file, 'highlight');
     if (err) { alert(err); return; }
-    setHlReplacingIds((ids) => ids.includes(item.id) ? ids : [...ids, item.id]);
+    setHlReplacingId(item.id);
     try {
       const meta = await readVideoMetaAndThumb({ file, captureThumb: true, targetLongSide: 1280 });
       const metaErr = checkVideoMeta(meta, 'highlight');
@@ -980,7 +931,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Replace failed' });
     } finally {
-      setHlReplacingIds((ids) => ids.filter((rid) => rid !== item.id));
+      setHlReplacingId(null);
     }
   };
 
@@ -1013,10 +964,6 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   const onPickGallery = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    if (galleryUploading.length) {
-      e.target.value = '';
-      return;
-    }
 
     const room = CAP.GALLERY - gallery.length;
     const accepted = files.slice(0, Math.max(0, room));
@@ -1030,39 +977,32 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
         const err = checkPhoto(file);
         if (err) { alert(`"${file.name}": ${err}`); continue; }
 
-        const token = { id: `${nowTs()}-${Math.random()}`, name: file.name };
-        setGalleryUploading((arr) => [...arr, token]);
+        const dims = await readImageDims(file);
+        const p = pathPhotoGallery(file.name);
+        const { error } = await supabase.storage.from(BUCKET).upload(p, file, { upsert: true });
+        if (error) throw error;
 
-        try {
-          const dims = await readImageDims(file);
-          const p = pathPhotoGallery(file.name);
-          const { error } = await supabase.storage.from(BUCKET).upload(p, file, { upsert: true });
-          if (error) throw error;
+        const nextOrder = gallery.length
+          ? Math.max(...gallery.map(i => Number(i.sort_order||0))) + 1
+          : 0;
 
-          const nextOrder = gallery.length
-            ? Math.max(...gallery.map(i => Number(i.sort_order||0))) + 1
-            : 0;
+        const { data, error: e2 } = await supabase
+          .from(TBL_MEDIA)
+          .insert([{
+            athlete_id: athlete.id,
+            type: 'photo',
+            category: CAT.GALLERY,
+            storage_path: p,
+            file_size_bytes: file.size,
+            width: dims.width, height: dims.height,
+            sort_order: nextOrder,
+            uploaded_at: new Date().toISOString(),
+          }])
+          .select()
+          .single();
+        if (e2) throw e2;
 
-          const { data, error: e2 } = await supabase
-            .from(TBL_MEDIA)
-            .insert([{
-              athlete_id: athlete.id,
-              type: 'photo',
-              category: CAT.GALLERY,
-              storage_path: p,
-              file_size_bytes: file.size,
-              width: dims.width, height: dims.height,
-              sort_order: nextOrder,
-              uploaded_at: new Date().toISOString(),
-            }])
-            .select()
-            .single();
-          if (e2) throw e2;
-
-          setGallery((g) => [...g, data].sort(sortByOrder));
-        } finally {
-          setGalleryUploading((arr) => arr.filter((entry) => entry.id !== token.id));
-        }
+        setGallery((g) => [...g, data].sort(sortByOrder));
       }
       setStatus({ type: 'success', msg: 'Saved ✓' });
       notifyParent();
@@ -1343,32 +1283,24 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     : primaryCtaStyles.enabled;
 
   // Pulsanti Add disabilitati a cap
-  const isGalleryUploading = galleryUploading.length > 0;
-  const addGalDisabled = gallery.length >= CAP.GALLERY || isGalleryUploading;
+  const addGalDisabled = gallery.length >= CAP.GALLERY;
   const addHLDisabled  = highlights.length >= CAP.HIGHLIGHTS;
   const addGameDisabled= games.length >= CAP.GAMES;
-  const addHLUploadDisabled = addHLDisabled || hlAddUploading;
+  const addHLUploadDisabled = addHLDisabled || hlUploading;
 
   // helper per poster (thumbnail_path può essere storage path o assoluto http)
-  const usePoster = useCallback(async (thumbPath) => {
+  const usePoster = async (thumbPath) => {
     if (!thumbPath) return '';
     if (isHttpUrl(thumbPath)) return thumbPath;
     return await getSignedUrl(thumbPath);
-  }, [getSignedUrl]);
+  };
 
   // Featured preview signed URL
-  const useImageSigned = useCallback(async (storage_path) => storage_path ? await getSignedUrl(storage_path) : '', [getSignedUrl]);
-
-  const spinnerKeyframes = '@keyframes mediaPanelSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }';
-  const headUploading = featuredUploading.head;
-  const g1Uploading = featuredUploading.g1;
-  const g2Uploading = featuredUploading.g2;
+  const useImageSigned = async (storage_path) => storage_path ? await getSignedUrl(storage_path) : '';
 
   // ---------------- UI ----------------
   return (
-    <>
-      <style>{spinnerKeyframes}</style>
-      <div style={{ ...styles.grid, ...(isMobile ? styles.gridMobile : null) }}>
+    <div style={{ ...styles.grid, ...(isMobile ? styles.gridMobile : null) }}>
       {/* FEATURED PHOTOS */}
       <div style={styles.box}>
         <div style={styles.sectionTitle}>Featured Photos (3)</div>
@@ -1377,30 +1309,12 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
           {/* Headshot */}
           <div style={styles.featuredSlot}>
             <div style={styles.label}>Headshot</div>
-            <FeaturedPreview
-              imgPath={featured.head?.storage_path}
-              getSigned={useImageSigned}
-              isUploading={headUploading}
-            />
+            <FeaturedPreview imgPath={featured.head?.storage_path} getSigned={useImageSigned} />
             <div style={styles.fieldRow}>
               <input type="file" accept="image/*" ref={headInputRef} onChange={(e) => onPickFeatured(e, 'head')} style={{ display: 'none' }}/>
-              <button
-                type="button"
-                onClick={() => !headUploading && headInputRef.current?.click()}
-                style={headUploading ? styles.smallBtnDisabled : styles.smallBtnPrimary}
-                disabled={headUploading}
-              >
-                {headUploading ? 'Uploading…' : 'Upload / Replace'}
-              </button>
+              <button type="button" onClick={() => headInputRef.current?.click()} style={styles.smallBtnPrimary}>Upload / Replace</button>
               {featured.head && (
-                <button
-                  type="button"
-                  onClick={() => onRemoveFeatured('head')}
-                  style={headUploading ? styles.smallBtnDisabled : { ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
-                  disabled={headUploading}
-                >
-                  Remove
-                </button>
+                <button type="button" onClick={() => onRemoveFeatured('head')} style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}>Remove</button>
               )}
             </div>
           </div>
@@ -1408,30 +1322,12 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
           {/* Game #1 */}
           <div style={styles.featuredSlot}>
             <div style={styles.label}>In game #1</div>
-            <FeaturedPreview
-              imgPath={featured.g1?.storage_path}
-              getSigned={useImageSigned}
-              isUploading={g1Uploading}
-            />
+            <FeaturedPreview imgPath={featured.g1?.storage_path} getSigned={useImageSigned} />
             <div style={styles.fieldRow}>
               <input type="file" accept="image/*" ref={g1InputRef} onChange={(e) => onPickFeatured(e, 'g1')} style={{ display: 'none' }}/>
-              <button
-                type="button"
-                onClick={() => !g1Uploading && g1InputRef.current?.click()}
-                style={g1Uploading ? styles.smallBtnDisabled : styles.smallBtnPrimary}
-                disabled={g1Uploading}
-              >
-                {g1Uploading ? 'Uploading…' : 'Upload / Replace'}
-              </button>
+              <button type="button" onClick={() => g1InputRef.current?.click()} style={styles.smallBtnPrimary}>Upload / Replace</button>
               {featured.g1 && (
-                <button
-                  type="button"
-                  onClick={() => onRemoveFeatured('g1')}
-                  style={g1Uploading ? styles.smallBtnDisabled : { ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
-                  disabled={g1Uploading}
-                >
-                  Remove
-                </button>
+                <button type="button" onClick={() => onRemoveFeatured('g1')} style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}>Remove</button>
               )}
             </div>
           </div>
@@ -1439,30 +1335,12 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
           {/* Game #2 */}
           <div style={styles.featuredSlot}>
             <div style={styles.label}>In game #2</div>
-            <FeaturedPreview
-              imgPath={featured.g2?.storage_path}
-              getSigned={useImageSigned}
-              isUploading={g2Uploading}
-            />
+            <FeaturedPreview imgPath={featured.g2?.storage_path} getSigned={useImageSigned} />
             <div style={styles.fieldRow}>
               <input type="file" accept="image/*" ref={g2InputRef} onChange={(e) => onPickFeatured(e, 'g2')} style={{ display: 'none' }}/>
-              <button
-                type="button"
-                onClick={() => !g2Uploading && g2InputRef.current?.click()}
-                style={g2Uploading ? styles.smallBtnDisabled : styles.smallBtnPrimary}
-                disabled={g2Uploading}
-              >
-                {g2Uploading ? 'Uploading…' : 'Upload / Replace'}
-              </button>
+              <button type="button" onClick={() => g2InputRef.current?.click()} style={styles.smallBtnPrimary}>Upload / Replace</button>
               {featured.g2 && (
-                <button
-                  type="button"
-                  onClick={() => onRemoveFeatured('g2')}
-                  style={g2Uploading ? styles.smallBtnDisabled : { ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
-                  disabled={g2Uploading}
-                >
-                  Remove
-                </button>
+                <button type="button" onClick={() => onRemoveFeatured('g2')} style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}>Remove</button>
               )}
             </div>
           </div>
@@ -1475,34 +1353,16 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
         <div style={styles.subnote}>≤ 120s, ≤ 4K, ≤ 800MB. MP4/MOV/WEBM. Inline player, poster generated.</div>
         <div style={styles.videoRow}>
           {intro ? (
-            <VideoPlayer item={intro} getSigned={getSignedUrl} usePoster={usePoster} isUploading={introUploading} />
-          ) : introUploading ? (
-            <div style={{ ...styles.mediaPreview, display: 'flex', alignItems: 'center', justifyContent: 'center', maxWidth: 420 }}>
-              <LoadingSpinner label="Uploading intro video" size={40} thickness={4} fill />
-            </div>
+            <VideoPlayer item={intro} getSigned={getSignedUrl} usePoster={usePoster} />
           ) : (
             <div style={{ fontSize: 12, color: '#666' }}>No videos uploaded.</div>
           )}
         </div>
         <div style={{ ...styles.fieldRow, marginTop: 8 }}>
           <input type="file" accept="video/mp4,video/quicktime,video/webm" ref={introInputRef} onChange={onPickIntro} style={{ display: 'none' }}/>
-          <button
-            type="button"
-            onClick={() => !introUploading && introInputRef.current?.click()}
-            style={introUploading ? styles.smallBtnDisabled : styles.smallBtnPrimary}
-            disabled={introUploading}
-          >
-            {introUploading ? 'Uploading…' : intro ? 'Replace' : 'Upload video'}
-          </button>
+          <button type="button" onClick={() => introInputRef.current?.click()} style={styles.smallBtnPrimary}>{intro ? 'Replace' : 'Upload video'}</button>
           {intro && (
-            <button
-              type="button"
-              onClick={onRemoveIntro}
-              style={introUploading ? styles.smallBtnDisabled : { ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
-              disabled={introUploading}
-            >
-              Remove
-            </button>
+            <button type="button" onClick={onRemoveIntro} style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}>Remove</button>
           )}
         </div>
       </div>
@@ -1524,18 +1384,10 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
             <button type="button" onClick={() => !addHLUploadDisabled && hlUploadInputRef.current?.click()}
                     style={addHLUploadDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
                     disabled={addHLUploadDisabled}>
-              {hlAddUploading ? 'Uploading…' : '+ Add Upload'}
+              {hlUploading ? 'Uploading…' : '+ Add Upload'}
             </button>
-            {hlAddUploading && (
-              <div style={styles.spinnerNotice}>
-                <LoadingSpinner
-                  label="Uploading highlight"
-                  size={18}
-                  thickness={2}
-                  containerStyle={{ width: 24, height: 24 }}
-                />
-                <span>Uploading highlight…</span>
-              </div>
+            {hlUploading && (
+              <div style={{ fontSize: 12, color: '#666', marginTop: 6, textAlign: 'center' }}>Uploading highlight…</div>
             )}
           </div>
 
@@ -1544,16 +1396,12 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
               placeholder="Paste YouTube/Vimeo URL…"
               value={addLinkHL.url}
               onChange={(e) => { setAddLinkHL({ url: e.target.value, err: '' }); }}
-              disabled={addHLDisabled || hlAddUploading}
-              style={{
-                ...styles.input,
-                minWidth: 260,
-                ...((addHLDisabled || hlAddUploading) ? { background: '#F7F7F7', color: '#999' } : null)
-              }}
+              disabled={addHLDisabled}
+              style={{ ...styles.input, minWidth: 260, ...(addHLDisabled ? { background: '#F7F7F7', color: '#999' } : null) }}
             />
             <button type="button" onClick={onAddHLLink}
-                    style={(addHLDisabled || hlAddUploading) ? styles.smallBtnDisabled : styles.smallBtnPrimary}
-                    disabled={addHLDisabled || hlAddUploading}>
+                    style={addHLDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
+                    disabled={addHLDisabled}>
               + Add Link
             </button>
           </div>
@@ -1562,19 +1410,17 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
         {/* Lista HL con DnD */}
         <div style={styles.list}>
-          {highlights.map((it, idx) => {
-            const replacingThis = hlReplacingIds.includes(it.id);
-            return (
-              <div key={it.id}
-                   draggable
-                   onDragStart={() => onDragStartHL(idx)}
-                   onDragOver={(e) => onDragOverHL(e, idx)}
-                   onDrop={onDropHL}
-                   style={{
-                     ...styles.item,
-                     ...(drag.type==='hl' && drag.to === idx ? styles.droptarget : null),
-                     ...(drag.type==='hl' ? styles.draggable : null)
-                   }}>
+          {highlights.map((it, idx) => (
+            <div key={it.id}
+                 draggable
+                 onDragStart={() => onDragStartHL(idx)}
+                 onDragOver={(e) => onDragOverHL(e, idx)}
+                 onDrop={onDropHL}
+                 style={{
+                   ...styles.item,
+                   ...(drag.type==='hl' && drag.to === idx ? styles.droptarget : null),
+                   ...(drag.type==='hl' ? styles.draggable : null)
+                 }}>
               <div style={styles.itemHeader}>
                 <div>
                   <div style={styles.itemTitle}>Highlight #{idx + 1}</div>
@@ -1605,21 +1451,16 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                       />
                       <button
                         type="button"
-                        onClick={() => { if (!replacingThis) { hlReplaceRefs.current[it.id]?.click(); } }}
+                        onClick={() => { if (!hlReplacingId) { hlReplaceRefs.current[it.id]?.click(); } }}
                         style={isMobile
-                          ? (replacingThis ? primaryCtaStyles.disabled : primaryCtaStyles.enabled)
-                          : (replacingThis ? styles.smallBtnDisabled : styles.smallBtnPrimary)}
-                        disabled={replacingThis}
+                          ? (hlReplacingId ? primaryCtaStyles.disabled : primaryCtaStyles.enabled)
+                          : (hlReplacingId ? styles.smallBtnDisabled : styles.smallBtnPrimary)}
+                        disabled={Boolean(hlReplacingId)}
                       >
                         Replace
                       </button>
-                      {replacingThis && (
-                        <LoadingSpinner
-                          label="Replacing highlight"
-                          size={18}
-                          thickness={2}
-                          containerStyle={{ width: 24, height: 24 }}
-                        />
+                      {hlReplacingId === it.id && (
+                        <span style={{ fontSize: 12, color: '#666', marginLeft: 4 }}>Uploading…</span>
                       )}
                     </>
                   ) : (
@@ -1632,19 +1473,15 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                       Save
                     </button>
                   )}
-                  <button
-                    type="button"
-                    style={replacingThis ? styles.smallBtnDisabled : { ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
-                    onClick={() => onDeleteHL(it.id, it.storage_path, it.thumbnail_path)}
-                    disabled={replacingThis}
-                  >
+                  <button type="button" style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
+                          onClick={() => onDeleteHL(it.id, it.storage_path, it.thumbnail_path)}>
                     Delete
                   </button>
                 </div>
               </div>
 
               {/* Poster + Player inline */}
-              <HLPlayer item={it} getSigned={getSignedUrl} usePoster={usePoster} isUploading={replacingThis} />
+              <HLPlayer item={it} getSigned={getSignedUrl} usePoster={usePoster} />
 
               {/* Campi testuali (salvati con Save Bar) */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', rowGap: 12, marginTop: 8 }}>
@@ -1674,8 +1511,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                 />
               </div>
             </div>
-            );
-          })}
+          ))}
           {highlights.length === 0 && (
             <div style={{ fontSize: 12, color: '#666' }}>No highlights.</div>
           )}
@@ -1694,21 +1530,9 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
           <button type="button" onClick={() => !addGalDisabled && galleryInputRef.current?.click()}
                   style={addGalDisabled ? styles.smallBtnDisabled : styles.smallBtnPrimary}
                   disabled={addGalDisabled}>
-            {isGalleryUploading ? 'Uploading…' : '+ Add photo'}
+            + Add photo
           </button>
         </div>
-
-        {isGalleryUploading && (
-          <div style={styles.spinnerNotice}>
-            <LoadingSpinner
-              label={galleryUploading.length > 1 ? 'Uploading photos' : 'Uploading photo'}
-              size={18}
-              thickness={2}
-              containerStyle={{ width: 24, height: 24 }}
-            />
-            <span>{galleryUploading.length > 1 ? 'Uploading photos…' : 'Uploading photo…'}</span>
-          </div>
-        )}
 
         {!isMobile ? (
           <div style={styles.galleryTableWrap}>
@@ -1977,7 +1801,6 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
         )}
       </div>
     </div>
-    </>
   );
 }
 
@@ -2208,72 +2031,22 @@ function GalleryIconLink({ item, getSigned }) {
   );
 }
 
-function FeaturedPreview({ imgPath, getSigned, isUploading }) {
+function FeaturedPreview({ imgPath, getSigned }) {
   const [url, setUrl] = useState('');
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      if (!imgPath || isUploading) {
-        if (active) setUrl('');
-        return;
-      }
-      const signed = await getSigned(imgPath || '');
-      if (active) setUrl(signed || '');
-    })();
-    return () => { active = false; };
-  }, [imgPath, getSigned, isUploading]);
-
-  if (isUploading) {
-    return (
-      <div style={{ ...styles.featuredPreview, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <LoadingSpinner label="Uploading featured photo" size={32} thickness={3} fill />
-      </div>
-    );
-  }
-
-  if (!imgPath) {
-    return (
-      <div style={{ ...styles.featuredPreview, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 12 }}>
-        No image
-      </div>
-    );
-  }
-
+  useEffect(() => { (async () => setUrl(await getSigned(imgPath || '')))(); }, [imgPath]);
+  if (!imgPath) return <div style={{ ...styles.featuredPreview, display:'flex', alignItems:'center', justifyContent:'center', color:'#999', fontSize:12 }}>No image</div>;
   return <img alt="Featured" src={url || ''} style={styles.featuredPreview} />;
 }
 
-function VideoPlayer({ item, getSigned, usePoster, isUploading }) {
+function VideoPlayer({ item, getSigned, usePoster }) {
   const [src, setSrc] = useState('');
   const [poster, setPoster] = useState('');
   useEffect(() => {
-    let active = true;
     (async () => {
-      if (!item?.storage_path || isUploading) {
-        if (active) {
-          setPoster('');
-          setSrc('');
-        }
-        return;
-      }
-      const [posterUrl, signedUrl] = await Promise.all([
-        usePoster(item.thumbnail_path || ''),
-        getSigned(item.storage_path),
-      ]);
-      if (active) {
-        setPoster(posterUrl || '');
-        setSrc(signedUrl || '');
-      }
+      setPoster(await usePoster(item.thumbnail_path || ''));
+      setSrc(item.storage_path ? await getSigned(item.storage_path) : '');
     })();
-    return () => { active = false; };
-  }, [item?.storage_path, item?.thumbnail_path, isUploading, getSigned, usePoster]);
-
-  if (isUploading) {
-    return (
-      <div style={{ ...styles.mediaPreview, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <LoadingSpinner label="Uploading video" size={40} thickness={4} fill />
-      </div>
-    );
-  }
+  }, [item?.storage_path, item?.thumbnail_path]);
 
   if (!item?.storage_path) return <div style={{ fontSize: 12, color: '#666' }}>—</div>;
 
@@ -2289,44 +2062,17 @@ function VideoPlayer({ item, getSigned, usePoster, isUploading }) {
   );
 }
 
-function HLPlayer({ item, getSigned, usePoster, isUploading }) {
+function HLPlayer({ item, getSigned, usePoster }) {
   const [src, setSrc] = useState('');
   const [poster, setPoster] = useState('');
   const [showEmbed, setShowEmbed] = useState(false);
 
   useEffect(() => {
-    let active = true;
     (async () => {
-      if (isUploading) {
-        if (active) {
-          setPoster('');
-          setSrc('');
-        }
-        return;
-      }
-      const posterUrl = await usePoster(item.thumbnail_path || '');
-      const signedUrl = item.storage_path ? await getSigned(item.storage_path) : '';
-      if (active) {
-        setPoster(posterUrl || '');
-        setSrc(signedUrl || '');
-      }
+      setPoster(await usePoster(item.thumbnail_path || ''));
+      setSrc(item.storage_path ? await getSigned(item.storage_path) : '');
     })();
-    return () => { active = false; };
-  }, [item?.storage_path, item?.thumbnail_path, isUploading, getSigned, usePoster]);
-
-  useEffect(() => {
-    if (isUploading) setShowEmbed(false);
-  }, [isUploading]);
-
-  if (isUploading) {
-    return (
-      <div style={{ marginTop: 6 }}>
-        <div style={{ ...styles.mediaPreview, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <LoadingSpinner label="Uploading highlight" size={36} thickness={3} fill />
-        </div>
-      </div>
-    );
-  }
+  }, [item?.storage_path, item?.thumbnail_path]);
 
   if (item.external_url) {
     return (
@@ -2374,31 +2120,6 @@ function HLPlayer({ item, getSigned, usePoster, isUploading }) {
         style={styles.mediaPreview}
         src={src || ''}
       />
-    </div>
-  );
-}
-
-function LoadingSpinner({ label = 'Loading…', size = 36, thickness = 3, fill = false, containerStyle = {} }) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={{
-        ...styles.spinnerContainer,
-        ...(fill ? styles.spinnerFill : null),
-        ...containerStyle,
-      }}
-    >
-      <span
-        aria-hidden="true"
-        style={{
-          ...styles.spinner,
-          width: size,
-          height: size,
-          borderWidth: thickness,
-        }}
-      />
-      <span style={styles.srOnly}>{label}</span>
     </div>
   );
 }
