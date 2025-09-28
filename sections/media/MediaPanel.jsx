@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CreatableSelect from 'react-select/creatable';
+import { ExternalLink, Save, Trash2 } from 'lucide-react';
 import { supabase as sb } from '../../utils/supabaseClient';
 
 const supabase = sb;
@@ -53,6 +54,14 @@ const VID_TYPES = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
 
 // ------------------------------ HELPER: stile coerente (copy token) ------------------------------
 // Stili uniformi (coerenti con SportInfoPanel/ContactsPanel e Linee guida Save)
+const baseLinkBtn = {
+  background: 'transparent',
+  border: 'none',
+  color: '#1976d2',
+  cursor: 'pointer',
+  fontWeight: 600,
+};
+
 const styles = {
   grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 },
   gridMobile: { gridTemplateColumns: '1fr' },
@@ -100,9 +109,25 @@ const styles = {
     border: 'none', background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
     color: '#fff', cursor: 'pointer', fontWeight: 600
   },
-  linkBtn: {
-    background: 'transparent', border: 'none', padding: 0, color: '#1976d2',
-    cursor: 'pointer', fontWeight: 600
+  linkBtn: { ...baseLinkBtn, padding: 0 },
+  iconBtn: {
+    ...baseLinkBtn,
+    padding: 4,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    lineHeight: 1,
+  },
+  iconBtnDanger: {
+    ...baseLinkBtn,
+    padding: 4,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    lineHeight: 1,
+    color: '#b00',
   },
 
   // Pulsanti Add disabilitati a cap
@@ -164,7 +189,7 @@ const styles = {
   galleryTitleCell: { width: '18%', minWidth: 120 },
   galleryCaptionCell: { width: '25%', minWidth: 160 },
   galleryTagsCell: { width: '35%', minWidth: 220 },
-  galleryActionCell: { display: 'flex', justifyContent: 'flex-end', whiteSpace: 'nowrap' },
+  galleryActionCell: { textAlign: 'right', whiteSpace: 'nowrap' },
 
   // Table (games)
   tableWrap: { overflowX: 'auto', border: '1px solid #EEE', borderRadius: 10, background: '#FFF' },
@@ -174,6 +199,7 @@ const styles = {
   thMobile: { padding: '12px 20px', minWidth: 180 },
   td: { fontSize: 14, padding: '10px 12px', borderBottom: '1px solid #F5F5F5', verticalAlign: 'top' },
   tdMobile: { padding: '12px 20px', minWidth: 180 },
+  tableActions: { display: 'inline-flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' },
 
   // Mobile accordion (games)
   gameCard: { border: '1px solid #EEE', borderRadius: 12, marginBottom: 8, background: '#FFF' },
@@ -1517,7 +1543,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                   <th style={{ ...styles.galleryTh, ...styles.galleryTitleCell }}>Title</th>
                   <th style={{ ...styles.galleryTh, ...styles.galleryCaptionCell }}>Caption</th>
                   <th style={{ ...styles.galleryTh, ...styles.galleryTagsCell }}>Tags</th>
-                  <th style={styles.galleryThRight}>Actions</th>
+                  <th style={styles.galleryThRight} aria-label="Actions"></th>
                 </tr>
               </thead>
               <tbody>
@@ -1556,9 +1582,24 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                       />
                     </td>
                     <td style={{ ...styles.galleryTd, ...styles.galleryActionCell }}>
-                      <button type="button" style={styles.linkBtn} onClick={() => onSaveGalleryRow(it.id)}>Save</button>
-                      <span style={{ margin: '0 6px' }}>|</span>
-                      <button type="button" style={{ ...styles.linkBtn, color: '#b00' }} onClick={() => onDeleteGallery(it.id, it.storage_path)}>Delete</button>
+                      <div style={styles.tableActions}>
+                        <button
+                          type="button"
+                          style={styles.iconBtn}
+                          aria-label="Save photo"
+                          onClick={() => onSaveGalleryRow(it.id)}
+                        >
+                          <Save size={16} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.iconBtnDanger}
+                          aria-label="Delete photo"
+                          onClick={() => onDeleteGallery(it.id, it.storage_path)}
+                        >
+                          <Trash2 size={16} aria-hidden="true" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1645,7 +1686,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                   <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Competition</th>
                   <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Season</th>
                   <th style={{ ...styles.th, ...(isMobile ? styles.thMobile : null) }}>Team Level</th>
-                  <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobile : null) }}>Actions</th>
+                  <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobile : null) }} aria-label="Actions"></th>
                 </tr>
               </thead>
               <tbody>
@@ -1687,18 +1728,33 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                         style={styles.input}
                       />
                     </td>
-                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), display: 'flex', justifyContent: 'flex-end', whiteSpace: 'nowrap' }}>
-                      <a href={item.external_url || '#'} target="_blank" rel="noreferrer" style={styles.linkBtn}>Open</a>
-                      <span style={{ margin: '0 6px' }}>|</span>
-                      <button type="button" style={styles.linkBtn} onClick={() => onSaveGameRow(item.id)}>Save</button>
-                      <span style={{ margin: '0 6px' }}>|</span>
-                      <button
-                        type="button"
-                        style={{ ...styles.linkBtn, color: '#b00' }}
-                        onClick={() => onDeleteGame(item.id)}
-                      >
-                        Delete
-                      </button>
+                    <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'right' }}>
+                      <div style={styles.tableActions}>
+                        <button
+                          type="button"
+                          style={styles.iconBtn}
+                          aria-label="Open match"
+                          onClick={() => window.open(item.external_url || '#', '_blank', 'noopener,noreferrer')}
+                        >
+                          <ExternalLink size={16} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.iconBtn}
+                          aria-label="Save match"
+                          onClick={() => onSaveGameRow(item.id)}
+                        >
+                          <Save size={16} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.iconBtnDanger}
+                          aria-label="Delete match"
+                          onClick={() => onDeleteGame(item.id)}
+                        >
+                          <Trash2 size={16} aria-hidden="true" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1815,20 +1871,27 @@ function GameAccordionItem({ item, game, isOpen, onToggle, onEditGameField, onSa
           <div style={styles.gameActions}>
             <button
               type="button"
-              style={styles.smallBtn}
+              style={styles.iconBtn}
+              aria-label="Open match"
               onClick={() => window.open(item.external_url || '#', '_blank', 'noopener,noreferrer')}
             >
-              Open
-            </button>
-            <button type="button" style={styles.smallBtnPrimary} onClick={() => onSaveGameRow(item.id)}>
-              Save
+              <ExternalLink size={16} aria-hidden="true" />
             </button>
             <button
               type="button"
-              style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
+              style={styles.iconBtn}
+              aria-label="Save match"
+              onClick={() => onSaveGameRow(item.id)}
+            >
+              <Save size={16} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              style={styles.iconBtnDanger}
+              aria-label="Delete match"
               onClick={() => onDeleteGame(item.id)}
             >
-              Delete
+              <Trash2 size={16} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -1919,20 +1982,27 @@ function GalleryAccordionItem({ item, isOpen, onToggle, editGalleryField, onSave
             )}
             <button
               type="button"
-              style={styles.smallBtn}
+              style={styles.iconBtn}
+              aria-label="Open photo"
               onClick={handleOpen}
             >
-              Open
-            </button>
-            <button type="button" style={styles.smallBtnPrimary} onClick={() => onSaveGalleryRow(item.id)}>
-              Save
+              <ExternalLink size={16} aria-hidden="true" />
             </button>
             <button
               type="button"
-              style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}
+              style={styles.iconBtn}
+              aria-label="Save photo"
+              onClick={() => onSaveGalleryRow(item.id)}
+            >
+              <Save size={16} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              style={styles.iconBtnDanger}
+              aria-label="Delete photo"
               onClick={() => onDeleteGallery(item.id, item.storage_path)}
             >
-              Delete
+              <Trash2 size={16} aria-hidden="true" />
             </button>
           </div>
         </div>
