@@ -229,7 +229,7 @@ function PreviewCard({ athleteId }) {
     colA:{ display:'flex', flexDirection:'column', gap:24 },
     colB:{ display:'flex', flexDirection:'column', gap:24 },
 
-    loaderContainer:{ display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16, padding:48, textAlign:'center', minHeight:'60vh' },
+    loaderContainer:{ display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16, padding:48, textAlign:'center', minHeight:'calc(100vh - 32px)', width:'100%' },
     spinner:{ width:48, height:48, borderRadius:'50%', border:'4px solid #27E3DA', borderTopColor:'#F7B84E', animation:'profilePreviewSpin 1s linear infinite' },
     srOnly:{ position:'absolute', width:1, height:1, padding:0, margin:-1, overflow:'hidden', clip:'rect(0,0,0,0)', whiteSpace:'nowrap', border:0 },
 
@@ -271,7 +271,7 @@ function PreviewCard({ athleteId }) {
   if (loading) {
     return (
       <div style={S.container}>
-        <div style={S.card}>
+        <div style={{ ...S.card, display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div style={S.loaderContainer} role="status" aria-live="polite">
             <div style={S.spinner} aria-hidden="true" />
             <span style={S.srOnly}>Loading profile…</span>
