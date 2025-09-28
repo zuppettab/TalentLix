@@ -416,6 +416,21 @@ export default function Dashboard() {
       .map(([sectionId]) => SECTION_TITLE_BY_ID[sectionId] || sectionId);
   }, [completionBreakdown]);
 
+  const sectionStatus = useMemo(() => {
+    const statusMap = {};
+    for (const section of SECTIONS) {
+      let status = 'unknown';
+      if (section.id !== 'personal' && section.id !== 'privacy') {
+        const info = completionBreakdown?.[section.id];
+        if (info && typeof info.contributes === 'boolean') {
+          status = info.contributes ? 'complete' : 'incomplete';
+        }
+      }
+      statusMap[section.id] = status;
+    }
+    return statusMap;
+  }, [completionBreakdown]);
+
   const handleTooltipKeyDown = useCallback((event) => {
     if (event.key === 'Escape' && completionTooltipOpen) {
       event.preventDefault();
@@ -584,6 +599,7 @@ export default function Dashboard() {
           sections={SECTIONS}
           current={current}
           onSelect={setSection}
+          statusMap={sectionStatus}
         />
       )}
 
@@ -592,16 +608,24 @@ export default function Dashboard() {
         {/* LEFT NAV (solo desktop/tablet) */}
         {!isMobile && (
           <nav style={styles.leftNav}>
-            {SECTIONS.map(s => (
-              <button
-                key={s.id}
-                onClick={() => setSection(s.id)}
-                style={{ ...styles.navBtn, ...(current === s.id ? styles.navBtnActive : {}) }}
-                title={s.title}
-              >
-                {s.title}
+            {SECTIONS.map(s => {
+              const status = sectionStatus[s.id] || 'unknown';
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setSection(s.id)}
+                style={{
+                  ...styles.navBtn,
+                  ...(status === 'complete' ? styles.navBtnComplete : null),
+                  ...(status === 'incomplete' ? styles.navBtnIncomplete : null),
+                  ...(current === s.id ? styles.navBtnActive : null),
+                }}
+                  title={s.title}
+                >
+                  {s.title}
               </button>
-            ))}
+            );
+            })}
           </nav>
         )}
 
@@ -747,7 +771,7 @@ function AuthControl({ email, avatarUrl, onLogout, compact, athleteId }) {
 }
 
 /** Nastro tabs mobile con frecce grandi e 3 bottoni visibili */
-function MobileScrollableTabs({ sections, current, onSelect }) {
+function MobileScrollableTabs({ sections, current, onSelect, statusMap }) {
   const scrollerRef = useRef(null);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
@@ -794,19 +818,24 @@ function MobileScrollableTabs({ sections, current, onSelect }) {
       {!atEnd && <div style={{ ...styles.edgeFade, right: 0, background: 'linear-gradient(270deg, rgba(255,255,255,1) 15%, rgba(255,255,255,0) 85%)' }} />}
 
       <div ref={scrollerRef} style={styles.mobileTabsScroller}>
-        {sections.map(s => (
-          <button
-            key={s.id}
-            onClick={() => onSelect(s.id)}
-            style={{ 
-              ...styles.mobileTabBtn, 
-              ...(current === s.id ? styles.mobileTabBtnActive : null) 
-            }}
-            title={s.title}
-          >
-            {s.title}
-          </button>
-        ))}
+        {sections.map(s => {
+          const status = statusMap?.[s.id] || 'unknown';
+          return (
+            <button
+              key={s.id}
+              onClick={() => onSelect(s.id)}
+              style={{
+                ...styles.mobileTabBtn,
+                ...(status === 'complete' ? styles.mobileTabBtnComplete : null),
+                ...(status === 'incomplete' ? styles.mobileTabBtnIncomplete : null),
+                ...(current === s.id ? styles.mobileTabBtnActive : null)
+              }}
+              title={s.title}
+            >
+              {s.title}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -935,12 +964,14 @@ const styles = {
     minHeight: 40,
     whiteSpace: 'nowrap',
     overflow: 'hidden',
-    textOverflow: 'ellipsis'
+    textOverflow: 'ellipsis',
+    transition: 'box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease'
   },
+  mobileTabBtnComplete: { borderColor: '#1E88E5', background: '#E3F2FD', color: '#0D47A1' },
+  mobileTabBtnIncomplete: { borderColor: '#FB8C00', background: '#FFF4E5', color: '#7C3A00' },
   mobileTabBtnActive: {
     borderColor: '#27E3DA',
-    boxShadow: '0 0 0 2px rgba(39,227,218,0.15)',
-    background: 'linear-gradient(90deg, rgba(39,227,218,0.08), rgba(247,184,78,0.08))'
+    boxShadow: '0 0 0 2px rgba(39,227,218,0.2)'
   },
   // Frecce grandi
   nudgeBtn: {
@@ -974,8 +1005,20 @@ const styles = {
 
   // left nav (desktop/tablet)
   leftNav: { display: 'flex', flexDirection: 'column', gap: 8, position: 'sticky', top: 100, alignSelf: 'start' },
-  navBtn: { textAlign: 'left', padding: '12px 14px', border: '1px solid #E0E0E0', background: '#FFFFFF', borderRadius: 10, cursor: 'pointer', fontSize: 14, minHeight: 44 },
-  navBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.15)', background: 'linear-gradient(90deg, rgba(39,227,218,0.08), rgba(247,184,78,0.08))' },
+  navBtn: {
+    textAlign: 'left',
+    padding: '12px 14px',
+    border: '1px solid #E0E0E0',
+    background: '#FFFFFF',
+    borderRadius: 10,
+    cursor: 'pointer',
+    fontSize: 14,
+    minHeight: 44,
+    transition: 'box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease'
+  },
+  navBtnComplete: { borderColor: '#1E88E5', background: '#E3F2FD', color: '#0B3D91' },
+  navBtnIncomplete: { borderColor: '#FB8C00', background: '#FFF4E5', color: '#7C3A00' },
+  navBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.25)' },
 
   // panel
   panel: { 
