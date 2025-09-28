@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { FiLink } from 'react-icons/fi';
+import { Trash2 } from 'lucide-react';
 import { supabase as sb } from '../../utils/supabaseClient';
 
 const supabase = sb;
@@ -91,6 +92,19 @@ const styles = {
     background: 'transparent', border: 'none', padding: 0, color: '#1976d2',
     cursor: 'pointer', fontWeight: 600
   },
+  iconBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#1976d2',
+    cursor: 'pointer',
+    fontWeight: 600,
+    padding: 4,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    lineHeight: 1,
+  },
 
   // Table desktop
   tableWrap: { overflowX: 'auto', border: '1px solid #EEE', borderRadius: 10, background: '#FFF' },
@@ -98,6 +112,7 @@ const styles = {
   th: { textAlign: 'left', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE', whiteSpace: 'nowrap' },
   thRight: { textAlign: 'right', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE' },
   td: { fontSize: 14, padding: '10px 12px', borderBottom: '1px solid #F5F5F5', verticalAlign: 'top' },
+  tableActions: { display: 'inline-flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' },
 
   // Mobile accordion
   card: { border: '1px solid #EEE', borderRadius: 12, marginBottom: 8, background: '#FFF' },
@@ -122,6 +137,17 @@ const styles = {
   saveBtnDisabled: { background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' },
   statusTextOK: { marginLeft: 10, fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', color: '#2E7D32' },
   statusTextERR:{ marginLeft: 10, fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', color: '#b00' },
+  srOnly: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: 'hidden',
+    clip: 'rect(0, 0, 0, 0)',
+    whiteSpace: 'nowrap',
+    border: 0,
+  },
 };
 
 // ------------------------------ COMPONENTE ------------------------------
@@ -502,7 +528,9 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                   <th style={styles.thUrl}>Profile URL</th>
                   <th style={styles.thChk}>Public</th>
                   <th style={styles.thChk}>Primary</th>
-                  <th style={styles.thRight}>Actions</th>
+                  <th style={styles.thRight}>
+                    <span style={styles.srOnly}>Row actions</span>
+                  </th>
                 </tr>
             </thead>
             <tbody>
@@ -559,13 +587,14 @@ export default function SocialPanel({ athlete, onSaved, isMobile }) {
                     />
                   </td>
                   <td style={{ ...styles.td, verticalAlign: 'middle' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: '100%', gap: 8 }}>
+                    <div style={styles.tableActions}>
                       <button
                         type="button"
-                        style={{ ...styles.linkBtn, color: '#b00' }}
+                        style={{ ...styles.iconBtn, color: '#b00' }}
                         onClick={() => deleteRow(r.id)}
+                        aria-label="Delete social profile"
                       >
-                        Delete
+                        <Trash2 size={16} aria-hidden="true" />
                       </button>
                     </div>
                   </td>
@@ -706,8 +735,13 @@ function SocialAccordionItem({ row, onField, onTogglePublic, onTogglePrimary, on
             >
               <FiLink />
             </a>
-            <button type="button" style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }} onClick={onDelete}>
-              Delete
+            <button
+              type="button"
+              style={{ ...styles.iconBtn, color: '#b00' }}
+              onClick={onDelete}
+              aria-label="Delete social profile"
+            >
+              <Trash2 size={16} aria-hidden="true" />
             </button>
           </div>
         </div>
