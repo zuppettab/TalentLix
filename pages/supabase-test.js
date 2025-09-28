@@ -10,6 +10,9 @@ export default function SupabaseTestPage() {
   const [status, setStatus] = useState('idle');
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
+  const [tableName, setTableName] = useState(TEST_TABLE);
+  const [tableInput, setTableInput] = useState(TEST_TABLE);
+  const [queryTrigger, setQueryTrigger] = useState(0);
 
   const missingEnvMessage = useMemo(() => {
     const missing = [];
@@ -33,7 +36,7 @@ export default function SupabaseTestPage() {
       setError(null);
 
       const { data, error: queryError } = await supabase
-        .from(TEST_TABLE)
+        .from(tableName)
         .select('*')
         .limit(5);
 
@@ -48,7 +51,23 @@ export default function SupabaseTestPage() {
     };
 
     loadRows();
-  }, [missingEnvMessage, supabaseAnonKey, supabaseUrl]);
+  }, [missingEnvMessage, supabaseAnonKey, supabaseUrl, tableName, queryTrigger]);
+
+  const handleTableSubmit = (event) => {
+    event.preventDefault();
+    const trimmed = tableInput.trim();
+
+    if (!trimmed) {
+      setStatus('error');
+      setError('Please enter a table name before running the query.');
+      return;
+    }
+
+    setError(null);
+    setTableInput(trimmed);
+    setTableName(trimmed);
+    setQueryTrigger((count) => count + 1);
+  };
 
   return (
     <main style={styles.page}>
@@ -56,10 +75,28 @@ export default function SupabaseTestPage() {
         <h1>Supabase Connectivity Test</h1>
         <p>
           Set <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> in your environment before
-          running <code>npm run dev</code> or building the project. Both variables must point to a Supabase project that
-          contains a table named <code>{TEST_TABLE}</code> (or update the constant in this file). After setting the
-          variables, refresh this page to verify connectivity.
+          running <code>npm run dev</code> or building the project. Both variables must point to a Supabase project. You
+          can use the form below to specify which table to query (default <code>{TEST_TABLE}</code>). After setting the
+          variables and choosing a table, refresh or re-run the query to verify connectivity.
         </p>
+
+        <form style={styles.tableForm} onSubmit={handleTableSubmit}>
+          <label htmlFor="table-name" style={styles.tableLabel}>
+            Table name
+          </label>
+          <input
+            id="table-name"
+            name="table-name"
+            type="text"
+            value={tableInput}
+            onChange={(event) => setTableInput(event.target.value)}
+            style={styles.tableInput}
+            placeholder="Enter table name"
+          />
+          <button type="submit" style={styles.tableButton}>
+            Run query
+          </button>
+        </form>
 
         <div style={styles.statusRow}>
           <span style={styles.label}>Status:</span>
@@ -122,6 +159,34 @@ const styles = {
     borderRadius: '0.5rem',
     padding: '1rem',
     marginBottom: '1.5rem',
+  },
+  tableForm: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    marginTop: '1.5rem',
+    flexWrap: 'wrap',
+  },
+  tableLabel: {
+    fontWeight: 600,
+  },
+  tableInput: {
+    flex: '1 1 220px',
+    padding: '0.6rem 0.75rem',
+    borderRadius: '0.5rem',
+    border: '1px solid #cbd5f5',
+    fontSize: '1rem',
+  },
+  tableButton: {
+    background: '#2563eb',
+    color: '#fff',
+    border: 'none',
+    padding: '0.65rem 1.25rem',
+    borderRadius: '0.5rem',
+    cursor: 'pointer',
+    fontWeight: 600,
+    fontSize: '1rem',
+    transition: 'background 0.2s ease',
   },
   pre: {
     background: '#0f172a',
