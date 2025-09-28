@@ -1,6 +1,7 @@
 // sections/sports/AwardsWidget.jsx
 // @ts-check
 import { useEffect, useState, useRef } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { supabase as sb } from '../../utils/supabaseClient';
 
 const supabase = sb;
@@ -437,7 +438,7 @@ export default function AwardsWidget({ athleteId, isMobile, onSaved }) {
                 >
                   🔗
                 </th>
-                <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobile : null) }}>Actions</th>
+                <th style={{ ...styles.thRight, ...(isMobile ? styles.thMobile : null) }} aria-label="Actions" />
               </tr>
             </thead>
             <tbody>
@@ -602,17 +603,23 @@ export default function AwardsWidget({ athleteId, isMobile, onSaved }) {
                       )}
                     </td>
                     <td style={{ ...styles.td, ...(isMobile ? styles.tdMobile : null), textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button type="button" style={styles.linkBtn} onClick={() => onEdit(r)} disabled={rowBusy === r.id}>
-                        Edit
-                      </button>
-                      <span style={{ margin: '0 6px' }}>|</span>
                       <button
                         type="button"
-                        style={{ ...styles.linkBtn, color: '#b00' }}
+                        style={styles.iconBtn}
+                        onClick={() => onEdit(r)}
+                        disabled={rowBusy === r.id}
+                        aria-label="Edit award"
+                      >
+                        <Pencil size={16} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...styles.iconBtn, color: '#b00' }}
                         onClick={() => onDelete(r.id)}
                         disabled={rowBusy === r.id}
+                        aria-label="Delete award"
                       >
-                        Delete
+                        <Trash2 size={16} aria-hidden="true" />
                       </button>
                     </td>
                   </tr>
@@ -852,8 +859,24 @@ function AwardAccordionItem({
                 </div>
               )}
               <div style={styles.seasonActions}>
-                <button type="button" style={styles.smallBtnPrimary} onClick={onEdit} disabled={busy}>Edit</button>
-                <button type="button" style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }} onClick={onDelete} disabled={busy}>Delete</button>
+                <button
+                  type="button"
+                  style={styles.iconBtn}
+                  onClick={onEdit}
+                  disabled={busy}
+                  aria-label="Edit award"
+                >
+                  <Pencil size={16} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  style={{ ...styles.iconBtn, color: '#b00' }}
+                  onClick={onDelete}
+                  disabled={busy}
+                  aria-label="Delete award"
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                </button>
               </div>
             </>
           )}
@@ -864,6 +887,14 @@ function AwardAccordionItem({
 }
 
 // ----------------------- STYLES (identici / armonizzati) -----------------------
+const baseLinkBtn = {
+  background: 'transparent',
+  border: 'none',
+  color: '#1976d2',
+  cursor: 'pointer',
+  fontWeight: 600,
+};
+
 const styles = {
   // input/label/error
   field: { display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 },
@@ -910,13 +941,15 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 600,
   },
-  linkBtn: {
-    background: 'transparent',
-    border: 'none',
-    padding: 0,
-    color: '#1976d2',
-    cursor: 'pointer',
-    fontWeight: 600,
+  linkBtn: { ...baseLinkBtn, padding: 0 },
+  iconBtn: {
+    ...baseLinkBtn,
+    padding: 4,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    lineHeight: 1,
   },
 
   // Tabella desktop
