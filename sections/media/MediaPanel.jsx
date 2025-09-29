@@ -50,6 +50,14 @@ const LIM = {
 const IMG_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const VID_TYPES = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
 
+const createMediaErrorsState = () => ({
+  featured: { head: '', g1: '', g2: '' },
+  intro: '',
+  highlightUpload: '',
+  highlightReplace: {},
+  gallery: '',
+});
+
 // ------------------------------ HELPER: stile coerente (copy token) ------------------------------
 // Stili uniformi (coerenti con SportInfoPanel/ContactsPanel e Linee guida Save)
 const baseLinkBtn = {
@@ -507,6 +515,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   const [introUploading, setIntroUploading] = useState(false);
   const [hlUploading, setHlUploading] = useState(false);
   const [hlReplacingId, setHlReplacingId] = useState(null);
+  const [mediaErrors, setMediaErrors] = useState(createMediaErrorsState);
 
   // UI stati locali (add forms)
   const headInputRef = useRef(null);
@@ -579,6 +588,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
         setGallery(gal);
         setHighlights(hls);
         setGames(gm);
+        setMediaErrors(createMediaErrorsState());
         setDirty(false);
         setStatus(s => s); // non resettiamo per coerenza con linee guida
       } catch (e) {
@@ -641,8 +651,19 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setMediaErrors((prev) => ({
+      ...prev,
+      featured: { ...prev.featured, [slotKey]: '' },
+    }));
+
     const err = checkPhoto(file);
-    if (err) { alert(err); return; }
+    if (err) {
+      setMediaErrors((prev) => ({
+        ...prev,
+        featured: { ...prev.featured, [slotKey]: err },
+      }));
+      return;
+    }
 
     try {
       // leggi dimensioni
@@ -698,6 +719,10 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       }
       setStatus({ type: 'success', msg: 'Saved ✓' });
       notifyParent();
+      setMediaErrors((prev) => ({
+        ...prev,
+        featured: { ...prev.featured, [slotKey]: '' },
+      }));
     } catch (e4) {
       console.error(e4);
       setStatus({ type: 'error', msg: 'Upload failed' });
@@ -730,16 +755,24 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setMediaErrors((prev) => ({ ...prev, intro: '' }));
+
     // pre-check di base
     const err = checkVideo(file, 'intro');
-    if (err) { alert(err); return; }
+    if (err) {
+      setMediaErrors((prev) => ({ ...prev, intro: err }));
+      return;
+    }
 
     setIntroUploading(true);
     try {
       // metadati & poster
       const meta = await readVideoMetaAndThumb({ file, captureThumb: true, targetLongSide: 1280 });
       const metaErr = checkVideoMeta(meta, 'intro');
-      if (metaErr) { alert(metaErr); return; }
+      if (metaErr) {
+        setMediaErrors((prev) => ({ ...prev, intro: metaErr }));
+        return;
+      }
 
       // upload poster (se generata)
       let thumbPath = null;
@@ -797,6 +830,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
       setStatus({ type: 'success', msg: 'Saved ✓' });
       notifyParent();
+      setMediaErrors((prev) => ({ ...prev, intro: '' }));
     } catch (e4) {
       console.error(e4);
       setStatus({ type: 'error', msg: 'Upload failed' });
@@ -829,19 +863,30 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     if (hlUploading) { e.target.value = ''; return; }
     const file = e.target.files?.[0];
     if (!file) return;
+    setMediaErrors((prev) => ({ ...prev, highlightUpload: '' }));
     if (highlights.length >= CAP.HIGHLIGHTS) {
-      alert('Limit reached: replace or remove an existing highlight.');
+      setMediaErrors((prev) => ({
+        ...prev,
+        highlightUpload: 'Limit reached: replace or remove an existing highlight.',
+      }));
       e.target.value = ''; return;
     }
 
     const err = checkVideo(file, 'highlight');
-    if (err) { alert(err); e.target.value=''; return; }
+    if (err) {
+      setMediaErrors((prev) => ({ ...prev, highlightUpload: err }));
+      e.target.value='';
+      return;
+    }
 
     setHlUploading(true);
     try {
       const meta = await readVideoMetaAndThumb({ file, captureThumb: true, targetLongSide: 1280 });
       const metaErr = checkVideoMeta(meta, 'highlight');
-      if (metaErr) { alert(metaErr); return; }
+      if (metaErr) {
+        setMediaErrors((prev) => ({ ...prev, highlightUpload: metaErr }));
+        return;
+      }
 
       let thumbPath = null;
       if (meta.thumbBlob) { thumbPath = pathVideoThumb(); await uploadBlob(thumbPath, meta.thumbBlob); }
@@ -874,6 +919,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       setHighlights(list);
       setStatus({ type: 'success', msg: 'Saved ✓' });
       notifyParent();
+      setMediaErrors((prev) => ({ ...prev, highlightUpload: '' }));
     } catch (e4) {
       console.error(e4);
       setStatus({ type: 'error', msg: 'Upload failed' });
@@ -945,13 +991,29 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
 
   const onReplaceHLUpload = async (item, file) => {
     if (hlReplacingId && hlReplacingId !== item.id) return;
+    setMediaErrors((prev) => ({
+      ...prev,
+      highlightReplace: { ...prev.highlightReplace, [item.id]: '' },
+    }));
     const err = checkVideo(file, 'highlight');
-    if (err) { alert(err); return; }
+    if (err) {
+      setMediaErrors((prev) => ({
+        ...prev,
+        highlightReplace: { ...prev.highlightReplace, [item.id]: err },
+      }));
+      return;
+    }
     setHlReplacingId(item.id);
     try {
       const meta = await readVideoMetaAndThumb({ file, captureThumb: true, targetLongSide: 1280 });
       const metaErr = checkVideoMeta(meta, 'highlight');
-      if (metaErr) { alert(metaErr); return; }
+      if (metaErr) {
+        setMediaErrors((prev) => ({
+          ...prev,
+          highlightReplace: { ...prev.highlightReplace, [item.id]: metaErr },
+        }));
+        return;
+      }
 
       let thumbPath = item.thumbnail_path && !isHttpUrl(item.thumbnail_path) ? item.thumbnail_path : null;
       if (meta.thumbBlob) {
@@ -986,6 +1048,11 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       setHighlights((p) => p.map(x => x.id === item.id ? data : x).sort(sortByOrder));
       setStatus({ type: 'success', msg: 'Saved ✓' });
       notifyParent();
+      setMediaErrors((prev) => {
+        const nextReplace = { ...prev.highlightReplace };
+        delete nextReplace[item.id];
+        return { ...prev, highlightReplace: nextReplace };
+      });
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Replace failed' });
@@ -1024,17 +1091,27 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
+    setMediaErrors((prev) => ({ ...prev, gallery: '' }));
+
     const room = CAP.GALLERY - gallery.length;
     const accepted = files.slice(0, Math.max(0, room));
     if (!accepted.length) {
-      alert('Limit reached: replace or remove from the Gallery to upload more items.');
+      setMediaErrors((prev) => ({
+        ...prev,
+        gallery: 'Limit reached: replace or remove from the Gallery to upload more items.',
+      }));
       e.target.value=''; return;
     }
 
+    const errors = [];
+    let uploadedAny = false;
     try {
       for (const file of accepted) {
         const err = checkPhoto(file);
-        if (err) { alert(`"${file.name}": ${err}`); continue; }
+        if (err) {
+          errors.push(`"${file.name}": ${err}`);
+          continue;
+        }
 
         const dims = await readImageDims(file);
         const p = pathPhotoGallery(file.name);
@@ -1062,6 +1139,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
         if (e2) throw e2;
 
         setGallery((g) => [...g, data].sort(sortByOrder));
+        uploadedAny = true;
       }
       setStatus({ type: 'success', msg: 'Saved ✓' });
       notifyParent();
@@ -1070,6 +1148,14 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       setStatus({ type: 'error', msg: 'Upload failed' });
     } finally {
       e.target.value = '';
+      if (errors.length) {
+        setMediaErrors((prev) => ({
+          ...prev,
+          gallery: errors.join(' '),
+        }));
+      } else if (uploadedAny) {
+        setMediaErrors((prev) => ({ ...prev, gallery: '' }));
+      }
     }
   };
 
@@ -1377,6 +1463,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                 <button type="button" onClick={() => onRemoveFeatured('head')} style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}>Remove</button>
               )}
             </div>
+            {mediaErrors.featured.head && <div style={styles.error}>{mediaErrors.featured.head}</div>}
           </div>
 
           {/* Game #1 */}
@@ -1390,6 +1477,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                 <button type="button" onClick={() => onRemoveFeatured('g1')} style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}>Remove</button>
               )}
             </div>
+            {mediaErrors.featured.g1 && <div style={styles.error}>{mediaErrors.featured.g1}</div>}
           </div>
 
           {/* Game #2 */}
@@ -1403,6 +1491,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                 <button type="button" onClick={() => onRemoveFeatured('g2')} style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}>Remove</button>
               )}
             </div>
+            {mediaErrors.featured.g2 && <div style={styles.error}>{mediaErrors.featured.g2}</div>}
           </div>
         </div>
       </div>
@@ -1446,6 +1535,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
             <button type="button" onClick={onRemoveIntro} style={{ ...styles.smallBtn, color: '#b00', borderColor: '#E0E0E0' }}>Remove</button>
           )}
         </div>
+        {mediaErrors.intro && <div style={styles.error}>{mediaErrors.intro}</div>}
       </div>
 
       {/* HIGHLIGHTS */}
@@ -1469,6 +1559,9 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
             </button>
             {hlUploading && (
               <div style={{ fontSize: 12, color: '#666', marginTop: 6, textAlign: 'center' }}>Uploading highlight…</div>
+            )}
+            {mediaErrors.highlightUpload && (
+              <div style={{ ...styles.error, marginTop: 6, textAlign: 'center' }}>{mediaErrors.highlightUpload}</div>
             )}
           </div>
 
@@ -1559,11 +1652,14 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
                           onClick={() => onDeleteHL(it.id, it.storage_path, it.thumbnail_path)}>
                     Delete
                   </button>
-                </div>
               </div>
+            </div>
+            {mediaErrors.highlightReplace?.[it.id] && (
+              <div style={{ ...styles.error, marginTop: 4 }}>{mediaErrors.highlightReplace[it.id]}</div>
+            )}
 
-              {/* Poster + Player inline */}
-              <div style={styles.hlPlayerWrapper}>
+            {/* Poster + Player inline */}
+            <div style={styles.hlPlayerWrapper}>
                 <HLPlayer item={it} getSigned={getSignedUrl} usePoster={usePoster} />
                 {(hlReplacingId === it.id && !it.external_url) && (
                   <div style={styles.introOverlay} role="status" aria-live="polite" aria-atomic="true">
@@ -1630,6 +1726,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
             + Add photo
           </button>
         </div>
+        {mediaErrors.gallery && <div style={styles.error}>{mediaErrors.gallery}</div>}
 
         {!isMobile ? (
           <div style={styles.galleryTableWrap}>
