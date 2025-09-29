@@ -41,7 +41,7 @@ const CAT = {
 // Limiti qualitativi definitivi
 const LIM = {
   PHOTO_MAX_MB: 25,
-  INTRO_MAX_SEC: 240,
+  INTRO_MAX_SEC: 180,
   HL_MAX_SEC: 360,    // 6 min
   MAX_DIM_PX: 4096,   // check "≤4K": dimensione massima lato lungo
 };
@@ -605,7 +605,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   const checkVideoMeta = ({ duration, width, height }, kind) => {
     if (!duration || duration <= 0) return 'Corrupted video or missing metadata.';
     if (kind === 'intro' && duration > LIM.INTRO_MAX_SEC) {
-      return `Duration ${duration}s exceeds the 4-minute upload limit (${LIM.INTRO_MAX_SEC}s).`;
+      return `Duration ${duration}s exceeds the 3-minute upload limit (${LIM.INTRO_MAX_SEC}s).`;
     }
     if (kind === 'highlight' && duration > LIM.HL_MAX_SEC) {
       return `Duration ${duration}s exceeds the 6-minute upload limit (${LIM.HL_MAX_SEC}s). For longer videos, use "Add Link".`;
@@ -1410,7 +1410,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       {/* INTRO VIDEO */}
       <div style={styles.box}>
         <div style={styles.sectionTitle}>Video Intro (1)</div>
-        <div style={styles.subnote}>≤ 240s (4 min), ≤ 4K. MP4/MOV/WEBM. Inline player, poster generated.</div>
+        <div style={styles.subnote}>≤ 180s (3 min), ≤ 4K. MP4/MOV/WEBM. Inline player, poster generated.</div>
         <div style={styles.videoRow}>
           <div style={styles.introWrapper}>
             {intro ? (
