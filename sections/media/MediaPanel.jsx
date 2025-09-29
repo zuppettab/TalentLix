@@ -227,6 +227,8 @@ const styles = {
     border: 0,
   },
   videoRow: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
+  hlListWrapper: { position: 'relative' },
+  hlPlayerWrapper: { position: 'relative', marginTop: 6 },
 
   // Liste
   list: { display: 'flex', flexDirection: 'column', gap: 8 },
@@ -1491,11 +1493,12 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
         {addLinkHL.err && <div style={styles.error}>{addLinkHL.err}</div>}
 
         {/* Lista HL con DnD */}
-        <div style={styles.list}>
-          {highlights.map((it, idx) => (
-            <div key={it.id}
-                 draggable
-                 onDragStart={() => onDragStartHL(idx)}
+        <div style={styles.hlListWrapper}>
+          <div style={styles.list}>
+            {highlights.map((it, idx) => (
+              <div key={it.id}
+                   draggable
+                   onDragStart={() => onDragStartHL(idx)}
                  onDragOver={(e) => onDragOverHL(e, idx)}
                  onDrop={onDropHL}
                  style={{
@@ -1563,7 +1566,15 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
               </div>
 
               {/* Poster + Player inline */}
-              <HLPlayer item={it} getSigned={getSignedUrl} usePoster={usePoster} />
+              <div style={styles.hlPlayerWrapper}>
+                <HLPlayer item={it} getSigned={getSignedUrl} usePoster={usePoster} />
+                {(hlReplacingId === it.id && !it.external_url) && (
+                  <div style={styles.introOverlay} role="status" aria-live="polite" aria-atomic="true">
+                    <div style={styles.introSpinner} aria-hidden="true" />
+                    <span style={styles.srOnly}>Replacing highlight video…</span>
+                  </div>
+                )}
+              </div>
 
               {/* Campi testuali (salvati con Save Bar) */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', rowGap: 12, marginTop: 8 }}>
@@ -1594,8 +1605,15 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
               </div>
             </div>
           ))}
-          {highlights.length === 0 && (
-            <div style={{ fontSize: 12, color: '#666' }}>No highlights.</div>
+            {highlights.length === 0 && (
+              <div style={{ fontSize: 12, color: '#666' }}>No highlights.</div>
+            )}
+          </div>
+          {hlUploading && (
+            <div style={styles.introOverlay} role="status" aria-live="polite" aria-atomic="true">
+              <div style={styles.introSpinner} aria-hidden="true" />
+              <span style={styles.srOnly}>Uploading highlight…</span>
+            </div>
           )}
         </div>
       </div>
@@ -2165,7 +2183,7 @@ function HLPlayer({ item, getSigned, usePoster }) {
 
   if (item.external_url) {
     return (
-      <div style={{ marginTop: 6 }}>
+      <div>
         {!showEmbed ? (
           <div style={{ position: 'relative', width: '100%', maxWidth: 420, margin: '0 auto' }}>
             {poster ? <img alt="Poster" src={poster} style={styles.mediaPreview} /> : <div style={styles.mediaPreview} />}
@@ -2200,7 +2218,7 @@ function HLPlayer({ item, getSigned, usePoster }) {
 
   // Upload locale
   return (
-    <div style={{ marginTop: 6 }}>
+    <div>
       <video
         key={item.id}
         controls
