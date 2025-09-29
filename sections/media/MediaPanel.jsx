@@ -41,9 +41,7 @@ const CAT = {
 // Limiti qualitativi definitivi
 const LIM = {
   PHOTO_MAX_MB: 25,
-  INTRO_MAX_MB: 800,
   INTRO_MAX_SEC: 240,
-  HL_MAX_MB: 2000,    // 2.0 GB in MB
   HL_MAX_SEC: 360,    // 6 min
   MAX_DIM_PX: 4096,   // check "≤4K": dimensione massima lato lungo
 };
@@ -602,9 +600,6 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   };
   const checkVideo = (file, kind) => {
     if (!isVideoFile(file)) return `Invalid format. Allow MP4/MOV/WEBM.`;
-    const mb = bytesToMB(file.size);
-    if (kind === 'intro' && mb > LIM.INTRO_MAX_MB) return `File too large (${mb}MB). Max ${LIM.INTRO_MAX_MB}MB.`;
-    if (kind === 'highlight' && mb > LIM.HL_MAX_MB) return `File too large (${mb}MB). Max ${LIM.HL_MAX_MB}MB.`;
     return '';
   };
   const checkVideoMeta = ({ duration, width, height }, kind) => {
@@ -1415,7 +1410,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       {/* INTRO VIDEO */}
       <div style={styles.box}>
         <div style={styles.sectionTitle}>Video Intro (1)</div>
-        <div style={styles.subnote}>≤ 240s (4 min), ≤ 4K, ≤ 800MB. MP4/MOV/WEBM. Inline player, poster generated.</div>
+        <div style={styles.subnote}>≤ 240s (4 min), ≤ 4K. MP4/MOV/WEBM. Inline player, poster generated.</div>
         <div style={styles.videoRow}>
           <div style={styles.introWrapper}>
             {intro ? (
