@@ -42,9 +42,9 @@ const CAT = {
 const LIM = {
   PHOTO_MAX_MB: 25,
   INTRO_MAX_MB: 800,
-  INTRO_MAX_SEC: 120,
+  INTRO_MAX_SEC: 240,
   HL_MAX_MB: 2000,    // 2.0 GB in MB
-  HL_MAX_SEC: 180,    // 3 min
+  HL_MAX_SEC: 360,    // 6 min
   MAX_DIM_PX: 4096,   // check "≤4K": dimensione massima lato lungo
 };
 
@@ -609,9 +609,11 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   };
   const checkVideoMeta = ({ duration, width, height }, kind) => {
     if (!duration || duration <= 0) return 'Corrupted video or missing metadata.';
-    if (kind === 'intro' && duration > LIM.INTRO_MAX_SEC) return `Duration ${duration}s exceeds ${LIM.INTRO_MAX_SEC}s (Intro).`;
+    if (kind === 'intro' && duration > LIM.INTRO_MAX_SEC) {
+      return `Duration ${duration}s exceeds the 4-minute upload limit (${LIM.INTRO_MAX_SEC}s).`;
+    }
     if (kind === 'highlight' && duration > LIM.HL_MAX_SEC) {
-      return `Duration ${duration}s exceeds the 3-minute upload limit (${LIM.HL_MAX_SEC}s). For longer videos, use "Add Link".`;
+      return `Duration ${duration}s exceeds the 6-minute upload limit (${LIM.HL_MAX_SEC}s). For longer videos, use "Add Link".`;
     }
     const maxSide = Math.max(Number(width || 0), Number(height || 0));
     if (maxSide && maxSide > LIM.MAX_DIM_PX) return `Resolution too high (${width}×${height}). Limit ≤ 4K.`;
@@ -1413,7 +1415,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       {/* INTRO VIDEO */}
       <div style={styles.box}>
         <div style={styles.sectionTitle}>Video Intro (1)</div>
-        <div style={styles.subnote}>≤ 120s, ≤ 4K, ≤ 800MB. MP4/MOV/WEBM. Inline player, poster generated.</div>
+        <div style={styles.subnote}>≤ 240s (4 min), ≤ 4K, ≤ 800MB. MP4/MOV/WEBM. Inline player, poster generated.</div>
         <div style={styles.videoRow}>
           <div style={styles.introWrapper}>
             {intro ? (
@@ -1454,14 +1456,14 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
       {/* HIGHLIGHTS */}
       <div style={styles.box}>
         <div style={styles.sectionTitle}>Highlights (max 3 — upload or link)</div>
-        <div style={styles.subnote}>Poster/thumbnail always present; drag & drop to sort; edit title/caption/tags; inline player. Uploads capped at 3 minutes — use "Add Link" for longer footage.
+        <div style={styles.subnote}>Poster/thumbnail always present; drag & drop to sort; edit title/caption/tags; inline player. Uploads capped at 6 minutes — use "Add Link" for longer footage.
           {addHLDisabled && <strong style={{ color: '#b00' }}> Limit reached: replace or remove.</strong>}
         </div>
 
         {/* Azioni add */}
         <div style={{ ...styles.fieldRow, flexDirection: 'column', alignItems: 'center', rowGap: 8 }}>
           <div style={{ fontSize: 12, color: '#666', textAlign: 'center', maxWidth: 460 }}>
-            Upload clips up to 3 minutes. Need longer footage? Use "+ Add Link" to embed YouTube or Vimeo videos.
+            Upload clips up to 6 minutes. Need longer footage? Use "+ Add Link" to embed YouTube or Vimeo videos.
           </div>
           <div>
             <input type="file" accept="video/mp4,video/quicktime,video/webm" ref={hlUploadInputRef} onChange={onPickHLUpload} style={{ display: 'none' }}/>
