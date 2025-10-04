@@ -1,11 +1,7 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { supabase } from '../utils/supabaseClient';
 
 export default function Home() {
-  const router = useRouter();
-
   useEffect(() => {
     (async () => {
       try {
@@ -26,15 +22,11 @@ export default function Home() {
         if (typeof window !== 'undefined' && window.location.hash) {
           window.history.replaceState(null, '', window.location.pathname);
         }
-
-        // Already logged in → dashboard
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) router.push('/dashboard');
       } catch (e) {
         // fail silently, do not affect UI
       }
     })();
-  }, [router]);
+  }, []);
 
   return (
     <div style={styles.page}>
