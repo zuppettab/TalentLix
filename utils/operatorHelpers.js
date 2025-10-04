@@ -27,11 +27,11 @@ export const fetchOperatorByEmail = async (supabaseClient, rawEmail) => {
   const email = normalizeEmail(rawEmail);
 
   if (!email) {
-    return { data: null, error: new Error('Email mancante.') };
+    return { data: null, error: new Error('Missing email.') };
   }
 
   if (!supabaseClient) {
-    return { data: null, error: new Error('Supabase client non configurato.') };
+    return { data: null, error: new Error('Supabase client not configured.') };
   }
 
   for (const table of candidateTables) {
