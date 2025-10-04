@@ -1,6 +1,7 @@
 // pages/operator.js
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase as sb } from '../utils/supabaseClient';
+import { useOperatorGuard } from '../hooks/useOperatorGuard';
 
 const supabase = sb;
 
@@ -34,11 +35,12 @@ async function signedUrl(path) {
 }
 
 export default function Operator() {
+  const { loading: checkingOperator, user: operatorUser, error: guardError } = useOperatorGuard();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null); // athlete_id in lavorazione
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     // LEFT JOIN: athlete + eventuale riga in contacts_verification
     const { data, error } = await supabase
@@ -67,9 +69,33 @@ export default function Operator() {
       setRows(norm);
     }
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (!checkingOperator && operatorUser) {
+      load();
+    }
+  }, [checkingOperator, operatorUser, load]);
+
+  if (checkingOperator) {
+    return (
+      <div style={{ padding: 20, fontFamily: 'system-ui, Arial, sans-serif' }}>
+        <h2 style={{ margin: 0 }}>Checking operator permissions…</h2>
+      </div>
+    );
+  }
+
+  if (guardError) {
+    return (
+      <div style={{ padding: 20, fontFamily: 'system-ui, Arial, sans-serif' }}>
+        <h2 style={{ margin: 0 }}>Unable to verify operator session.</h2>
+      </div>
+    );
+  }
+
+  if (!operatorUser) {
+    return null;
+  }
 
   const ordered = useMemo(() => {
     // Focus immediato sui "submitted"

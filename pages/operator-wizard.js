@@ -1,36 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../utils/supabaseClient';
+import { useOperatorGuard } from '../hooks/useOperatorGuard';
 
 export default function OperatorWizard() {
   const router = useRouter();
-  const [checking, setChecking] = useState(true);
-  const [userEmail, setUserEmail] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const verifySession = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.replace('/login-operator');
-        return;
-      }
-
-      if (isMounted) {
-        setUserEmail(user?.email || '');
-        setChecking(false);
-      }
-    };
-
-    verifySession();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
+  const { loading: checking, user } = useOperatorGuard();
+  const userEmail = user?.email || '';
 
   const toggleMenu = () => setMenuOpen((open) => !open);
 
