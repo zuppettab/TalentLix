@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { PASSWORD_RESET_EMAIL_MESSAGE } from '../utils/resetPasswordMessages';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -27,7 +28,7 @@ export default function ForgotPassword() {
       redirectTo: `${siteUrl}/reset-password`,
     });
     if (error) setError(error.message);
-    else setMessage('If an account exists for this email, you will receive a password reset link.');
+    else setMessage(PASSWORD_RESET_EMAIL_MESSAGE);
   };
 
   return (
