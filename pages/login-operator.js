@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import {
+  isOperatorUser,
+  OPERATOR_GUARD_REDIRECT_QUERY_KEY,
+  OPERATOR_GUARD_UNAUTHORIZED_VALUE,
+  OPERATOR_LOGIN_PATH,
+  OPERATOR_UNAUTHORIZED_MESSAGE,
+} from '../utils/authRoles';
 import { useRouter } from 'next/router';
 
 export default function LoginOperator() {
@@ -10,12 +17,31 @@ export default function LoginOperator() {
   const router = useRouter();
 
   useEffect(() => {
+    if (!router.isReady) return;
+
+    const reasonParam = router.query[OPERATOR_GUARD_REDIRECT_QUERY_KEY];
+    if (reasonParam === OPERATOR_GUARD_UNAUTHORIZED_VALUE) {
+      setError(OPERATOR_UNAUTHORIZED_MESSAGE);
+      router.replace(OPERATOR_LOGIN_PATH, undefined, { shallow: true });
+    }
+  }, [router]);
+
+  useEffect(() => {
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      if (!supabase) return;
+
+      const { data, error } = await supabase.auth.getUser();
+      if (error) return;
+
+      const user = data?.user;
+      if (user && isOperatorUser(user)) {
         router.push('/operator-wizard');
+      } else if (user) {
+        await supabase.auth.signOut();
+        setError(OPERATOR_UNAUTHORIZED_MESSAGE);
       }
     };
+
     checkUser();
   }, [router]);
 
@@ -35,7 +61,18 @@ export default function LoginOperator() {
         setError(error.message || 'An unexpected error occurred. Please try again.');
       }
     } else {
-      router.push('/operator-wizard');
+      const { data, error: userError } = await supabase.auth.getUser();
+      const user = data?.user;
+
+      if (userError || !user) {
+        await supabase.auth.signOut();
+        setError('Impossibile verificare il ruolo operatore. Riprova.');
+      } else if (!isOperatorUser(user)) {
+        await supabase.auth.signOut();
+        setError(OPERATOR_UNAUTHORIZED_MESSAGE);
+      } else {
+        router.push('/operator-wizard');
+      }
     }
 
     setLoading(false);

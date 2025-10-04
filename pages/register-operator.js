@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import { OPERATOR_ROLE } from '../utils/authRoles';
 import { useRouter } from 'next/router';
 
 export default function RegisterOperator() {
@@ -34,7 +35,11 @@ export default function RegisterOperator() {
       return;
     }
 
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { role: OPERATOR_ROLE } },
+    });
 
     if (signUpError) {
       setError(signUpError.message || 'An unexpected error occurred. Please try again.');
