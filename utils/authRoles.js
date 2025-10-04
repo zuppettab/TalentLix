@@ -27,6 +27,7 @@ export const hasRole = (user, role) => {
 };
 
 export const isOperatorUser = (user) => hasRole(user, OPERATOR_ROLE);
+export const isAthleteUser = (user) => hasRole(user, ATHLETE_ROLE);
 
 export const buildOperatorUnauthorizedQuery = () => ({
   [OPERATOR_GUARD_REDIRECT_QUERY_KEY]: OPERATOR_GUARD_UNAUTHORIZED_VALUE,
