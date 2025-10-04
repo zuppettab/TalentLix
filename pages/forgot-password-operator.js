@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { OPERATOR_UNAUTHORIZED_MESSAGE } from '../utils/authRoles';
 import { fetchOperatorByEmail, isOperatorRecord } from '../utils/operatorHelpers';
+import { PASSWORD_RESET_EMAIL_MESSAGE } from '../utils/resetPasswordMessages';
 
 export default function ForgotPasswordOperator() {
   const [email, setEmail] = useState('');
@@ -42,7 +43,7 @@ export default function ForgotPasswordOperator() {
       redirectTo: `${siteUrl}/reset-password-operator`,
     });
     if (error) setError(error.message);
-    else setMessage('If an operator account exists for this email, you will receive a password reset link.');
+    else setMessage(PASSWORD_RESET_EMAIL_MESSAGE);
   };
 
   return (
