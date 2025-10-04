@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useRouter } from 'next/router';
+import { isAthleteUser, OPERATOR_LOGIN_PATH } from '../utils/authRoles';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -8,17 +9,23 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const nonAthleteMessage = `Account non abilitato per l'area atleti. Utilizza il login operatori (${OPERATOR_LOGIN_PATH}).`;
 
   // 👇 Redirect automatico se già loggato
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        router.push('/dashboard'); // se loggato, vai su Dashboard
+        if (isAthleteUser(user)) {
+          router.push('/dashboard'); // se loggato e atleta, vai su Dashboard
+        } else {
+          await supabase.auth.signOut();
+          setError(nonAthleteMessage);
+        }
       }
     };
     checkUser();
-  }, [router]);
+  }, [router, nonAthleteMessage]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -36,7 +43,13 @@ export default function Login() {
         setError(error.message || 'An unexpected error occurred. Please try again.');
       }
     } else {
-      router.push('/dashboard'); // login riuscito → vai su Dashboard
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && isAthleteUser(user)) {
+        router.push('/dashboard'); // login riuscito → vai su Dashboard atleti
+      } else {
+        await supabase.auth.signOut();
+        setError(nonAthleteMessage);
+      }
     }
 
     setLoading(false);
