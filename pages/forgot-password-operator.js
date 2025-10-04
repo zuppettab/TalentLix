@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { OPERATOR_UNAUTHORIZED_MESSAGE } from '../utils/authRoles';
+import { fetchOperatorByEmail, isOperatorRecord } from '../utils/operatorHelpers';
 
 export default function ForgotPasswordOperator() {
   const [email, setEmail] = useState('');
@@ -21,6 +23,20 @@ export default function ForgotPasswordOperator() {
     e.preventDefault();
     setError('');
     setMessage('');
+
+    const { data: operatorRecord, error: lookupError } = await fetchOperatorByEmail(supabase, email);
+
+    if (lookupError) {
+      console.error('Unable to verify operator account for reset password flow.', lookupError);
+      setError('Impossibile verificare il ruolo operatore. Riprova.');
+      return;
+    }
+
+    if (!isOperatorRecord(operatorRecord)) {
+      setError(OPERATOR_UNAUTHORIZED_MESSAGE);
+      return;
+    }
+
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.talentlix.com';
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${siteUrl}/reset-password-operator`,
