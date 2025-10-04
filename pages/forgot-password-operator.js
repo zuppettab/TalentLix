@@ -12,7 +12,7 @@ export default function ForgotPasswordOperator() {
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) router.push('/operator');
+      if (user) router.push('/operator-wizard');
     };
     checkUser();
   }, [router]);

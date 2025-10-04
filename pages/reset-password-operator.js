@@ -13,7 +13,7 @@ export default function ResetPasswordOperator() {
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) router.push('/operator');
+      if (user) router.push('/operator-wizard');
     };
     checkUser();
   }, [router]);
@@ -37,8 +37,8 @@ export default function ResetPasswordOperator() {
     if (error) {
       setError(error.message || 'An unexpected error occurred.');
     } else {
-      setMessage('Password updated successfully. Redirecting to operator login...');
-      setTimeout(() => router.push('/login-operator'), 2000);
+      setMessage('Password updated successfully. Redirecting to the operator wizard...');
+      setTimeout(() => router.push('/operator-wizard'), 2000);
     }
 
     setLoading(false);
