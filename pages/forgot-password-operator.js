@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { OPERATOR_UNAUTHORIZED_MESSAGE } from '../utils/authRoles';
 import { fetchOperatorByEmail, isOperatorRecord } from '../utils/operatorHelpers';
 import { PASSWORD_RESET_EMAIL_MESSAGE } from '../utils/resetPasswordMessages';
 
@@ -34,7 +33,8 @@ export default function ForgotPasswordOperator() {
     }
 
     if (!isOperatorRecord(operatorRecord)) {
-      setError(OPERATOR_UNAUTHORIZED_MESSAGE);
+      setError('');
+      setMessage(PASSWORD_RESET_EMAIL_MESSAGE);
       return;
     }
 
