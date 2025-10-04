@@ -13,7 +13,7 @@ export default function LoginOperator() {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        router.push('/operator');
+        router.push('/operator-wizard');
       }
     };
     checkUser();
@@ -35,7 +35,7 @@ export default function LoginOperator() {
         setError(error.message || 'An unexpected error occurred. Please try again.');
       }
     } else {
-      router.push('/operator');
+      router.push('/operator-wizard');
     }
 
     setLoading(false);
