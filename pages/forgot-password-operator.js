@@ -28,7 +28,7 @@ export default function ForgotPasswordOperator() {
 
     if (lookupError) {
       console.error('Unable to verify operator account for reset password flow.', lookupError);
-      setError('Impossibile verificare il ruolo operatore. Riprova.');
+      setError(lookupError.message || 'Unable to verify the operator account. Please try again.');
       return;
     }
 
