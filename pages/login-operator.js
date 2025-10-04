@@ -99,6 +99,9 @@ export default function LoginOperator() {
             <p style={styles.footerText}>
               Don’t have an operator account? <a href="/register-operator" style={styles.link}>Register</a>
             </p>
+            <p style={styles.footerText}>
+              Want to return to the main site? <a href="/" style={styles.link}>Go back home</a>
+            </p>
           </div>
         </div>
       </div>
