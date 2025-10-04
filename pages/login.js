@@ -63,6 +63,9 @@ export default function Login() {
             <p style={styles.footerText}>
               Don’t have an account? <a href="/register" style={styles.link}>Register</a>
             </p>
+            <p style={styles.footerText}>
+              <a href="/" style={styles.link}>Back to Home</a>
+            </p>
           </div>
         </div>
       </div>
