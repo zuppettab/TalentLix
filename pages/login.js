@@ -9,7 +9,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const nonAthleteMessage = `Account non abilitato per l'area atleti. Utilizza il login operatori (${OPERATOR_LOGIN_PATH}).`;
+  const nonAthleteMessage = `Account non abilitato come atleta.`;
 
   // 👇 Redirect automatico se già loggato
   useEffect(() => {
