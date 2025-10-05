@@ -135,7 +135,7 @@ export default function Operator() {
   };
 
   const doReject = async (athleteId) => {
-    const reason = window.prompt('Motivo del rifiuto (opzionale):', '');
+    const reason = window.prompt('Rejection reason (optional):', '');
     try {
       setBusy(athleteId);
       const { error } = await supabase
@@ -165,7 +165,7 @@ export default function Operator() {
           {loading ? 'Loading…' : 'Refresh'}
         </button>
         <span style={{ fontSize: 12, color: '#666' }}>
-          Sola lettura + azioni su profili già “submitted”. Nessuna modifica allo schema.
+          Read-only view plus actions on profiles already “submitted.” No schema changes.
         </span>
       </div>
 
@@ -242,7 +242,7 @@ export default function Operator() {
         })}
 
         {ordered.length === 0 && !loading && (
-          <div style={{ padding: 20, color: '#666' }}>Nessun atleta trovato.</div>
+          <div style={{ padding: 20, color: '#666' }}>No athletes found.</div>
         )}
       </div>
     </div>
