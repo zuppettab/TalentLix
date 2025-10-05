@@ -86,7 +86,7 @@ export default function OperatorWizard() {
       try {
         const [{ data: profile, error: profileError }, { data: verification, error: verificationError }] = await Promise.all([
           supabase
-            .from('operator_profile')
+            .from('operator_profiles')
             .select('*')
             .eq('id', operatorId)
             .maybeSingle(),
@@ -169,7 +169,7 @@ export default function OperatorWizard() {
 
     try {
       if (step === 1) {
-        const { error } = await supabase.from('operator_profile').upsert([
+        const { error } = await supabase.from('operator_profiles').upsert([
           {
             id: operatorId,
             entity_type: formData.entity_type,
@@ -185,7 +185,7 @@ export default function OperatorWizard() {
         ], { onConflict: 'id' });
         if (error) throw error;
       } else if (step === 2) {
-        const { error } = await supabase.from('operator_profile').update({
+        const { error } = await supabase.from('operator_profiles').update({
           contact_first_name: formData.contact_first_name,
           contact_last_name: formData.contact_last_name,
           contact_email: formData.contact_email || email,
@@ -214,7 +214,7 @@ export default function OperatorWizard() {
         }, { onConflict: 'operator_id' });
         if (error) throw error;
 
-        const { error: profileUpdateError } = await supabase.from('operator_profile').update({
+        const { error: profileUpdateError } = await supabase.from('operator_profiles').update({
           current_step: nextStep,
           completion_percentage: calcCompletion(nextStep),
         }).eq('id', operatorId);
@@ -236,7 +236,7 @@ export default function OperatorWizard() {
     try {
       const submittedAt = new Date().toISOString();
 
-      const { error: profileError } = await supabase.from('operator_profile').update({
+      const { error: profileError } = await supabase.from('operator_profiles').update({
         privacy_gdpr: formData.privacy_gdpr,
         privacy_gdpr_at: formData.privacy_gdpr ? (formData.privacy_gdpr_at || submittedAt) : null,
         privacy_marketing: formData.privacy_marketing,
@@ -618,7 +618,7 @@ const Step2 = ({ user, formData, setFormData, parsedPhone, saveStep }) => {
       setFormData((prev) => ({ ...prev, phone_verified: true }));
 
       await supabase
-        .from('operator_profile')
+        .from('operator_profiles')
         .update({ phone: formData.phone, phone_verified: true })
         .eq('id', user.id);
 
