@@ -11,16 +11,52 @@ export default function Login() {
   const router = useRouter();
   const nonAthleteMessage = 'This account is not authorized for athlete access.';
 
+  const verifyAthleteUser = async (user) => {
+    if (!user) {
+      return false;
+    }
+
+    if (isAthleteUser(user)) {
+      return true;
+    }
+
+    try {
+      // Fallback per gestire account legacy senza metadata mantenendo separati i flussi atleta e operatore.
+      const { data, error } = await supabase
+        .from('athlete')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      return Boolean(data?.id);
+    } catch (lookupError) {
+      console.error('Error verifying athlete user via legacy fallback', lookupError);
+      throw lookupError;
+    }
+  };
+
   // 👇 Redirect automatico se già loggato
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        if (isAthleteUser(user)) {
-          router.push('/dashboard'); // se loggato e atleta, vai su Dashboard
-        } else {
+        try {
+          const isVerifiedAthlete = await verifyAthleteUser(user);
+
+          if (isVerifiedAthlete) {
+            router.push('/dashboard'); // se loggato e atleta, vai su Dashboard
+          } else {
+            await supabase.auth.signOut();
+            setError(nonAthleteMessage);
+          }
+        } catch (verificationError) {
+          console.error('Error verifying athlete user during session check', verificationError);
           await supabase.auth.signOut();
-          setError(nonAthleteMessage);
+          setError('An unexpected error occurred. Please try again.');
         }
       }
     };
@@ -44,11 +80,20 @@ export default function Login() {
       }
     } else {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user && isAthleteUser(user)) {
-        router.push('/dashboard'); // login riuscito → vai su Dashboard atleti
-      } else {
+
+      try {
+        const isVerifiedAthlete = await verifyAthleteUser(user);
+
+        if (isVerifiedAthlete) {
+          router.push('/dashboard'); // login riuscito → vai su Dashboard atleti
+        } else {
+          await supabase.auth.signOut();
+          setError(nonAthleteMessage);
+        }
+      } catch (verificationError) {
+        console.error('Error verifying athlete user after login', verificationError);
         await supabase.auth.signOut();
-        setError(nonAthleteMessage);
+        setError('An unexpected error occurred. Please try again.');
       }
     }
 
