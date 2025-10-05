@@ -14,7 +14,7 @@ const extractRoleFromRecord = (record) => {
   return null;
 };
 
-const candidateTables = ['operator_profiles', 'profiles', 'operators'];
+const candidateTables = ['operator_profile', 'operator_profiles', 'profiles', 'operators'];
 
 const queryOperatorTable = async (supabaseClient, table, email) =>
   supabaseClient
