@@ -98,14 +98,14 @@ export default function Home() {
         </section>
       )}
 
-      <header style={styles.header}>
-        <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo}/>
+      <header className="hero">
+        <img src="/logo-talentlix.png" alt="TalentLix Logo" className="hero__logo"/>
         <h1 style={styles.claim}>The place where talent gets discovered</h1>
       </header>
 
       <main style={styles.main}>
         {/* ATHLETES PANEL */}
-        <section style={styles.panel}>
+        <section style={styles.panel} className="panel">
           <div style={styles.panelHeader}>
             <span style={styles.badge}>Athletes</span>
             <h2 style={styles.title}>Start your journey</h2>
@@ -125,7 +125,7 @@ export default function Home() {
         </section>
 
         {/* CLUBS & AGENTS PANEL */}
-        <section style={styles.panel}>
+        <section style={styles.panel} className="panel">
           <div style={styles.panelHeader}>
             <span style={styles.badge}>Clubs & Agents</span>
             <h2 style={styles.title}>Find verified talent</h2>
@@ -148,6 +148,40 @@ export default function Home() {
       <footer style={styles.footer}>
         <p style={styles.footerText}>© {new Date().getFullYear()} TalentLix</p>
       </footer>
+
+      <style jsx>{`
+        .hero {
+          padding: 2.75rem 1.5rem 0.65rem;
+          text-align: center;
+        }
+
+        .hero__logo {
+          width: 180px;
+          height: auto;
+          margin-bottom: 0.9rem;
+          filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
+        }
+
+        .panel {
+          --panel-padding: 1.75rem;
+          --panel-min-height: 360px;
+        }
+
+        @media (max-width: 640px) {
+          .hero {
+            padding: 2.5rem 1.5rem 1.25rem;
+          }
+
+          .hero__logo {
+            width: 140px;
+          }
+
+          .panel {
+            --panel-padding: 1.25rem;
+            --panel-min-height: auto;
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -205,17 +239,6 @@ const styles = {
   resultButton: {
     minWidth: 180,
   },
-  header: {
-    padding: '2.5rem 1.5rem 1.25rem',
-    textAlign: 'center',
-  },
-  // LOGO più grande e “pesante”
-  logo: {
-    width: 140,                // ↑ da 84 → 140
-    height: 'auto',
-    marginBottom: '0.9rem',
-    filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.15))', // look più “massiccio”
-  },
   claim: {
     fontSize: '2rem',
     lineHeight: 1.25,
@@ -247,7 +270,8 @@ const styles = {
     background: '#F8F9FA',
     border: '1px solid #E0E0E0',
     borderRadius: 16,
-    padding: '1.25rem',
+    padding: 'var(--panel-padding, 1.75rem)',
+    minHeight: 'var(--panel-min-height, 360px)',
     boxShadow: '0 6px 18px rgba(0,0,0,0.06)',
     display: 'flex',
     flexDirection: 'column',
@@ -256,7 +280,7 @@ const styles = {
     justifyContent: 'space-between',
   },
   panelHeader: {
-    marginBottom: '0.75rem',
+    marginBottom: '1.1rem',
     maxWidth: 360,
   },
   // ETICHETTA più grande
@@ -271,8 +295,8 @@ const styles = {
     marginBottom: 12,
   },
   title: {
-    margin: '0.25rem 0 0.4rem',
-    fontSize: '1.5rem',
+    margin: '0.25rem 0 0.55rem',
+    fontSize: '1.65rem',
     fontWeight: 800,
     background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
     WebkitBackgroundClip: 'text',
@@ -281,7 +305,8 @@ const styles = {
   text: {
     margin: 0,
     color: '#555555',
-    fontSize: '0.98rem',
+    fontSize: '1.05rem',
+    lineHeight: 1.6,
   },
   ctaRow: {
     display: 'flex',
