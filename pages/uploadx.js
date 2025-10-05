@@ -16,39 +16,39 @@ export default function UploadX() {
   };
 
   const handleUpload = async () => {
-    if (!file) return setMessage('⚠️ Seleziona prima un file.');
-    setMessage('⏳ Upload in corso...');
+    if (!file) return setMessage('⚠️ Select a file first.');
+    setMessage('⏳ Upload in progress...');
 
-    // ✅ Percorso fisso nella cartella IMG
+    // ✅ Fixed path inside the IMG folder
     const filePath = `IMG/${Date.now()}-${file.name}`;
 
     const { error } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
 
     if (error) {
-      console.error("Errore upload:", error);
-      setMessage(`❌ Upload fallito: ${error.message}`);
+      console.error("Upload error:", error);
+      setMessage(`❌ Upload failed: ${error.message}`);
     } else {
       const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
       setPublicUrl(data.publicUrl);
-      setMessage('✅ Upload riuscito nella cartella IMG!');
+      setMessage('✅ Upload completed in the IMG folder!');
     }
   };
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-      <h2>🧪 UploadX Test (No Auth) → Cartella IMG</h2>
+      <h2>🧪 UploadX Test (No Auth) → IMG Folder</h2>
 
       <input type="file" onChange={handleFileChange} />
       {preview && <img src={preview} alt="Preview" style={{ width: 100, height: 100, marginTop: '1rem', border: '1px solid #ccc', borderRadius: '8px' }} />}
       
       <button onClick={handleUpload} disabled={!file} style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}>
-        🚀 Upload su IMG
+        🚀 Upload to IMG
       </button>
 
       {message && <p style={{ marginTop: '1rem' }}>{message}</p>}
       {publicUrl && (
         <p>
-          <a href={publicUrl} target="_blank" rel="noopener noreferrer">🔗 Visualizza File</a>
+          <a href={publicUrl} target="_blank" rel="noopener noreferrer">🔗 View File</a>
         </p>
       )}
     </div>
