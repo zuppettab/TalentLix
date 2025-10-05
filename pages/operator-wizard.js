@@ -135,7 +135,7 @@ export default function OperatorWizard() {
 
   const operatorAuthId = user?.id || null;
   const accountId = account?.id || null;
-  const opId = account?.op_id || null;
+  const opId = account?.id || null;
   const email = user?.email || '';
 
   const toggleMenu = () => setMenuOpen((open) => !open);
@@ -157,7 +157,6 @@ export default function OperatorWizard() {
           .from('op_account')
           .select(`
             id,
-            op_id,
             wizard_status,
             wizard_started_at,
             wizard_updated_at,
