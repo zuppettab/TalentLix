@@ -9,7 +9,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const nonAthleteMessage = `Account non abilitato come atleta.`;
+  const nonAthleteMessage = 'This account is not authorized for athlete access.';
 
   // 👇 Redirect automatico se già loggato
   useEffect(() => {
