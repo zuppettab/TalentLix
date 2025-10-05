@@ -104,6 +104,24 @@ export default function OperatorWizard() {
   const [hasScrolled, setHasScrolled] = useState(false);
   const [privacy, setPrivacy] = useState({ accepted:false, marketing_optin:false });
 
+  useEffect(() => {
+    let isActive = true;
+    fetch('/gdpr_policy_en.html')
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load GDPR policy: ${res.status}`);
+        return res.text();
+      })
+      .then((html) => {
+        if (isActive) setGdprHtml(html);
+      })
+      .catch((err) => {
+        console.error('Failed to load GDPR policy', err);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
   /** -------------------------
    * LOAD iniziale (stile atleti)
    * ------------------------- */
