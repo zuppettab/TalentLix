@@ -158,9 +158,6 @@ export default function OperatorWizard() {
           .select(`
             id,
             wizard_status,
-            wizard_started_at,
-            wizard_updated_at,
-            wizard_completed_at,
             op_profile (
               legal_name,
               trade_name,
@@ -321,15 +318,10 @@ export default function OperatorWizard() {
 
   const updateAccountWizard = async (nextStep) => {
     if (!accountId) return;
-    const now = new Date().toISOString();
     const wizardStatus = STEP_STATUSES[nextStep] || STEP_STATUSES.complete;
     const payload = {
       wizard_status: wizardStatus,
-      wizard_updated_at: now,
     };
-    if (!account?.wizard_started_at) {
-      payload.wizard_started_at = now;
-    }
     const { error } = await supabase.from('op_account').update(payload).eq('id', accountId);
     if (error) throw error;
     const normalizedStatus = normalizeWizardStatus(wizardStatus);
@@ -440,8 +432,6 @@ export default function OperatorWizard() {
 
       const accountUpdatePayload = {
         wizard_status: STEP_STATUSES.submitted,
-        wizard_updated_at: submittedAt,
-        wizard_completed_at: submittedAt,
       };
       const { error: accountError } = await supabase
         .from('op_account')
