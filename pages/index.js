@@ -164,7 +164,7 @@ export default function Home() {
 
         .panel {
           --panel-padding: 1.75rem;
-          --panel-min-height: 360px;
+          --panel-min-height: auto;
         }
 
         @media (max-width: 640px) {
@@ -277,7 +277,7 @@ const styles = {
     flexDirection: 'column',
     textAlign: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
   },
   panelHeader: {
     marginBottom: '1.1rem',
@@ -311,7 +311,7 @@ const styles = {
   ctaRow: {
     display: 'flex',
     gap: '0.6rem',
-    marginTop: '1rem',
+    marginTop: '1.25rem',
     flexWrap: 'wrap',
     justifyContent: 'center',
   },
