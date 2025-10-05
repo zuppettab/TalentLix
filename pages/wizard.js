@@ -11,6 +11,8 @@ import PhoneInput from 'react-phone-input-2';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import sports from '../utils/sports';
 
+const MAX_YEARS_EXPERIENCE = 80;
+
 const parseDob = (str) => {
   if (!str) return null;
   let y, m, d;
@@ -69,7 +71,7 @@ const [errors, setErrors] = useState({});
   main_role: '',
   team_name: '',           // facoltativo
   previous_team: '',       // NUOVO (facoltativo)
-  years_experience: '',    // NUOVO (0–age*0.7) — mostrato solo dopo scelta sport
+  years_experience: '',    // NUOVO (0–80) — mostrato solo dopo scelta sport
   category: '',
   seeking_team: false,     // NUOVO (checkbox)
   // ——
@@ -326,13 +328,10 @@ useEffect(() => {
       
           } else if (step === 3) {
             // Insert esperienza sportiva (con previous_team + years_experience) + avanzamento
-            const age = getAgeFromDob(formData.date_of_birth);
-            const maxYears = age != null ? Math.floor(age * 0.7) : 0;
-
             if (formData.years_experience !== '' && formData.years_experience != null) {
               const yrs = parseInt(formData.years_experience, 10);
-              if (Number.isNaN(yrs) || yrs < 0 || yrs > maxYears) {
-                setErrors(prev => ({ ...prev, years_experience: `Out of range (0–${maxYears})` }));
+              if (Number.isNaN(yrs) || yrs < 0 || yrs > MAX_YEARS_EXPERIENCE) {
+                setErrors(prev => ({ ...prev, years_experience: 'Invalid years of experience' }));
                 return;
               } else {
                 setErrors(prev => ({ ...prev, years_experience: '' }));
@@ -345,7 +344,7 @@ useEffect(() => {
               formData.years_experience === '' || formData.years_experience == null
                 ? null
                 : parseInt(formData.years_experience, 10);
-          
+
             const { error } = await supabase.from('sports_experiences').insert([{
               athlete_id: user.id,
               sport: formData.sport,
@@ -353,7 +352,7 @@ useEffect(() => {
               team: formData.team_name || null,      // facoltativo
               previous_team: formData.previous_team || null, // NUOVO
               category: formData.category,
-              years_experience: years,               // NUOVO (0–age*0.7 o NULL)
+              years_experience: years,               // NUOVO (0–80 o NULL)
               seeking_team: !!formData.seeking_team,
             }]);
             if (error) throw error;
@@ -1172,9 +1171,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
 /* STEP 3 */
 const Step3 = ({ formData, setFormData, handleChange, saveStep, errors, setErrors }) => {
-  const age = getAgeFromDob(formData.date_of_birth);
-  const maxYears = age != null ? Math.floor(age * 0.7) : 0;
-  const showYearsInput = formData.sport && age != null;
+  const showYearsInput = !!formData.sport;
 
   const handleYearsChange = (e) => {
     const val = e.target.value;
@@ -1184,8 +1181,8 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep, errors, setError
       return;
     }
     const num = parseInt(val, 10);
-    if (Number.isNaN(num) || num < 0 || num > maxYears) {
-      setErrors(prev => ({ ...prev, years_experience: `Out of range (0–${maxYears})` }));
+    if (Number.isNaN(num) || num < 0 || num > MAX_YEARS_EXPERIENCE) {
+      setErrors(prev => ({ ...prev, years_experience: 'Invalid years of experience' }));
     } else {
       setErrors(prev => ({ ...prev, years_experience: '' }));
     }
@@ -1225,9 +1222,9 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep, errors, setError
                 style={styles.input}
                 type="number"
                 name="years_experience"
-                placeholder={`Years of Experience (0–${maxYears})`}
+                placeholder="Years of Experience"
                 min={0}
-                max={maxYears}
+                max={MAX_YEARS_EXPERIENCE}
                 value={formData.years_experience}
                 onChange={handleYearsChange}
                 onBlur={handleYearsChange}
