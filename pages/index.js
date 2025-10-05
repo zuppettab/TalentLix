@@ -1,7 +1,9 @@
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
+  const [confirmationResult, setConfirmationResult] = useState(null);
+
   useEffect(() => {
     (async () => {
       try {
@@ -10,17 +12,46 @@ export default function Home() {
         const type = params.get('type');
         const errorCode = params.get('error_code');
         const errorDescription = params.get('error_description');
+        const decodedDescription = errorDescription ? decodeURIComponent(errorDescription) : '';
+
+        let result = null;
 
         if (type === 'signup') {
-          try { alert('Email confirmed ✅'); } catch (e) {}
+          result = {
+            status: 'success',
+            title: 'Registrazione confermata',
+            message: 'Benvenuto in TalentLix! Il tuo account è stato confermato correttamente.',
+          };
         } else if (errorCode === 'otp_expired') {
-          const msg = errorDescription ? decodeURIComponent(errorDescription) : 'Confirmation link expired.';
-          try { alert(`Confirmation failed ❌\n${msg}`); } catch (e) {}
+          result = {
+            status: 'error',
+            title: 'Link scaduto',
+            message: decodedDescription || 'Il link di conferma è scaduto. Richiedi un nuovo codice per continuare.',
+          };
+        } else if (errorCode === 'already_confirmed') {
+          result = {
+            status: 'success',
+            title: 'Account già confermato',
+            message: 'Hai già confermato il tuo account. Puoi effettuare il login per iniziare ad utilizzare la piattaforma.',
+          };
+        } else if (decodedDescription) {
+          result = {
+            status: 'error',
+            title: 'Qualcosa è andato storto',
+            message: decodedDescription,
+          };
+        }
+
+        if (result) {
+          setConfirmationResult(result);
         }
 
         // Clean URL hash
         if (typeof window !== 'undefined' && window.location.hash) {
-          window.history.replaceState(null, '', window.location.pathname);
+          // delay cleanup to ensure state has been set
+          setTimeout(() => {
+            window.history.replaceState(null, '', window.location.pathname);
+          }, 0);
         }
       } catch (e) {
         // fail silently, do not affect UI
@@ -30,6 +61,40 @@ export default function Home() {
 
   return (
     <div style={styles.page}>
+      {confirmationResult && (
+        <section
+          role="status"
+          aria-live="polite"
+          style={{
+            ...styles.resultCard,
+            borderColor: confirmationResult.status === 'success' ? '#27E3DA' : '#FF6B6B',
+            boxShadow:
+              confirmationResult.status === 'success'
+                ? '0 16px 40px rgba(39, 227, 218, 0.25)'
+                : '0 16px 40px rgba(255, 107, 107, 0.25)',
+          }}
+        >
+          <img
+            src="/logo-talentlix.png"
+            alt="TalentLix Logo"
+            style={styles.resultLogo}
+          />
+          <div style={styles.resultIcon} aria-hidden="true">
+            {confirmationResult.status === 'success' ? '✅' : '⚠️'}
+          </div>
+          <h2 style={styles.resultTitle}>{confirmationResult.title}</h2>
+          <p style={styles.resultMessage}>{confirmationResult.message}</p>
+          <div style={styles.resultActions}>
+            <Link href="/login" legacyBehavior>
+              <a style={{ ...styles.button, ...styles.buttonPrimary, ...styles.resultButton }}>Vai al login atleti</a>
+            </Link>
+            <Link href="/login-operator" legacyBehavior>
+              <a style={{ ...styles.button, ...styles.buttonSecondary, ...styles.resultButton }}>Vai al login operatori</a>
+            </Link>
+          </div>
+        </section>
+      )}
+
       <header style={styles.header}>
         <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo}/>
         <h1 style={styles.claim}>The place where talent gets discovered</h1>
@@ -92,6 +157,50 @@ const styles = {
     color: '#000000',
     display: 'flex',
     flexDirection: 'column',
+  },
+  resultCard: {
+    margin: '1rem auto 0',
+    width: 'min(960px, 94%)',
+    background: '#FFFFFF',
+    border: '2px solid #27E3DA',
+    borderRadius: 24,
+    padding: '2rem 1.75rem',
+    textAlign: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '1rem',
+  },
+  resultLogo: {
+    width: 120,
+    height: 'auto',
+  },
+  resultIcon: {
+    fontSize: '2.5rem',
+  },
+  resultTitle: {
+    margin: 0,
+    fontSize: '1.75rem',
+    fontWeight: 800,
+    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+  },
+  resultMessage: {
+    margin: 0,
+    maxWidth: 640,
+    color: '#4A4A4A',
+    fontSize: '1rem',
+  },
+  resultActions: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '0.75rem',
+    justifyContent: 'center',
+  },
+  resultButton: {
+    minWidth: 180,
   },
   header: {
     padding: '2.5rem 1.5rem 1.25rem',
