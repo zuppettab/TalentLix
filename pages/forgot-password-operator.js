@@ -32,14 +32,20 @@ export default function ForgotPasswordOperator() {
       return;
     }
 
-    if (!isOperatorRecord(operatorRecord)) {
-      setError('');
-      setMessage(PASSWORD_RESET_EMAIL_MESSAGE);
+    if (!operatorRecord) {
+      setError('We couldn’t find an operator account with that email address.');
       return;
     }
 
+    if (!isOperatorRecord(operatorRecord)) {
+      setError('This operator account is not eligible for password resets. Please contact support.');
+      return;
+    }
+
+    const targetEmail = operatorRecord?.contact?.email_primary || email;
+
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.talentlix.com';
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
       redirectTo: `${siteUrl}/reset-password-operator`,
     });
     if (error) setError(error.message);

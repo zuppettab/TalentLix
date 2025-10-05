@@ -1,27 +1,20 @@
-import { OPERATOR_ROLE } from './authRoles';
-
 const normalizeEmail = (email) => (typeof email === 'string' ? email.trim().toLowerCase() : '');
 
-const extractRoleFromRecord = (record) => {
-  if (!record || typeof record !== 'object') return null;
+const normalizeStatus = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 
-  const directRole = record.role || record.user_role || record.account_role;
-  if (typeof directRole === 'string') return directRole.toLowerCase();
+const ACTIVE_ACCOUNT_STATUSES = new Set(['active', 'approved']);
+const COMPLETED_WIZARD_STATUSES = new Set(['complete', 'completed']);
 
-  const metadataRole = record?.metadata?.role || record?.user_metadata?.role || record?.app_metadata?.role;
-  if (typeof metadataRole === 'string') return metadataRole.toLowerCase();
+const mapOperatorRow = (row) => {
+  if (!row || typeof row !== 'object') return null;
 
-  return null;
+  const { op_account: account, ...contact } = row;
+
+  return {
+    contact,
+    account: account ?? null,
+  };
 };
-
-const candidateTables = ['operator_profile', 'operator_profiles', 'profiles', 'operators'];
-
-const queryOperatorTable = async (supabaseClient, table, email) =>
-  supabaseClient
-    .from(table)
-    .select('id, email, role, user_role, account_role, metadata, user_metadata, app_metadata')
-    .ilike('email', email)
-    .maybeSingle();
 
 export const fetchOperatorByEmail = async (supabaseClient, rawEmail) => {
   const email = normalizeEmail(rawEmail);
@@ -34,33 +27,64 @@ export const fetchOperatorByEmail = async (supabaseClient, rawEmail) => {
     return { data: null, error: new Error('Supabase client is not configured.') };
   }
 
-  for (const table of candidateTables) {
-    try {
-      const { data, error } = await queryOperatorTable(supabaseClient, table, email);
+  try {
+    const { data, error } = await supabaseClient
+      .from('op_contact')
+      .select(
+        `
+          id,
+          email_primary,
+          op_account!inner (
+            id,
+            status,
+            wizard_status,
+            operator_type,
+            operator_type_id
+          )
+        `
+      )
+      .ilike('email_primary', email)
+      .maybeSingle();
 
-      if (error) {
-        if (error.code === '42P01') {
-          // Table does not exist; try next candidate.
-          continue;
-        }
-
-        if (error.code === 'PGRST116') {
-          // No rows returned for this table; try next candidate.
-          continue;
-        }
-
-        return { data: null, error };
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows found for the provided email.
+        return { data: null, error: null };
       }
 
-      if (data) {
-        return { data, error: null };
-      }
-    } catch (err) {
-      return { data: null, error: err };
+      return { data: null, error };
     }
-  }
 
-  return { data: null, error: null };
+    return { data: mapOperatorRow(data), error: null };
+  } catch (err) {
+    return { data: null, error: err };
+  }
 };
 
-export const isOperatorRecord = (record) => extractRoleFromRecord(record) === OPERATOR_ROLE;
+export const isOperatorRecord = (record) => {
+  if (!record || typeof record !== 'object') return false;
+
+  const contactEmail = normalizeEmail(record?.contact?.email_primary);
+  if (!contactEmail) return false;
+
+  const account = record.account;
+  if (!account || typeof account !== 'object') return false;
+
+  const status = normalizeStatus(account.status);
+  const wizardStatus = normalizeStatus(account.wizard_status);
+
+  if (ACTIVE_ACCOUNT_STATUSES.has(status)) return true;
+
+  if (COMPLETED_WIZARD_STATUSES.has(wizardStatus)) return true;
+
+  const operatorType = account.operator_type ?? account.operator_type_id;
+  if (typeof operatorType === 'string') {
+    return operatorType.trim() !== '';
+  }
+
+  if (typeof operatorType === 'number') {
+    return true;
+  }
+
+  return false;
+};
