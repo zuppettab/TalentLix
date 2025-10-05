@@ -72,6 +72,7 @@ export default function OperatorWizard() {
 
   // Step
   const [step, setStep] = useState(1);
+  const hasInitializedStep = useRef(false);
 
   // STEP 1 — Anagrafica
   const [profile, setProfile] = useState({
@@ -93,6 +94,7 @@ export default function OperatorWizard() {
 
   // STEP 3 — Regole dinamiche + Upload
   const [docRules, setDocRules] = useState([]);  // [{doc_type,is_required,conditions}]
+  const [docRulesLoaded, setDocRulesLoaded] = useState(false);
   const [verifReq, setVerifReq] = useState(null);// {id,state,...}
   const [documents, setDocuments] = useState({}); // { [doc_type]: {file_key,file_hash,...} }
 
@@ -188,17 +190,20 @@ export default function OperatorWizard() {
   // Carica regole documentali al cambio tipo
   useEffect(() => {
     const loadRules = async () => {
+      setDocRulesLoaded(false);
       try {
         const typeRow = selectedTypeRow || (opTypes || []).find(t => t.id === account?.type_id);
-        if (!typeRow) { setDocRules([]); return; }
+        if (!typeRow) { setDocRules([]); setDocRulesLoaded(true); return; }
         const { data: rules } = await supabase
           .from('op_type_required_doc')
           .select('doc_type,is_required,conditions')
           .eq('type_id', typeRow.id);
         setDocRules(rules || []);
+        setDocRulesLoaded(true);
       } catch (e) {
         console.error('Doc rules error', e);
         setDocRules([]);
+        setDocRulesLoaded(true);
       }
     };
     loadRules();
@@ -440,6 +445,32 @@ export default function OperatorWizard() {
   const activeDocRules = docRules.filter((r) => matchesConditions(r, { country: normalizeCountryCode(profile.country) }));
   const requiredDocTypes = activeDocRules.filter((r) => r.is_required).map((r) => r.doc_type);
   const isValidStep3 = requiredDocTypes.every((dt) => !!documents[dt]);
+
+  useEffect(() => {
+    if (loading || !docRulesLoaded) return;
+    if (hasInitializedStep.current) return;
+
+    let nextStep = 4;
+    if (!isValidStep1) nextStep = 1;
+    else if (!isValidStep2) nextStep = 2;
+    else if (!isValidStep3) nextStep = 3;
+    else if (!privacy.accepted) nextStep = 4;
+
+    setStep(nextStep);
+    hasInitializedStep.current = true;
+  }, [
+    loading,
+    isValidStep1,
+    isValidStep2,
+    isValidStep3,
+    privacy.accepted,
+    docRules,
+    documents,
+    profile,
+    contact,
+    selectedTypeCode,
+    docRulesLoaded,
+  ]);
 
   /** -------------------------
    *  RENDER
