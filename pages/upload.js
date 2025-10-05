@@ -21,9 +21,9 @@ export default function UploadTest() {
 
         const jwt = session.access_token;
         const payload = JSON.parse(atob(jwt.split('.')[1]));
-        console.log("🔑 JWT payload:", payload); // Mostra role, sub, ecc.
+        console.log("🔑 JWT payload:", payload); // Shows role, sub, etc.
       } else {
-        console.log("⚠️ Nessuna sessione attiva. Utente non autenticato.");
+        console.log("⚠️ No active session. User not authenticated.");
       }
     };
 
@@ -90,7 +90,7 @@ export default function UploadTest() {
 
       {!user ? (
         <form onSubmit={handleLogin} style={{ marginBottom: '1rem' }}>
-          <p>Login per testare l'upload autenticato:</p>
+          <p>Log in to test authenticated uploads:</p>
           <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required style={styles.input} />
           <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required style={styles.input} />
           <button type="submit" style={styles.button}>Login</button>
