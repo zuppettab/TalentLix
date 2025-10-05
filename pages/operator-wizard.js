@@ -91,6 +91,7 @@ export default function OperatorWizard() {
   const [otpMsg, setOtpMsg] = useState('');
   const [cooldown, setCooldown] = useState(0);
   const [expiresIn, setExpiresIn] = useState(0);
+  const isPhoneVerified = !!contact.phone_verified_at;
 
   // STEP 3 — Regole dinamiche + Upload
   const [docRules, setDocRules] = useState([]);  // [{doc_type,is_required,conditions}]
@@ -361,6 +362,9 @@ export default function OperatorWizard() {
       setContact((p) => ({ ...p, phone_verified_at: verifiedAt }));
       setOtpMsg('Phone verified ✔');
       setOtpCode('');
+      setOtpSent(false);
+      setCooldown(0);
+      setExpiresIn(0);
       if (opId) {
         await supabase.from('op_contact').upsert([{
           op_id: opId,
@@ -609,46 +613,62 @@ export default function OperatorWizard() {
                       />
 
                       {/* OTP UI (stile atleti) */}
-                      <div style={{ display:'grid', gap:'8px' }}>
-                        <button
-                          type="button"
-                          onClick={sendCode}
-                          disabled={!isValidPhone || cooldown > 0}
-                          style={{
-                            background: (!isValidPhone || cooldown > 0) ? '#ccc' : 'linear-gradient(90deg, #27E3DA, #F7B84E)',
-                            color:'#fff', border:'none', padding:'0.6rem', borderRadius:'8px',
-                            cursor:(!isValidPhone || cooldown > 0) ? 'not-allowed' : 'pointer', fontWeight:'bold'
-                          }}
-                        >
-                          {otpSent ? 'Resend code' : 'Send code'}
-                        </button>
-                        <div style={{ marginTop:'6px', fontSize:'12px', color:'#555', textAlign:'left' }}>
-                          {cooldown > 0 ? <span>Resend in {fmtSecs(cooldown)}</span> : (otpSent && <span>You can resend now</span>)}
-                          {expiresIn > 0 && <span style={{ marginLeft:8 }}>• Code expires in {fmtSecs(expiresIn)}</span>}
-                        </div>
-
-                        {otpSent && (
-                          <div style={{ display:'flex', gap:'8px' }}>
-                            <input type="text" inputMode="numeric" pattern="\d*" maxLength={6}
-                                   placeholder="Enter 6-digit code" value={otpCode}
-                                   onChange={(e)=> setOtpCode(e.target.value.replace(/\D/g,''))}
-                                   style={{ ...styles.input, flex:1 }} />
-                            <button
-                              type="button"
-                              onClick={verifyCode}
-                              disabled={otpCode.length !== 6}
-                              style={{
-                                background: otpCode.length === 6 ? 'linear-gradient(90deg, #27E3DA, #F7B84E)' : '#ccc',
-                                color:'#fff', border:'none', padding:'0.6rem 0.8rem', borderRadius:'8px',
-                                cursor: otpCode.length === 6 ? 'pointer' : 'not-allowed', fontWeight:'bold', whiteSpace:'nowrap'
-                              }}
-                            >
-                              Confirm
-                            </button>
+                      {!isPhoneVerified ? (
+                        <div style={{ display:'grid', gap:'8px' }}>
+                          <button
+                            type="button"
+                            onClick={sendCode}
+                            disabled={!isValidPhone || cooldown > 0}
+                            style={{
+                              background: (!isValidPhone || cooldown > 0) ? '#ccc' : 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+                              color:'#fff', border:'none', padding:'0.6rem', borderRadius:'8px',
+                              cursor:(!isValidPhone || cooldown > 0) ? 'not-allowed' : 'pointer', fontWeight:'bold'
+                            }}
+                          >
+                            {otpSent ? 'Resend code' : 'Send code'}
+                          </button>
+                          <div style={{ marginTop:'6px', fontSize:'12px', color:'#555', textAlign:'left' }}>
+                            {cooldown > 0 ? <span>Resend in {fmtSecs(cooldown)}</span> : (otpSent && <span>You can resend now</span>)}
+                            {expiresIn > 0 && <span style={{ marginLeft:8 }}>• Code expires in {fmtSecs(expiresIn)}</span>}
                           </div>
-                        )}
-                        {otpMsg && (<div style={{ fontSize:'0.9rem', color:'#444' }}>{otpMsg}</div>)}
-                      </div>
+
+                          {otpSent && (
+                            <div style={{ display:'flex', gap:'8px' }}>
+                              <input type="text" inputMode="numeric" pattern="\d*" maxLength={6}
+                                     placeholder="Enter 6-digit code" value={otpCode}
+                                     onChange={(e)=> setOtpCode(e.target.value.replace(/\D/g,''))}
+                                     style={{ ...styles.input, flex:1 }} />
+                              <button
+                                type="button"
+                                onClick={verifyCode}
+                                disabled={otpCode.length !== 6}
+                                style={{
+                                  background: otpCode.length === 6 ? 'linear-gradient(90deg, #27E3DA, #F7B84E)' : '#ccc',
+                                  color:'#fff', border:'none', padding:'0.6rem 0.8rem', borderRadius:'8px',
+                                  cursor: otpCode.length === 6 ? 'pointer' : 'not-allowed', fontWeight:'bold', whiteSpace:'nowrap'
+                                }}
+                              >
+                                Confirm
+                              </button>
+                            </div>
+                          )}
+                          {otpMsg && (<div style={{ fontSize:'0.9rem', color:'#444' }}>{otpMsg}</div>)}
+                        </div>
+                      ) : (
+                        <div style={{
+                          display:'grid',
+                          gap:'8px',
+                          padding:'12px',
+                          background:'#e8f9f6',
+                          borderRadius:'8px',
+                          color:'#145c4d',
+                          fontWeight:600,
+                          textAlign:'left'
+                        }}>
+                          <span>✅ Phone number verified.</span>
+                          {otpMsg && (<div style={{ fontSize:'0.9rem', color:'#145c4d', fontWeight:500 }}>{otpMsg}</div>)}
+                        </div>
+                      )}
 
                       <button
                         style={isValidStep2 ? styles.button : styles.buttonDisabled}
