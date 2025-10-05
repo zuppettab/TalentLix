@@ -1250,7 +1250,11 @@ const twoCols = {
 
 const styles = {
   background: {
-    background: 'url(/operator-bg.jpg) center/cover no-repeat fixed',
+    backgroundImage: "url('/BackG.png')",
+    backgroundPosition: 'center',
+    backgroundSize: 'cover',
+    backgroundRepeat: 'no-repeat',
+    backgroundAttachment: 'fixed',
     minHeight: '100vh',
     display: 'flex',
     alignItems: 'center',
