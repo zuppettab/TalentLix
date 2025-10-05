@@ -38,11 +38,11 @@ export default function Operator() {
   const { loading: checkingOperator, user: operatorUser, error: guardError } = useOperatorGuard();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(null); // athlete_id in lavorazione
+  const [busy, setBusy] = useState(null); // athlete_id currently being processed
 
   const load = useCallback(async () => {
     setLoading(true);
-    // LEFT JOIN: athlete + eventuale riga in contacts_verification
+    // LEFT JOIN: athlete + optional row in contacts_verification
     const { data, error } = await supabase
       .from('athlete')
       .select(`
@@ -61,7 +61,7 @@ export default function Operator() {
       setRows([]);
     } else {
       const norm = (data || []).map(r => {
-        // Supabase può restituire array se 1:N; prendiamo la prima (aspettata 1:1)
+        // Supabase may return an array for 1:N; take the first (expected 1:1)
         const cv = Array.isArray(r.contacts_verification) ? r.contacts_verification[0] : r.contacts_verification;
         const review_status = String(cv?.review_status || 'draft').toLowerCase();
         return { ...r, cv: cv || null, review_status };
@@ -98,7 +98,7 @@ export default function Operator() {
   }
 
   const ordered = useMemo(() => {
-    // Focus immediato sui "submitted"
+    // Immediately focus on "submitted" rows
     const rank = s => ({ submitted: 0, rejected: 1, draft: 2, approved: 3 })[s] ?? 9;
     return [...rows].sort((a, b) => rank(a.review_status) - rank(b.review_status));
   }, [rows]);
@@ -108,12 +108,12 @@ export default function Operator() {
     if (url) window.open(url, '_blank', 'noreferrer');
   };
 
-  // *** IMPORTANTISSIMO ***
-  // Nessuna creazione/alter table. Si AGGIORNA SOLO se esiste già una riga "submitted".
+  // *** VERY IMPORTANT ***
+  // No create/alter table. Only update if a "submitted" row already exists.
   const doApprove = async (athleteId) => {
     try {
       setBusy(athleteId);
-      // Aggiorna SOLO dove già esiste una riga submitted per quell'athlete_id
+      // Update only where a submitted row already exists for that athlete_id
       const { error } = await supabase
         .from('contacts_verification')
         .update({
@@ -135,7 +135,7 @@ export default function Operator() {
   };
 
   const doReject = async (athleteId) => {
-    const reason = window.prompt('Motivo del rifiuto (opzionale):', '');
+    const reason = window.prompt('Rejection reason (optional):', '');
     try {
       setBusy(athleteId);
       const { error } = await supabase
@@ -165,7 +165,7 @@ export default function Operator() {
           {loading ? 'Loading…' : 'Refresh'}
         </button>
         <span style={{ fontSize: 12, color: '#666' }}>
-          Sola lettura + azioni su profili già “submitted”. Nessuna modifica allo schema.
+          Read-only plus actions on profiles already “submitted”. No schema changes.
         </span>
       </div>
 
@@ -180,7 +180,7 @@ export default function Operator() {
 
         {ordered.map((r) => {
           const cv = r.cv || {};
-          const canAct = r.review_status === 'submitted'; // SOLO se già sottomesso
+          const canAct = r.review_status === 'submitted'; // only if already submitted
           return (
             <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '220px 1fr 1fr 1fr 1fr', borderTop: '1px solid #EEE' }}>
               <div style={cell}>
@@ -242,7 +242,7 @@ export default function Operator() {
         })}
 
         {ordered.length === 0 && !loading && (
-          <div style={{ padding: 20, color: '#666' }}>Nessun atleta trovato.</div>
+          <div style={{ padding: 20, color: '#666' }}>No athletes found.</div>
         )}
       </div>
     </div>

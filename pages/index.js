@@ -97,12 +97,12 @@ const styles = {
     padding: '2.5rem 1.5rem 1.25rem',
     textAlign: 'center',
   },
-  // LOGO più grande e “pesante”
+  // Larger, bolder logo treatment
   logo: {
-    width: 140,                // ↑ da 84 → 140
+    width: 140,                // increased from 84 to 140
     height: 'auto',
     marginBottom: '0.9rem',
-    filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.15))', // look più “massiccio”
+    filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.15))', // creates a heavier look
   },
   claim: {
     fontSize: '2rem',
@@ -127,7 +127,7 @@ const styles = {
     justifyContent: 'center',
     boxSizing: 'border-box',
   },
-  // CARD più piccole e contenuto centrato
+  // Cards are slightly smaller with centered content
   panel: {
     flex: '1 1 320px',
     maxWidth: 420,
@@ -147,7 +147,7 @@ const styles = {
     marginBottom: '0.75rem',
     maxWidth: 360,
   },
-  // ETICHETTA più grande
+  // Larger badge styling
   badge: {
     display: 'inline-block',
     fontSize: '0.95rem',

@@ -3,7 +3,7 @@
 // UI e UX allineate a Personal/Contacts/Sports: stessa Save Bar, stessi token, stesso comportamento.
 // Requisiti/limiti implementati come da schema definitivo fornito dall'utente.
 //
-// Dipendenze già presenti nel progetto (come in SportInfoPanel):
+// Dependencies already present in the project (same as SportInfoPanel):
 // - react, next
 // - supabase client centralizzato in utils/supabaseClient
 // - react-select/creatable (per i tag)
@@ -955,7 +955,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
           category: CAT.HIGHLIGHT,
           external_url: url,
           source_platform: plat,
-          thumbnail_path: thumb || null, // può essere assoluto
+          thumbnail_path: thumb || null, // can be absolute
           sort_order: nextOrder,
           uploaded_at: new Date().toISOString(),
         }])
@@ -1433,7 +1433,7 @@ export default function MediaPanel({ athlete, onSaved, isMobile }) {
   const addGameDisabled= games.length >= CAP.GAMES;
   const addHLUploadDisabled = addHLDisabled || hlUploading;
 
-  // helper per poster (thumbnail_path può essere storage path o assoluto http)
+// helper for poster (thumbnail_path can be a storage path or absolute http)
   const usePoster = async (thumbPath) => {
     if (!thumbPath) return '';
     if (isHttpUrl(thumbPath)) return thumbPath;

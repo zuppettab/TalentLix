@@ -503,7 +503,7 @@ const styles = {
     position: 'absolute',
     top: 0,
     right: 0,
-    transform: 'translate(70%, -70%)', // spinge ancora un po’ più a destra/su
+    transform: 'translate(70%, -70%)', // nudges a bit further right/up
     background: 'transparent',
     border: 'none',
     width: 24,

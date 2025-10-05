@@ -9,15 +9,15 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const nonAthleteMessage = `Account non abilitato come atleta.`;
+  const nonAthleteMessage = 'Account is not enabled as an athlete.';
 
-  // 👇 Redirect automatico se già loggato
+  // 👇 Automatically redirect if already logged in
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         if (isAthleteUser(user)) {
-          router.push('/dashboard'); // se loggato e atleta, vai su Dashboard
+          router.push('/dashboard'); // if logged in as athlete, go to Dashboard
         } else {
           await supabase.auth.signOut();
           setError(nonAthleteMessage);
@@ -45,7 +45,7 @@ export default function Login() {
     } else {
       const { data: { user } } = await supabase.auth.getUser();
       if (user && isAthleteUser(user)) {
-        router.push('/dashboard'); // login riuscito → vai su Dashboard atleti
+        router.push('/dashboard'); // successful login → navigate to athlete Dashboard
       } else {
         await supabase.auth.signOut();
         setError(nonAthleteMessage);
@@ -56,8 +56,8 @@ export default function Login() {
   };
 
   return (
-    <div style={styles.background}> {/* 👈 Sfondo aggiunto */}
-      <div style={styles.overlay}> {/* 👈 Overlay semi-trasparente */}
+    <div style={styles.background}> {/* 👈 Added background */}
+      <div style={styles.overlay}> {/* 👈 Semi-transparent overlay */}
         <div style={styles.container}>
           <div style={styles.card}>
             <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
@@ -88,7 +88,7 @@ export default function Login() {
 
 const styles = {
   background: {
-    backgroundImage: "url('/BackG.png')", // 👈 Sfondo come index
+    backgroundImage: "url('/BackG.png')", // 👈 Same background as index
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
@@ -97,7 +97,7 @@ const styles = {
     position: 'relative',
   },
   overlay: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)', // 👈 Overlay semi-trasparente
+    backgroundColor: 'rgba(255, 255, 255, 0.7)', // 👈 Semi-transparent overlay
     width: '100%',
     height: '100%',
     position: 'absolute',

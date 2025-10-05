@@ -64,14 +64,14 @@ const [errors, setErrors] = useState({});
   guardian_last_name: '',
   parental_consent: false,
   parental_consent_at: null,
-  // —— STEP 3
+  // —— STEP 3 FIELDS ——
   sport: '',
   main_role: '',
-  team_name: '',           // facoltativo
-  previous_team: '',       // NUOVO (facoltativo)
-  years_experience: '',    // NUOVO (0–age*0.7) — mostrato solo dopo scelta sport
+  team_name: '',           // optional
+  previous_team: '',       // new optional field
+  years_experience: '',    // new (0–age*0.7) — shown only after selecting a sport
   category: '',
-  seeking_team: false,     // NUOVO (checkbox)
+  seeking_team: false,     // new checkbox flag
   // ——
   profile_published: false,
   gdpr_accepted: false,
@@ -122,7 +122,7 @@ useEffect(() => {
     }
     setUser(user);
 
-    // 1) Carica ATHLETE
+    // 1) Load athlete record
     const { data: athleteData } = await supabase
       .from('athlete')
       .select('*')
@@ -135,7 +135,7 @@ useEffect(() => {
       return;
     }
 
-    // Se già completato (>=40) esci come prima
+    // If already completed (>=40) exit as before
     if (athleteData.completion_percentage >= 40) {
       setAthlete(athleteData);
       setStep(null);
@@ -143,7 +143,7 @@ useEffect(() => {
       return;
     }
 
-    // 2) Base form: merge ATHLETE (seeking_team ignorato)
+    // 2) Base form: merge athlete data (ignore seeking_team)
     setAthlete(athleteData);
     const { seeking_team: _ignored, ...athleteWithoutFlag } = athleteData || {};
     let nextForm = {
@@ -158,7 +158,7 @@ useEffect(() => {
       gdpr_accepted_at: athleteData?.gdpr_accepted_at ?? null,
     };
     
-    // Carica anche RESIDENCE da contacts_verification
+    // Also load RESIDENCE from contacts_verification
     const { data: cvRow } = await supabase
       .from('contacts_verification')
       .select('residence_city, residence_country')
@@ -173,7 +173,7 @@ useEffect(() => {
       };
     }
 
-    // 3) Idrata anche l’ULTIMA sports_experiences (Step 3)
+    // 3) Hydrate the latest sports_experiences entry (Step 3)
     nextForm = await loadLatestExperience(user.id, nextForm);
 
     setFormData(nextForm);
@@ -202,11 +202,11 @@ useEffect(() => {
     setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
   };
 
-      // Helper: verifica se il numero in formData.phone risulta verificato
+      // Helper: check whether the phone number in formData.phone is verified
     const digitsOnly = (v) => (v ? String(v).replace(/\D/g, '') : '');
     
     const isPhoneVerifiedForCurrentNumber = async () => {
-      // 1) guarda la tabella applicativa
+      // 1) Check the application table
       const { data: cvRows } = await supabase
         .from('contacts_verification')
         .select('phone_number, phone_verified')
@@ -221,7 +221,7 @@ useEffect(() => {
         return true;
       }
     
-      // 2) guarda Supabase Auth (phone confermato + stesso numero)
+      // 2) Check Supabase Auth (confirmed phone + same number)
       const { data: { user: authUser } } = await supabase.auth.getUser();
       const authPhone = authUser?.phone ? `+${String(authUser.phone).replace(/^\+?/, '')}` : '';
       if (digitsOnly(authPhone) === digitsOnly(formData.phone) &&
@@ -229,7 +229,7 @@ useEffect(() => {
         return true;
       }
     
-      // 3) guarda il profilo athlete (numero già committato)
+      // 3) Check the athlete profile (number already saved)
       if (digitsOnly(athlete?.phone) === digitsOnly(formData.phone)) {
         return true;
       }
@@ -241,7 +241,7 @@ useEffect(() => {
         setErrorMessage('');
         try {
           if (step === 1) {
-            // 1) Converti dd/mm/yyyy -> yyyy-mm-dd (ISO) per il DB
+            // 1) Convert dd/mm/yyyy -> yyyy-mm-dd (ISO) for the DB
             const rawDob = formData.date_of_birth || '';
             const isoDob = rawDob.includes('-')
               ? rawDob
@@ -250,12 +250,12 @@ useEffect(() => {
                   return `${yyyy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
                 })();
       
-            // 2) Upsert athlete con ISO
+            // 2) Upsert athlete with ISO date
             const { error } = await supabase.from('athlete').upsert([{
               id: user.id,
               first_name: formData.first_name,
               last_name: formData.last_name,
-              date_of_birth: isoDob,                  // <- ISO al DB
+              date_of_birth: isoDob,                  // <- ISO stored in the DB
               gender: formData.gender,
               nationality: formData.nationality,
               birth_city: formData.birth_city,
@@ -266,7 +266,7 @@ useEffect(() => {
             }]);
             if (error) throw error;
       
-            // 3) Flag minori di 14 anni (usa isoDob nello stesso scope)
+            // 3) Flag athletes under 14 (use isoDob in the same scope)
             const birthDate = new Date(isoDob);
             const today = new Date();
             let age = today.getFullYear() - birthDate.getFullYear();
@@ -282,8 +282,8 @@ useEffect(() => {
             }
       
             } else if (step === 2) {
-              // Aggiorna dati contatto Step 2 — NON toccare phone se non verified
-            // Aggiorna tabella athlete (solo lingue, foto, step)
+              // Update Step 2 contact data — do not touch phone unless verified
+            // Update athlete table (only languages, photo, step)
             const { error: athleteError } = await supabase
               .from('athlete')
               .update({
@@ -297,7 +297,7 @@ useEffect(() => {
             
             if (athleteError) throw athleteError;
             
-            // Aggiorna/crea riga in contacts_verification (residenza)
+            // Update/create row in contacts_verification (residence)
             const { error: cvError } = await supabase
               .from('contacts_verification')
               .upsert({
@@ -312,7 +312,7 @@ useEffect(() => {
           const digits = (v) => (v ? String(v).replace(/\D/g, '') : '');
           const currentDbPhone = athlete?.phone || '';
           
-          // Se è cambiato ed è verificato → aggiorna solo il telefono
+          // If it changed and is verified → update only the phone number
           if (digits(formData.phone) !== digits(currentDbPhone) && await isPhoneVerifiedForCurrentNumber()) {
             const { error: phoneErr } = await supabase
               .from('athlete')
@@ -320,12 +320,12 @@ useEffect(() => {
               .eq('id', user.id);
             if (phoneErr) throw phoneErr;
           }
-          // Se non è cambiato o non è verificato → non fare nulla
+          // If it did not change or is not verified → do nothing
           
 
       
           } else if (step === 3) {
-            // Insert esperienza sportiva (con previous_team + years_experience) + avanzamento
+            // Insert sports experience (with previous_team + years_experience) + progress
             const age = getAgeFromDob(formData.date_of_birth);
             const maxYears = age != null ? Math.floor(age * 0.7) : 0;
 
@@ -350,10 +350,10 @@ useEffect(() => {
               athlete_id: user.id,
               sport: formData.sport,
               role: formData.main_role,
-              team: formData.team_name || null,      // facoltativo
-              previous_team: formData.previous_team || null, // NUOVO
+              team: formData.team_name || null,      // optional field
+              previous_team: formData.previous_team || null, // new field
               category: formData.category,
-              years_experience: years,               // NUOVO (0–age*0.7 o NULL)
+              years_experience: years,               // new (0–age*0.7 or NULL)
               seeking_team: !!formData.seeking_team,
             }]);
             if (error) throw error;
@@ -543,14 +543,14 @@ const handleLogout = async () => {
 
 /* STEP 1 */
 const Step1 = ({ formData, setFormData, handleChange, saveStep }) => {
-  // calendario & limiti età
+  // calendar & age limits
 const dobRef = useRef(null);
 const today = new Date();
-const maxDateObj = new Date(today.getFullYear() - 10, today.getMonth(), today.getDate()); // massimo: 10 anni fa
-const minDateObj = new Date(today.getFullYear() - 60, today.getMonth(), today.getDate()); // minimo: 60 anni fa
+const maxDateObj = new Date(today.getFullYear() - 10, today.getMonth(), today.getDate()); // maximum: 10 years ago
+const minDateObj = new Date(today.getFullYear() - 60, today.getMonth(), today.getDate()); // minimum: 60 years ago
 const toISO = (d) => d.toISOString().slice(0, 10);
 
-// se il valore in formData fosse nel vecchio formato dd/mm/yyyy, converti a ISO una volta
+// if the value in formData uses the old dd/mm/yyyy format, convert to ISO once
 useEffect(() => {
         if (formData.date_of_birth && formData.date_of_birth.includes('/')) {
           const [dd, mm, yyyy] = formData.date_of_birth.split('/');
@@ -561,14 +561,14 @@ useEffect(() => {
       }, []);
 
   const [countryInput, setCountryInput] = useState('');
-            // Validazione data di nascita dd/mm/yyyy + età 10–60
-// Validazione data di nascita (accetta ISO yyyy-mm-dd o dd/mm/yyyy) + età 10–60
+            // Birthdate validation dd/mm/yyyy + age 10–60
+// Birthdate validation (accepts ISO yyyy-mm-dd or dd/mm/yyyy) + age 10–60
     const parseDob = (str) => {
       if (!str) return null;
       let yyyy, mm, dd;
     
       if (str.includes('-')) {
-        // ISO: yyyy-mm-dd (prodotto da <input type="date">)
+        // ISO: yyyy-mm-dd (produced by <input type="date">)
         [yyyy, mm, dd] = str.split('-').map((v) => parseInt(v, 10));
       } else {
         // Legacy: dd/mm/yyyy
@@ -621,15 +621,15 @@ useEffect(() => {
               name="date_of_birth"
               placeholder="Date of Birth"
               value={formData.date_of_birth || ''}
-              min={toISO(minDateObj)}  // limita a 60 anni fa
-              max={toISO(maxDateObj)}  // limita a 10 anni fa
+              min={toISO(minDateObj)}  // limit to 60 years ago
+              max={toISO(maxDateObj)}  // limit to 10 years ago
               onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
             />
             {/* tastino calendario esplicito */}
             <button
               type="button"
               onClick={() => {
-                // apre il datepicker nei browser che supportano showPicker(); fallback: focus
+                // open the datepicker in browsers that support showPicker(); fallback: focus
                 if (dobRef.current?.showPicker) dobRef.current.showPicker();
                 else dobRef.current?.focus();
               }}
@@ -703,7 +703,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [otpMessage, setOtpMessage] = useState('');
 
-  // ⏱️ Countdown resend & TTL codice
+  // ⏱️ Countdown resend & code TTL
   const [cooldown, setCooldown] = useState(0);
   const [expiresIn, setExpiresIn] = useState(0);
   const COOLDOWN_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_RESEND_COOLDOWN || 60);
@@ -766,7 +766,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
             cv?.phone_number &&
             digits(formData.phone) === digits(cv.phone_number);
           
-          // Se risulta verified a livello applicativo, allinea subito la UI e termina qui
+          // If it is already verified at the application level, align the UI immediately and stop here
           if (cvOk && !phoneVerified) {
             setPhoneVerified(true);
             setOtpMessage('Phone already verified ✔');
@@ -798,7 +798,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
 
   
-  // ── Helper: controlla sessione valida (se scade, updateUser fallisce)
+  // ── Helper: ensure the session is valid (updateUser fails if it expires)
   const ensureSession = async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session) {
@@ -808,10 +808,10 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
     return true;
   };
 
-  // ── Invio OTP per AGGANCIARE il telefono all’utente loggato (phone_change)
+  // ── Send OTP to link the phone to the logged-in user (phone_change)
     const sendCode = async () => {
       try {
-        // Se siamo in cooldown, non inviare
+        // If currently in cooldown, do not send
         if (cooldown > 0) {
           setOtpMessage(`Please wait ${cooldown}s before requesting a new code.`);
           return;
@@ -820,14 +820,14 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         setOtpMessage('');
         if (!(await ensureSession())) return;
     
-        // Richiesta OTP via Supabase (phone_change)
+        // Request OTP via Supabase (phone_change)
         const { data, error } = await supabase.auth.updateUser({ phone: formData.phone });
         if (error) {
           setOtpMessage(`Failed to request OTP: ${error.message}`);
           return;
         }
 
-    // Avvia countdown e ttl locali (coerenti con env)
+    // Start the local countdown and TTL (aligned with env)
     setOtpSent(true);
     setCooldown(COOLDOWN_SECONDS);
     setExpiresIn(OTP_TTL_SECONDS);
@@ -866,7 +866,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
         .update({ phone: formData.phone })
         .eq('id', user.id);
 
-      // Stato “affidabilità contatto” nel tuo schema applicativo
+      // Contact reliability status in the application schema
       const { error: dbError } = await supabase
         .from('contacts_verification')
         .upsert(
@@ -879,12 +879,12 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
     }
   };
 
-  // ── VALIDAZIONE telefono (E.164, mobile/fixed_line_or_mobile, >=10 cifre nazionali)
+  // ── Phone validation (E.164, mobile/fixed_line_or_mobile, >=10 national digits)
   const normalizedPhone = (formData.phone || '').replace(/\s+/g, '');
   const parsed = parsePhoneNumberFromString(normalizedPhone);
   const nationalLen = parsed?.nationalNumber ? String(parsed.nationalNumber).length : 0;
-    // ✅ Basta che il numero sia valido in E.164; togliamo il gate sul "tipo" (MOBILE/FIXED_LINE_OR_MOBILE)
-    // perché per molti numeri libphonenumber non restituisce un type affidabile
+    // ✅ As long as the number is valid in E.164; drop the gate on the "type" (MOBILE/FIXED_LINE_OR_MOBILE)
+    // because libphonenumber often cannot provide a reliable type
     const isValidPhone = !!parsed && parsed.isValid() && nationalLen >= 10;
 
   const isValid =
@@ -1051,7 +1051,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
           </div>
         )}
 
-        {/* Upload immagine */}
+        {/* Upload image */}
         <label style={{ textAlign: 'left', fontWeight: 'bold' }}>Upload Profile Picture</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <label
@@ -1099,7 +1099,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
         {formData.profile_picture_url && (
           <div style={{ position: 'relative', width: '50%', marginTop: '10px' }}>
-            {/* Header con pulsante X fuori dall’immagine */}
+            {/* Header with X button outside the image */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
               <button
                 type="button"
@@ -1136,7 +1136,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
               </button>
             </div>
         
-            {/* Immagine sotto */}
+            {/* Image below */}
             <img
               src={formData.profile_picture_url}
               alt="Preview"
@@ -1296,7 +1296,7 @@ const Step4 = ({ formData, setFormData, finalize }) => {
       .catch(err => console.error('Failed to load GDPR policy', err));
   }, []);
 
-  // DOB → age (uguale a prima)
+  // DOB → age (same logic as before)
   const parseDob = (str) => {
     if (!str) return null;
     let y, m, d;
@@ -1554,7 +1554,7 @@ const Step4 = ({ formData, setFormData, finalize }) => {
         I have read and agree to the GDPR Compliance Policy
       </label>
 
-      {/* Publish (opzionale) */}
+      {/* Publish (optional) */}
       <label style={{ textAlign:'left', display:'block', marginTop:20, marginBottom:10 }}>
         <input
           type="checkbox"
@@ -1677,14 +1677,14 @@ dropdownButton: {
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
     width: '100%',
-    minHeight: '100vh',    // <-- prima era height
+    minHeight: '100vh',    // previously set to height
     position: 'relative',
   },
   overlay: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     width: '100%',
-    minHeight: '100%',     // <-- prima era height
-    position: 'static',    // <-- toglie l’assoluto così il wrapper cresce
+    minHeight: '100%',     // previously set to height
+    position: 'static',    // removes absolute positioning so the wrapper can grow
     zIndex: 1,
   },
   container: {

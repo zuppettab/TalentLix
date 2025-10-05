@@ -126,7 +126,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
   const [expId, setExpId] = useState(null); // ultima riga da editare (se esiste)
 
   const [form, setForm] = useState({
-    // core (già presenti)
+    // core (already present)
     sport: '',
     main_role: '',
     category: '',

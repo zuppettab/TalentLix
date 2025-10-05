@@ -7,17 +7,17 @@ import { supabase as sb } from '../../utils/supabaseClient';
 const supabase = sb;
 const PHYSICAL_TABLE = 'physical_data';
 
-// Nessun campo obbligatorio in questa card (richiesta utente)
+// No required fields in this card (user request)
 const REQUIRED = []; 
 
-// Opzioni laterality coerenti e multi-sport
+// Laterality options kept consistent and multi-sport
 const SUPABASE_LATERALITY = ['Left', 'Right', 'Ambidextrous', 'Unknown'];
 const LATERALITY = [
   { value: '', label: '—' },
   ...SUPABASE_LATERALITY.map((value) => ({ value, label: value })),
 ];
 
-// Messaggi errore base
+// Base error messages
 const MSG = {
   range: (label, min, max, unit = '') => `${label}: value must be between ${min} and ${max}${unit ? ' ' + unit : ''}`,
   gt0: (label) => `${label}: value must be > 0`,
@@ -30,16 +30,16 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
   const today = new Date();
   const todayISO = toISO(today);
 
-  // Stato UI
+  // UI state
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
   const [dirty, setDirty] = useState(false);
 
-  // Record target (uno per atleta). Se non esiste -> insert, altrimenti update
+  // Target record (one per athlete). If it does not exist -> insert, otherwise update
   const [rowId, setRowId] = useState(null);
 
-  // Form state: tutti i campi della tabella physical_data
+  // Form state: all fields from the physical_data table
   const [form, setForm] = useState({
     physical_measured_at: '',
     height_cm: '',
@@ -66,12 +66,12 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
     performance_notes: '',
   });
 
-  // Errori per campo (stile identico alle altre card)
+  // Field errors (same styling as the other cards)
   const [errors, setErrors] = useState({});
 
-  // Detect mobile (>= coerenza con PersonalPanel)
+  // Detect mobile (aligned with PersonalPanel)
   useEffect(() => {
-    if (isMobileProp != null) return; // se passato dal parent, rispettiamo
+    if (isMobileProp != null) return; // respect parent-provided value
     const check = () =>
       setIsMobile(typeof window !== 'undefined' && window.matchMedia('(max-width: 480px)').matches);
     check();
@@ -79,7 +79,7 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
     return () => window.removeEventListener('resize', check);
   }, [isMobileProp]);
 
-  // Guard su cambi non salvati (coerente con PersonalPanel/SportInfoPanel)
+  // Guard against unsaved changes (consistent with PersonalPanel/SportInfoPanel)
   useEffect(() => {
     const beforeUnload = (e) => { if (!dirty) return; e.preventDefault(); e.returnValue = ''; };
     window.addEventListener('beforeunload', beforeUnload);
@@ -99,7 +99,7 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
     };
   }, [dirty, router.events]);
 
-  // Prefill: carichiamo l’ultima riga physical_data dell’atleta (se esiste)
+  // Prefill: load the latest physical_data row for the athlete (if available)
   useEffect(() => {
     if (!athlete?.id) return;
     let mounted = true;
@@ -160,18 +160,18 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
     return () => { mounted = false; };
   }, [athlete?.id]);
 
-  // ---------- VALIDAZIONE (stile/flow identico alle altre card) ----------
+  // ---------- VALIDATION (same style/flow as the other cards) ----------
   const validateField = (name, value) => {
-    // Tutti opzionali: validiamo solo se valorizzati
+    // All optional: validate only when populated
     if (value === '' || value == null) return '';
 
-    // Date: non nel futuro
+    // Dates: cannot be in the future
     if (name === 'physical_measured_at' || name === 'performance_measured_at') {
       if (value > todayISO) return MSG.notFuture(labelOf(name));
       return '';
     }
 
-    // Numerici con range plausibili
+    // Numeric values with plausible ranges
     const n = parseDecimalFromUI(value);
     if (n == null) return '';
     switch (name) {
@@ -201,7 +201,7 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
 
   const validateAll = (state = form) => {
     const out = {};
-    // Nessun required; applichiamo solo i controlli di range/formato
+    // No required fields; apply only range/format checks
     for (const key of Object.keys(state)) {
       const err = validateField(key, state[key]);
       if (err) out[key] = err;
@@ -278,7 +278,7 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
       setDirty(false);
       setStatus({ type: 'success', msg: 'Saved ✓' });
 
-      // callback parent (coerenza con SportInfoPanel)
+      // parent callback (consistent with SportInfoPanel)
       if (onSaved) {
         const { data: fresh } = await supabase
           .from('athlete')
@@ -425,7 +425,7 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         error={errors.performance_measured_at}
       />
 
-      {/* Forza/Esplosività */}
+      {/* Strength/Explosiveness */}
       <NumberField
         label="Grip strength L (kg, use comma)"
         name="grip_strength_left_kg"
@@ -463,7 +463,7 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         placeholder="e.g. 240 (use comma for decimals)"
       />
 
-      {/* Velocità/Agilità */}
+      {/* Speed/Agility */}
       <NumberField
         label="Sprint 10 m (s, use comma)"
         name="sprint_10m_s"
@@ -492,7 +492,7 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
         placeholder="e.g. 4,400 (use comma)"
       />
 
-      {/* Mobilità/Core/Endurance */}
+      {/* Mobility/Core/Endurance */}
       <NumberField
         label="Sit & reach (cm, use comma)"
         name="sit_and_reach_cm"
@@ -830,7 +830,7 @@ const styles = {
   },
   error: { fontSize: 12, color: '#b00' },
 
-  // Save bar (identica per posizionamento e look)
+  // Save bar (same placement and look)
   saveBar: {
     gridColumn: '1 / -1',
     display: 'flex',

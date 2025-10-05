@@ -10,7 +10,7 @@ export default function UploadTest() {
   const [message, setMessage] = useState('');
   const [publicUrl, setPublicUrl] = useState('');
 
-  // ✅ Controlla sessione e logga debug al mount
+  // ✅ Check session and log debug data on mount
   useEffect(() => {
     const debugSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -21,9 +21,9 @@ export default function UploadTest() {
 
         const jwt = session.access_token;
         const payload = JSON.parse(atob(jwt.split('.')[1]));
-        console.log("🔑 JWT payload:", payload); // Mostra role, sub, ecc.
+        console.log("🔑 JWT payload:", payload); // Shows role, sub, etc.
       } else {
-        console.log("⚠️ Nessuna sessione attiva. Utente non autenticato.");
+        console.log("⚠️ No active session. User not authenticated.");
       }
     };
 
@@ -51,14 +51,14 @@ export default function UploadTest() {
     setMessage('🔒 Logged out. Session cleared.');
   };
 
-  // ✅ File change con preview immagini
+  // ✅ Handle file change with image preview
   const handleFileChange = (e) => {
     const f = e.target.files[0];
     setFile(f);
     if (f && f.type.startsWith('image/')) setPreview(URL.createObjectURL(f));
   };
 
-  // ✅ Upload con log dettagliati
+  // ✅ Upload with detailed logging
   const handleUpload = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     console.log("📥 Using session for upload:", session);
@@ -90,7 +90,7 @@ export default function UploadTest() {
 
       {!user ? (
         <form onSubmit={handleLogin} style={{ marginBottom: '1rem' }}>
-          <p>Login per testare l'upload autenticato:</p>
+          <p>Login to test authenticated uploads:</p>
           <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required style={styles.input} />
           <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required style={styles.input} />
           <button type="submit" style={styles.button}>Login</button>

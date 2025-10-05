@@ -20,7 +20,7 @@ const SECTION_TITLE_BY_ID = SECTIONS.reduce((acc, section) => {
   return acc;
 }, {});
 
-// --- Hook responsive (JS, niente CSS esterno)
+// --- Responsive hook (pure JS, no external CSS)
 function useIsMobile(breakpointPx = 480) {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function Dashboard() {
   const router = useRouter();
   const isMobile = useIsMobile(480);
 
-  // ---- URL state: sezione attiva
+  // ---- URL state: active section
   const current = useMemo(() => {
     const raw = Array.isArray(router.query.section) ? router.query.section[0] : router.query.section;
     return isValidSection(raw) ? raw : DEFAULT_SECTION;
@@ -48,7 +48,7 @@ export default function Dashboard() {
     router.push({ pathname: '/dashboard', query: { ...router.query, section: id } }, undefined, { shallow: true });
   };
 
-  // ---- Stato auth + atleta
+  // ---- Auth + athlete state
   const [user, setUser] = useState(null);
   const [athlete, setAthlete] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -327,7 +327,7 @@ export default function Dashboard() {
           .eq('id', u.id)
           .single();
 
-        if (error && error.code !== 'PGRST116') throw error; // errore reale
+        if (error && error.code !== 'PGRST116') throw error; // genuine error
         if (!data) {
           if (mounted) setAuthReady(true);
           router.replace('/wizard');
@@ -488,7 +488,7 @@ export default function Dashboard() {
 
   if (!authReady) return null;
 
-  // --- Stili dinamici derivati (mobile vs desktop)
+  // --- Derived dynamic styles (mobile vs desktop)
   const headerStyle = { ...styles.header, ...(isMobile ? styles.headerMobile : null) };
   const headerLeftStyle = { ...styles.headerLeft, ...(isMobile ? styles.headerLeftMobile : null) };
   const headerRightStyle = { display: 'flex', alignItems: 'center', gap: 12, ...(isMobile ? styles.authWrapMobileSlot : {}) };
@@ -520,7 +520,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* SUB-HEADER più arioso su mobile */}
+      {/* SUB-HEADER more spacious on mobile */}
       <div style={subHeaderStyle}>
         {athlete?.profile_picture_url
           ? <img src={athlete.profile_picture_url} alt="Avatar" style={{ ...styles.avatar, objectFit: 'cover' }} />
@@ -768,7 +768,7 @@ function AuthControl({ email, avatarUrl, onLogout, compact, athleteId }) {
   );
 }
 
-/** Nastro tabs mobile con frecce grandi e 3 bottoni visibili */
+/** Mobile tab ribbon with large arrows and 3 visible buttons */
 function MobileScrollableTabs({ sections, current, onSelect, statusMap }) {
   const scrollerRef = useRef(null);
   const [atStart, setAtStart] = useState(true);
@@ -934,7 +934,7 @@ const styles = {
   tooltipList: { margin: 0, padding: 0, listStyle: 'none' },
   tooltipListItem: { margin: '4px 0', paddingLeft: 0 },
 
-  // --- Nastro tabs mobile (3 bottoni in primo piano)
+  // --- Mobile tab ribbon (3 buttons in the foreground)
   mobileTabsWrap: {
     position: 'relative',
     borderBottom: '1px solid #E0E0E0',
@@ -951,7 +951,7 @@ const styles = {
     scrollbarWidth: 'none'
   },
   mobileTabBtn: {
-    flex: '0 0 33.33%', // ~3 visibili
+    flex: '0 0 33.33%', // ~3 visible at once
     textAlign: 'center',
     padding: '10px 8px',
     border: '1px solid #E0E0E0',
@@ -971,7 +971,7 @@ const styles = {
     borderColor: '#27E3DA',
     boxShadow: '0 0 0 2px rgba(39,227,218,0.2)'
   },
-  // Frecce grandi
+  // Large arrows
   nudgeBtn: {
     position: 'absolute',
     top: '50%',

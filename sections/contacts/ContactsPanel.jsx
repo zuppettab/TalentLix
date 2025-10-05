@@ -918,7 +918,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
 
 // ----------------------- STYLES -----------------------
 const styles = {
-  // **Desktop**: più aria (gap aumentati)
+  // **Desktop**: more spacing (larger gaps)
   grid: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
@@ -926,7 +926,7 @@ const styles = {
   },
   gridMobile: { gridTemplateColumns: '1fr' },
 
-  // campi più distanziati
+  // fields spaced further apart
   field: { display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 },
   fieldWide: { gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 },
 

@@ -1,11 +1,11 @@
 // sections/social/SocialPanel.jsx
 // Card "Social Profiles" — TalentLix
-// - UI/UX allineate alle altre card (stessi token, Save Bar, logiche di dirty/save).
-// - Nessun campo marcato “obbligatorio” a livello di UI; tuttavia, per coerenza con il DB
-//   (NOT NULL su platform e profile_url) la card segnala in modo coerente l’assenza e non salva la riga incompleta.
-// - Mobile first: tabella su desktop, accordion su mobile.
-// - L'ordinamento è automatico: sort_order viene aggiornato sequenzialmente al salvataggio.
-// - Un solo profilo "primario" per atleta: enforced lato UI (il toggle su uno spegne gli altri).
+// - UI/UX aligned with the other cards (same tokens, Save Bar, dirty/save logic).
+// - No fields marked “required” at the UI level; however, to stay consistent with the DB
+//   (NOT NULL on platform and profile_url) the card signals missing data and avoids saving incomplete rows.
+// - Mobile first: table on desktop, accordion on mobile.
+// - Ordering is automatic: sort_order is updated sequentially on save.
+// - Only one "primary" profile per athlete: enforced in the UI (toggling one disables the others).
 
 import { useEffect, useRef, useState } from 'react';
 import { FiLink } from 'react-icons/fi';
@@ -14,17 +14,17 @@ import { supabase as sb } from '../../utils/supabaseClient';
 
 const supabase = sb;
 
-// ------------------------------ COSTANTI ------------------------------
+// ------------------------------ CONSTANTS ------------------------------
 const TBL = 'social_profiles';
 
-// Suggerimenti liberi per la piattaforma (l’input resta testo libero)
+// Free-form suggestions for the platform field (input remains free text)
 const PLATFORM_SUGGESTIONS = [
   'Instagram', 'X', 'Facebook', 'TikTok', 'YouTube', 'LinkedIn', 'Twitch', 'Threads', 'Website', 'Other'
 ];
 
-// ------------------------------ STILI (copiati/armonizzati con le altre card) ------------------------------
+// ------------------------------ STYLES (copied/aligned with the other cards) ------------------------------
 const styles = {
-  // Layout coerente
+  // Consistent layout
   grid: { display: 'grid', gridTemplateColumns: '1fr', gap: 24 },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
   grid2Mobile: { gridTemplateColumns: '1fr' },
