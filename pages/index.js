@@ -19,25 +19,28 @@ export default function Home() {
         if (type === 'signup') {
           result = {
             status: 'success',
-            title: 'Registrazione confermata',
-            message: 'Benvenuto in TalentLix! Il tuo account è stato confermato correttamente.',
+            title: 'Sign-up confirmed',
+            message: 'Welcome to TalentLix! Your account has been successfully confirmed.',
           };
         } else if (errorCode === 'otp_expired') {
           result = {
             status: 'error',
-            title: 'Link scaduto',
-            message: decodedDescription || 'Il link di conferma è scaduto. Richiedi un nuovo codice per continuare.',
+            title: 'Link expired',
+            message:
+              decodedDescription ||
+              'The confirmation link has expired. Please request a new code to continue.',
           };
         } else if (errorCode === 'already_confirmed') {
           result = {
             status: 'success',
-            title: 'Account già confermato',
-            message: 'Hai già confermato il tuo account. Puoi effettuare il login per iniziare ad utilizzare la piattaforma.',
+            title: 'Account already confirmed',
+            message:
+              'Your account has already been confirmed. You can log in to start using the platform.',
           };
         } else if (decodedDescription) {
           result = {
             status: 'error',
-            title: 'Qualcosa è andato storto',
+            title: 'Something went wrong',
             message: decodedDescription,
           };
         }
@@ -86,10 +89,10 @@ export default function Home() {
           <p style={styles.resultMessage}>{confirmationResult.message}</p>
           <div style={styles.resultActions}>
             <Link href="/login" legacyBehavior>
-              <a style={{ ...styles.button, ...styles.buttonPrimary, ...styles.resultButton }}>Vai al login atleti</a>
+              <a style={{ ...styles.button, ...styles.buttonPrimary, ...styles.resultButton }}>Go to athlete login</a>
             </Link>
             <Link href="/login-operator" legacyBehavior>
-              <a style={{ ...styles.button, ...styles.buttonSecondary, ...styles.resultButton }}>Vai al login operatori</a>
+              <a style={{ ...styles.button, ...styles.buttonSecondary, ...styles.resultButton }}>Go to operator login</a>
             </Link>
           </div>
         </section>
