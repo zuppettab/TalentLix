@@ -1,605 +1,898 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
-import { motion, AnimatePresence } from 'framer-motion';
 import Select from 'react-select';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
-
-import countries from '../utils/countries';
 import { supabase } from '../utils/supabaseClient';
-import { useOperatorGuard } from '../hooks/useOperatorGuard';
 
-const REQUIRED_DOCS = [
-  { docType: 'business_registration', label: 'Business registration document', optional: false },
-  { docType: 'legal_representative_id', label: 'Legal representative ID', optional: false },
-  { docType: 'address_proof', label: 'Proof of headquarters address (optional)', optional: true },
+// ------------------------------
+// Costanti di configurazione
+// ------------------------------
+const PRIVACY_POLICY_VERSION = process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION || '2024-01-01';
+const COOLDOWN_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_RESEND_COOLDOWN || 60);  // resend OTP cooldown
+const OTP_TTL_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_OTP_TTL || 600);          // OTP scadenza (sec)
+
+// Tipi stato ammessi da DB (per chiarezza nell'UI)
+const WIZARD = {
+  NOT_STARTED: 'NOT_STARTED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  SUBMITTED: 'SUBMITTED',
+  COMPLETED: 'COMPLETED',
+};
+
+const VERIF_STATE = {
+  NOT_STARTED: 'NOT_STARTED',
+  IN_REVIEW: 'IN_REVIEW',
+  VERIFIED: 'VERIFIED',
+  REJECTED: 'REJECTED',
+  NEEDS_MORE_INFO: 'NEEDS_MORE_INFO',
+};
+
+// Doc types (enum DB) → label UI
+const DOC_LABEL = {
+  ID: 'Identity document',
+  LICENSE: 'Professional license',
+  REGISTRATION: 'Business/club registration',
+  AFFILIATION: 'Federation affiliation',
+  TAX: 'Tax/VAT registration',
+  REFERENCE: 'Reference letter',
+  PROOF_OF_ADDRESS: 'Proof of address',
+};
+
+// Country (ISO-3166 alpha‑2) min set; puoi sostituire con lista completa del tuo progetto
+const COUNTRIES = [
+  { value: 'IT', label: 'Italy' },
+  { value: 'ES', label: 'Spain' },
+  { value: 'FR', label: 'France' },
+  { value: 'DE', label: 'Germany' },
+  { value: 'GB', label: 'United Kingdom' },
+  { value: 'US', label: 'United States' },
 ];
 
-const PRIVACY_POLICY_VERSION = process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION || '2024-01-01';
-
-const INITIAL_FORM = {
-  // Step 1 · Profile
-  legal_name: '',
-  trade_name: '',
-  website: '',
-  address1: '',
-  address2: '',
-  city: '',
-  state_region: '',
-  postal_code: '',
-  country: '',
-
-  // Step 2 · Contact
-  email_primary: '',
-  email_billing: '',
-  phone_e164: '',
-  phone_verified_at: null,
-
-  // Step 3 · Documents
-  documents: REQUIRED_DOCS.reduce((acc, { docType }) => ({
-    ...acc,
-    [docType]: null,
-  }), {}),
-  document_notes: '',
-
-  // Step 4 · Privacy
-  privacy_consent: false,
-  privacy_consent_at: null,
-  policy_version: PRIVACY_POLICY_VERSION,
-  marketing_optin: false,
+const SAVE_STYLES = {
+  saveBar: { gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8, justifyContent: 'flex-end', flexWrap: 'nowrap' },
+  saveBtnBase: { height: 38, padding: '0 16px', borderRadius: 8, fontWeight: 600, border: 'none' },
+  saveBtnEnabled: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', cursor: 'pointer' },
+  saveBtnDisabled: { background: '#EEE', color: '#999', border: '1px solid #E0E0E0', cursor: 'not-allowed' },
+  statusText: { marginLeft: 10, fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center' },
+  statusOK: { color: '#2E7D32' },  // verde success
+  statusERR: { color: '#b00' }     // rosso errore
 };
 
-const STEP_STATUSES = {
-  1: 'profile',
-  2: 'contact',
-  3: 'documents',
-  4: 'privacy',
-  complete: 'complete',
-  submitted: 'submitted',
-};
+// ------------------------------
+// SaveBar (conforme linee guida)
+// ------------------------------
+function SaveBar({ saving, isSaveDisabled, status, onSubmit }) {
+  const btnStyle = isSaveDisabled
+    ? { ...SAVE_STYLES.saveBtnBase, ...SAVE_STYLES.saveBtnDisabled }
+    : { ...SAVE_STYLES.saveBtnBase, ...SAVE_STYLES.saveBtnEnabled };
 
-const WIZARD_STATUS_NORMALIZATION = {
-  draft: 'profile',
-  profile: 'profile',
-  'profile_incomplete': 'profile',
-  contact: 'contact',
-  'contact_incomplete': 'contact',
-  documents: 'documents',
-  'documents_incomplete': 'documents',
-  consent: 'privacy',
-  privacy: 'privacy',
-  'privacy_incomplete': 'privacy',
-  submitted: 'submitted',
-  'in_review': 'submitted',
-  complete: 'complete',
-  completed: 'complete',
-  approved: 'complete',
-};
+  return (
+    <div style={SAVE_STYLES.saveBar}>
+      <button
+        type="button"
+        disabled={isSaveDisabled}
+        onClick={(e) => { e.preventDefault(); if (!isSaveDisabled) onSubmit?.(); }}
+        style={btnStyle}
+        aria-disabled={isSaveDisabled}
+      >
+        {saving ? 'Saving…' : 'Save'}
+      </button>
 
-const normalizeWizardStatus = (value) => {
-  const key = typeof value === 'string' ? value.trim().toLowerCase() : '';
-  if (key in WIZARD_STATUS_NORMALIZATION) {
-    return WIZARD_STATUS_NORMALIZATION[key];
-  }
-  return 'profile';
-};
-
-const statusToStep = (status) => {
-  const normalized = normalizeWizardStatus(status);
-  switch (normalized) {
-    case 'profile':
-      return 1;
-    case 'contact':
-      return 2;
-    case 'documents':
-      return 3;
-    case 'privacy':
-      return 4;
-    case 'submitted':
-    case 'complete':
-      return null;
-    default:
-      return 1;
-  }
-};
-
-const toNullableString = (value) => {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-};
-
-const normalizeCountryName = (value) => {
-  const label = toNullableString(value);
-  if (!label) return null;
-  const lower = label.toLowerCase();
-  const match = countries.find(
-    (option) =>
-      option.value.toLowerCase() === lower || option.label.toLowerCase() === lower
+      {status?.msg && (
+        <span role="status" aria-live="polite" style={{
+          ...SAVE_STYLES.statusText,
+          ...(status.type === 'error' ? SAVE_STYLES.statusERR : SAVE_STYLES.statusOK)
+        }}>
+          {status.msg}
+        </span>
+      )}
+    </div>
   );
-  return match ? match.label : label;
+}
+
+// ------------------------------
+// Helper
+// ------------------------------
+const toNullable = (s) => {
+  if (s == null) return null;
+  const t = String(s).trim();
+  return t ? t : null;
 };
 
+// Converte qualsiasi input (code o label) in ISO‑2 uppercase. Salva SEMPRE ISO‑2 a DB.
+const normalizeCountryCode = (value) => {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  // se è già un codice valido
+  if (/^[A-Za-z]{2}$/.test(raw)) return raw.toUpperCase();
+  // match su label
+  const match = COUNTRIES.find((c) => c.label.toLowerCase() === raw.toLowerCase());
+  return match ? match.value : null;
+};
+
+// Applica conditions (JSON) del rule a un profilo (oggi supporta country; estendibile)
+const matchesConditions = (rule, profile) => {
+  const cond = rule?.conditions || null;
+  if (!cond) return true;
+  const country = profile?.country || null;
+  if (Array.isArray(cond.country)) {
+    if (!country) return false;
+    return cond.country.map((x) => String(x).toUpperCase()).includes(String(country).toUpperCase());
+  }
+  // altre condizioni future...
+  return true;
+};
+
+// ------------------------------
+// Pagina Wizard Operatore
+// ------------------------------
 export default function OperatorWizard() {
   const router = useRouter();
-  const { loading: checkingGuard, user, error: guardError } = useOperatorGuard({ includeReason: false });
   const [loading, setLoading] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState(INITIAL_FORM);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+
+  // sessione
+  const [user, setUser] = useState(null);
+  // account operatore
   const [account, setAccount] = useState(null);
-  const [verificationRequest, setVerificationRequest] = useState(null);
-
-  const operatorAuthId = user?.id || null;
-  const accountId = account?.id || null;
   const opId = account?.id || null;
-  const email = user?.email || '';
 
-  const toggleMenu = () => setMenuOpen((open) => !open);
+  // catalogo tipi
+  const [opTypes, setOpTypes] = useState([]);     // [{id, code, name}]
+  const [selectedTypeCode, setSelectedTypeCode] = useState(''); // 'agent' | 'club'
+  const selectedType = opTypes.find(t => t.code === selectedTypeCode) || null;
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.replace('/login-operator');
-  };
+  // Step, progress
+  const [step, setStep] = useState(1);
 
+  // Form Step1
+  const [profile, setProfile] = useState({
+    legal_name: '', trade_name: '',
+    website: '', address1: '', address2: '',
+    city: '', state_region: '', postal_code: '',
+    country: '' // UI value ISO‑2
+  });
+  const [s1Saving, setS1Saving] = useState(false);
+  const [s1Status, setS1Status] = useState({ type: '', msg: '' });
+  const [s1Dirty, setS1Dirty] = useState(false);
+
+  // Form Step2
+  const [contact, setContact] = useState({
+    email_primary: '', email_billing: '',
+    phone_e164: '', phone_verified_at: null
+  });
+  const [s2Saving, setS2Saving] = useState(false);
+  const [s2Status, setS2Status] = useState({ type: '', msg: '' });
+  const [s2Dirty, setS2Dirty] = useState(false);
+
+  // OTP
+  const normalizedPhone = (contact.phone_e164 || '').replace(/\s+/g, '');
+  const parsedPhone = useMemo(() => parsePhoneNumberFromString(normalizedPhone), [normalizedPhone]);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpMsg, setOtpMsg] = useState('');
+  const [cooldown, setCooldown] = useState(0);
+  const [expiresIn, setExpiresIn] = useState(0);
+  const [otpCode, setOtpCode] = useState('');
+
+  // Step3: regole dinamiche + upload
+  const [docRules, setDocRules] = useState([]); // [{doc_type,is_required,conditions}]
+  const [verifReq, setVerifReq] = useState(null); // {id, state, ...}
+  const [documents, setDocuments] = useState({}); // { [doc_type]: { file_key,... } }
+  const [s3Saving, setS3Saving] = useState(false);
+  const [s3Status, setS3Status] = useState({ type: '', msg: '' });
+  const [s3Dirty, setS3Dirty] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState('');
+
+  // Step4: privacy
+  const [privacy, setPrivacy] = useState({ accepted: false, marketing_optin: false });
+  const [s4Submitting, setS4Submitting] = useState(false);
+  const [s4Status, setS4Status] = useState({ type: '', msg: '' });
+
+  // styles
+  const styles = getStyles(step);
+
+  // ------------------------------
+  // Load iniziale: sessione, account, profilo, contatti, richiesta/verifica, consensi
+  // ------------------------------
   useEffect(() => {
-    let active = true;
-
     const load = async () => {
-      if (!operatorAuthId) return;
-      setLoading(true);
-
       try {
-        const { data, error } = await supabase
+        setLoading(true);
+        // 1) sessione
+        const { data: { user: u } } = await supabase.auth.getUser();
+        if (!u) {
+          router.replace('/login-operator');
+          return;
+        }
+        setUser(u);
+
+        // 2) tipi operatore attivi (catalogo)
+        const { data: typeRows } = await supabase.from('op_type').select('id, code, name, active').eq('active', true).order('name');
+        setOpTypes(typeRows || []);
+
+        // 3) account (potrebbe non esistere ancora, lo creeremo allo step 1)
+        const { data: acc } = await supabase
           .from('op_account')
           .select(`
-            id,
-            wizard_status,
-            op_profile (
-              legal_name,
-              trade_name,
-              website,
-              address1,
-              address2,
-              city,
-              state_region,
-              postal_code,
-              country
+            id, auth_user_id, type_id, wizard_status,
+            op_type:op_type!inner(id, code, name),
+            op_profile:op_profile(*),
+            op_contact:op_contact(*),
+            op_verification_request:op_verification_request(id, state, reason, submitted_at,
+              op_verification_document:op_verification_document(*)
             ),
-            op_contact (
-              email_primary,
-              email_billing,
-              phone_e164,
-              phone_verified_at
-            ),
-            op_verification_request (
-              id,
-              state,
-              reason,
-              submitted_at,
-              op_verification_document (
-                id,
-                verification_id,
-                doc_type,
-                file_key,
-                file_hash,
-                mime_type,
-                file_size,
-                expires_at
-              )
-            ),
-            op_privacy_consent (
-              policy_version,
-              accepted_at,
-              marketing_optin
-            )
+            op_privacy_consent:op_privacy_consent(policy_version, accepted_at, marketing_optin)
           `)
-          .eq('auth_user_id', operatorAuthId)
+          .eq('auth_user_id', u.id)
           .maybeSingle();
 
-        if (!active) return;
+        if (acc) {
+          setAccount({
+            id: acc.id,
+            wizard_status: acc.wizard_status,
+            type_id: acc.type_id,
+          });
+          // tipo selezionato (da catalogo)
+          const t = (typeRows || []).find(x => x.id === acc.type_id);
+          if (t) setSelectedTypeCode(t.code);
 
-        if (error && error.code !== 'PGRST116') throw error;
-
-        const nextForm = { ...INITIAL_FORM };
-
-        if (data) {
-          const normalizedStatus = normalizeWizardStatus(data.wizard_status);
-          setAccount({ ...data, wizard_status: normalizedStatus });
-
-          const profileRaw = data.op_profile;
-          const profile = Array.isArray(profileRaw) ? profileRaw[0] : profileRaw;
-          if (profile) {
-            nextForm.legal_name = profile.legal_name || '';
-            nextForm.trade_name = profile.trade_name || '';
-            nextForm.website = profile.website || '';
-            nextForm.address1 = profile.address1 || '';
-            nextForm.address2 = profile.address2 || '';
-            nextForm.city = profile.city || '';
-            nextForm.state_region = profile.state_region || '';
-            nextForm.postal_code = profile.postal_code || '';
-            nextForm.country = normalizeCountryName(profile.country) || '';
-          }
-
-          const contactRaw = data.op_contact;
-          const contact = Array.isArray(contactRaw) ? contactRaw[0] : contactRaw;
-          if (contact) {
-            nextForm.email_primary = contact.email_primary || email || '';
-            nextForm.email_billing = contact.email_billing || '';
-            nextForm.phone_e164 = contact.phone_e164 || '';
-            nextForm.phone_verified_at = contact.phone_verified_at || null;
-          } else {
-            nextForm.email_primary = email || '';
-          }
-
-          const requestRaw = data.op_verification_request;
-          const request = Array.isArray(requestRaw) ? requestRaw[0] : requestRaw;
-          const documentsRaw = request
-            ? Array.isArray(request.op_verification_document)
-              ? request.op_verification_document
-              : request.op_verification_document
-              ? [request.op_verification_document]
-              : []
-            : [];
-
-          nextForm.documents = REQUIRED_DOCS.reduce((acc, { docType }) => {
-            const doc = documentsRaw.find((item) => item.doc_type === docType);
-            return {
-              ...acc,
-              [docType]: doc
-                ? {
-                    doc_type: doc.doc_type,
-                    verification_id: doc.verification_id || request?.id || null,
-                    file_key: doc.file_key,
-                    file_hash: doc.file_hash,
-                    mime_type: doc.mime_type || doc.file_mime || '',
-                    file_size: doc.file_size,
-                    expires_at: doc.expires_at || null,
-                  }
-                : null,
-            };
-          }, nextForm.documents);
-
-          if (request) {
-            setVerificationRequest({
-              id: request.id,
-              state: request.state || 'draft',
-              reason: request.reason || null,
-              submitted_at: request.submitted_at || null,
+          // profile
+          const prof = Array.isArray(acc.op_profile) ? acc.op_profile[0] : acc.op_profile;
+          if (prof) {
+            setProfile({
+              legal_name: prof.legal_name || '',
+              trade_name: prof.trade_name || '',
+              website: prof.website || '',
+              address1: prof.address1 || '',
+              address2: prof.address2 || '',
+              city: prof.city || '',
+              state_region: prof.state_region || '',
+              postal_code: prof.postal_code || '',
+              country: prof.country || '' // già ISO‑2 in DB
             });
-            nextForm.document_notes = request.reason || '';
+          }
+
+          // contact
+          const c = Array.isArray(acc.op_contact) ? acc.op_contact[0] : acc.op_contact;
+          if (c) {
+            setContact({
+              email_primary: c.email_primary || (u.email || ''),
+              email_billing: c.email_billing || '',
+              phone_e164: c.phone_e164 || '',
+              phone_verified_at: c.phone_verified_at || null
+            });
           } else {
-            setVerificationRequest(null);
+            setContact((prev) => ({ ...prev, email_primary: u.email || '' }));
           }
 
-          const consentRaw = data.op_privacy_consent;
-          const consent = Array.isArray(consentRaw) ? consentRaw[0] : consentRaw;
-          if (consent) {
-            nextForm.privacy_consent = true;
-            nextForm.privacy_consent_at = consent.accepted_at || null;
-            nextForm.policy_version = consent.policy_version || PRIVACY_POLICY_VERSION;
-            nextForm.marketing_optin = !!consent.marketing_optin;
+          // verif request + docs
+          const vr = Array.isArray(acc.op_verification_request) ? acc.op_verification_request[0] : acc.op_verification_request;
+          if (vr) {
+            setVerifReq({ id: vr.id, state: vr.state, reason: vr.reason, submitted_at: vr.submitted_at });
+            const docs = Array.isArray(vr.op_verification_document) ? vr.op_verification_document : (vr.op_verification_document ? [vr.op_verification_document] : []);
+            const mapped = {};
+            for (const d of docs) {
+              mapped[d.doc_type] = {
+                doc_type: d.doc_type, file_key: d.file_key, file_hash: d.file_hash,
+                mime_type: d.mime_type, file_size: d.file_size, expires_at: d.expires_at
+              };
+            }
+            setDocuments(mapped);
           }
 
-          const resolvedStep = statusToStep(normalizedStatus);
-          setStep(resolvedStep);
+          // privacy già accettata (ultima riga nella select)
+          const cons = Array.isArray(acc.op_privacy_consent) ? acc.op_privacy_consent[0] : acc.op_privacy_consent;
+          if (cons?.accepted_at) {
+            setPrivacy({ accepted: true, marketing_optin: !!cons.marketing_optin });
+          }
 
-          if (resolvedStep === null && router.pathname !== '/operator-in-review') {
+          // step: se SUBMITTED/COMPLETED → redirect a stato review
+          if (acc.wizard_status === WIZARD.SUBMITTED || acc.wizard_status === WIZARD.COMPLETED) {
             router.replace('/operator-in-review');
             return;
           }
         } else {
-          nextForm.email_primary = email || '';
-          setVerificationRequest(null);
+          // Account non esiste: partiamo da Step 1 e lo creiamo al Save dello step 1
+          setContact((prev) => ({ ...prev, email_primary: u.email || '' }));
         }
-
-        setFormData(nextForm);
+      } catch (e) {
+        console.error(e);
+      } finally {
         setLoading(false);
-      } catch (err) {
-        console.error('Failed to load operator profile', err);
-        if (active) {
-          setErrorMessage(err.message || 'Unable to load profile.');
-          setLoading(false);
-        }
       }
     };
 
-    if (!checkingGuard && !guardError && operatorAuthId) {
-      load();
-    }
+    load();
+  }, [router]);
 
-    return () => {
-      active = false;
+  // Carica le regole documentali quando conosciamo il type_id (da account o dal select Step1)
+  useEffect(() => {
+    const loadDocRules = async () => {
+      try {
+        const typeRow = selectedType || (opTypes || []).find(t => t.id === account?.type_id);
+        if (!typeRow) { setDocRules([]); return; }
+        const { data: rules } = await supabase
+          .from('op_type_required_doc')
+          .select('doc_type, is_required, conditions')
+          .eq('type_id', typeRow.id);
+        setDocRules(rules || []);
+      } catch (e) {
+        console.error('Failed to load document rules', e);
+        setDocRules([]);
+      }
     };
-  }, [checkingGuard, guardError, operatorAuthId, email, router]);
+    loadDocRules();
+  }, [selectedTypeCode, account?.type_id, opTypes]);
 
-  const updateAccountWizard = async (nextStep) => {
-    if (!accountId) return;
-    const wizardStatus = STEP_STATUSES[nextStep] || STEP_STATUSES.complete;
-    const payload = {
-      wizard_status: wizardStatus,
-    };
-    const { error } = await supabase.from('op_account').update(payload).eq('id', accountId);
-    if (error) throw error;
-    const normalizedStatus = normalizeWizardStatus(wizardStatus);
-    setAccount((prev) => (prev ? { ...prev, ...payload, wizard_status: normalizedStatus } : prev));
+  // countdown resend + expiry timer OTP
+  useEffect(() => {
+    let t1, t2;
+    if (cooldown > 0) t1 = setInterval(() => setCooldown((v) => (v > 0 ? v - 1 : 0)), 1000);
+    if (otpSent && expiresIn > 0) t2 = setInterval(() => setExpiresIn((v) => (v > 0 ? v - 1 : 0)), 1000);
+    return () => { if (t1) clearInterval(t1); if (t2) clearInterval(t2); };
+  }, [cooldown, otpSent, expiresIn]);
+
+  // ------------------------------
+  // Salvataggi per step
+  // ------------------------------
+  const updateWizardStatus = async (status) => {
+    if (!opId) return;
+    await supabase.from('op_account').update({ wizard_status: status }).eq('id', opId);
+    setAccount((prev) => prev ? { ...prev, wizard_status: status } : prev);
   };
 
-  const upsertVerificationRequest = async (overrides = {}) => {
-    if (!opId) throw new Error('Missing operator identifier.');
+  const ensureAccount = async () => {
+    if (opId) return account;
+    // occorre il tipo selezionato per creare l'account (type_id NOT NULL)
+    const typeRow = opTypes.find(t => t.code === selectedTypeCode);
+    if (!user || !typeRow) throw new Error('Missing operator type or session.');
 
-    const baseReason =
-      overrides.reason !== undefined
-        ? overrides.reason
-        : verificationRequest?.reason ?? toNullableString(formData.document_notes);
+    const { data: inserted, error } = await supabase
+      .from('op_account')
+      .insert([{ auth_user_id: user.id, type_id: typeRow.id, wizard_status: WIZARD.IN_PROGRESS }])
+      .select('id, type_id, wizard_status')
+      .single();
+    if (error) throw error;
+    setAccount(inserted);
+    return inserted;
+  };
 
-    const payload = {
-      op_id: opId,
-      state: verificationRequest?.state || 'draft',
-      reason: baseReason,
-      ...overrides,
-    };
+  // STEP 1 — save
+  const saveStep1 = async () => {
+    try {
+      setS1Saving(true); setS1Status({ type: '', msg: '' });
+      const acc = await ensureAccount(); // crea se manca
 
-    if (!('submitted_at' in payload) && verificationRequest?.submitted_at) {
-      payload.submitted_at = verificationRequest.submitted_at;
+      // Se il tipo è cambiato rispetto all'account, aggiorna type_id e ricarica rules
+      const typeRow = opTypes.find(t => t.code === selectedTypeCode);
+      if (!typeRow) throw new Error('Operator type is required.');
+      if (acc.type_id !== typeRow.id) {
+        await supabase.from('op_account').update({ type_id: typeRow.id }).eq('id', acc.id);
+        setAccount((prev) => prev ? { ...prev, type_id: typeRow.id } : prev);
+      }
+
+      const payload = {
+        op_id: acc.id,
+        legal_name: profile.legal_name,
+        trade_name: profile.trade_name,
+        website: toNullable(profile.website),
+        address1: profile.address1,
+        address2: toNullable(profile.address2),
+        city: profile.city,
+        state_region: toNullable(profile.state_region),
+        postal_code: profile.postal_code, // richiesto lato UI
+        country: normalizeCountryCode(profile.country), // **ISO‑2** a DB
+      };
+
+      const { error } = await supabase.from('op_profile').upsert([payload], { onConflict: 'op_id' });
+      if (error) throw error;
+
+      await updateWizardStatus(WIZARD.IN_PROGRESS);
+      setS1Status({ type: 'success', msg: 'Saved ✓' });
+      setS1Dirty(false);
+    } catch (e) {
+      console.error(e);
+      setS1Status({ type: 'error', msg: 'Save failed' });
+      setS1Dirty(true);
+    } finally {
+      setS1Saving(false);
     }
+  };
 
-    const { data, error } = await supabase
+  // STEP 2 — save (contatti)
+  const saveStep2 = async () => {
+    try {
+      setS2Saving(true); setS2Status({ type: '', msg: '' });
+      const acc = await ensureAccount();
+      const payload = {
+        op_id: acc.id,
+        email_primary: contact.email_primary || (user?.email ?? ''),
+        email_billing: toNullable(contact.email_billing),
+        phone_e164: contact.phone_e164 || null,
+        phone_verified_at: contact.phone_verified_at || null,
+      };
+      const { error } = await supabase.from('op_contact').upsert([payload], { onConflict: 'op_id' });
+      if (error) throw error;
+
+      await updateWizardStatus(WIZARD.IN_PROGRESS);
+      setS2Status({ type: 'success', msg: 'Saved ✓' });
+      setS2Dirty(false);
+    } catch (e) {
+      console.error(e);
+      setS2Status({ type: 'error', msg: 'Save failed' });
+      setS2Dirty(true);
+    } finally {
+      setS2Saving(false);
+    }
+  };
+
+  // STEP 3 — ensure open verification request
+  const ensureOpenRequest = useCallback(async () => {
+    const accId = opId || (await ensureAccount()).id;
+    // cerca richiesta "aperta"
+    const { data: openReq } = await supabase
       .from('op_verification_request')
-      .upsert([payload], { onConflict: 'op_id' })
+      .select('id, state, reason, submitted_at')
+      .eq('op_id', accId)
+      .in('state', [VERIF_STATE.NOT_STARTED, VERIF_STATE.IN_REVIEW, VERIF_STATE.NEEDS_MORE_INFO])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (openReq) { setVerifReq(openReq); return openReq; }
+
+    // crea una nuova richiesta NOT_STARTED
+    const { data: created, error } = await supabase
+      .from('op_verification_request')
+      .insert([{ op_id: accId, state: VERIF_STATE.NOT_STARTED }])
       .select('id, state, reason, submitted_at')
       .single();
-
     if (error) throw error;
+    setVerifReq(created);
+    return created;
+  }, [opId, ensureAccount]);
 
-    setVerificationRequest(data);
-    return data;
+  // STEP 3 — save note (facoltativo)
+  const saveStep3 = async () => {
+    try {
+      setS3Saving(true); setS3Status({ type: '', msg: '' });
+      await ensureOpenRequest(); // si limita a garantire l'esistenza della richiesta
+      await updateWizardStatus(WIZARD.IN_PROGRESS);
+      setS3Status({ type: 'success', msg: 'Saved ✓' });
+      setS3Dirty(false);
+    } catch (e) {
+      console.error(e);
+      setS3Status({ type: 'error', msg: 'Save failed' });
+      setS3Dirty(true);
+    } finally {
+      setS3Saving(false);
+    }
   };
 
-  const saveStep = async (nextStep) => {
-    if (!accountId) return;
-    setErrorMessage('');
-
+  // STEP 4 — submit (privacy INSERT + richiesta → IN_REVIEW + wizard → SUBMITTED)
+  const submitAll = async () => {
     try {
-      if (step === 1) {
-        if (!opId) throw new Error('Missing operator identifier.');
-        const { error } = await supabase.from('op_profile').upsert([
-          {
-            op_id: opId,
-            legal_name: formData.legal_name,
-            trade_name: formData.trade_name,
-            website: toNullableString(formData.website),
-            address1: formData.address1,
-            address2: toNullableString(formData.address2),
-            city: formData.city,
-            state_region: toNullableString(formData.state_region),
-            postal_code: formData.postal_code,
-            country: normalizeCountryName(formData.country),
-          },
-        ], { onConflict: 'op_id' });
-        if (error) throw error;
-      } else if (step === 2) {
-        if (!opId) throw new Error('Missing operator identifier.');
-        const { error } = await supabase.from('op_contact').upsert([
-          {
-            op_id: opId,
-            email_primary: formData.email_primary || email,
-            email_billing: toNullableString(formData.email_billing),
-            phone_e164: formData.phone_e164 || null,
-            phone_verified_at: formData.phone_verified_at || null,
-          },
-        ], { onConflict: 'op_id' });
-        if (error) throw error;
-      } else if (step === 3) {
-        await upsertVerificationRequest({ reason: toNullableString(formData.document_notes) });
+      setS4Submitting(true); setS4Status({ type: '', msg: '' });
+      const acc = await ensureAccount();
+      const nowIso = new Date().toISOString();
+
+      // 1) INSERT privacy (storico, no upsert)
+      const { error: cErr } = await supabase
+        .from('op_privacy_consent')
+        .insert([{ op_id: acc.id, policy_version: PRIVACY_POLICY_VERSION, accepted: true, accepted_at: nowIso, marketing_optin: !!privacy.marketing_optin }]);
+      if (cErr) throw cErr;
+
+      // 2) ensure richiesta e portala IN_REVIEW
+      const req = await ensureOpenRequest();
+      const { error: rErr } = await supabase
+        .from('op_verification_request')
+        .update({ state: VERIF_STATE.IN_REVIEW, submitted_at: nowIso })
+        .eq('id', req.id);
+      if (rErr) throw rErr;
+
+      // 3) wizard → SUBMITTED
+      await updateWizardStatus(WIZARD.SUBMITTED);
+
+      // redirect
+      router.replace('/operator-in-review');
+    } catch (e) {
+      console.error(e);
+      setS4Status({ type: 'error', msg: 'Submit failed' });
+      setS4Submitting(false);
+    }
+  };
+
+  // ------------------------------
+  // OTP handlers (Step 2)
+  // ------------------------------
+  const ensureSession = async () => {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    return !!session && !error;
+  };
+
+  const sendCode = async () => {
+    try {
+      if (cooldown > 0) { setOtpMsg(`Please wait ${cooldown}s.`); return; }
+      if (!(await ensureSession())) { setOtpMsg('Session expired. Sign in again.'); return; }
+      if (!contact.phone_e164) { setOtpMsg('Enter a phone number first.'); return; }
+      const { error } = await supabase.auth.updateUser({ phone: contact.phone_e164 });
+      if (error) throw error;
+      setOtpMsg('OTP sent. Check your SMS.');
+      setOtpSent(true);
+      setCooldown(COOLDOWN_SECONDS);
+      setExpiresIn(OTP_TTL_SECONDS);
+    } catch (e) {
+      setOtpMsg(e?.message || 'Failed to send OTP');
+    }
+  };
+
+  const verifyCode = async () => {
+    try {
+      if (expiresIn <= 0) { setOtpMsg('Code expired. Request a new one.'); return; }
+      if (!otpCode) { setOtpMsg('Enter the code.'); return; }
+      const { error } = await supabase.auth.verifyOtp({
+        phone: contact.phone_e164,
+        token: otpCode,
+        type: 'phone_change',
+      });
+      if (error) throw error;
+      const verifiedAt = new Date().toISOString();
+      setContact((prev) => ({ ...prev, phone_verified_at: verifiedAt }));
+      setOtpMsg('Phone verified ✔');
+      setOtpCode('');
+
+      // persisti immediatamente la verifica
+      if (opId) {
+        await supabase.from('op_contact').upsert([{
+          op_id: opId,
+          email_primary: contact.email_primary || (user?.email ?? ''),
+          email_billing: toNullable(contact.email_billing),
+          phone_e164: contact.phone_e164 || null,
+          phone_verified_at: verifiedAt,
+        }], { onConflict: 'op_id' });
+      }
+    } catch (e) {
+      setOtpMsg(`Verification failed: ${e?.message || 'Error'}`);
+    }
+  };
+
+  // ------------------------------
+  // Upload/Rimozione documenti (Step 3)
+  // ------------------------------
+  const handleUpload = async (file, docType) => {
+    if (!file) return;
+    try {
+      setUploadingDoc(docType);
+      const req = await ensureOpenRequest();
+      // calcolo hash SHA-256 via Web Crypto
+      const ab = await file.arrayBuffer();
+      const hashBuf = await crypto.subtle.digest('SHA-256', ab);
+      const hashArr = Array.from(new Uint8Array(hashBuf));
+      const fileHash = hashArr.map((b) => b.toString(16).padStart(2, '0')).join('');
+      const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
+      const fileKey = `operators/${opId || 'new'}/${docType}-${Date.now()}.${ext}`;
+
+      // upload al bucket "op_assets" (privato)
+      const { error: upErr } = await supabase.storage.from('op_assets').upload(fileKey, file, { cacheControl: '3600', upsert: false });
+      if (upErr) throw upErr;
+
+      // INSERT/UPDATE senza onConflict (lo schema non espone UNIQUE su (verification_id,doc_type))
+      // 1) esiste già?
+      const { data: existing } = await supabase
+        .from('op_verification_document')
+        .select('id')
+        .eq('verification_id', req.id)
+        .eq('doc_type', docType)
+        .maybeSingle();
+
+      if (existing?.id) {
+        const { error: updErr } = await supabase
+          .from('op_verification_document')
+          .update({
+            file_key: fileKey, file_hash: fileHash,
+            mime_type: file.type || 'application/octet-stream',
+            file_size: file.size
+          })
+          .eq('id', existing.id);
+        if (updErr) throw updErr;
+      } else {
+        const { error: insErr } = await supabase
+          .from('op_verification_document')
+          .insert([{
+            verification_id: req.id,
+            doc_type: docType,
+            file_key: fileKey,
+            file_hash: fileHash,
+            mime_type: file.type || 'application/octet-stream',
+            file_size: file.size
+          }]);
+        if (insErr) throw insErr;
       }
 
-      await updateAccountWizard(nextStep);
-      setStep(nextStep);
-    } catch (err) {
-      console.error('Failed to save step', err);
-      setErrorMessage(err.message || 'Unable to save step.');
+      // aggiorna stato UI
+      setDocuments((prev) => ({
+        ...prev,
+        [docType]: { doc_type: docType, file_key: fileKey, file_hash: fileHash, mime_type: file.type, file_size: file.size }
+      }));
+      setS3Dirty(true);
+      setS3Status({ type: 'success', msg: 'Saved ✓' });
+    } catch (e) {
+      console.error(e);
+      setS3Status({ type: 'error', msg: 'Upload failed' });
+    } finally {
+      setUploadingDoc('');
     }
   };
 
-  const finalize = async () => {
-    if (!accountId || !opId) return;
-    setSubmitting(true);
-    setErrorMessage('');
-
+  const handleRemove = async (docType) => {
     try {
-      const submittedAt = new Date().toISOString();
-
-      const consentPayload = {
-        op_id: opId,
-        policy_version: formData.policy_version || PRIVACY_POLICY_VERSION,
-        accepted_at: formData.privacy_consent_at || submittedAt,
-        marketing_optin: formData.marketing_optin,
-      };
-      const { error: consentError } = await supabase
-        .from('op_privacy_consent')
-        .upsert([consentPayload], { onConflict: 'op_id' });
-      if (consentError) throw consentError;
-
-      await upsertVerificationRequest({
-        state: 'submitted',
-        reason: toNullableString(formData.document_notes),
-        submitted_at: submittedAt,
+      setUploadingDoc(docType);
+      const req = await ensureOpenRequest();
+      const current = documents[docType];
+      // elimina DB
+      await supabase.from('op_verification_document').delete().match({ verification_id: req.id, doc_type: docType });
+      // elimina storage
+      if (current?.file_key) await supabase.storage.from('op_assets').remove([current.file_key]);
+      // aggiorna UI
+      setDocuments((prev) => {
+        const copy = { ...prev }; delete copy[docType]; return copy;
       });
-
-      const accountUpdatePayload = {
-        wizard_status: STEP_STATUSES.submitted,
-      };
-      const { error: accountError } = await supabase
-        .from('op_account')
-        .update(accountUpdatePayload)
-        .eq('id', accountId);
-      if (accountError) throw accountError;
-
-      setAccount((prev) =>
-        prev
-          ? {
-              ...prev,
-              ...accountUpdatePayload,
-              wizard_status: normalizeWizardStatus(accountUpdatePayload.wizard_status),
-            }
-          : prev
-      );
-      router.replace('/operator-in-review');
-    } catch (err) {
-      console.error('Failed to finalize operator onboarding', err);
-      setErrorMessage(err.message || 'Unable to complete onboarding.');
-      setSubmitting(false);
+      setS3Dirty(true);
+      setS3Status({ type: 'success', msg: 'Saved ✓' });
+    } catch (e) {
+      console.error(e);
+      setS3Status({ type: 'error', msg: 'Remove failed' });
+    } finally {
+      setUploadingDoc('');
     }
   };
 
-  const normalizedPhone = (formData.phone_e164 || '').replace(/\s+/g, '');
-  const parsedPhone = useMemo(() => parsePhoneNumberFromString(normalizedPhone), [normalizedPhone]);
-  const progressWidth = step ? `${(step / 4) * 100}%` : '100%';
+  // ------------------------------
+  // Validazioni / gating step
+  // ------------------------------
+  const isValidStep1 = !!selectedTypeCode
+    && !!profile.legal_name && !!profile.trade_name
+    && !!profile.address1 && !!profile.city
+    && !!profile.postal_code && !!normalizeCountryCode(profile.country);
 
-  if (checkingGuard || loading) {
+  const nationalLength = parsedPhone?.nationalNumber ? String(parsedPhone.nationalNumber).length : 0;
+  const isValidPhone = !!parsedPhone && parsedPhone.isValid() && nationalLength >= 10;
+
+  const isValidStep2 = !!contact.email_primary && isValidPhone && !!contact.phone_verified_at;
+
+  // document pack filtrato per condizioni attive (profile.country)
+  const activeDocRules = docRules.filter((r) => matchesConditions(r, { country: normalizeCountryCode(profile.country) }));
+  const requiredDocTypes = activeDocRules.filter((r) => r.is_required).map((r) => r.doc_type);
+  const isValidStep3 = requiredDocTypes.every((dt) => !!documents[dt]);
+
+  const canSubmit = privacy.accepted;
+
+  // ------------------------------
+  // UI rendering
+  // ------------------------------
+  if (loading) {
     return (
       <div style={styles.background}>
         <div style={styles.overlay}>
           <div style={styles.container}>
-            <div style={styles.userMenuContainer}>
-              <div style={styles.menuIcon}>⋮</div>
-            </div>
-            <div style={styles.loaderContainer} role="status" aria-live="polite">
-              <div style={styles.spinner} aria-hidden="true" />
-              <span style={styles.srOnly}>Loading operator wizard…</span>
-            </div>
-            <style jsx>{`
-              @keyframes profilePreviewSpin {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-              }
-            `}</style>
+            <div style={styles.card}><p>Loading operator wizard…</p></div>
           </div>
         </div>
       </div>
     );
-  }
-
-  if (guardError) {
-    return (
-      <div style={styles.background}>
-        <div style={styles.overlay}>
-          <div style={styles.container}>
-            <div style={styles.card}>
-              <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
-              <h2>Unable to verify operator session.</h2>
-              <p>Please sign in again.</p>
-              <button style={styles.button} onClick={() => router.replace('/login-operator')}>
-                Back to login
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!operatorAuthId) {
-    return null;
   }
 
   return (
     <div style={styles.background}>
       <div style={styles.overlay}>
         <div style={styles.container}>
-          <div style={styles.userMenuContainer}>
-            <div
-              style={styles.menuIcon}
-              onClick={toggleMenu}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  toggleMenu();
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              aria-haspopup="true"
-              aria-expanded={menuOpen}
-            >
-              ⋮
-            </div>
-            {menuOpen && (
-              <div style={styles.dropdown}>
-                <div style={styles.dropdownUser}>👤 {email}</div>
-                <button type="button" onClick={handleLogout} style={styles.dropdownButton}>
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div style={{ ...styles.card, maxWidth: step === 4 ? '960px' : '520px' }}>
+          <div style={{ ...styles.card, maxWidth: step === 4 ? '960px' : '560px' }}>
             <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
-            <div style={styles.progressBar}>
-              <div style={{ ...styles.progressFill, width: progressWidth }} />
-            </div>
-            <div style={styles.steps}>
-              {[1, 2, 3, 4].map((s) => (
-                <div key={s} style={{ ...styles.stepCircle, background: step === s ? '#27E3DA' : '#E0E0E0' }}>
-                  {s}
+            <Progress step={step} />
+            {/* STEP SWITCH */}
+            {step === 1 && (
+              <>
+                <h2 style={styles.title}>Step 1 · Entity type & details</h2>
+
+                {/* Tipo Operatore */}
+                <label style={styles.label}>Operator type</label>
+                <Select
+                  placeholder="Select type"
+                  options={(opTypes || []).map(t => ({ value: t.code, label: t.name }))}
+                  value={selectedTypeCode ? { value: selectedTypeCode, label: (opTypes.find(t => t.code === selectedTypeCode)?.name || selectedTypeCode) } : null}
+                  onChange={(opt) => { setSelectedTypeCode(opt?.value || ''); setS1Dirty(true); setS1Status({ type: '', msg: '' }); }}
+                />
+
+                {/* Labels adattive per Agent/Club */}
+                <label style={styles.label}>{selectedTypeCode === 'club' ? 'Legal name (company/club)' : 'Full legal name'}</label>
+                <input style={styles.input} value={profile.legal_name}
+                       onChange={(e) => { setProfile({ ...profile, legal_name: e.target.value }); setS1Dirty(true); if (s1Status.type) setS1Status({ type: '', msg: '' }); }} />
+
+                <label style={styles.label}>{selectedTypeCode === 'club' ? 'Public name' : 'Professional name (if different)'}</label>
+                <input style={styles.input} value={profile.trade_name}
+                       onChange={(e) => { setProfile({ ...profile, trade_name: e.target.value }); setS1Dirty(true); if (s1Status.type) setS1Status({ type: '', msg: '' }); }} />
+
+                <label style={styles.label}>Website (optional)</label>
+                <input style={styles.input} value={profile.website}
+                       onChange={(e) => { setProfile({ ...profile, website: e.target.value }); setS1Dirty(true); if (s1Status.type) setS1Status({ type: '', msg: '' }); }} />
+
+                <label style={styles.label}>Address</label>
+                <input style={styles.input} placeholder="Address line 1" value={profile.address1}
+                       onChange={(e) => { setProfile({ ...profile, address1: e.target.value }); setS1Dirty(true); if (s1Status.type) setS1Status({ type: '', msg: '' }); }} />
+                <input style={styles.input} placeholder="Address line 2 (optional)" value={profile.address2}
+                       onChange={(e) => { setProfile({ ...profile, address2: e.target.value }); setS1Dirty(true); if (s1Status.type) setS1Status({ type: '', msg: '' }); }} />
+
+                <div style={styles.cols}>
+                  <div>
+                    <label style={styles.label}>City</label>
+                    <input style={styles.input} value={profile.city}
+                           onChange={(e) => { setProfile({ ...profile, city: e.target.value }); setS1Dirty(true); if (s1Status.type) setS1Status({ type: '', msg: '' }); }} />
+                  </div>
+                  <div>
+                    <label style={styles.label}>State/Province (optional)</label>
+                    <input style={styles.input} value={profile.state_region}
+                           onChange={(e) => { setProfile({ ...profile, state_region: e.target.value }); setS1Dirty(true); if (s1Status.type) setS1Status({ type: '', msg: '' }); }} />
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            {errorMessage && <p style={styles.error}>{errorMessage}</p>}
+                <div style={styles.cols}>
+                  <div>
+                    <label style={styles.label}>Postal / ZIP code</label>
+                    <input style={styles.input} value={profile.postal_code}
+                           onChange={(e) => { setProfile({ ...profile, postal_code: e.target.value }); setS1Dirty(true); if (s1Status.type) setS1Status({ type: '', msg: '' }); }} />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Country</label>
+                    <Select
+                      placeholder="Start typing country"
+                      options={COUNTRIES}
+                      value={COUNTRIES.find((c) => c.value === profile.country) || null}
+                      onChange={(opt) => { setProfile({ ...profile, country: opt?.value || '' }); setS1Dirty(true); if (s1Status.type) setS1Status({ type: '', msg: '' }); }}
+                      filterOption={(option, input) => input.length >= 2 && option.label.toLowerCase().includes(input.toLowerCase())}
+                    />
+                  </div>
+                </div>
 
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={step || 'complete'}
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -50 }}
-                transition={{ duration: 0.4 }}
-              >
-                {step === 1 && (
-                  <Step1
-                    formData={formData}
-                    setFormData={setFormData}
-                    saveStep={() => saveStep(2)}
-                  />
+                <SaveBar saving={s1Saving} isSaveDisabled={!s1Dirty || !isValidStep1} status={s1Status} onSubmit={saveStep1} />
+                <button style={isValidStep1 ? styles.primaryBtn : styles.primaryBtnDisabled} disabled={!isValidStep1}
+                        onClick={async () => { await saveStep1(); if (isValidStep1) setStep(2); }}>
+                  Next ➜
+                </button>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <h2 style={styles.title}>Step 2 · Contacts & phone verification</h2>
+
+                <label style={styles.label}>Primary email</label>
+                <input style={styles.input} type="email" value={contact.email_primary}
+                       onChange={(e) => { setContact({ ...contact, email_primary: e.target.value }); setS2Dirty(true); if (s2Status.type) setS2Status({ type: '', msg: '' }); }} />
+
+                <label style={styles.label}>Billing email (optional)</label>
+                <input style={styles.input} type="email" value={contact.email_billing}
+                       onChange={(e) => { setContact({ ...contact, email_billing: e.target.value }); setS2Dirty(true); if (s2Status.type) setS2Status({ type: '', msg: '' }); }} />
+
+                <label style={styles.label}>Phone (E.164)</label>
+                <PhoneInput
+                  country={parsedPhone?.country?.toLowerCase() || 'it'}
+                  value={contact.phone_e164}
+                  onChange={(value) => {
+                    const formatted = value.startsWith('+') ? value : `+${value}`;
+                    setContact({ ...contact, phone_e164: formatted, phone_verified_at: null });
+                    setS2Dirty(true);
+                    if (s2Status.type) setS2Status({ type: '', msg: '' });
+                  }}
+                  inputStyle={{ width: '100%' }}
+                />
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button type="button" style={styles.secondaryBtn} onClick={sendCode}>
+                    {cooldown > 0 ? `Resend (${cooldown}s)` : 'Send code'}
+                  </button>
+                  <input style={{ ...styles.input, width: 140 }} placeholder="OTP" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} />
+                  <button type="button" style={styles.secondaryBtn} onClick={verifyCode}>Verify</button>
+                </div>
+                {otpMsg && <p style={{ fontSize: 12, color: otpMsg.includes('✔') ? '#2E7D32' : '#B00020', textAlign: 'left' }}>{otpMsg}</p>}
+
+                <SaveBar saving={s2Saving} isSaveDisabled={!s2Dirty || !isValidStep2} status={s2Status} onSubmit={saveStep2} />
+                <button style={isValidStep2 ? styles.primaryBtn : styles.primaryBtnDisabled} disabled={!isValidStep2}
+                        onClick={async () => { await saveStep2(); if (isValidStep2) setStep(3); }}>
+                  Next ➜
+                </button>
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <h2 style={styles.title}>Step 3 · Verification documents</h2>
+
+                {activeDocRules.length === 0 && (
+                  <p>No documents are required for the current configuration.</p>
                 )}
-                {step === 2 && (
-                  <Step2
-                    user={user}
-                    opId={opId}
-                    formData={formData}
-                    setFormData={setFormData}
-                    parsedPhone={parsedPhone}
-                    saveStep={() => saveStep(3)}
-                  />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {activeDocRules.map((r) => {
+                    const doc = documents[r.doc_type];
+                    const label = DOC_LABEL[r.doc_type] || r.doc_type;
+                    return (
+                      <div key={r.doc_type} style={{ textAlign: 'left' }}>
+                        <p style={{ fontWeight: 600, marginBottom: 8 }}>
+                          {label}{r.is_required ? '' : ' · Optional'}
+                        </p>
+
+                        {doc ? (
+                          <div style={{ fontSize: 12, color: '#555', wordBreak: 'break-all' }}>
+                            <div><strong>Storage key:</strong> {doc.file_key}</div>
+                            <div><strong>Hash:</strong> {doc.file_hash}</div>
+                            <div><strong>MIME:</strong> {doc.mime_type || ''}</div>
+                            <div><strong>Size:</strong> {(doc.file_size ? (doc.file_size / 1024).toFixed(1) : '0.0')} KB</div>
+                            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                              <button type="button" style={styles.secondaryBtn} disabled={uploadingDoc === r.doc_type} onClick={() => handleRemove(r.doc_type)}>
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <input type="file" accept="image/*,application/pdf" disabled={uploadingDoc === r.doc_type}
+                                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f, r.doc_type); e.target.value=''; }} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <SaveBar saving={s3Saving} isSaveDisabled={!s3Dirty} status={s3Status} onSubmit={saveStep3} />
+                <button style={isValidStep3 ? styles.primaryBtn : styles.primaryBtnDisabled} disabled={!isValidStep3}
+                        onClick={async () => { await saveStep3(); if (isValidStep3) setStep(4); }}>
+                  Next ➜
+                </button>
+
+                {!isValidStep3 && (
+                  <ul style={{ marginTop: 8, color: '#B00020', textAlign: 'left' }}>
+                    {requiredDocTypes.filter((dt) => !documents[dt]).map((dt) => (
+                      <li key={dt}>{DOC_LABEL[dt] || dt} missing</li>
+                    ))}
+                  </ul>
                 )}
-                {step === 3 && (
-                  <Step3
-                    user={user}
-                    formData={formData}
-                    setFormData={setFormData}
-                    ensureVerificationRequest={upsertVerificationRequest}
-                    saveStep={() => saveStep(4)}
-                  />
-                )}
-                {step === 4 && (
-                  <Step4
-                    formData={formData}
-                    setFormData={setFormData}
-                    submitting={submitting}
-                    finalize={finalize}
-                  />
-                )}
-                {step === null && (
-                  <CompletionCard onContinue={() => router.replace('/operator-in-review')} />
-                )}
-              </motion.div>
-            </AnimatePresence>
+              </>
+            )}
+
+            {step === 4 && (
+              <>
+                <h2 style={styles.title}>Step 4 · Privacy & submission</h2>
+                <div style={{ ...styles.formGroup, textAlign: 'left' }}>
+                  <div style={styles.gdprBox}>
+                    <p><strong>GDPR policy — version {PRIVACY_POLICY_VERSION}</strong></p>
+                    <p>Please review our privacy policy. By submitting you accept the processing of your data for verification purposes.</p>
+                  </div>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" checked={privacy.accepted} onChange={(e) => setPrivacy({ ...privacy, accepted: e.target.checked })} />
+                    I have read and accept the GDPR policy
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" checked={privacy.marketing_optin} onChange={(e) => setPrivacy({ ...privacy, marketing_optin: e.target.checked })} />
+                    I agree to receive TalentLix updates and communications
+                  </label>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
+                    <button style={canSubmit && !s4Submitting ? styles.primaryBtn : styles.primaryBtnDisabled}
+                            disabled={!canSubmit || s4Submitting}
+                            onClick={submitAll}>
+                      {s4Submitting ? 'Submitting…' : 'Submit for review'}
+                    </button>
+                    {s4Status.msg && (
+                      <span role="status" aria-live="polite" style={{ fontWeight: 600, color: s4Status.type === 'error' ? '#b00' : '#2E7D32', whiteSpace: 'nowrap' }}>
+                        {s4Status.msg}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -607,812 +900,58 @@ export default function OperatorWizard() {
   );
 }
 
-const Step1 = ({ formData, setFormData, saveStep }) => {
-  const isValid =
-    !!formData.legal_name &&
-    !!formData.trade_name &&
-    !!formData.address1 &&
-    !!formData.city &&
-    !!formData.postal_code &&
-    !!formData.country;
-
+// ------------------------------
+// UI subcomponenti & stili
+// ------------------------------
+function Progress({ step }) {
+  const width = `${(step / 4) * 100}%`;
   return (
     <>
-      <h2 style={styles.title}>Step 1 · Entity details</h2>
-      <div style={styles.formGroup}>
-        <input
-          style={styles.input}
-          name="legal_name"
-          placeholder="Legal entity name"
-          value={formData.legal_name}
-          onChange={(event) => setFormData((prev) => ({ ...prev, legal_name: event.target.value }))}
-        />
-        <input
-          style={styles.input}
-          name="trade_name"
-          placeholder="Trading name"
-          value={formData.trade_name}
-          onChange={(event) => setFormData((prev) => ({ ...prev, trade_name: event.target.value }))}
-        />
-        <input
-          style={styles.input}
-          name="website"
-          placeholder="Website (optional)"
-          value={formData.website}
-          onChange={(event) => setFormData((prev) => ({ ...prev, website: event.target.value }))}
-        />
-        <input
-          style={styles.input}
-          name="address1"
-          placeholder="Address line 1"
-          value={formData.address1}
-          onChange={(event) => setFormData((prev) => ({ ...prev, address1: event.target.value }))}
-        />
-        <input
-          style={styles.input}
-          name="address2"
-          placeholder="Address line 2 (optional)"
-          value={formData.address2}
-          onChange={(event) => setFormData((prev) => ({ ...prev, address2: event.target.value }))}
-        />
-        <div style={twoCols}>
-          <input
-            style={styles.input}
-            name="city"
-            placeholder="City"
-            value={formData.city}
-            onChange={(event) => setFormData((prev) => ({ ...prev, city: event.target.value }))}
-          />
-          <input
-            style={styles.input}
-            name="state_region"
-            placeholder="State / Province (optional)"
-            value={formData.state_region}
-            onChange={(event) =>
-              setFormData((prev) => ({ ...prev, state_region: event.target.value }))
-            }
-          />
-        </div>
-        <div style={twoCols}>
-          <input
-            style={styles.input}
-            name="postal_code"
-            placeholder="Postal / ZIP code"
-            value={formData.postal_code}
-            onChange={(event) => setFormData((prev) => ({ ...prev, postal_code: event.target.value }))}
-          />
-          <div style={{ width: '100%' }}>
-            <Select
-              placeholder="Start typing country"
-              options={countries}
-              value={countries.find((opt) => opt.value === formData.country) || null}
-              onChange={(selected) => setFormData((prev) => ({ ...prev, country: selected?.value || '' }))}
-              filterOption={(option, inputValue) =>
-                inputValue.length >= 2 && option.label.toLowerCase().includes(inputValue.toLowerCase())
-              }
-              styles={selectStyles}
-            />
-          </div>
-        </div>
-        <button
-          style={isValid ? styles.button : styles.buttonDisabled}
-          disabled={!isValid}
-          onClick={saveStep}
-        >
-          Next ➡️
-        </button>
-        {!isValid && (
-          <ul style={validationList}>
-            {!formData.legal_name && <li>Legal name missing</li>}
-            {!formData.trade_name && <li>Trading name missing</li>}
-            {!formData.address1 && <li>Address line 1 missing</li>}
-            {!formData.city && <li>City missing</li>}
-            {!formData.postal_code && <li>Postal code missing</li>}
-            {!formData.country && <li>Country missing</li>}
-          </ul>
-        )}
+      <div style={{ background: '#E0E0E0', height: 8, borderRadius: 8, marginBottom: 16 }}>
+        <div style={{ background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', height: '100%', borderRadius: 8, width }} />
       </div>
-    </>
-  );
-};
-
-const Step2 = ({ user, opId, formData, setFormData, parsedPhone, saveStep }) => {
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [phoneVerified, setPhoneVerified] = useState(!!formData.phone_verified_at);
-  const [otpMessage, setOtpMessage] = useState('');
-  const [cooldown, setCooldown] = useState(0);
-  const [expiresIn, setExpiresIn] = useState(0);
-
-  const COOLDOWN_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_RESEND_COOLDOWN || 60);
-  const OTP_TTL_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_OTP_TTL || 600);
-
-  useEffect(() => {
-    let timer;
-    if (cooldown > 0) {
-      timer = setInterval(() => setCooldown((prev) => (prev > 0 ? prev - 1 : 0)), 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [cooldown]);
-
-  useEffect(() => {
-    let timer;
-    if (otpSent && expiresIn > 0) {
-      timer = setInterval(() => setExpiresIn((prev) => (prev > 0 ? prev - 1 : 0)), 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [otpSent, expiresIn]);
-
-  useEffect(() => {
-    setPhoneVerified(!!formData.phone_verified_at);
-  }, [formData.phone_verified_at]);
-
-  const ensureSession = async () => {
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession();
-    if (error || !session) {
-      setOtpMessage('Session expired. Please sign in again.');
-      return false;
-    }
-    return true;
-  };
-
-  const sendCode = async () => {
-    try {
-      if (cooldown > 0) {
-        setOtpMessage(`Please wait ${cooldown}s before requesting a new code.`);
-        return;
-      }
-      if (!(await ensureSession())) return;
-      if (!formData.phone_e164) {
-        setOtpMessage('Enter a valid phone number before requesting a code.');
-        return;
-      }
-      const { error } = await supabase.auth.updateUser({ phone: formData.phone_e164 });
-      if (error) {
-        setOtpMessage(`Failed to request OTP: ${error.message}`);
-        return;
-      }
-      setOtpSent(true);
-      setCooldown(COOLDOWN_SECONDS);
-      setExpiresIn(OTP_TTL_SECONDS);
-      setOtpMessage('OTP requested. Check your SMS.');
-    } catch (err) {
-      setOtpMessage(`Send error: ${err?.message || String(err)}`);
-    }
-  };
-
-  const confirmCode = async () => {
-    try {
-      if (expiresIn <= 0) {
-        setOtpMessage('The code has expired. Please request a new one.');
-        return;
-      }
-
-      if (!otpCode) {
-        setOtpMessage('Enter the verification code.');
-        return;
-      }
-
-      const { error } = await supabase.auth.verifyOtp({
-        phone: formData.phone_e164,
-        token: otpCode,
-        type: 'phone_change',
-      });
-
-      if (error) {
-        setOtpMessage(`Verification failed${error.status ? ` [${error.status}]` : ''}: ${error.message}`);
-        return;
-      }
-
-      const verifiedAt = new Date().toISOString();
-      setPhoneVerified(true);
-      setOtpMessage('Phone verified ✔');
-      setOtpCode('');
-      setFormData((prev) => ({ ...prev, phone_verified_at: verifiedAt }));
-
-      if (opId) {
-        await supabase
-          .from('op_contact')
-          .upsert(
-            [
-              {
-                op_id: opId,
-                email_primary:
-                  toNullableString(formData.email_primary) || toNullableString(user?.email),
-                email_billing: toNullableString(formData.email_billing),
-                phone_e164: formData.phone_e164 || null,
-                phone_verified_at: verifiedAt,
-              },
-            ],
-            { onConflict: 'op_id' }
-          );
-      } else {
-        console.warn('Missing operator identifier while persisting phone verification.');
-      }
-    } catch (err) {
-      setOtpMessage(`Verification error: ${err?.message || String(err)}`);
-    }
-  };
-
-  const fmtSecs = (secs) => {
-    const minutes = Math.floor(secs / 60);
-    const seconds = secs % 60;
-    return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-  };
-
-  const nationalLength = parsedPhone?.nationalNumber ? String(parsedPhone.nationalNumber).length : 0;
-  const isValidPhone = !!parsedPhone && parsedPhone.isValid() && nationalLength >= 10;
-
-  const isValid =
-    !!formData.email_primary &&
-    isValidPhone &&
-    phoneVerified;
-
-  return (
-    <>
-      <h2 style={styles.title}>Step 2 · Contact & phone verification</h2>
-      <div style={styles.formGroup}>
-        <input
-          style={styles.input}
-          name="email_primary"
-          type="email"
-          placeholder="Primary contact email"
-          value={formData.email_primary}
-          onChange={(event) => setFormData((prev) => ({ ...prev, email_primary: event.target.value }))}
-        />
-        <input
-          style={styles.input}
-          name="email_billing"
-          type="email"
-          placeholder="Billing email (optional)"
-          value={formData.email_billing}
-          onChange={(event) => setFormData((prev) => ({ ...prev, email_billing: event.target.value }))}
-        />
-        <div>
-          <PhoneInput
-            country={parsedPhone?.country?.toLowerCase() || 'it'}
-            value={formData.phone_e164}
-            onChange={(value) => {
-              const formatted = value.startsWith('+') ? value : `+${value}`;
-              setFormData((prev) => ({
-                ...prev,
-                phone_e164: formatted,
-                phone_verified_at: null,
-              }));
-              setPhoneVerified(false);
-              }}
-            inputStyle={{ width: '100%' }}
-          />
-          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-            <button type="button" style={styles.secondaryButton} onClick={sendCode}>
-              {cooldown > 0 ? `Resend code (${fmtSecs(cooldown)})` : 'Send verification code'}
-            </button>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                style={{ ...styles.input, width: '140px' }}
-                placeholder="OTP"
-                value={otpCode}
-                onChange={(event) => setOtpCode(event.target.value)}
-              />
-              <button type="button" style={styles.secondaryButton} onClick={confirmCode}>
-                Verify code
-              </button>
-            </div>
-          </div>
-          {otpMessage && (
-            <p
-              style={{
-                fontSize: 12,
-                textAlign: 'left',
-                color: otpMessage.includes('✔') ? '#2E7D32' : '#B00020',
-              }}
-            >
-              {otpMessage}
-            </p>
-          )}
-        </div>
-        <button
-          style={isValid ? styles.button : styles.buttonDisabled}
-          disabled={!isValid}
-          onClick={saveStep}
-        >
-          Next ➡️
-        </button>
-        {!isValid && (
-          <ul style={validationList}>
-            {!formData.email_primary && <li>Primary email missing</li>}
-            {!isValidPhone && <li>Invalid phone number</li>}
-            {!phoneVerified && <li>Phone not verified</li>}
-          </ul>
-        )}
-      </div>
-    </>
-  );
-};
-
-const Step3 = ({ user, formData, setFormData, ensureVerificationRequest, saveStep }) => {
-  const [uploadingKey, setUploadingKey] = useState(null);
-  const [uploadMessage, setUploadMessage] = useState('');
-
-  const handleUpload = async (event, docType) => {
-    const file = event.target.files?.[0];
-    if (!file || !user?.id) return;
-    setUploadMessage('');
-
-    try {
-      setUploadingKey(docType);
-      const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
-      const timestamp = Date.now();
-      const fileKey = `${user.id}/op-${docType}-${timestamp}.${ext}`;
-
-      const subtle = typeof window !== 'undefined' && window.crypto ? window.crypto.subtle : null;
-      if (!subtle) {
-        throw new Error('Secure hashing is not available in this browser.');
-      }
-
-      const arrayBuffer = await file.arrayBuffer();
-      const hashBuffer = await subtle.digest('SHA-256', arrayBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const fileHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-      const mimeType = file.type || 'application/octet-stream';
-
-      const request = await ensureVerificationRequest();
-      const verificationId = request?.id;
-      if (!verificationId) {
-        throw new Error('Unable to create verification request.');
-      }
-
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(fileKey, file, { cacheControl: '3600', upsert: false });
-      if (uploadError) throw uploadError;
-
-      const documentPayload = {
-        verification_id: verificationId,
-        doc_type: docType,
-        file_key: fileKey,
-        file_hash: fileHash,
-        mime_type: mimeType,
-        file_size: file.size,
-        expires_at: null,
-      };
-
-      const { data: storedDoc, error: documentError } = await supabase
-        .from('op_verification_document')
-        .upsert([documentPayload], { onConflict: 'verification_id,doc_type' })
-        .select('verification_id, doc_type, file_key, file_hash, mime_type, file_size, expires_at')
-        .single();
-      if (documentError) throw documentError;
-
-      setFormData((prev) => ({
-        ...prev,
-        documents: {
-          ...prev.documents,
-          [docType]: {
-            doc_type: storedDoc?.doc_type || docType,
-            verification_id: storedDoc?.verification_id || verificationId,
-            file_key: storedDoc?.file_key || fileKey,
-            file_hash: storedDoc?.file_hash || fileHash,
-            mime_type: storedDoc?.mime_type || mimeType,
-            file_size: storedDoc?.file_size ?? file.size,
-            expires_at: storedDoc?.expires_at || null,
-          },
-        },
-      }));
-      setUploadMessage('Document uploaded successfully.');
-    } catch (err) {
-      console.error('Upload error', err);
-      setUploadMessage(err.message || 'Upload failed.');
-    } finally {
-      setUploadingKey(null);
-      event.target.value = '';
-    }
-  };
-
-  const handleRemove = async (docType) => {
-    const currentDoc = formData.documents[docType];
-    if (!currentDoc) return;
-    setUploadMessage('');
-    try {
-      setUploadingKey(docType);
-      const verificationId =
-        currentDoc.verification_id || (await ensureVerificationRequest())?.id || null;
-      if (!verificationId) {
-        throw new Error('Verification request not found.');
-      }
-      const { error: deleteError } = await supabase
-        .from('op_verification_document')
-        .delete()
-        .match({ verification_id: verificationId, doc_type: docType });
-      if (deleteError) throw deleteError;
-
-      if (currentDoc.file_key) {
-        await supabase.storage.from('documents').remove([currentDoc.file_key]);
-      }
-
-      setFormData((prev) => ({
-        ...prev,
-        documents: {
-          ...prev.documents,
-          [docType]: null,
-        },
-      }));
-      setUploadMessage('Document removed.');
-    } catch (err) {
-      console.error('Remove error', err);
-      setUploadMessage(err.message || 'Failed to remove document.');
-    } finally {
-      setUploadingKey(null);
-    }
-  };
-
-  const isValid = REQUIRED_DOCS.every(({ docType, optional }) => optional || formData.documents[docType]);
-
-  return (
-    <>
-      <h2 style={styles.title}>Step 3 · Verification documents</h2>
-      <div style={styles.formGroup}>
-        {REQUIRED_DOCS.map(({ docType, label, optional }) => (
-          <FileField
-            key={docType}
-            label={label}
-            optional={optional}
-            document={formData.documents[docType]}
-            uploading={uploadingKey === docType}
-            onUpload={(event) => handleUpload(event, docType)}
-            onRemove={() => handleRemove(docType)}
-          />
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+        {[1,2,3,4].map((s) => (
+          <div key={s} style={{
+            width: 28, height: 28, borderRadius: '50%', color: '#fff', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontWeight: 'bold', background: step === s ? '#27E3DA' : '#E0E0E0'
+          }}>{s}</div>
         ))}
-        <textarea
-          style={{ ...styles.input, minHeight: 120 }}
-          placeholder="Additional notes for the review team (optional)"
-          value={formData.document_notes}
-          onChange={(event) => setFormData((prev) => ({ ...prev, document_notes: event.target.value }))}
-        />
-        {uploadMessage && (
-          <p
-            style={{
-              fontSize: 12,
-              color: uploadMessage.includes('successfully') || uploadMessage.includes('removed') ? '#2E7D32' : '#B00020',
-              textAlign: 'left',
-            }}
-          >
-            {uploadMessage}
-          </p>
-        )}
-        <button
-          style={isValid ? styles.button : styles.buttonDisabled}
-          disabled={!isValid}
-          onClick={saveStep}
-        >
-          Next ➡️
-        </button>
-        {!isValid && (
-          <ul style={validationList}>
-            {REQUIRED_DOCS.filter(({ docType, optional }) => !optional && !formData.documents[docType]).map(({ docType, label }) => (
-              <li key={docType}>{label} missing</li>
-            ))}
-          </ul>
-        )}
       </div>
     </>
   );
-};
+}
 
-const Step4 = ({ formData, setFormData, submitting, finalize }) => {
-  const [gdprHtml, setGdprHtml] = useState('');
-  const [hasScrolled, setHasScrolled] = useState(false);
-
-  useEffect(() => {
-    fetch('/gdpr_policy_en.html')
-      .then((response) => response.text())
-      .then((html) => setGdprHtml(html))
-      .catch((err) => console.error('Failed to load GDPR policy', err));
-  }, []);
-
-  const gdprAccepted = !!formData.privacy_consent;
-
-  return (
-    <>
-      <h2 style={styles.title}>Step 4 · Privacy & submission</h2>
-      <div style={{ ...styles.formGroup, textAlign: 'left' }}>
-        <div
-          className="gdpr-box"
-          onScroll={(event) => {
-            const target = event.target;
-            if (target.scrollTop + target.clientHeight >= target.scrollHeight - 5) {
-              setHasScrolled(true);
-            }
-          }}
-          dangerouslySetInnerHTML={{ __html: gdprHtml }}
-          style={gdprBox}
-        />
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={gdprAccepted}
-            disabled={!hasScrolled}
-            onChange={(event) => {
-              const checked = event.target.checked;
-              setFormData((prev) => ({
-                ...prev,
-                privacy_consent: checked,
-                privacy_consent_at: checked ? (prev.privacy_consent_at || new Date().toISOString()) : null,
-                policy_version: checked ? (prev.policy_version || PRIVACY_POLICY_VERSION) : prev.policy_version,
-              }));
-            }}
-          />
-          I have read and accept the GDPR policy
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={!!formData.marketing_optin}
-            onChange={(event) => setFormData((prev) => ({ ...prev, marketing_optin: event.target.checked }))}
-          />
-          I agree to receive TalentLix updates and communications
-        </label>
-        <button
-          style={gdprAccepted ? { ...styles.button, marginTop: 12 } : { ...styles.buttonDisabled, marginTop: 12 }}
-          disabled={!gdprAccepted || submitting}
-          onClick={finalize}
-        >
-          {submitting ? 'Submitting…' : 'Submit for review'}
-        </button>
-      </div>
-    </>
-  );
-};
-
-const CompletionCard = ({ onContinue }) => (
-  <div>
-    <h2 style={styles.title}>Submission received</h2>
-    <p>Your operator profile has been submitted and is currently in review.</p>
-    <button style={styles.button} onClick={onContinue}>
-      View review status
-    </button>
-  </div>
-);
-
-const FileField = ({ label, optional, document, uploading, onUpload, onRemove }) => (
-  <div style={{ textAlign: 'left' }}>
-    <p style={{ fontWeight: 600, marginBottom: 8 }}>
-      {label}
-      {optional ? ' · Optional' : ''}
-    </p>
-    {document ? (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontSize: 12, color: '#555', wordBreak: 'break-all' }}>
-          <div><strong>Storage key:</strong> {document.file_key}</div>
-          <div><strong>Hash:</strong> {document.file_hash}</div>
-          <div><strong>MIME:</strong> {document.mime_type || document.file_mime || ''}</div>
-          <div>
-            <strong>Size:</strong>{' '}
-            {document.file_size ? (document.file_size / 1024).toFixed(1) : '0.0'} KB
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <button type="button" style={styles.secondaryButton} onClick={onRemove} disabled={uploading}>
-            Remove
-          </button>
-        </div>
-      </div>
-    ) : (
-      <input
-        type="file"
-        accept="image/*,application/pdf"
-        onChange={onUpload}
-        disabled={uploading}
-      />
-    )}
-  </div>
-);
-
-const selectStyles = {
-  control: (base) => ({
-    ...base,
-    padding: '2px',
-    borderRadius: '8px',
-    borderColor: '#ccc',
-  }),
-};
-
-const validationList = {
-  margin: 0,
-  paddingLeft: '20px',
-  color: '#B00020',
-  textAlign: 'left',
-  fontSize: '0.9rem',
-};
-
-const gdprBox = {
-  maxHeight: '260px',
-  overflowY: 'auto',
-  padding: '1rem',
-  border: '1px solid #ccc',
-  borderRadius: '8px',
-  background: '#fff',
-};
-
-const twoCols = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-  gap: '1rem',
-  width: '100%',
-};
-
-const styles = {
-  background: {
-    backgroundImage: "url('/BackG.png')",
-    backgroundPosition: 'center',
-    backgroundSize: 'cover',
-    backgroundRepeat: 'no-repeat',
-    backgroundAttachment: 'fixed',
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  overlay: {
-    background: 'rgba(0,0,0,0.55)',
-    width: '100%',
-    minHeight: '100%',
-    position: 'static',
-    zIndex: 1,
-  },
-  container: {
-    minHeight: '100vh',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    fontFamily: 'Inter, sans-serif',
-    position: 'relative',
-  },
-  card: {
-    width: '100%',
-    maxWidth: '520px',
-    background: 'rgba(248, 249, 250, 0.95)',
-    padding: '2rem',
-    borderRadius: '16px',
-    boxShadow: '0 6px 20px rgba(0,0,0,0.08)',
-    textAlign: 'center',
-    zIndex: 2,
-  },
-  logo: { width: '80px', marginBottom: '1rem' },
-  progressBar: { background: '#E0E0E0', height: '8px', borderRadius: '8px', marginBottom: '1rem' },
-  progressFill: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', height: '100%', borderRadius: '8px' },
-  steps: { display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem' },
-  stepCircle: {
-    width: '30px',
-    height: '30px',
-    borderRadius: '50%',
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 'bold',
-  },
-  title: { fontSize: '1.5rem', marginBottom: '1rem' },
-  formGroup: { display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' },
-  input: {
-    width: '100%',
-    padding: '0.8rem',
-    borderRadius: '8px',
-    border: '1px solid #ccc',
-    boxSizing: 'border-box',
-  },
-  button: {
-    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
-    color: '#fff',
-    border: 'none',
-    padding: '0.8rem',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    width: '100%',
-    fontWeight: 'bold',
-  },
-  buttonDisabled: {
-    background: '#ccc',
-    color: '#fff',
-    border: 'none',
-    padding: '0.8rem',
-    borderRadius: '8px',
-    width: '100%',
-    cursor: 'not-allowed',
-  },
-  link: { color: '#0A66C2', fontWeight: 600, textDecoration: 'none' },
-  error: { color: 'red', fontSize: '0.9rem', marginBottom: '1rem' },
-  loaderContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'column',
-    gap: 16,
-    padding: 48,
-    textAlign: 'center',
-    minHeight: 'calc(100vh - 32px)',
-    width: '100%',
-  },
-  spinner: {
-    width: 48,
-    height: 48,
-    borderRadius: '50%',
-    border: '4px solid #27E3DA',
-    borderTopColor: '#F7B84E',
-    animation: 'profilePreviewSpin 1s linear infinite',
-  },
-  srOnly: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    padding: 0,
-    margin: -1,
-    overflow: 'hidden',
-    clip: 'rect(0,0,0,0)',
-    whiteSpace: 'nowrap',
-    border: 0,
-  },
-  userMenuContainer: {
-    position: 'absolute',
-    top: '20px',
-    right: '20px',
-    zIndex: 20,
-  },
-  menuIcon: {
-    background: '#27E3DA',
-    color: '#fff',
-    width: '35px',
-    height: '35px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '20px',
-    cursor: 'pointer',
-    boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-  },
-  dropdown: {
-    position: 'absolute',
-    top: '45px',
-    right: '0',
-    background: '#FFF',
-    border: '1px solid #E0E0E0',
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    minWidth: '200px',
-    zIndex: 100,
-    padding: '0.5rem',
-  },
-  dropdownUser: {
-    padding: '0.5rem',
-    fontSize: '0.9rem',
-    color: '#555',
-    borderBottom: '1px solid #eee',
-    marginBottom: '0.5rem',
-  },
-  dropdownButton: {
-    background: '#DD5555',
-    color: '#FFF',
-    border: 'none',
-    padding: '0.5rem',
-    width: '100%',
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  secondaryButton: {
-    background: '#fff',
-    border: '1px solid #27E3DA',
-    color: '#027373',
-    padding: '0.6rem 1rem',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 600,
-  },
-};
+function getStyles(step) {
+  return {
+    background: {
+      backgroundImage: "url('/BackG.png')",
+      backgroundPosition: 'center',
+      backgroundSize: 'cover',
+      backgroundRepeat: 'no-repeat',
+      backgroundAttachment: 'fixed',
+      minHeight: '100vh',
+      display: 'flex', alignItems: 'center', justifyContent: 'center'
+    },
+    overlay: { background: 'rgba(0,0,0,0.55)', width: '100%', minHeight: '100%' },
+    container: {
+      minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center',
+      fontFamily: 'Inter, sans-serif', position: 'relative'
+    },
+    card: {
+      width: '100%', maxWidth: step === 4 ? '960px' : '560px',
+      background: 'rgba(248, 249, 250, 0.95)', padding: '2rem', borderRadius: 16,
+      boxShadow: '0 6px 20px rgba(0,0,0,0.08)', textAlign: 'center'
+    },
+    logo: { width: 80, marginBottom: 16 },
+    title: { fontSize: '1.5rem', marginBottom: '1rem' },
+    label: { display: 'block', textAlign: 'left', fontWeight: 600, marginTop: 8, marginBottom: 6 },
+    input: { width: '100%', padding: '0.8rem', borderRadius: 8, border: '1px solid #ccc', boxSizing: 'border-box' },
+    formGroup: { display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' },
+    cols: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', width: '100%' },
+    primaryBtn: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: 8, cursor: 'pointer', width: '100%', fontWeight: 'bold', marginTop: 8 },
+    primaryBtnDisabled: { background: '#ccc', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: 8, width: '100%', cursor: 'not-allowed', marginTop: 8 },
+    secondaryBtn: { background: '#fff', border: '1px solid #27E3DA', color: '#027373', padding: '0.6rem 1rem', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
+    gdprBox: { maxHeight: 260, overflowY: 'auto', padding: '1rem', border: '1px solid #ccc', borderRadius: 8, background: '#fff', marginBottom: 8 },
+  };
+}
