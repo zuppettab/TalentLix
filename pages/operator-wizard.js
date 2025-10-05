@@ -22,12 +22,11 @@ const INITIAL_FORM = {
   // Step 1 · Profile
   legal_name: '',
   trade_name: '',
-  registration_number: '',
   website: '',
   address1: '',
   address2: '',
   city: '',
-  state: '',
+  state_region: '',
   postal_code: '',
   country: '',
 
@@ -55,28 +54,71 @@ const STEP_STATUSES = {
   1: 'profile',
   2: 'contact',
   3: 'documents',
-  4: 'consent',
+  4: 'privacy',
   complete: 'complete',
   submitted: 'submitted',
 };
 
+const WIZARD_STATUS_NORMALIZATION = {
+  draft: 'profile',
+  profile: 'profile',
+  'profile_incomplete': 'profile',
+  contact: 'contact',
+  'contact_incomplete': 'contact',
+  documents: 'documents',
+  'documents_incomplete': 'documents',
+  consent: 'privacy',
+  privacy: 'privacy',
+  'privacy_incomplete': 'privacy',
+  submitted: 'submitted',
+  'in_review': 'submitted',
+  complete: 'complete',
+  completed: 'complete',
+  approved: 'complete',
+};
+
+const normalizeWizardStatus = (value) => {
+  const key = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (key in WIZARD_STATUS_NORMALIZATION) {
+    return WIZARD_STATUS_NORMALIZATION[key];
+  }
+  return 'profile';
+};
+
 const statusToStep = (status) => {
-  switch (status) {
+  const normalized = normalizeWizardStatus(status);
+  switch (normalized) {
     case 'profile':
       return 1;
     case 'contact':
       return 2;
     case 'documents':
       return 3;
-    case 'consent':
+    case 'privacy':
       return 4;
     case 'submitted':
     case 'complete':
-    case 'completed':
       return null;
     default:
       return 1;
   }
+};
+
+const toNullableString = (value) => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+};
+
+const normalizeCountryName = (value) => {
+  const label = toNullableString(value);
+  if (!label) return null;
+  const lower = label.toLowerCase();
+  const match = countries.find(
+    (option) =>
+      option.value.toLowerCase() === lower || option.label.toLowerCase() === lower
+  );
+  return match ? match.label : label;
 };
 
 export default function OperatorWizard() {
@@ -89,9 +131,11 @@ export default function OperatorWizard() {
   const [errorMessage, setErrorMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [account, setAccount] = useState(null);
+  const [verificationRequest, setVerificationRequest] = useState(null);
 
   const operatorAuthId = user?.id || null;
   const accountId = account?.id || null;
+  const opId = account?.op_id || null;
   const email = user?.email || '';
 
   const toggleMenu = () => setMenuOpen((open) => !open);
@@ -113,6 +157,7 @@ export default function OperatorWizard() {
           .from('op_account')
           .select(`
             id,
+            op_id,
             wizard_status,
             wizard_started_at,
             wizard_updated_at,
@@ -120,12 +165,11 @@ export default function OperatorWizard() {
             op_profile (
               legal_name,
               trade_name,
-              registration_number,
               website,
               address1,
               address2,
               city,
-              state,
+              state_region,
               postal_code,
               country
             ),
@@ -137,18 +181,19 @@ export default function OperatorWizard() {
             ),
             op_verification_request (
               id,
-              notes,
-              op_verification_state,
-              submitted_at
-            ),
-            op_verification_document (
-              id,
-              doc_type,
-              file_key,
-              file_hash,
-              file_mime,
-              file_size,
-              expires_at
+              state,
+              reason,
+              submitted_at,
+              op_verification_document (
+                id,
+                verification_id,
+                doc_type,
+                file_key,
+                file_hash,
+                mime_type,
+                file_size,
+                expires_at
+              )
             ),
             op_privacy_consent (
               policy_version,
@@ -166,21 +211,21 @@ export default function OperatorWizard() {
         const nextForm = { ...INITIAL_FORM };
 
         if (data) {
-          setAccount(data);
+          const normalizedStatus = normalizeWizardStatus(data.wizard_status);
+          setAccount({ ...data, wizard_status: normalizedStatus });
 
           const profileRaw = data.op_profile;
           const profile = Array.isArray(profileRaw) ? profileRaw[0] : profileRaw;
           if (profile) {
             nextForm.legal_name = profile.legal_name || '';
             nextForm.trade_name = profile.trade_name || '';
-            nextForm.registration_number = profile.registration_number || '';
             nextForm.website = profile.website || '';
             nextForm.address1 = profile.address1 || '';
             nextForm.address2 = profile.address2 || '';
             nextForm.city = profile.city || '';
-            nextForm.state = profile.state || '';
+            nextForm.state_region = profile.state_region || '';
             nextForm.postal_code = profile.postal_code || '';
-            nextForm.country = profile.country || '';
+            nextForm.country = normalizeCountryName(profile.country) || '';
           }
 
           const contactRaw = data.op_contact;
@@ -194,11 +239,15 @@ export default function OperatorWizard() {
             nextForm.email_primary = email || '';
           }
 
-          const documentsRaw = Array.isArray(data.op_verification_document)
-            ? data.op_verification_document
-            : data.op_verification_document
-              ? [data.op_verification_document]
-              : [];
+          const requestRaw = data.op_verification_request;
+          const request = Array.isArray(requestRaw) ? requestRaw[0] : requestRaw;
+          const documentsRaw = request
+            ? Array.isArray(request.op_verification_document)
+              ? request.op_verification_document
+              : request.op_verification_document
+              ? [request.op_verification_document]
+              : []
+            : [];
 
           nextForm.documents = REQUIRED_DOCS.reduce((acc, { docType }) => {
             const doc = documentsRaw.find((item) => item.doc_type === docType);
@@ -207,9 +256,10 @@ export default function OperatorWizard() {
               [docType]: doc
                 ? {
                     doc_type: doc.doc_type,
+                    verification_id: doc.verification_id || request?.id || null,
                     file_key: doc.file_key,
                     file_hash: doc.file_hash,
-                    file_mime: doc.file_mime,
+                    mime_type: doc.mime_type || doc.file_mime || '',
                     file_size: doc.file_size,
                     expires_at: doc.expires_at || null,
                   }
@@ -217,10 +267,16 @@ export default function OperatorWizard() {
             };
           }, nextForm.documents);
 
-          const requestRaw = data.op_verification_request;
-          const request = Array.isArray(requestRaw) ? requestRaw[0] : requestRaw;
           if (request) {
-            nextForm.document_notes = request.notes || '';
+            setVerificationRequest({
+              id: request.id,
+              state: request.state || 'draft',
+              reason: request.reason || null,
+              submitted_at: request.submitted_at || null,
+            });
+            nextForm.document_notes = request.reason || '';
+          } else {
+            setVerificationRequest(null);
           }
 
           const consentRaw = data.op_privacy_consent;
@@ -232,7 +288,7 @@ export default function OperatorWizard() {
             nextForm.marketing_optin = !!consent.marketing_optin;
           }
 
-          const resolvedStep = statusToStep(data.wizard_status);
+          const resolvedStep = statusToStep(normalizedStatus);
           setStep(resolvedStep);
 
           if (resolvedStep === null && router.pathname !== '/operator-in-review') {
@@ -241,6 +297,7 @@ export default function OperatorWizard() {
           }
         } else {
           nextForm.email_primary = email || '';
+          setVerificationRequest(null);
         }
 
         setFormData(nextForm);
@@ -276,7 +333,39 @@ export default function OperatorWizard() {
     }
     const { error } = await supabase.from('op_account').update(payload).eq('id', accountId);
     if (error) throw error;
-    setAccount((prev) => (prev ? { ...prev, ...payload } : prev));
+    const normalizedStatus = normalizeWizardStatus(wizardStatus);
+    setAccount((prev) => (prev ? { ...prev, ...payload, wizard_status: normalizedStatus } : prev));
+  };
+
+  const upsertVerificationRequest = async (overrides = {}) => {
+    if (!opId) throw new Error('Missing operator identifier.');
+
+    const baseReason =
+      overrides.reason !== undefined
+        ? overrides.reason
+        : verificationRequest?.reason ?? toNullableString(formData.document_notes);
+
+    const payload = {
+      op_id: opId,
+      state: verificationRequest?.state || 'draft',
+      reason: baseReason,
+      ...overrides,
+    };
+
+    if (!('submitted_at' in payload) && verificationRequest?.submitted_at) {
+      payload.submitted_at = verificationRequest.submitted_at;
+    }
+
+    const { data, error } = await supabase
+      .from('op_verification_request')
+      .upsert([payload], { onConflict: 'op_id' })
+      .select('id, state, reason, submitted_at')
+      .single();
+
+    if (error) throw error;
+
+    setVerificationRequest(data);
+    return data;
   };
 
   const saveStep = async (nextStep) => {
@@ -285,35 +374,36 @@ export default function OperatorWizard() {
 
     try {
       if (step === 1) {
+        if (!opId) throw new Error('Missing operator identifier.');
         const { error } = await supabase.from('op_profile').upsert([
           {
-            op_account_id: accountId,
+            op_id: opId,
             legal_name: formData.legal_name,
             trade_name: formData.trade_name,
-            registration_number: formData.registration_number,
-            website: formData.website,
+            website: toNullableString(formData.website),
             address1: formData.address1,
-            address2: formData.address2,
+            address2: toNullableString(formData.address2),
             city: formData.city,
-            state: formData.state,
+            state_region: toNullableString(formData.state_region),
             postal_code: formData.postal_code,
-            country: formData.country,
+            country: normalizeCountryName(formData.country),
           },
-        ], { onConflict: 'op_account_id' });
+        ], { onConflict: 'op_id' });
         if (error) throw error;
       } else if (step === 2) {
+        if (!opId) throw new Error('Missing operator identifier.');
         const { error } = await supabase.from('op_contact').upsert([
           {
-            op_account_id: accountId,
+            op_id: opId,
             email_primary: formData.email_primary || email,
-            email_billing: formData.email_billing || null,
-            phone_e164: formData.phone_e164,
-            phone_verified_at: formData.phone_verified_at,
+            email_billing: toNullableString(formData.email_billing),
+            phone_e164: formData.phone_e164 || null,
+            phone_verified_at: formData.phone_verified_at || null,
           },
-        ], { onConflict: 'op_account_id' });
+        ], { onConflict: 'op_id' });
         if (error) throw error;
       } else if (step === 3) {
-        // Documents are persisted on upload. Only advance wizard state here.
+        await upsertVerificationRequest({ reason: toNullableString(formData.document_notes) });
       }
 
       await updateAccountWizard(nextStep);
@@ -325,7 +415,7 @@ export default function OperatorWizard() {
   };
 
   const finalize = async () => {
-    if (!accountId) return;
+    if (!accountId || !opId) return;
     setSubmitting(true);
     setErrorMessage('');
 
@@ -333,26 +423,21 @@ export default function OperatorWizard() {
       const submittedAt = new Date().toISOString();
 
       const consentPayload = {
-        op_account_id: accountId,
+        op_id: opId,
         policy_version: formData.policy_version || PRIVACY_POLICY_VERSION,
         accepted_at: formData.privacy_consent_at || submittedAt,
         marketing_optin: formData.marketing_optin,
       };
       const { error: consentError } = await supabase
         .from('op_privacy_consent')
-        .upsert([consentPayload], { onConflict: 'op_account_id' });
+        .upsert([consentPayload], { onConflict: 'op_id' });
       if (consentError) throw consentError;
 
-      const requestPayload = {
-        op_account_id: accountId,
-        op_verification_state: 'submitted',
+      await upsertVerificationRequest({
+        state: 'submitted',
+        reason: toNullableString(formData.document_notes),
         submitted_at: submittedAt,
-        notes: formData.document_notes || null,
-      };
-      const { error: requestError } = await supabase
-        .from('op_verification_request')
-        .upsert([requestPayload], { onConflict: 'op_account_id' });
-      if (requestError) throw requestError;
+      });
 
       const accountUpdatePayload = {
         wizard_status: STEP_STATUSES.submitted,
@@ -365,7 +450,15 @@ export default function OperatorWizard() {
         .eq('id', accountId);
       if (accountError) throw accountError;
 
-      setAccount((prev) => (prev ? { ...prev, ...accountUpdatePayload } : prev));
+      setAccount((prev) =>
+        prev
+          ? {
+              ...prev,
+              ...accountUpdatePayload,
+              wizard_status: normalizeWizardStatus(accountUpdatePayload.wizard_status),
+            }
+          : prev
+      );
       router.replace('/operator-in-review');
     } catch (err) {
       console.error('Failed to finalize operator onboarding', err);
@@ -489,7 +582,7 @@ export default function OperatorWizard() {
                 {step === 2 && (
                   <Step2
                     user={user}
-                    accountId={accountId}
+                    opId={opId}
                     formData={formData}
                     setFormData={setFormData}
                     parsedPhone={parsedPhone}
@@ -499,9 +592,9 @@ export default function OperatorWizard() {
                 {step === 3 && (
                   <Step3
                     user={user}
-                    accountId={accountId}
                     formData={formData}
                     setFormData={setFormData}
+                    ensureVerificationRequest={upsertVerificationRequest}
                     saveStep={() => saveStep(4)}
                   />
                 )}
@@ -554,13 +647,6 @@ const Step1 = ({ formData, setFormData, saveStep }) => {
         />
         <input
           style={styles.input}
-          name="registration_number"
-          placeholder="Registration / VAT number (optional)"
-          value={formData.registration_number}
-          onChange={(event) => setFormData((prev) => ({ ...prev, registration_number: event.target.value }))}
-        />
-        <input
-          style={styles.input}
           name="website"
           placeholder="Website (optional)"
           value={formData.website}
@@ -590,10 +676,12 @@ const Step1 = ({ formData, setFormData, saveStep }) => {
           />
           <input
             style={styles.input}
-            name="state"
+            name="state_region"
             placeholder="State / Province (optional)"
-            value={formData.state}
-            onChange={(event) => setFormData((prev) => ({ ...prev, state: event.target.value }))}
+            value={formData.state_region}
+            onChange={(event) =>
+              setFormData((prev) => ({ ...prev, state_region: event.target.value }))
+            }
           />
         </div>
         <div style={twoCols}>
@@ -639,7 +727,7 @@ const Step1 = ({ formData, setFormData, saveStep }) => {
   );
 };
 
-const Step2 = ({ user, accountId, formData, setFormData, parsedPhone, saveStep }) => {
+const Step2 = ({ user, opId, formData, setFormData, parsedPhone, saveStep }) => {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [phoneVerified, setPhoneVerified] = useState(!!formData.phone_verified_at);
@@ -740,18 +828,24 @@ const Step2 = ({ user, accountId, formData, setFormData, parsedPhone, saveStep }
       setOtpCode('');
       setFormData((prev) => ({ ...prev, phone_verified_at: verifiedAt }));
 
-      if (accountId) {
+      if (opId) {
         await supabase
           .from('op_contact')
-          .upsert([
-            {
-              op_account_id: accountId,
-              email_primary: formData.email_primary || user?.email || null,
-              email_billing: formData.email_billing || null,
-              phone_e164: formData.phone_e164,
-              phone_verified_at: verifiedAt,
-            },
-          ], { onConflict: 'op_account_id' });
+          .upsert(
+            [
+              {
+                op_id: opId,
+                email_primary:
+                  toNullableString(formData.email_primary) || toNullableString(user?.email),
+                email_billing: toNullableString(formData.email_billing),
+                phone_e164: formData.phone_e164 || null,
+                phone_verified_at: verifiedAt,
+              },
+            ],
+            { onConflict: 'op_id' }
+          );
+      } else {
+        console.warn('Missing operator identifier while persisting phone verification.');
       }
     } catch (err) {
       setOtpMessage(`Verification error: ${err?.message || String(err)}`);
@@ -854,13 +948,13 @@ const Step2 = ({ user, accountId, formData, setFormData, parsedPhone, saveStep }
   );
 };
 
-const Step3 = ({ user, accountId, formData, setFormData, saveStep }) => {
+const Step3 = ({ user, formData, setFormData, ensureVerificationRequest, saveStep }) => {
   const [uploadingKey, setUploadingKey] = useState(null);
   const [uploadMessage, setUploadMessage] = useState('');
 
   const handleUpload = async (event, docType) => {
     const file = event.target.files?.[0];
-    if (!file || !user?.id || !accountId) return;
+    if (!file || !user?.id) return;
     setUploadMessage('');
 
     try {
@@ -878,6 +972,13 @@ const Step3 = ({ user, accountId, formData, setFormData, saveStep }) => {
       const hashBuffer = await subtle.digest('SHA-256', arrayBuffer);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const fileHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      const mimeType = file.type || 'application/octet-stream';
+
+      const request = await ensureVerificationRequest();
+      const verificationId = request?.id;
+      if (!verificationId) {
+        throw new Error('Unable to create verification request.');
+      }
 
       const { error: uploadError } = await supabase.storage
         .from('documents')
@@ -885,18 +986,20 @@ const Step3 = ({ user, accountId, formData, setFormData, saveStep }) => {
       if (uploadError) throw uploadError;
 
       const documentPayload = {
-        op_account_id: accountId,
+        verification_id: verificationId,
         doc_type: docType,
         file_key: fileKey,
         file_hash: fileHash,
-        file_mime: file.type,
+        mime_type: mimeType,
         file_size: file.size,
         expires_at: null,
       };
 
-      const { error: documentError } = await supabase
+      const { data: storedDoc, error: documentError } = await supabase
         .from('op_verification_document')
-        .upsert([documentPayload], { onConflict: 'op_account_id,doc_type' });
+        .upsert([documentPayload], { onConflict: 'verification_id,doc_type' })
+        .select('verification_id, doc_type, file_key, file_hash, mime_type, file_size, expires_at')
+        .single();
       if (documentError) throw documentError;
 
       setFormData((prev) => ({
@@ -904,12 +1007,13 @@ const Step3 = ({ user, accountId, formData, setFormData, saveStep }) => {
         documents: {
           ...prev.documents,
           [docType]: {
-            doc_type: docType,
-            file_key: fileKey,
-            file_hash: fileHash,
-            file_mime: file.type,
-            file_size: file.size,
-            expires_at: null,
+            doc_type: storedDoc?.doc_type || docType,
+            verification_id: storedDoc?.verification_id || verificationId,
+            file_key: storedDoc?.file_key || fileKey,
+            file_hash: storedDoc?.file_hash || fileHash,
+            mime_type: storedDoc?.mime_type || mimeType,
+            file_size: storedDoc?.file_size ?? file.size,
+            expires_at: storedDoc?.expires_at || null,
           },
         },
       }));
@@ -925,14 +1029,19 @@ const Step3 = ({ user, accountId, formData, setFormData, saveStep }) => {
 
   const handleRemove = async (docType) => {
     const currentDoc = formData.documents[docType];
-    if (!currentDoc || !accountId) return;
+    if (!currentDoc) return;
     setUploadMessage('');
     try {
       setUploadingKey(docType);
+      const verificationId =
+        currentDoc.verification_id || (await ensureVerificationRequest())?.id || null;
+      if (!verificationId) {
+        throw new Error('Verification request not found.');
+      }
       const { error: deleteError } = await supabase
         .from('op_verification_document')
         .delete()
-        .match({ op_account_id: accountId, doc_type: docType });
+        .match({ verification_id: verificationId, doc_type: docType });
       if (deleteError) throw deleteError;
 
       if (currentDoc.file_key) {
@@ -1094,7 +1203,7 @@ const FileField = ({ label, optional, document, uploading, onUpload, onRemove })
         <div style={{ fontSize: 12, color: '#555', wordBreak: 'break-all' }}>
           <div><strong>Storage key:</strong> {document.file_key}</div>
           <div><strong>Hash:</strong> {document.file_hash}</div>
-          <div><strong>MIME:</strong> {document.file_mime}</div>
+          <div><strong>MIME:</strong> {document.mime_type || document.file_mime || ''}</div>
           <div>
             <strong>Size:</strong>{' '}
             {document.file_size ? (document.file_size / 1024).toFixed(1) : '0.0'} KB
