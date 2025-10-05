@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>TalentLix — Test SMS OTp</title>
+  <title>TalentLix — Test SMS OTP</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 24px; }
@@ -19,10 +19,10 @@
   </style>
 </head>
 <body>
-  <h2>TalentLix — Test invio/verifica SMS OTP</h2>
+  <h2>TalentLix — Test SMS OTP Send/Verify</h2>
 
   <div class="row">
-    <input id="phone" type="text" placeholder="+39XXXXXXXXXX (E.164)" />
+    <input id="phone" type="text" placeholder="Example: +393401234567 (E.164 format)" />
     <button id="send" class="primary">Send code</button>
     <span id="sendMsg" class="muted"></span>
   </div>
@@ -38,7 +38,7 @@
   <!-- Supabase JS v2 -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script>
-    // === CONFIG (già compilata con i tuoi dati) ===
+    // === CONFIG (already filled with your data) ===
     const SUPABASE_URL = "https://evmwxyvnaumpjubkrxxx.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2bXd4eXZuYXVtcGp1YmtyeHh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQxMTE1ODIsImV4cCI6MjA2OTY4NzU4Mn0.ufa8qeLawJPiN647XvC-j6e9St5v-6kbqVa61O-6wPI";
 
@@ -47,7 +47,7 @@
     const el = (id) => document.getElementById(id);
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-    // --- INVIO OTP ---
+    // --- SEND OTP ---
     el('send').addEventListener('click', async () => {
       const phone = el('phone').value.trim().replace(/\s+/g, '');
       el('sendMsg').className = 'muted';
@@ -55,39 +55,39 @@
 
       if (!phone || !phone.startsWith('+')) {
         el('sendMsg').className = 'err';
-        el('sendMsg').textContent = 'Inserisci il numero in formato internazionale, es. +393401234567';
+        el('sendMsg').textContent = 'Enter the phone number in international format, e.g., +393401234567';
         return;
       }
 
       el('send').disabled = true;
       el('send').textContent = 'Sending…';
 
-      // Invia OTP via Supabase Auth (usa Twilio configurato nel progetto)
+      // Send OTP via Supabase Auth (uses Twilio configured in the project)
       const { data, error } = await client.auth.signInWithOtp({
         phone,
         options: {
-          // per i test va bene creare l’utente se non esiste
+          // For testing it's fine to create the user if it doesn't exist yet
           shouldCreateUser: true,
         }
       });
 
       if (error) {
         el('sendMsg').className = 'err';
-        el('sendMsg').textContent = `Errore invio: ${error.message}`;
+        el('sendMsg').textContent = `Send error: ${error.message}`;
         el('send').disabled = false;
         el('send').textContent = 'Send code';
         return;
       }
 
       el('sendMsg').className = 'ok';
-      el('sendMsg').textContent = 'OTP inviato! Controlla l’SMS. (TTL come impostato in Supabase)';
-      // piccolo cooldown per evitare doppio invio
+      el('sendMsg').textContent = 'OTP sent! Check your SMS. (TTL as configured in Supabase)';
+      // Short cooldown to avoid sending twice
       await sleep(30000);
       el('send').disabled = false;
       el('send').textContent = 'Send code';
     });
 
-    // --- VERIFICA OTP ---
+    // --- VERIFY OTP ---
     el('verify').addEventListener('click', async () => {
       const phone = el('phone').value.trim().replace(/\s+/g, '');
       const token = el('otp').value.trim();
@@ -96,12 +96,12 @@
 
       if (!phone || !phone.startsWith('+')) {
         el('verifyMsg').className = 'err';
-        el('verifyMsg').textContent = 'Numero non valido';
+        el('verifyMsg').textContent = 'Invalid phone number';
         return;
       }
       if (token.length !== 6) {
         el('verifyMsg').className = 'err';
-        el('verifyMsg').textContent = 'Il codice deve avere 6 cifre';
+        el('verifyMsg').textContent = 'The code must be 6 digits long';
         return;
       }
 
@@ -111,25 +111,25 @@
       const { data, error } = await client.auth.verifyOtp({
         phone,
         token,
-        type: 'sms' // verifica il codice inviato con signInWithOtp
+        type: 'sms' // Verify the code sent with signInWithOtp
       });
 
       if (error) {
         el('verifyMsg').className = 'err';
-        el('verifyMsg').textContent = `Verifica fallita: ${error.message}`;
+        el('verifyMsg').textContent = `Verification failed: ${error.message}`;
         el('verify').disabled = false;
         el('verify').textContent = 'Verify code';
         return;
       }
 
       el('verifyMsg').className = 'ok';
-      el('verifyMsg').textContent = 'Verificato ✔';
+      el('verifyMsg').textContent = 'Verified ✔';
 
-      // Mostra qualche info di sessione (opzionale, utile per capire che è andato a buon fine)
+      // Show session info (optional, helpful to confirm it succeeded)
       const session = (await client.auth.getSession()).data.session;
       el('sessionBox').innerHTML = session
-        ? `<div>Sessione attiva • user: <span class="mono">${session.user.id}</span></div>`
-        : `<div class="muted">Nessuna sessione (ok per test OTP).</div>`;
+        ? `<div>Active session • user: <span class="mono">${session.user.id}</span></div>`
+        : `<div class="muted">No session (expected for OTP testing).</div>`;
 
       el('verify').disabled = false;
       el('verify').textContent = 'Verify code';
