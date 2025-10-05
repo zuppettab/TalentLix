@@ -10,49 +10,72 @@ import countries from '../utils/countries';
 import { supabase } from '../utils/supabaseClient';
 import { useOperatorGuard } from '../hooks/useOperatorGuard';
 
-const ENTITY_OPTIONS = [
-  { value: 'club', label: 'Club / Team' },
-  { value: 'academy', label: 'Academy' },
-  { value: 'agency', label: 'Agency' },
-  { value: 'scout', label: 'Scout / Individual Operator' },
-  { value: 'tournament', label: 'Tournament / Event Organizer' },
-  { value: 'other', label: 'Other' },
+const REQUIRED_DOCS = [
+  { docType: 'business_registration', label: 'Business registration document', optional: false },
+  { docType: 'legal_representative_id', label: 'Legal representative ID', optional: false },
+  { docType: 'address_proof', label: 'Proof of headquarters address (optional)', optional: true },
 ];
 
+const PRIVACY_POLICY_VERSION = process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION || '2024-01-01';
+
 const INITIAL_FORM = {
-  // Step 1
-  entity_type: '',
-  organization_name: '',
+  // Step 1 · Profile
+  legal_name: '',
+  trade_name: '',
   registration_number: '',
   website: '',
-  headquarters_city: '',
-  headquarters_country: '',
+  address1: '',
+  address2: '',
+  city: '',
+  state: '',
+  postal_code: '',
+  country: '',
 
-  // Step 2
-  contact_first_name: '',
-  contact_last_name: '',
-  contact_email: '',
-  phone: '',
-  phone_verified: false,
+  // Step 2 · Contact
+  email_primary: '',
+  email_billing: '',
+  phone_e164: '',
+  phone_verified_at: null,
 
-  // Step 3
-  document_business_license_url: '',
-  document_identity_url: '',
-  document_proof_address_url: '',
-  document_additional_notes: '',
+  // Step 3 · Documents
+  documents: REQUIRED_DOCS.reduce((acc, { docType }) => ({
+    ...acc,
+    [docType]: null,
+  }), {}),
+  document_notes: '',
 
-  // Step 4
-  privacy_gdpr: false,
-  privacy_gdpr_at: null,
-  privacy_marketing: false,
+  // Step 4 · Privacy
+  privacy_consent: false,
+  privacy_consent_at: null,
+  policy_version: PRIVACY_POLICY_VERSION,
+  marketing_optin: false,
 };
 
-const calcCompletion = (step) => {
-  switch (step) {
-    case 2: return 25;
-    case 3: return 50;
-    case 4: return 75;
-    default: return 100;
+const STEP_STATUSES = {
+  1: 'profile',
+  2: 'contact',
+  3: 'documents',
+  4: 'consent',
+  complete: 'complete',
+  submitted: 'submitted',
+};
+
+const statusToStep = (status) => {
+  switch (status) {
+    case 'profile':
+      return 1;
+    case 'contact':
+      return 2;
+    case 'documents':
+      return 3;
+    case 'consent':
+      return 4;
+    case 'submitted':
+    case 'complete':
+    case 'completed':
+      return null;
+    default:
+      return 1;
   }
 };
 
@@ -65,8 +88,10 @@ export default function OperatorWizard() {
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [errorMessage, setErrorMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [account, setAccount] = useState(null);
 
-  const operatorId = user?.id || null;
+  const operatorAuthId = user?.id || null;
+  const accountId = account?.id || null;
   const email = user?.email || '';
 
   const toggleMenu = () => setMenuOpen((open) => !open);
@@ -80,67 +105,142 @@ export default function OperatorWizard() {
     let active = true;
 
     const load = async () => {
-      if (!operatorId) return;
+      if (!operatorAuthId) return;
       setLoading(true);
 
       try {
-        const [{ data: profile, error: profileError }, { data: verification, error: verificationError }] = await Promise.all([
-          supabase
-            .from('operator_profiles')
-            .select('*')
-            .eq('id', operatorId)
-            .maybeSingle(),
-          supabase
-            .from('operator_verification')
-            .select('*')
-            .eq('operator_id', operatorId)
-            .maybeSingle(),
-        ]);
+        const { data, error } = await supabase
+          .from('op_account')
+          .select(`
+            id,
+            wizard_status,
+            wizard_started_at,
+            wizard_updated_at,
+            wizard_completed_at,
+            op_profile (
+              legal_name,
+              trade_name,
+              registration_number,
+              website,
+              address1,
+              address2,
+              city,
+              state,
+              postal_code,
+              country
+            ),
+            op_contact (
+              email_primary,
+              email_billing,
+              phone_e164,
+              phone_verified_at
+            ),
+            op_verification_request (
+              id,
+              notes,
+              op_verification_state,
+              submitted_at
+            ),
+            op_verification_document (
+              id,
+              doc_type,
+              file_key,
+              file_hash,
+              file_mime,
+              file_size,
+              expires_at
+            ),
+            op_privacy_consent (
+              policy_version,
+              accepted_at,
+              marketing_optin
+            )
+          `)
+          .eq('auth_user_id', operatorAuthId)
+          .maybeSingle();
 
         if (!active) return;
 
-        if (profileError && profileError.code !== 'PGRST116') throw profileError;
-        if (verificationError && verificationError.code !== 'PGRST116') throw verificationError;
+        if (error && error.code !== 'PGRST116') throw error;
 
         const nextForm = { ...INITIAL_FORM };
 
-        if (profile) {
-          nextForm.entity_type = profile.entity_type || '';
-          nextForm.organization_name = profile.organization_name || '';
-          nextForm.registration_number = profile.registration_number || '';
-          nextForm.website = profile.website || '';
-          nextForm.headquarters_city = profile.headquarters_city || '';
-          nextForm.headquarters_country = profile.headquarters_country || '';
-          nextForm.contact_first_name = profile.contact_first_name || '';
-          nextForm.contact_last_name = profile.contact_last_name || '';
-          nextForm.contact_email = profile.contact_email || email || '';
-          nextForm.phone = profile.phone || '';
-          nextForm.phone_verified = profile.phone_verified || false;
-          nextForm.privacy_gdpr = !!profile.privacy_gdpr;
-          nextForm.privacy_gdpr_at = profile.privacy_gdpr_at || null;
-          nextForm.privacy_marketing = !!profile.privacy_marketing;
+        if (data) {
+          setAccount(data);
 
-          if (typeof profile.current_step === 'number' && profile.current_step >= 1 && profile.current_step <= 4) {
-            setStep(profile.current_step);
-          } else if (profile.review_status && profile.review_status !== 'draft') {
-            setStep(null);
+          const profileRaw = data.op_profile;
+          const profile = Array.isArray(profileRaw) ? profileRaw[0] : profileRaw;
+          if (profile) {
+            nextForm.legal_name = profile.legal_name || '';
+            nextForm.trade_name = profile.trade_name || '';
+            nextForm.registration_number = profile.registration_number || '';
+            nextForm.website = profile.website || '';
+            nextForm.address1 = profile.address1 || '';
+            nextForm.address2 = profile.address2 || '';
+            nextForm.city = profile.city || '';
+            nextForm.state = profile.state || '';
+            nextForm.postal_code = profile.postal_code || '';
+            nextForm.country = profile.country || '';
           }
 
-          if (profile.review_status && profile.review_status !== 'draft' && router.pathname !== '/operator-in-review') {
+          const contactRaw = data.op_contact;
+          const contact = Array.isArray(contactRaw) ? contactRaw[0] : contactRaw;
+          if (contact) {
+            nextForm.email_primary = contact.email_primary || email || '';
+            nextForm.email_billing = contact.email_billing || '';
+            nextForm.phone_e164 = contact.phone_e164 || '';
+            nextForm.phone_verified_at = contact.phone_verified_at || null;
+          } else {
+            nextForm.email_primary = email || '';
+          }
+
+          const documentsRaw = Array.isArray(data.op_verification_document)
+            ? data.op_verification_document
+            : data.op_verification_document
+              ? [data.op_verification_document]
+              : [];
+
+          nextForm.documents = REQUIRED_DOCS.reduce((acc, { docType }) => {
+            const doc = documentsRaw.find((item) => item.doc_type === docType);
+            return {
+              ...acc,
+              [docType]: doc
+                ? {
+                    doc_type: doc.doc_type,
+                    file_key: doc.file_key,
+                    file_hash: doc.file_hash,
+                    file_mime: doc.file_mime,
+                    file_size: doc.file_size,
+                    expires_at: doc.expires_at || null,
+                  }
+                : null,
+            };
+          }, nextForm.documents);
+
+          const requestRaw = data.op_verification_request;
+          const request = Array.isArray(requestRaw) ? requestRaw[0] : requestRaw;
+          if (request) {
+            nextForm.document_notes = request.notes || '';
+          }
+
+          const consentRaw = data.op_privacy_consent;
+          const consent = Array.isArray(consentRaw) ? consentRaw[0] : consentRaw;
+          if (consent) {
+            nextForm.privacy_consent = true;
+            nextForm.privacy_consent_at = consent.accepted_at || null;
+            nextForm.policy_version = consent.policy_version || PRIVACY_POLICY_VERSION;
+            nextForm.marketing_optin = !!consent.marketing_optin;
+          }
+
+          const resolvedStep = statusToStep(data.wizard_status);
+          setStep(resolvedStep);
+
+          if (resolvedStep === null && router.pathname !== '/operator-in-review') {
             router.replace('/operator-in-review');
             return;
           }
         } else {
-          nextForm.contact_email = email || '';
-        }
-
-        if (verification) {
-          nextForm.document_business_license_url = verification.document_business_license_url || '';
-          nextForm.document_identity_url = verification.document_identity_url || '';
-          nextForm.document_proof_address_url = verification.document_proof_address_url || '';
-          nextForm.document_additional_notes = verification.document_additional_notes || '';
-          if (!nextForm.phone) nextForm.phone = verification.phone_number || '';
-          if (!nextForm.phone_verified) nextForm.phone_verified = !!verification.phone_verified;
+          nextForm.email_primary = email || '';
         }
 
         setFormData(nextForm);
@@ -154,73 +254,69 @@ export default function OperatorWizard() {
       }
     };
 
-    if (!checkingGuard && !guardError && operatorId) {
+    if (!checkingGuard && !guardError && operatorAuthId) {
       load();
     }
 
     return () => {
       active = false;
     };
-  }, [checkingGuard, guardError, operatorId, email, router]);
+  }, [checkingGuard, guardError, operatorAuthId, email, router]);
+
+  const updateAccountWizard = async (nextStep) => {
+    if (!accountId) return;
+    const now = new Date().toISOString();
+    const wizardStatus = STEP_STATUSES[nextStep] || STEP_STATUSES.complete;
+    const payload = {
+      wizard_status: wizardStatus,
+      wizard_updated_at: now,
+    };
+    if (!account?.wizard_started_at) {
+      payload.wizard_started_at = now;
+    }
+    const { error } = await supabase.from('op_account').update(payload).eq('id', accountId);
+    if (error) throw error;
+    setAccount((prev) => (prev ? { ...prev, ...payload } : prev));
+  };
 
   const saveStep = async (nextStep) => {
-    if (!operatorId) return;
+    if (!accountId) return;
     setErrorMessage('');
 
     try {
       if (step === 1) {
-        const { error } = await supabase.from('operator_profiles').upsert([
+        const { error } = await supabase.from('op_profile').upsert([
           {
-            id: operatorId,
-            entity_type: formData.entity_type,
-            organization_name: formData.organization_name,
+            op_account_id: accountId,
+            legal_name: formData.legal_name,
+            trade_name: formData.trade_name,
             registration_number: formData.registration_number,
             website: formData.website,
-            headquarters_city: formData.headquarters_city,
-            headquarters_country: formData.headquarters_country,
-            current_step: nextStep,
-            completion_percentage: calcCompletion(nextStep),
-            review_status: 'draft',
+            address1: formData.address1,
+            address2: formData.address2,
+            city: formData.city,
+            state: formData.state,
+            postal_code: formData.postal_code,
+            country: formData.country,
           },
-        ], { onConflict: 'id' });
+        ], { onConflict: 'op_account_id' });
         if (error) throw error;
       } else if (step === 2) {
-        const { error } = await supabase.from('operator_profiles').update({
-          contact_first_name: formData.contact_first_name,
-          contact_last_name: formData.contact_last_name,
-          contact_email: formData.contact_email || email,
-          phone: formData.phone,
-          phone_verified: formData.phone_verified,
-          current_step: nextStep,
-          completion_percentage: calcCompletion(nextStep),
-        }).eq('id', operatorId);
+        const { error } = await supabase.from('op_contact').upsert([
+          {
+            op_account_id: accountId,
+            email_primary: formData.email_primary || email,
+            email_billing: formData.email_billing || null,
+            phone_e164: formData.phone_e164,
+            phone_verified_at: formData.phone_verified_at,
+          },
+        ], { onConflict: 'op_account_id' });
         if (error) throw error;
-
-        const { error: verificationError } = await supabase.from('operator_verification').upsert({
-          operator_id: operatorId,
-          phone_number: formData.phone,
-          phone_verified: formData.phone_verified,
-        }, { onConflict: 'operator_id' });
-        if (verificationError) throw verificationError;
       } else if (step === 3) {
-        const { error } = await supabase.from('operator_verification').upsert({
-          operator_id: operatorId,
-          document_business_license_url: formData.document_business_license_url || null,
-          document_identity_url: formData.document_identity_url || null,
-          document_proof_address_url: formData.document_proof_address_url || null,
-          document_additional_notes: formData.document_additional_notes || null,
-          phone_number: formData.phone,
-          phone_verified: formData.phone_verified,
-        }, { onConflict: 'operator_id' });
-        if (error) throw error;
-
-        const { error: profileUpdateError } = await supabase.from('operator_profiles').update({
-          current_step: nextStep,
-          completion_percentage: calcCompletion(nextStep),
-        }).eq('id', operatorId);
-        if (profileUpdateError) throw profileUpdateError;
+        // Documents are persisted on upload. Only advance wizard state here.
       }
 
+      await updateAccountWizard(nextStep);
       setStep(nextStep);
     } catch (err) {
       console.error('Failed to save step', err);
@@ -229,37 +325,47 @@ export default function OperatorWizard() {
   };
 
   const finalize = async () => {
-    if (!operatorId) return;
+    if (!accountId) return;
     setSubmitting(true);
     setErrorMessage('');
 
     try {
       const submittedAt = new Date().toISOString();
 
-      const { error: profileError } = await supabase.from('operator_profiles').update({
-        privacy_gdpr: formData.privacy_gdpr,
-        privacy_gdpr_at: formData.privacy_gdpr ? (formData.privacy_gdpr_at || submittedAt) : null,
-        privacy_marketing: formData.privacy_marketing,
-        review_status: 'submitted',
-        submitted_at: submittedAt,
-        current_step: null,
-        completion_percentage: 100,
-      }).eq('id', operatorId);
-      if (profileError) throw profileError;
+      const consentPayload = {
+        op_account_id: accountId,
+        policy_version: formData.policy_version || PRIVACY_POLICY_VERSION,
+        accepted_at: formData.privacy_consent_at || submittedAt,
+        marketing_optin: formData.marketing_optin,
+      };
+      const { error: consentError } = await supabase
+        .from('op_privacy_consent')
+        .upsert([consentPayload], { onConflict: 'op_account_id' });
+      if (consentError) throw consentError;
 
-      const { error: verificationError } = await supabase.from('operator_verification').upsert({
-        operator_id: operatorId,
-        review_status: 'submitted',
+      const requestPayload = {
+        op_account_id: accountId,
+        op_verification_state: 'submitted',
         submitted_at: submittedAt,
-        phone_number: formData.phone,
-        phone_verified: formData.phone_verified,
-        document_business_license_url: formData.document_business_license_url || null,
-        document_identity_url: formData.document_identity_url || null,
-        document_proof_address_url: formData.document_proof_address_url || null,
-        document_additional_notes: formData.document_additional_notes || null,
-      }, { onConflict: 'operator_id' });
-      if (verificationError) throw verificationError;
+        notes: formData.document_notes || null,
+      };
+      const { error: requestError } = await supabase
+        .from('op_verification_request')
+        .upsert([requestPayload], { onConflict: 'op_account_id' });
+      if (requestError) throw requestError;
 
+      const accountUpdatePayload = {
+        wizard_status: STEP_STATUSES.submitted,
+        wizard_updated_at: submittedAt,
+        wizard_completed_at: submittedAt,
+      };
+      const { error: accountError } = await supabase
+        .from('op_account')
+        .update(accountUpdatePayload)
+        .eq('id', accountId);
+      if (accountError) throw accountError;
+
+      setAccount((prev) => (prev ? { ...prev, ...accountUpdatePayload } : prev));
       router.replace('/operator-in-review');
     } catch (err) {
       console.error('Failed to finalize operator onboarding', err);
@@ -268,7 +374,7 @@ export default function OperatorWizard() {
     }
   };
 
-  const normalizedPhone = (formData.phone || '').replace(/\s+/g, '');
+  const normalizedPhone = (formData.phone_e164 || '').replace(/\s+/g, '');
   const parsedPhone = useMemo(() => parsePhoneNumberFromString(normalizedPhone), [normalizedPhone]);
   const progressWidth = step ? `${(step / 4) * 100}%` : '100%';
 
@@ -315,7 +421,7 @@ export default function OperatorWizard() {
     );
   }
 
-  if (!operatorId) {
+  if (!operatorAuthId) {
     return null;
   }
 
@@ -383,6 +489,7 @@ export default function OperatorWizard() {
                 {step === 2 && (
                   <Step2
                     user={user}
+                    accountId={accountId}
                     formData={formData}
                     setFormData={setFormData}
                     parsedPhone={parsedPhone}
@@ -392,6 +499,7 @@ export default function OperatorWizard() {
                 {step === 3 && (
                   <Step3
                     user={user}
+                    accountId={accountId}
                     formData={formData}
                     setFormData={setFormData}
                     saveStep={() => saveStep(4)}
@@ -419,30 +527,30 @@ export default function OperatorWizard() {
 
 const Step1 = ({ formData, setFormData, saveStep }) => {
   const isValid =
-    !!formData.entity_type &&
-    !!formData.organization_name &&
-    !!formData.headquarters_city &&
-    !!formData.headquarters_country;
+    !!formData.legal_name &&
+    !!formData.trade_name &&
+    !!formData.address1 &&
+    !!formData.city &&
+    !!formData.postal_code &&
+    !!formData.country;
 
   return (
     <>
       <h2 style={styles.title}>Step 1 · Entity details</h2>
       <div style={styles.formGroup}>
-        <div style={{ width: '100%' }}>
-          <Select
-            placeholder="Select entity type"
-            options={ENTITY_OPTIONS}
-            value={ENTITY_OPTIONS.find((opt) => opt.value === formData.entity_type) || null}
-            onChange={(selected) => setFormData((prev) => ({ ...prev, entity_type: selected?.value || '' }))}
-            styles={selectStyles}
-          />
-        </div>
         <input
           style={styles.input}
-          name="organization_name"
+          name="legal_name"
           placeholder="Legal entity name"
-          value={formData.organization_name}
-          onChange={(event) => setFormData((prev) => ({ ...prev, organization_name: event.target.value }))}
+          value={formData.legal_name}
+          onChange={(event) => setFormData((prev) => ({ ...prev, legal_name: event.target.value }))}
+        />
+        <input
+          style={styles.input}
+          name="trade_name"
+          placeholder="Trading name"
+          value={formData.trade_name}
+          onChange={(event) => setFormData((prev) => ({ ...prev, trade_name: event.target.value }))}
         />
         <input
           style={styles.input}
@@ -460,22 +568,54 @@ const Step1 = ({ formData, setFormData, saveStep }) => {
         />
         <input
           style={styles.input}
-          name="headquarters_city"
-          placeholder="Headquarters city"
-          value={formData.headquarters_city}
-          onChange={(event) => setFormData((prev) => ({ ...prev, headquarters_city: event.target.value }))}
+          name="address1"
+          placeholder="Address line 1"
+          value={formData.address1}
+          onChange={(event) => setFormData((prev) => ({ ...prev, address1: event.target.value }))}
         />
-        <div style={{ width: '100%' }}>
-          <Select
-            placeholder="Start typing headquarters country"
-            options={countries}
-            value={countries.find((opt) => opt.value === formData.headquarters_country) || null}
-            onChange={(selected) => setFormData((prev) => ({ ...prev, headquarters_country: selected?.value || '' }))}
-            filterOption={(option, inputValue) =>
-              inputValue.length >= 2 && option.label.toLowerCase().includes(inputValue.toLowerCase())
-            }
-            styles={selectStyles}
+        <input
+          style={styles.input}
+          name="address2"
+          placeholder="Address line 2 (optional)"
+          value={formData.address2}
+          onChange={(event) => setFormData((prev) => ({ ...prev, address2: event.target.value }))}
+        />
+        <div style={twoCols}>
+          <input
+            style={styles.input}
+            name="city"
+            placeholder="City"
+            value={formData.city}
+            onChange={(event) => setFormData((prev) => ({ ...prev, city: event.target.value }))}
           />
+          <input
+            style={styles.input}
+            name="state"
+            placeholder="State / Province (optional)"
+            value={formData.state}
+            onChange={(event) => setFormData((prev) => ({ ...prev, state: event.target.value }))}
+          />
+        </div>
+        <div style={twoCols}>
+          <input
+            style={styles.input}
+            name="postal_code"
+            placeholder="Postal / ZIP code"
+            value={formData.postal_code}
+            onChange={(event) => setFormData((prev) => ({ ...prev, postal_code: event.target.value }))}
+          />
+          <div style={{ width: '100%' }}>
+            <Select
+              placeholder="Start typing country"
+              options={countries}
+              value={countries.find((opt) => opt.value === formData.country) || null}
+              onChange={(selected) => setFormData((prev) => ({ ...prev, country: selected?.value || '' }))}
+              filterOption={(option, inputValue) =>
+                inputValue.length >= 2 && option.label.toLowerCase().includes(inputValue.toLowerCase())
+              }
+              styles={selectStyles}
+            />
+          </div>
         </div>
         <button
           style={isValid ? styles.button : styles.buttonDisabled}
@@ -486,10 +626,12 @@ const Step1 = ({ formData, setFormData, saveStep }) => {
         </button>
         {!isValid && (
           <ul style={validationList}>
-            {!formData.entity_type && <li>Entity type missing</li>}
-            {!formData.organization_name && <li>Entity name missing</li>}
-            {!formData.headquarters_city && <li>Headquarters city missing</li>}
-            {!formData.headquarters_country && <li>Headquarters country missing</li>}
+            {!formData.legal_name && <li>Legal name missing</li>}
+            {!formData.trade_name && <li>Trading name missing</li>}
+            {!formData.address1 && <li>Address line 1 missing</li>}
+            {!formData.city && <li>City missing</li>}
+            {!formData.postal_code && <li>Postal code missing</li>}
+            {!formData.country && <li>Country missing</li>}
           </ul>
         )}
       </div>
@@ -497,10 +639,10 @@ const Step1 = ({ formData, setFormData, saveStep }) => {
   );
 };
 
-const Step2 = ({ user, formData, setFormData, parsedPhone, saveStep }) => {
+const Step2 = ({ user, accountId, formData, setFormData, parsedPhone, saveStep }) => {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-  const [phoneVerified, setPhoneVerified] = useState(!!formData.phone_verified);
+  const [phoneVerified, setPhoneVerified] = useState(!!formData.phone_verified_at);
   const [otpMessage, setOtpMessage] = useState('');
   const [cooldown, setCooldown] = useState(0);
   const [expiresIn, setExpiresIn] = useState(0);
@@ -520,53 +662,23 @@ const Step2 = ({ user, formData, setFormData, parsedPhone, saveStep }) => {
 
   useEffect(() => {
     let timer;
-    if (expiresIn > 0) {
+    if (otpSent && expiresIn > 0) {
       timer = setInterval(() => setExpiresIn((prev) => (prev > 0 ? prev - 1 : 0)), 1000);
     }
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [expiresIn]);
+  }, [otpSent, expiresIn]);
 
   useEffect(() => {
-    const syncVerifiedState = async () => {
-      if (!user?.id) return;
-
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      const authPhone = authUser?.phone ? `+${String(authUser.phone).replace(/^\+?/, '')}` : '';
-      const digits = (value) => (value ? String(value).replace(/\D/g, '') : '');
-      const sameNumber = digits(authPhone) && digits(formData.phone) && digits(authPhone) === digits(formData.phone);
-      const confirmed = !!authUser?.phone_confirmed_at;
-
-      const { data: verificationRows } = await supabase
-        .from('operator_verification')
-        .select('phone_number, phone_verified')
-        .eq('operator_id', user.id)
-        .limit(1);
-
-      const verification = Array.isArray(verificationRows) ? verificationRows[0] : null;
-      const alreadyVerified = verification?.phone_verified === true &&
-        digits(verification?.phone_number) === digits(formData.phone);
-
-      if ((sameNumber && confirmed) || alreadyVerified) {
-        if (!phoneVerified) setPhoneVerified(true);
-        if (!formData.phone_verified) setFormData((prev) => ({ ...prev, phone_verified: true }));
-        setOtpSent(false);
-        setOtpMessage('Phone already verified ✔');
-      }
-    };
-
-    syncVerifiedState();
-  }, [formData.phone, formData.phone_verified, phoneVerified, setFormData, user?.id]);
-
-  useEffect(() => {
-    if (formData.phone_verified !== phoneVerified) {
-      setFormData((prev) => ({ ...prev, phone_verified: phoneVerified }));
-    }
-  }, [formData.phone_verified, phoneVerified, setFormData]);
+    setPhoneVerified(!!formData.phone_verified_at);
+  }, [formData.phone_verified_at]);
 
   const ensureSession = async () => {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
     if (error || !session) {
       setOtpMessage('Session expired. Please sign in again.');
       return false;
@@ -581,7 +693,11 @@ const Step2 = ({ user, formData, setFormData, parsedPhone, saveStep }) => {
         return;
       }
       if (!(await ensureSession())) return;
-      const { error } = await supabase.auth.updateUser({ phone: formData.phone });
+      if (!formData.phone_e164) {
+        setOtpMessage('Enter a valid phone number before requesting a code.');
+        return;
+      }
+      const { error } = await supabase.auth.updateUser({ phone: formData.phone_e164 });
       if (error) {
         setOtpMessage(`Failed to request OTP: ${error.message}`);
         return;
@@ -602,8 +718,13 @@ const Step2 = ({ user, formData, setFormData, parsedPhone, saveStep }) => {
         return;
       }
 
+      if (!otpCode) {
+        setOtpMessage('Enter the verification code.');
+        return;
+      }
+
       const { error } = await supabase.auth.verifyOtp({
-        phone: formData.phone,
+        phone: formData.phone_e164,
         token: otpCode,
         type: 'phone_change',
       });
@@ -613,22 +734,25 @@ const Step2 = ({ user, formData, setFormData, parsedPhone, saveStep }) => {
         return;
       }
 
+      const verifiedAt = new Date().toISOString();
       setPhoneVerified(true);
       setOtpMessage('Phone verified ✔');
-      setFormData((prev) => ({ ...prev, phone_verified: true }));
+      setOtpCode('');
+      setFormData((prev) => ({ ...prev, phone_verified_at: verifiedAt }));
 
-      await supabase
-        .from('operator_profiles')
-        .update({ phone: formData.phone, phone_verified: true })
-        .eq('id', user.id);
-
-      await supabase
-        .from('operator_verification')
-        .upsert({
-          operator_id: user.id,
-          phone_number: formData.phone,
-          phone_verified: true,
-        }, { onConflict: 'operator_id' });
+      if (accountId) {
+        await supabase
+          .from('op_contact')
+          .upsert([
+            {
+              op_account_id: accountId,
+              email_primary: formData.email_primary || user?.email || null,
+              email_billing: formData.email_billing || null,
+              phone_e164: formData.phone_e164,
+              phone_verified_at: verifiedAt,
+            },
+          ], { onConflict: 'op_account_id' });
+      }
     } catch (err) {
       setOtpMessage(`Verification error: ${err?.message || String(err)}`);
     }
@@ -644,11 +768,7 @@ const Step2 = ({ user, formData, setFormData, parsedPhone, saveStep }) => {
   const isValidPhone = !!parsedPhone && parsedPhone.isValid() && nationalLength >= 10;
 
   const isValid =
-    !!formData.contact_first_name &&
-    !!formData.contact_last_name &&
-    !!formData.contact_email &&
-    !!formData.headquarters_city &&
-    !!formData.headquarters_country &&
+    !!formData.email_primary &&
     isValidPhone &&
     phoneVerified;
 
@@ -656,38 +776,35 @@ const Step2 = ({ user, formData, setFormData, parsedPhone, saveStep }) => {
     <>
       <h2 style={styles.title}>Step 2 · Contact & phone verification</h2>
       <div style={styles.formGroup}>
-        <div style={twoCols}>
-          <input
-            style={styles.input}
-            name="contact_first_name"
-            placeholder="Contact first name"
-            value={formData.contact_first_name}
-            onChange={(event) => setFormData((prev) => ({ ...prev, contact_first_name: event.target.value }))}
-          />
-          <input
-            style={styles.input}
-            name="contact_last_name"
-            placeholder="Contact last name"
-            value={formData.contact_last_name}
-            onChange={(event) => setFormData((prev) => ({ ...prev, contact_last_name: event.target.value }))}
-          />
-        </div>
         <input
           style={styles.input}
-          name="contact_email"
+          name="email_primary"
           type="email"
-          placeholder="Contact email"
-          value={formData.contact_email}
-          onChange={(event) => setFormData((prev) => ({ ...prev, contact_email: event.target.value }))}
+          placeholder="Primary contact email"
+          value={formData.email_primary}
+          onChange={(event) => setFormData((prev) => ({ ...prev, email_primary: event.target.value }))}
+        />
+        <input
+          style={styles.input}
+          name="email_billing"
+          type="email"
+          placeholder="Billing email (optional)"
+          value={formData.email_billing}
+          onChange={(event) => setFormData((prev) => ({ ...prev, email_billing: event.target.value }))}
         />
         <div>
           <PhoneInput
             country={parsedPhone?.country?.toLowerCase() || 'it'}
-            value={formData.phone}
+            value={formData.phone_e164}
             onChange={(value) => {
-              setFormData((prev) => ({ ...prev, phone: `+${value}` }));
+              const formatted = value.startsWith('+') ? value : `+${value}`;
+              setFormData((prev) => ({
+                ...prev,
+                phone_e164: formatted,
+                phone_verified_at: null,
+              }));
               setPhoneVerified(false);
-            }}
+              }}
             inputStyle={{ width: '100%' }}
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
@@ -706,7 +823,17 @@ const Step2 = ({ user, formData, setFormData, parsedPhone, saveStep }) => {
               </button>
             </div>
           </div>
-          {otpMessage && <p style={{ fontSize: 12, textAlign: 'left', color: otpMessage.includes('✔') ? '#2E7D32' : '#B00020' }}>{otpMessage}</p>}
+          {otpMessage && (
+            <p
+              style={{
+                fontSize: 12,
+                textAlign: 'left',
+                color: otpMessage.includes('✔') ? '#2E7D32' : '#B00020',
+              }}
+            >
+              {otpMessage}
+            </p>
+          )}
         </div>
         <button
           style={isValid ? styles.button : styles.buttonDisabled}
@@ -717,9 +844,7 @@ const Step2 = ({ user, formData, setFormData, parsedPhone, saveStep }) => {
         </button>
         {!isValid && (
           <ul style={validationList}>
-            {!formData.contact_first_name && <li>Contact first name missing</li>}
-            {!formData.contact_last_name && <li>Contact last name missing</li>}
-            {!formData.contact_email && <li>Contact email missing</li>}
+            {!formData.email_primary && <li>Primary email missing</li>}
             {!isValidPhone && <li>Invalid phone number</li>}
             {!phoneVerified && <li>Phone not verified</li>}
           </ul>
@@ -729,28 +854,65 @@ const Step2 = ({ user, formData, setFormData, parsedPhone, saveStep }) => {
   );
 };
 
-const Step3 = ({ user, formData, setFormData, saveStep }) => {
+const Step3 = ({ user, accountId, formData, setFormData, saveStep }) => {
   const [uploadingKey, setUploadingKey] = useState(null);
   const [uploadMessage, setUploadMessage] = useState('');
 
-  const handleUpload = async (event, key) => {
+  const handleUpload = async (event, docType) => {
     const file = event.target.files?.[0];
-    if (!file || !user?.id) return;
+    if (!file || !user?.id || !accountId) return;
     setUploadMessage('');
 
     try {
-      setUploadingKey(key);
+      setUploadingKey(docType);
       const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
       const timestamp = Date.now();
-      const path = `${user.id}/operator-${key}-${timestamp}.${ext}`;
+      const fileKey = `${user.id}/op-${docType}-${timestamp}.${ext}`;
+
+      const subtle = typeof window !== 'undefined' && window.crypto ? window.crypto.subtle : null;
+      if (!subtle) {
+        throw new Error('Secure hashing is not available in this browser.');
+      }
+
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await subtle.digest('SHA-256', arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const fileHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+
       const { error: uploadError } = await supabase.storage
         .from('documents')
-        .upload(path, file, { cacheControl: '3600', upsert: false });
+        .upload(fileKey, file, { cacheControl: '3600', upsert: false });
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage.from('documents').getPublicUrl(path);
-      const publicUrl = data?.publicUrl || '';
-      setFormData((prev) => ({ ...prev, [key]: publicUrl }));
+      const documentPayload = {
+        op_account_id: accountId,
+        doc_type: docType,
+        file_key: fileKey,
+        file_hash: fileHash,
+        file_mime: file.type,
+        file_size: file.size,
+        expires_at: null,
+      };
+
+      const { error: documentError } = await supabase
+        .from('op_verification_document')
+        .upsert([documentPayload], { onConflict: 'op_account_id,doc_type' });
+      if (documentError) throw documentError;
+
+      setFormData((prev) => ({
+        ...prev,
+        documents: {
+          ...prev.documents,
+          [docType]: {
+            doc_type: docType,
+            file_key: fileKey,
+            file_hash: fileHash,
+            file_mime: file.type,
+            file_size: file.size,
+            expires_at: null,
+          },
+        },
+      }));
       setUploadMessage('Document uploaded successfully.');
     } catch (err) {
       console.error('Upload error', err);
@@ -761,40 +923,72 @@ const Step3 = ({ user, formData, setFormData, saveStep }) => {
     }
   };
 
-  const isValid = !!formData.document_business_license_url && !!formData.document_identity_url;
+  const handleRemove = async (docType) => {
+    const currentDoc = formData.documents[docType];
+    if (!currentDoc || !accountId) return;
+    setUploadMessage('');
+    try {
+      setUploadingKey(docType);
+      const { error: deleteError } = await supabase
+        .from('op_verification_document')
+        .delete()
+        .match({ op_account_id: accountId, doc_type: docType });
+      if (deleteError) throw deleteError;
+
+      if (currentDoc.file_key) {
+        await supabase.storage.from('documents').remove([currentDoc.file_key]);
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        documents: {
+          ...prev.documents,
+          [docType]: null,
+        },
+      }));
+      setUploadMessage('Document removed.');
+    } catch (err) {
+      console.error('Remove error', err);
+      setUploadMessage(err.message || 'Failed to remove document.');
+    } finally {
+      setUploadingKey(null);
+    }
+  };
+
+  const isValid = REQUIRED_DOCS.every(({ docType, optional }) => optional || formData.documents[docType]);
 
   return (
     <>
       <h2 style={styles.title}>Step 3 · Verification documents</h2>
       <div style={styles.formGroup}>
-        <FileField
-          label="Business registration document"
-          value={formData.document_business_license_url}
-          uploading={uploadingKey === 'document_business_license_url'}
-          onUpload={(event) => handleUpload(event, 'document_business_license_url')}
-          onRemove={() => setFormData((prev) => ({ ...prev, document_business_license_url: '' }))}
-        />
-        <FileField
-          label="Legal representative ID"
-          value={formData.document_identity_url}
-          uploading={uploadingKey === 'document_identity_url'}
-          onUpload={(event) => handleUpload(event, 'document_identity_url')}
-          onRemove={() => setFormData((prev) => ({ ...prev, document_identity_url: '' }))}
-        />
-        <FileField
-          label="Proof of headquarters address (optional)"
-          value={formData.document_proof_address_url}
-          uploading={uploadingKey === 'document_proof_address_url'}
-          onUpload={(event) => handleUpload(event, 'document_proof_address_url')}
-          onRemove={() => setFormData((prev) => ({ ...prev, document_proof_address_url: '' }))}
-        />
+        {REQUIRED_DOCS.map(({ docType, label, optional }) => (
+          <FileField
+            key={docType}
+            label={label}
+            optional={optional}
+            document={formData.documents[docType]}
+            uploading={uploadingKey === docType}
+            onUpload={(event) => handleUpload(event, docType)}
+            onRemove={() => handleRemove(docType)}
+          />
+        ))}
         <textarea
           style={{ ...styles.input, minHeight: 120 }}
           placeholder="Additional notes for the review team (optional)"
-          value={formData.document_additional_notes}
-          onChange={(event) => setFormData((prev) => ({ ...prev, document_additional_notes: event.target.value }))}
+          value={formData.document_notes}
+          onChange={(event) => setFormData((prev) => ({ ...prev, document_notes: event.target.value }))}
         />
-        {uploadMessage && <p style={{ fontSize: 12, color: uploadMessage.includes('successfully') ? '#2E7D32' : '#B00020', textAlign: 'left' }}>{uploadMessage}</p>}
+        {uploadMessage && (
+          <p
+            style={{
+              fontSize: 12,
+              color: uploadMessage.includes('successfully') || uploadMessage.includes('removed') ? '#2E7D32' : '#B00020',
+              textAlign: 'left',
+            }}
+          >
+            {uploadMessage}
+          </p>
+        )}
         <button
           style={isValid ? styles.button : styles.buttonDisabled}
           disabled={!isValid}
@@ -804,8 +998,9 @@ const Step3 = ({ user, formData, setFormData, saveStep }) => {
         </button>
         {!isValid && (
           <ul style={validationList}>
-            {!formData.document_business_license_url && <li>Business registration document missing</li>}
-            {!formData.document_identity_url && <li>Representative ID document missing</li>}
+            {REQUIRED_DOCS.filter(({ docType, optional }) => !optional && !formData.documents[docType]).map(({ docType, label }) => (
+              <li key={docType}>{label} missing</li>
+            ))}
           </ul>
         )}
       </div>
@@ -820,11 +1015,11 @@ const Step4 = ({ formData, setFormData, submitting, finalize }) => {
   useEffect(() => {
     fetch('/gdpr_policy_en.html')
       .then((response) => response.text())
-      .then(setGdprHtml)
+      .then((html) => setGdprHtml(html))
       .catch((err) => console.error('Failed to load GDPR policy', err));
   }, []);
 
-  const gdprAccepted = !!formData.privacy_gdpr;
+  const gdprAccepted = !!formData.privacy_consent;
 
   return (
     <>
@@ -850,8 +1045,9 @@ const Step4 = ({ formData, setFormData, submitting, finalize }) => {
               const checked = event.target.checked;
               setFormData((prev) => ({
                 ...prev,
-                privacy_gdpr: checked,
-                privacy_gdpr_at: checked ? (prev.privacy_gdpr_at || new Date().toISOString()) : null,
+                privacy_consent: checked,
+                privacy_consent_at: checked ? (prev.privacy_consent_at || new Date().toISOString()) : null,
+                policy_version: checked ? (prev.policy_version || PRIVACY_POLICY_VERSION) : prev.policy_version,
               }));
             }}
           />
@@ -860,8 +1056,8 @@ const Step4 = ({ formData, setFormData, submitting, finalize }) => {
         <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
             type="checkbox"
-            checked={!!formData.privacy_marketing}
-            onChange={(event) => setFormData((prev) => ({ ...prev, privacy_marketing: event.target.checked }))}
+            checked={!!formData.marketing_optin}
+            onChange={(event) => setFormData((prev) => ({ ...prev, marketing_optin: event.target.checked }))}
           />
           I agree to receive TalentLix updates and communications
         </label>
@@ -887,17 +1083,28 @@ const CompletionCard = ({ onContinue }) => (
   </div>
 );
 
-const FileField = ({ label, value, uploading, onUpload, onRemove }) => (
+const FileField = ({ label, optional, document, uploading, onUpload, onRemove }) => (
   <div style={{ textAlign: 'left' }}>
-    <p style={{ fontWeight: 600, marginBottom: 8 }}>{label}</p>
-    {value ? (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <a href={value} target="_blank" rel="noreferrer" style={{ ...styles.link, wordBreak: 'break-word' }}>
-          View uploaded document
-        </a>
-        <button type="button" style={styles.secondaryButton} onClick={onRemove}>
-          Remove
-        </button>
+    <p style={{ fontWeight: 600, marginBottom: 8 }}>
+      {label}
+      {optional ? ' · Optional' : ''}
+    </p>
+    {document ? (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontSize: 12, color: '#555', wordBreak: 'break-all' }}>
+          <div><strong>Storage key:</strong> {document.file_key}</div>
+          <div><strong>Hash:</strong> {document.file_hash}</div>
+          <div><strong>MIME:</strong> {document.file_mime}</div>
+          <div>
+            <strong>Size:</strong>{' '}
+            {document.file_size ? (document.file_size / 1024).toFixed(1) : '0.0'} KB
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <button type="button" style={styles.secondaryButton} onClick={onRemove} disabled={uploading}>
+            Remove
+          </button>
+        </div>
       </div>
     ) : (
       <input
@@ -920,42 +1127,39 @@ const selectStyles = {
 };
 
 const validationList = {
-  color: '#b00',
-  fontSize: '12px',
+  margin: 0,
+  paddingLeft: '20px',
+  color: '#B00020',
   textAlign: 'left',
-  marginTop: '6px',
-  paddingLeft: '18px',
+  fontSize: '0.9rem',
+};
+
+const gdprBox = {
+  maxHeight: '260px',
+  overflowY: 'auto',
+  padding: '1rem',
+  border: '1px solid #ccc',
+  borderRadius: '8px',
+  background: '#fff',
 };
 
 const twoCols = {
   display: 'grid',
-  gap: '12px',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-};
-
-const gdprBox = {
-  maxHeight: '220px',
-  overflowY: 'auto',
-  padding: '12px',
-  border: '1px solid #E0E0E0',
-  borderRadius: '8px',
-  background: '#FFF',
-  fontSize: '14px',
-  lineHeight: 1.6,
+  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+  gap: '1rem',
+  width: '100%',
 };
 
 const styles = {
   background: {
-    backgroundImage: "url('/BackG.png')",
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundRepeat: 'no-repeat',
-    width: '100%',
+    background: 'url(/operator-bg.jpg) center/cover no-repeat fixed',
     minHeight: '100vh',
-    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   overlay: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    background: 'rgba(0,0,0,0.55)',
     width: '100%',
     minHeight: '100%',
     position: 'static',
@@ -983,12 +1187,44 @@ const styles = {
   progressBar: { background: '#E0E0E0', height: '8px', borderRadius: '8px', marginBottom: '1rem' },
   progressFill: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', height: '100%', borderRadius: '8px' },
   steps: { display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem' },
-  stepCircle: { width: '30px', height: '30px', borderRadius: '50%', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' },
+  stepCircle: {
+    width: '30px',
+    height: '30px',
+    borderRadius: '50%',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 'bold',
+  },
   title: { fontSize: '1.5rem', marginBottom: '1rem' },
   formGroup: { display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' },
-  input: { width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' },
-  button: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', width: '100%', fontWeight: 'bold' },
-  buttonDisabled: { background: '#ccc', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '8px', width: '100%', cursor: 'not-allowed' },
+  input: {
+    width: '100%',
+    padding: '0.8rem',
+    borderRadius: '8px',
+    border: '1px solid #ccc',
+    boxSizing: 'border-box',
+  },
+  button: {
+    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+    color: '#fff',
+    border: 'none',
+    padding: '0.8rem',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    width: '100%',
+    fontWeight: 'bold',
+  },
+  buttonDisabled: {
+    background: '#ccc',
+    color: '#fff',
+    border: 'none',
+    padding: '0.8rem',
+    borderRadius: '8px',
+    width: '100%',
+    cursor: 'not-allowed',
+  },
   link: { color: '#0A66C2', fontWeight: 600, textDecoration: 'none' },
   error: { color: 'red', fontSize: '0.9rem', marginBottom: '1rem' },
   loaderContainer: {
