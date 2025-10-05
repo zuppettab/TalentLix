@@ -66,7 +66,7 @@ export default function LoginOperator() {
 
       if (userError || !user) {
         await supabase.auth.signOut();
-        setError('Impossibile verificare il ruolo operatore. Riprova.');
+        setError('Unable to verify the operator role. Please try again.');
       } else if (!isOperatorUser(user)) {
         await supabase.auth.signOut();
         setError(OPERATOR_UNAUTHORIZED_MESSAGE);

@@ -3,7 +3,7 @@ export const OPERATOR_ROLE = 'operator';
 export const OPERATOR_LOGIN_PATH = '/login-operator';
 export const OPERATOR_GUARD_REDIRECT_QUERY_KEY = 'reason';
 export const OPERATOR_GUARD_UNAUTHORIZED_VALUE = 'not_operator';
-export const OPERATOR_UNAUTHORIZED_MESSAGE = 'Account non abilitato come operatore.';
+export const OPERATOR_UNAUTHORIZED_MESSAGE = 'This account is not authorized for operator access.';
 
 const normalizeRole = (role) => (typeof role === 'string' ? role.toLowerCase() : null);
 
