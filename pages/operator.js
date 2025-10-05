@@ -53,30 +53,33 @@ export default function Operator() {
       .from('op_account')
       .select(`
         id,
-        first_name,
-        last_name,
-        phone,
         status,
         enabled_by_admin_at,
         op_profile (
+          legal_name,
+          trade_name,
           city,
           country
         ),
         op_contact (
-          phone_number,
-          phone_state
+          phone_e164,
+          phone_verified_at
         ),
         op_verification_request (
-          *,
+          id,
+          verification_id,
+          state,
+          reason,
           op_verification_document (
             id,
+            verification_id,
             doc_type,
             file_key,
             created_at
           )
         )
       `)
-      .order('last_name', { ascending: true })
+      .order('id', { ascending: true })
       .order('state', { referencedTable: 'op_verification_request', ascending: true });
 
     if (error) {
@@ -102,7 +105,6 @@ export default function Operator() {
             ? [rawRequests]
             : [];
         const currentRequest =
-          requests.find((req) => req?.is_active) ||
           requests.find((req) => {
             const state = String(req?.state || '').toLowerCase();
             return state === 'submitted' || state === 'in_review';
@@ -180,7 +182,7 @@ export default function Operator() {
         .from('op_verification_request')
         .update({
           state: 'approved',
-          rejection_reason: null,
+          reason: null,
         })
         .eq('id', requestId)
         .eq('state', 'submitted');
@@ -189,7 +191,7 @@ export default function Operator() {
       const { error: accountError } = await supabase
         .from('op_account')
         .update({
-          status: 'approved',
+          status: 'active',
           enabled_by_admin_at: new Date().toISOString(),
         })
         .eq('id', account.id);
@@ -215,17 +217,18 @@ export default function Operator() {
         .from('op_verification_request')
         .update({
           state: 'rejected',
-          rejection_reason: reason || null,
+          reason: reason || null,
         })
         .eq('id', requestId)
         .eq('state', 'submitted');
       if (error) throw error;
 
-      if (reason) {
+      const verificationId = account.request?.verification_id;
+      if (reason && verificationId) {
         const { error: noteError } = await supabase
           .from('op_review_note')
           .insert({
-            verification_request_id: requestId,
+            verification_id: verificationId,
             note: reason,
           });
         if (noteError) console.error(noteError);
@@ -234,7 +237,7 @@ export default function Operator() {
       const { error: accountError } = await supabase
         .from('op_account')
         .update({
-          status: 'rejected',
+          status: 'disabled',
           enabled_by_admin_at: null,
         })
         .eq('id', account.id);
@@ -273,14 +276,15 @@ export default function Operator() {
           const profile = r.profile || {};
           const contact = r.contact || {};
           const request = r.request || {};
-          const phoneState = String(contact.phone_state || '').toLowerCase();
-          const phoneVerified = phoneState === 'verified';
+          const displayName = profile.legal_name || profile.trade_name || '—';
+          const phone = contact.phone_e164 || '—';
+          const phoneVerified = Boolean(contact.phone_verified_at);
           const docCount = request.documents?.length ?? 0;
           const canAct = r.review_status === 'submitted'; // SOLO se già sottomesso
           return (
             <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '220px 1fr 1fr 1fr 1fr', borderTop: '1px solid #EEE' }}>
               <div style={cell}>
-                <div style={{ fontWeight: 700 }}>{r.last_name} {r.first_name}</div>
+                <div style={{ fontWeight: 700 }}>{displayName}</div>
                 <div style={{ fontSize: 12, color: '#999' }}>
                   {profile.city ? `${profile.city}` : ''}{profile.country ? `, ${profile.country}` : ''}
                 </div>
@@ -290,14 +294,14 @@ export default function Operator() {
                 <span style={badgeStyle(r.review_status)}>{r.review_status}</span>
                 <div style={{ fontSize: 12, color: '#666', marginTop: 6 }}>
                   Account: {r.status || 'unknown'}
-                  {request.rejection_reason ? <div style={{ color: '#B00020' }}>Reason: {request.rejection_reason}</div> : null}
+                  {request.reason ? <div style={{ color: '#B00020' }}>Reason: {request.reason}</div> : null}
                 </div>
               </div>
 
               <div style={cell}>
-                <div style={{ fontSize: 13 }}>{contact.phone_number || r.phone || '-'}</div>
+                <div style={{ fontSize: 13 }}>{phone}</div>
                 <div style={{ fontSize: 12, color: phoneVerified ? '#2E7D32' : '#B00020' }}>
-                  {phoneVerified ? 'Phone verified ✓' : `Phone ${contact.phone_state || 'not verified'}`}
+                  {phoneVerified ? 'Phone verified ✓' : 'Phone not verified'}
                 </div>
               </div>
 
