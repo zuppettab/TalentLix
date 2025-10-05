@@ -450,6 +450,35 @@ export default function OperatorWizard() {
   const requiredDocTypes = activeDocRules.filter((r) => r.is_required).map((r) => r.doc_type);
   const isValidStep3 = requiredDocTypes.every((dt) => !!documents[dt]);
 
+  const operatorName = useMemo(() => {
+    const base = profile.trade_name || profile.legal_name;
+    return base ? base.trim() : 'Operator profile';
+  }, [profile.trade_name, profile.legal_name]);
+
+  const operatorInitials = useMemo(() => {
+    const name = operatorName || '';
+    const parts = name.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'OP';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }, [operatorName]);
+
+  const heroAvatarSize = 108;
+  const reviewCardStyle = {
+    background:'#fff',
+    border:'1px solid #eee',
+    borderRadius:12,
+    padding:16,
+    boxShadow:'0 6px 14px rgba(0,0,0,0.04)',
+    textAlign:'left',
+  };
+  const reviewCardTitleStyle = {
+    fontWeight:800,
+    marginBottom:8,
+    fontSize:16,
+    color:'#212529',
+  };
+
   useEffect(() => {
     if (loading || !docRulesLoaded) return;
     if (hasInitializedStep.current) return;
@@ -778,8 +807,118 @@ export default function OperatorWizard() {
                 {/* STEP 4 — Privacy (stile atleti con scroll-to-enable) */}
                 {step === 4 && (
                   <>
-                    <h2 style={styles.title}>Step 4 · Privacy & Submission</h2>
-                    <div className="gdpr-box"
+                    <h2 style={styles.title}>Step 4 · Review & Submission</h2>
+
+                    {/* HERO */}
+                    <div
+                      className="tlx-hero"
+                      style={{
+                        display:'flex',
+                        gap:20,
+                        alignItems:'center',
+                        flexWrap:'wrap',
+                        textAlign:'left',
+                        marginBottom:24,
+                      }}
+                    >
+                      <div
+                        aria-hidden
+                        style={{
+                          width:heroAvatarSize,
+                          height:heroAvatarSize,
+                          borderRadius:16,
+                          background:'linear-gradient(135deg, #27E3DA, #3F8CFF)',
+                          display:'flex',
+                          alignItems:'center',
+                          justifyContent:'center',
+                          color:'#fff',
+                          fontSize:32,
+                          fontWeight:800,
+                          boxShadow:'0 6px 14px rgba(0,0,0,0.08)'
+                        }}
+                      >
+                        {operatorInitials}
+                      </div>
+                      <div style={{ flex:1, minWidth:240 }}>
+                        <div style={{ fontSize:24, fontWeight:800 }}>{operatorName}</div>
+                        <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
+                          {selectedTypeRow?.name && <span style={chipStyle}>{selectedTypeRow.name}</span>}
+                          {verifReq?.state && (
+                            <span style={{ ...chipStyle, background:'#EDF2FF', borderColor:'#BAC8FF', color:'#364FC7' }}>
+                              Status: {verifReq.state.replace(/_/g, ' ')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* GRID RIEPILOGO */}
+                    <div
+                      className="tlx-review-grid"
+                      style={{
+                        display:'grid',
+                        gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))',
+                        gap:16,
+                        width:'100%',
+                        marginBottom:24,
+                      }}
+                    >
+                      <div style={reviewCardStyle}>
+                        <div style={reviewCardTitleStyle}>Company profile</div>
+                        <div style={{ display:'grid', rowGap:8 }}>
+                          <Row label="Legal name" value={profile.legal_name || '—'} />
+                          <Row label="Trade name" value={profile.trade_name || '—'} />
+                          <Row label="Website" value={profile.website || '—'} />
+                          <Row
+                            label="Address"
+                            value={[
+                              profile.address1,
+                              profile.address2,
+                              [profile.city, profile.state_region].filter(Boolean).join(', '),
+                              [profile.postal_code, profile.country].filter(Boolean).join(' ')
+                            ].filter(Boolean).join(' · ') || '—'}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={reviewCardStyle}>
+                        <div style={reviewCardTitleStyle}>Contacts</div>
+                        <div style={{ display:'grid', rowGap:8 }}>
+                          <Row label="Primary email" value={contact.email_primary || '—'} />
+                          <Row label="Billing email" value={contact.email_billing || '—'} />
+                          <Row label="Phone" value={contact.phone_e164 || '—'} />
+                          <Row label="Phone verification" value={contact.phone_verified_at ? 'Verified' : 'Pending'} />
+                        </div>
+                      </div>
+
+                      <div style={reviewCardStyle}>
+                        <div style={reviewCardTitleStyle}>Document status</div>
+                        <div style={{ display:'grid', rowGap:8 }}>
+                          {activeDocRules.length === 0 && (
+                            <span style={{ color:'#555' }}>No documents are required for this operator type.</span>
+                          )}
+                          {activeDocRules.map((rule) => {
+                            const doc = documents[rule.doc_type];
+                            const label = DOC_LABEL[rule.doc_type] || rule.doc_type;
+                            const statusChip = doc
+                              ? { ...chipStyle, background:'#D3F9D8', borderColor:'#8CE99A', color:'#2B8A3E' }
+                              : rule.is_required
+                                ? { ...chipStyle, background:'#FFE3E3', borderColor:'#FFA8A8', color:'#C92A2A' }
+                                : { ...chipStyle, background:'#FFF4E6', borderColor:'#FFD8A8', color:'#D9480F' };
+                            const statusLabel = doc ? 'Uploaded' : rule.is_required ? 'Missing' : 'Optional';
+                            return (
+                              <div key={rule.doc_type} style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'center' }}>
+                                <span style={{ fontWeight:600, color:'#444' }}>{label}</span>
+                                <span style={statusChip}>{statusLabel}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      className="gdpr-box"
                       style={styles.gdprBox}
                       onScroll={(e) => {
                         const t = e.target;
@@ -787,20 +926,35 @@ export default function OperatorWizard() {
                       }}
                       dangerouslySetInnerHTML={{ __html: gdprHtml }}
                     />
+
                     <label style={{ display:'block', marginTop:12 }}>
-                      <input type="checkbox" disabled={!hasScrolled} checked={!!privacy.accepted}
-                             onChange={(e)=> setPrivacy(prev => ({ ...prev, accepted:e.target.checked }))} />{' '}
+                      <input
+                        type="checkbox"
+                        disabled={!hasScrolled}
+                        checked={!!privacy.accepted}
+                        onChange={(e) => setPrivacy((prev) => ({ ...prev, accepted:e.target.checked }))}
+                      />{' '}
                       I have read and agree to the GDPR Compliance Policy (v{PRIVACY_POLICY_VERSION})
                     </label>
                     <label style={{ display:'block', marginTop:12 }}>
-                      <input type="checkbox" checked={!!privacy.marketing_optin}
-                             onChange={(e)=> setPrivacy(prev => ({ ...prev, marketing_optin:e.target.checked }))} />{' '}
+                      <input
+                        type="checkbox"
+                        checked={!!privacy.marketing_optin}
+                        onChange={(e) => setPrivacy((prev) => ({ ...prev, marketing_optin:e.target.checked }))}
+                      />{' '}
                       I agree to receive TalentLix updates
                     </label>
 
                     <button
                       style={privacy.accepted ? { ...styles.button, marginTop:8 } : { ...styles.buttonDisabled, marginTop:8 }}
-                      onClick={async () => { try { if (!privacy.accepted) return; await submitAll(); } catch (e) { setErrorMessage(e.message); } }}
+                      onClick={async () => {
+                        try {
+                          if (!privacy.accepted) return;
+                          await submitAll();
+                        } catch (e) {
+                          setErrorMessage(e.message);
+                        }
+                      }}
                       disabled={!privacy.accepted}
                     >
                       Submit for review
@@ -822,6 +976,22 @@ export default function OperatorWizard() {
 const fmtSecs = (secs) => {
   const m = Math.floor(secs / 60); const s = secs % 60;
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
+};
+
+const Row = ({ label, value }) => (
+  <div style={{ display:'flex', gap:6, alignItems:'baseline', flexWrap:'wrap' }}>
+    <span style={{ color:'#777', minWidth:120 }}>{label}</span>
+    <span style={{ fontWeight:600, wordBreak:'break-word', overflowWrap:'anywhere' }}>{value}</span>
+  </div>
+);
+
+const chipStyle = {
+  background:'#F1F3F5',
+  border:'1px solid #E9ECEF',
+  borderRadius:999,
+  padding:'4px 10px',
+  fontSize:12,
+  fontWeight:700,
 };
 
 const styles = {
