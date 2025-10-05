@@ -14,13 +14,28 @@ export const hasRole = (user, role) => {
   if (!normalizedRole) return false;
 
   const metadataRole = normalizeRole(user?.user_metadata?.role);
-  if (metadataRole) {
-    return metadataRole === normalizedRole;
+  if (metadataRole && metadataRole === normalizedRole) {
+    return true;
+  }
+
+  const metadataRoles = user?.user_metadata?.roles;
+  if (Array.isArray(metadataRoles) && metadataRoles.some((value) => normalizeRole(value) === normalizedRole)) {
+    return true;
+  }
+
+  const appMetadataRole = normalizeRole(user?.app_metadata?.role);
+  if (appMetadataRole && appMetadataRole === normalizedRole) {
+    return true;
   }
 
   const appRoles = user?.app_metadata?.roles;
-  if (Array.isArray(appRoles)) {
-    return appRoles.some((value) => normalizeRole(value) === normalizedRole);
+  if (Array.isArray(appRoles) && appRoles.some((value) => normalizeRole(value) === normalizedRole)) {
+    return true;
+  }
+
+  const athleteRole = normalizeRole(user?.athlete?.role);
+  if (athleteRole) {
+    return athleteRole === normalizedRole;
   }
 
   return false;
