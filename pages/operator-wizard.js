@@ -62,6 +62,7 @@ const toNullable = (s) => {
   const t = String(s).trim();
   return t ? t : null;
 };
+const digitsOnly = (value) => (value ? String(value).replace(/\D/g, '') : '');
 const normalizeCountryCode = (value) => {
   if (!value) return null;
   const raw = String(value).trim();
@@ -273,6 +274,75 @@ export default function OperatorWizard() {
     const id = setInterval(() => setExpiresIn((s) => (s > 0 ? s - 1 : 0)), 1000);
     return () => clearInterval(id);
   }, [expiresIn]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const syncPhoneVerification = async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!isMounted || !authUser) return;
+
+        const authPhone = authUser.phone ? `+${String(authUser.phone).replace(/^\+?/, '')}` : '';
+
+        if (!contact.phone_e164 && authPhone) {
+          if (!isMounted) return;
+          setContact((prev) => {
+            if (prev.phone_e164) return prev;
+            return { ...prev, phone_e164: authPhone };
+          });
+          return;
+        }
+
+        if (!contact.phone_e164 || !authPhone) return;
+
+        const sameNumber = digitsOnly(contact.phone_e164) === digitsOnly(authPhone);
+        if (!sameNumber) return;
+
+        const confirmed = !!authUser.phone_confirmed_at;
+        const phoneIdVerified = Array.isArray(authUser.identities)
+          && authUser.identities.some((id) =>
+            id?.provider === 'phone'
+            && (id?.identity_data?.phone_verified === true || id?.identity_data?.phone_verified === 'true')
+          );
+
+        if (!(confirmed || phoneIdVerified)) return;
+
+        const verifiedAt = contact.phone_verified_at || authUser.phone_confirmed_at || new Date().toISOString();
+
+        if (!contact.phone_verified_at && isMounted) {
+          setContact((prev) => (prev.phone_verified_at ? prev : { ...prev, phone_verified_at: verifiedAt }));
+        }
+
+        if (isMounted) {
+          setOtpMsg((prev) => (prev === 'Phone already verified ✔' ? prev : 'Phone already verified ✔'));
+          setOtpSent(false);
+          setCooldown(0);
+          setExpiresIn(0);
+          setOtpCode('');
+        }
+
+        if (opId && !contact.phone_verified_at) {
+          await supabase.from('op_contact').upsert([
+            {
+              op_id: opId,
+              email_primary: contact.email_primary || (user?.email ?? ''),
+              email_billing: toNullable(contact.email_billing),
+              phone_e164: contact.phone_e164 || null,
+              phone_verified_at: verifiedAt,
+            },
+          ], { onConflict: 'op_id' });
+        }
+      } catch (err) {
+        console.error('Auto phone verification sync failed', err);
+      }
+    };
+
+    syncPhoneVerification();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [contact.phone_e164, contact.phone_verified_at, opId, user?.email]);
 
   /** -------------------------
    *  PERSISTENCE
@@ -888,9 +958,20 @@ export default function OperatorWizard() {
                         country={undefined}
                         value={contact.phone_e164 ? contact.phone_e164.replace(/^\+/, '') : ''}
                         onChange={(value) => {
-                          const digits = (value || '').replace(/\D/g, '');
+                          const digits = digitsOnly(value);
                           const e164 = digits ? `+${digits}` : '';
-                          setContact((prev) => ({ ...prev, phone_e164:e164, phone_verified_at:null }));
+                          const prevDigits = digitsOnly(contact.phone_e164);
+                          setContact((prev) => {
+                            if (digitsOnly(prev.phone_e164) === digits) return prev;
+                            return { ...prev, phone_e164: e164, phone_verified_at: null };
+                          });
+                          if (prevDigits !== digits) {
+                            setOtpMsg('');
+                            setOtpSent(false);
+                            setCooldown(0);
+                            setExpiresIn(0);
+                            setOtpCode('');
+                          }
                         }}
                         enableSearch={true}
                         placeholder="Mobile phone number"
