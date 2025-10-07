@@ -16,11 +16,42 @@ const COOLDOWN_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_RESEND_COOLDOWN ||
 const OTP_TTL_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_OTP_TTL || 600);
 
 const WIZARD = { NOT_STARTED:'NOT_STARTED', IN_PROGRESS:'IN_PROGRESS', SUBMITTED:'SUBMITTED', COMPLETED:'COMPLETED' };
-const VERIF_STATE = { NOT_STARTED:'NOT_STARTED', IN_REVIEW:'IN_REVIEW', VERIFIED:'VERIFIED', REJECTED:'REJECTED', NEEDS_MORE_INFO:'NEEDS_MORE_INFO' };
-const DOC_LABEL = {
-  ID:'Identity document', LICENSE:'Professional license', REGISTRATION:'Business/club registration',
-  AFFILIATION:'Federation affiliation', TAX:'Tax/VAT registration', REFERENCE:'Reference letter',
+const VERIF_STATE = {
+  NOT_STARTED:'NOT_STARTED',
+  DRAFT:'DRAFT',
+  IN_REVIEW:'IN_REVIEW',
+  VERIFIED:'VERIFIED',
+  REJECTED:'REJECTED',
+  NEEDS_MORE_INFO:'NEEDS_MORE_INFO'
+};
+
+const DOC_LABEL_DEFAULT = {
+  ID:'Identity document',
+  LICENSE:'Professional license or authorization',
+  REGISTRATION:'Business/club registration document',
+  AFFILIATION:'Federation affiliation proof',
+  TAX:'Tax/VAT identification',
+  REFERENCE:'Reference letter',
   PROOF_OF_ADDRESS:'Proof of address'
+};
+
+const DOC_LABEL_BY_TYPE = {
+  club: {
+    REGISTRATION: 'Registration document (company/association register, or equivalent)',
+    AFFILIATION: 'Official federation affiliation proof (certificate or public registry extract)',
+    ID: 'Government ID of an authorized club representative',
+    TAX: 'Tax/VAT code (optional; format as used in your country)',
+  },
+  agent: {
+    LICENSE: 'Agent license/authorization issued by the competent sports body',
+    ID: 'Government ID of the agent or the agency’s legal representative',
+    TAX: 'Tax/VAT code (optional; format as used in your country)',
+  }
+};
+
+const getDocLabel = (docType, operatorType) => {
+  const typeKey = operatorType || '';
+  return DOC_LABEL_BY_TYPE[typeKey]?.[docType] || DOC_LABEL_DEFAULT[docType] || docType;
 };
 
 /** =========================
@@ -216,7 +247,9 @@ export default function OperatorWizard() {
         const { data: rules } = await supabase
           .from('op_type_required_doc')
           .select('doc_type,is_required,conditions')
-          .eq('type_id', typeRow.id);
+          .eq('type_id', typeRow.id)
+          .order('is_required', { ascending:false })
+          .order('doc_type', { ascending:true });
         setDocRules(rules || []);
         setDocRulesLoaded(true);
       } catch (e) {
@@ -227,6 +260,7 @@ export default function OperatorWizard() {
     };
     loadRules();
   }, [selectedTypeCode, account?.type_id, opTypes]);
+
 
   // OTP timers (stile atleti)
   useEffect(() => {
@@ -249,8 +283,8 @@ export default function OperatorWizard() {
     setAccount((prev) => prev ? { ...prev, wizard_status: status } : prev);
   };
 
-  const ensureAccount = async () => {
-    if (opId) return account;
+  const ensureAccount = useCallback(async () => {
+    if (opId && account) return account;
     const typeRow = opTypes.find(t => t.code === selectedTypeCode);
     if (!user || !typeRow) throw new Error('Missing operator type or session.');
     const { data: inserted, error } = await supabase
@@ -261,7 +295,7 @@ export default function OperatorWizard() {
     if (error) throw error;
     setAccount(inserted);
     return inserted;
-  };
+  }, [account, opId, opTypes, selectedTypeCode, user]);
 
   // Save STEP 1
   const saveStep1 = async () => {
@@ -306,32 +340,61 @@ export default function OperatorWizard() {
 
   // Ensure/Open verification request
   const ensureOpenRequest = useCallback(async () => {
-    const accId = opId || (await ensureAccount()).id;
-    const { data: openReq } = await supabase
+    const acc = await ensureAccount();
+    const { data: openReq, error } = await supabase
       .from('op_verification_request')
-      .select('id,state,reason,submitted_at')
-      .eq('op_id', accId)
-      .in('state', [VERIF_STATE.NOT_STARTED, VERIF_STATE.IN_REVIEW, VERIF_STATE.NEEDS_MORE_INFO])
+      .select('id,state,reason,submitted_at,op_verification_document:op_verification_document(*)')
+      .eq('op_id', acc.id)
+      .in('state', [VERIF_STATE.NOT_STARTED, VERIF_STATE.DRAFT, VERIF_STATE.NEEDS_MORE_INFO])
       .order('created_at', { ascending:false })
       .limit(1)
       .maybeSingle();
-    if (openReq) { setVerifReq(openReq); return openReq; }
+    if (error && error.code !== 'PGRST116') throw error;
 
-    const { data: created, error } = await supabase
+    if (openReq) {
+      setVerifReq({ id: openReq.id, state: openReq.state, reason: openReq.reason, submitted_at: openReq.submitted_at });
+      const docs = Array.isArray(openReq.op_verification_document)
+        ? openReq.op_verification_document
+        : (openReq.op_verification_document ? [openReq.op_verification_document] : []);
+      const mapped = {};
+      for (const d of docs) {
+        mapped[d.doc_type] = {
+          doc_type: d.doc_type,
+          file_key: d.file_key,
+          file_hash: d.file_hash,
+          mime_type: d.mime_type,
+          file_size: d.file_size,
+          expires_at: d.expires_at,
+        };
+      }
+      setDocuments(mapped);
+      return { id: openReq.id, state: openReq.state, account_id: acc.id };
+    }
+
+    const { data: created, error: insertErr } = await supabase
       .from('op_verification_request')
-      .insert([{ op_id: accId, state: VERIF_STATE.NOT_STARTED }])
+      .insert([{ op_id: acc.id, state: VERIF_STATE.DRAFT }])
       .select('id,state,reason,submitted_at')
       .single();
-    if (error) throw error;
+    if (insertErr) throw insertErr;
     setVerifReq(created);
-    return created;
-  }, [opId, ensureAccount]);
+    setDocuments({});
+    return { id: created.id, state: created.state, account_id: acc.id };
+  }, [ensureAccount]);
 
   // Save STEP 3 (solo “ensure” + stato)
   const saveStep3 = async () => {
     await ensureOpenRequest();
     await updateWizardStatus(WIZARD.IN_PROGRESS);
   };
+
+  useEffect(() => {
+    if (step !== 3) return;
+    ensureOpenRequest().catch((err) => {
+      console.error('Failed to prepare verification request', err);
+      setErrorMessage(err?.message || 'Unable to prepare verification request');
+    });
+  }, [step, ensureOpenRequest]);
 
   // Submit (STEP 4)
   const submitAll = async () => {
@@ -401,54 +464,221 @@ export default function OperatorWizard() {
   const handleUpload = async (file, docType) => {
     if (!file) return;
     try {
+      setErrorMessage('');
+      const previous = documents[docType];
+      const acc = await ensureAccount();
       const req = await ensureOpenRequest();
-      const ab = await file.arrayBuffer();
-      const hashBuf = await crypto.subtle.digest('SHA-256', ab);
-      const hashArr = Array.from(new Uint8Array(hashBuf));
-      const fileHash = hashArr.map((b) => b.toString(16).padStart(2, '0')).join('');
-      const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
-      const key = `operators/${opId || 'new'}/${docType}-${Date.now()}.${ext}`;
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const fileHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      const originalName = file.name || `${docType}.pdf`;
+      const safeName = originalName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_.-]/g, '_');
+      const key = `op/${acc.id}/${req.id}/${docType}/${Date.now()}-${safeName}`;
 
-      // bucket privato dedicato agli operatori
-      const { error: upErr } = await supabase.storage.from('op_assets').upload(key, file, { cacheControl:'3600', upsert:false });
-      if (upErr) throw upErr;
+      const { error: uploadError } = await supabase.storage
+        .from('op_verification_docs')
+        .upload(key, file, { cacheControl: '3600', upsert: false, contentType: file.type || undefined });
+      if (uploadError) throw uploadError;
 
-      // upsert manuale (no unique (verification_id, doc_type) in schema)
-      const { data: existing } = await supabase
-        .from('op_verification_document').select('id')
-        .eq('verification_id', req.id).eq('doc_type', docType).maybeSingle();
+      const payload = {
+        verification_id: req.id,
+        doc_type: docType,
+        file_key: key,
+        file_hash: fileHash,
+        mime_type: file.type || 'application/octet-stream',
+        file_size: file.size,
+      };
 
-      if (existing?.id) {
-        const { error: updErr } = await supabase
-          .from('op_verification_document')
-          .update({ file_key:key, file_hash:fileHash, mime_type:file.type || 'application/octet-stream', file_size:file.size })
-          .eq('id', existing.id);
-        if (updErr) throw updErr;
-      } else {
-        const { error: insErr } = await supabase
-          .from('op_verification_document')
-          .insert([{ verification_id:req.id, doc_type:docType, file_key:key, file_hash:fileHash, mime_type:file.type || 'application/octet-stream', file_size:file.size }]);
-        if (insErr) throw insErr;
+      const { error: upsertError } = await supabase
+        .from('op_verification_document')
+        .upsert([payload], { onConflict: 'verification_id,doc_type' });
+      if (upsertError) throw upsertError;
+
+      setDocuments((prev) => ({ ...prev, [docType]: { ...payload } }));
+
+      if (previous?.file_key && previous.file_key !== key) {
+        const { error: removeErr } = await supabase.storage
+          .from('op_verification_docs')
+          .remove([previous.file_key]);
+        if (removeErr) console.warn('Previous file cleanup failed', removeErr);
       }
-
-      setDocuments((prev) => ({ ...prev, [docType]: { doc_type:docType, file_key:key, file_hash:fileHash, mime_type:file.type, file_size:file.size } }));
     } catch (e) {
-      console.error(e);
-      setErrorMessage('Upload failed');
+      console.error('Upload error', e);
+      setErrorMessage(e?.message ? `Upload failed: ${e.message}` : 'Upload failed');
     }
   };
 
   const handleRemove = async (docType) => {
     try {
-      const req = await ensureOpenRequest();
+      setErrorMessage('');
       const current = documents[docType];
-      await supabase.from('op_verification_document').delete().match({ verification_id:req.id, doc_type:docType });
-      if (current?.file_key) await supabase.storage.from('op_assets').remove([current.file_key]);
-      setDocuments((prev) => { const c = { ...prev }; delete c[docType]; return c; });
+      const req = await ensureOpenRequest();
+      if (!req?.id) return;
+      const { error: delErr } = await supabase
+        .from('op_verification_document')
+        .delete()
+        .match({ verification_id: req.id, doc_type: docType });
+      if (delErr) throw delErr;
+      if (current?.file_key) {
+        const { error: removeErr } = await supabase.storage
+          .from('op_verification_docs')
+          .remove([current.file_key]);
+        if (removeErr) console.warn('Storage remove failed', removeErr);
+      }
+      setDocuments((prev) => {
+        const clone = { ...prev };
+        delete clone[docType];
+        return clone;
+      });
     } catch (e) {
-      console.error(e);
-      setErrorMessage('Remove failed');
+      console.error('Remove error', e);
+      setErrorMessage(e?.message ? `Remove failed: ${e.message}` : 'Remove failed');
     }
+  };
+
+  const renderDocSection = (title, rules, badgeLabel) => {
+    if (!rules || rules.length === 0) return null;
+    const badgePalette = badgeLabel === 'Required'
+      ? { bg:'#e7f5ff', border:'#a5d8ff', color:'#1c7ed6' }
+      : { bg:'#f1f3f5', border:'#dee2e6', color:'#495057' };
+    const statusUploaded = { bg:'#d3f9d8', border:'#b2f2bb', color:'#2f9e44' };
+    const statusPending = { bg:'#fff4e6', border:'#ffd8a8', color:'#d9480f' };
+    const statusBase = {
+      display:'inline-flex',
+      alignItems:'center',
+      borderRadius:999,
+      padding:'4px 10px',
+      fontSize:12,
+      fontWeight:600,
+      border:'1px solid transparent'
+    };
+    const dropzoneStyle = {
+      border:'2px dashed #74c0fc',
+      borderRadius:12,
+      padding:'18px',
+      background:'#f8f9fa',
+      display:'grid',
+      gap:6,
+      justifyItems:'start',
+      cursor:'pointer'
+    };
+    const replaceButtonStyle = {
+      display:'inline-flex',
+      alignItems:'center',
+      gap:6,
+      padding:'8px 14px',
+      borderRadius:8,
+      border:'1px solid #4dabf7',
+      background:'#4dabf7',
+      color:'#fff',
+      fontWeight:600,
+      cursor:'pointer'
+    };
+    const removeButtonStyle = {
+      border:'1px solid #dee2e6',
+      background:'#fff',
+      color:'#c92a2a',
+      fontWeight:600,
+      borderRadius:8,
+      padding:'8px 14px',
+      cursor:'pointer'
+    };
+
+    return (
+      <section key={badgeLabel} style={{ display:'grid', gap:12 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+          <div style={{ fontSize:16, fontWeight:700, color:'#212529' }}>{title}</div>
+          <span
+            style={{
+              borderRadius:999,
+              padding:'4px 10px',
+              fontSize:12,
+              fontWeight:600,
+              background:badgePalette.bg,
+              border:`1px solid ${badgePalette.border}`,
+              color:badgePalette.color
+            }}
+          >
+            {badgeLabel}
+          </span>
+        </div>
+
+        <div style={{ display:'grid', gap:12 }}>
+          {rules.map((rule) => {
+            const docType = rule.doc_type;
+            const label = getDocLabel(docType, selectedTypeCode);
+            const doc = documents[docType];
+            const hasDoc = !!doc;
+            const statusPalette = hasDoc ? statusUploaded : statusPending;
+            const inputId = `doc-upload-${docType}`;
+            const fileName = doc?.file_key ? doc.file_key.split('/').pop() : '';
+            const fileSize = doc?.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : '—';
+
+            return (
+              <div
+                key={docType}
+                style={{
+                  border:'1px solid #e9ecef',
+                  borderRadius:12,
+                  padding:16,
+                  background:'#fff',
+                  display:'grid',
+                  gap:12
+                }}
+              >
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
+                  <div style={{ fontWeight:700, color:'#212529' }}>{label}</div>
+                  <span
+                    style={{
+                      ...statusBase,
+                      background:statusPalette.bg,
+                      border:`1px solid ${statusPalette.border}`,
+                      color:statusPalette.color
+                    }}
+                  >
+                    {hasDoc ? 'Uploaded' : 'Pending'}
+                  </span>
+                </div>
+
+                {!hasDoc ? (
+                  <label htmlFor={inputId} style={dropzoneStyle}>
+                    <span style={{ fontWeight:600, color:'#1864ab' }}>Select a file</span>
+                    <span style={{ fontSize:12, color:'#495057' }}>PDF, JPG or PNG</span>
+                  </label>
+                ) : (
+                  <div style={{ display:'grid', gap:8, fontSize:13, color:'#495057' }}>
+                    <div><strong>File:</strong> {fileName || 'Uploaded document'}</div>
+                    <div><strong>Size:</strong> {fileSize}</div>
+                    <div><strong>Hash:</strong> {doc.file_hash || '—'}</div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                      <label htmlFor={inputId} style={replaceButtonStyle}>Replace file</label>
+                      <button type="button" onClick={() => handleRemove(docType)} style={removeButtonStyle}>Remove</button>
+                    </div>
+                  </div>
+                )}
+
+                <input
+                  id={inputId}
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png"
+                  style={{ display:'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    await handleUpload(file, docType);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
   };
 
   /** -------------------------
@@ -464,9 +694,20 @@ export default function OperatorWizard() {
   const isValidPhone = !!parsedPhone && parsedPhone.isValid() && nationalLength >= 10;
   const isValidStep2 = !!contact.email_primary && isValidPhone && !!contact.phone_verified_at;
 
-  const activeDocRules = docRules.filter((r) => matchesConditions(r, { country: normalizeCountryCode(profile.country) }));
-  const requiredDocTypes = activeDocRules.filter((r) => r.is_required).map((r) => r.doc_type);
-  const isValidStep3 = requiredDocTypes.every((dt) => !!documents[dt]);
+  const activeDocRules = useMemo(
+    () => docRules.filter((r) => matchesConditions(r, { country: normalizeCountryCode(profile.country) })),
+    [docRules, profile.country]
+  );
+  const requiredRules = useMemo(
+    () => activeDocRules.filter((r) => r.is_required),
+    [activeDocRules]
+  );
+  const optionalRules = useMemo(
+    () => activeDocRules.filter((r) => !r.is_required),
+    [activeDocRules]
+  );
+  const requiredDocTypes = requiredRules.map((r) => r.doc_type);
+  const isValidStep3 = docRulesLoaded && requiredDocTypes.every((dt) => !!documents[dt]);
 
   const operatorName = useMemo(() => {
     const base = profile.trade_name || profile.legal_name;
@@ -740,69 +981,21 @@ export default function OperatorWizard() {
                   <>
                     <h2 style={styles.title}>Step 3 · Verification documents</h2>
                     <div style={styles.formGroup}>
-                      {activeDocRules.length === 0 && <p>No documents are required for the current configuration.</p>}
-                      {activeDocRules.map((r) => {
-                        const doc = documents[r.doc_type];
-                        const label = DOC_LABEL[r.doc_type] || r.doc_type;
-                        return (
-                          <div key={r.doc_type} style={{ textAlign:'left', border:'1px solid #eee', borderRadius:12, padding:12, background:'#fff' }}>
-                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-                              <div style={{ fontWeight:800 }}>{label}{r.is_required ? '' : ' · Optional'}</div>
-                              {doc && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemove(r.doc_type)}
-                                  style={{
-                                    background:'rgba(255,255,255,0.9)', border:'1px solid #ccc', borderRadius:'50%',
-                                    width:28, height:28, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0
-                                  }}
-                                  aria-label={`Remove ${label}`}
-                                  title="Remove file"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="11" />
-                                    <line x1="9" y1="9" x2="15" y2="15" />
-                                    <line x1="15" y1="9" x2="9" y2="15" />
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
+                      {!docRulesLoaded && <p style={{ textAlign:'left' }}>Loading document requirements…</p>}
+                      {docRulesLoaded && activeDocRules.length === 0 && (
+                        <p style={{ textAlign:'left' }}>No documents are required for the current configuration.</p>
+                      )}
 
-                            {!doc ? (
-                              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                                <label
-                                  htmlFor={`file_${r.doc_type}`}
-                                  style={{
-                                    background:'linear-gradient(90deg, #27E3DA, #F7B84E)', color:'#fff', border:'none',
-                                    borderRadius:'8px', padding:'0.5rem 1rem', cursor:'pointer', fontWeight:'bold'
-                                  }}
-                                >
-                                  Choose file
-                                </label>
-                                <input
-                                  id={`file_${r.doc_type}`}
-                                  type="file"
-                                  accept="image/*,application/pdf"
-                                  style={{ display:'none' }}
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (!file) return;
-                                    await handleUpload(file, r.doc_type);
-                                    e.target.value = '';
-                                  }}
-                                />
-                              </div>
-                            ) : (
-                              <div style={{ fontSize:12, color:'#555', wordBreak:'break-all', marginTop:6 }}>
-                                <div><strong>Storage key:</strong> {doc.file_key}</div>
-                                <div><strong>Hash:</strong> {doc.file_hash}</div>
-                                <div><strong>MIME:</strong> {doc.mime_type || ''}</div>
-                                <div><strong>Size:</strong> {(doc.file_size ? (doc.file_size/1024).toFixed(1) : '0.0')} KB</div>
-                              </div>
-                            )}
+                      {docRulesLoaded && activeDocRules.length > 0 && (
+                        <div style={{ display:'grid', gap:16, textAlign:'left' }}>
+                          <div style={{ fontSize:14, color:'#495057' }}>
+                            Upload clear scans of the documents listed below. Accepted formats: PDF, JPG, PNG.
                           </div>
-                        );
-                      })}
+
+                          {renderDocSection('Required documents', requiredRules, 'Required')}
+                          {optionalRules.length > 0 && renderDocSection('Optional documents', optionalRules, 'Optional')}
+                        </div>
+                      )}
 
                       <button
                         style={isValidStep3 ? styles.button : styles.buttonDisabled}
@@ -814,7 +1007,7 @@ export default function OperatorWizard() {
                       {!isValidStep3 && (
                         <ul style={styles.errList}>
                           {requiredDocTypes.filter((dt) => !documents[dt]).map((dt) => (
-                            <li key={dt}>{DOC_LABEL[dt] || dt} missing</li>
+                            <li key={dt}>{getDocLabel(dt, selectedTypeCode)} missing</li>
                           ))}
                         </ul>
                       )}
@@ -917,7 +1110,7 @@ export default function OperatorWizard() {
                           )}
                           {activeDocRules.map((rule) => {
                             const doc = documents[rule.doc_type];
-                            const label = DOC_LABEL[rule.doc_type] || rule.doc_type;
+                            const label = getDocLabel(rule.doc_type, selectedTypeCode);
                             const statusChip = doc
                               ? { ...chipStyle, background:'#D3F9D8', borderColor:'#8CE99A', color:'#2B8A3E' }
                               : rule.is_required
