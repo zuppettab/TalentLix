@@ -18,7 +18,6 @@ const OTP_TTL_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_OTP_TTL || 600);
 const WIZARD = { NOT_STARTED:'NOT_STARTED', IN_PROGRESS:'IN_PROGRESS', SUBMITTED:'SUBMITTED', COMPLETED:'COMPLETED' };
 const VERIF_STATE = {
   NOT_STARTED:'NOT_STARTED',
-  DRAFT:'DRAFT',
   IN_REVIEW:'IN_REVIEW',
   VERIFIED:'VERIFIED',
   REJECTED:'REJECTED',
@@ -415,7 +414,7 @@ export default function OperatorWizard() {
       .from('op_verification_request')
       .select('id,state,reason,submitted_at,op_verification_document:op_verification_document(*)')
       .eq('op_id', acc.id)
-      .in('state', [VERIF_STATE.NOT_STARTED, VERIF_STATE.DRAFT, VERIF_STATE.NEEDS_MORE_INFO])
+      .in('state', [VERIF_STATE.NOT_STARTED, VERIF_STATE.NEEDS_MORE_INFO])
       .order('created_at', { ascending:false })
       .limit(1)
       .maybeSingle();
@@ -443,7 +442,7 @@ export default function OperatorWizard() {
 
     const { data: created, error: insertErr } = await supabase
       .from('op_verification_request')
-      .insert([{ op_id: acc.id, state: VERIF_STATE.DRAFT }])
+      .insert([{ op_id: acc.id, state: VERIF_STATE.NOT_STARTED }])
       .select('id,state,reason,submitted_at')
       .single();
     if (insertErr) throw insertErr;
