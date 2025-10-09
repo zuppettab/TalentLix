@@ -16,6 +16,7 @@ const COOLDOWN_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_RESEND_COOLDOWN ||
 const OTP_TTL_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_OTP_TTL || 600);
 
 const WIZARD = { NOT_STARTED:'NOT_STARTED', IN_PROGRESS:'IN_PROGRESS', SUBMITTED:'SUBMITTED', COMPLETED:'COMPLETED' };
+const OP_DOCS_BUCKET = 'op_assets';
 const VERIF_STATE = {
   NOT_STARTED:'NOT_STARTED',
   IN_REVIEW:'IN_REVIEW',
@@ -532,6 +533,7 @@ export default function OperatorWizard() {
    * ------------------------- */
   const handleUpload = async (file, docType) => {
     if (!file) return;
+    let newFileKey = null;
     try {
       setErrorMessage('');
       const previous = documents[docType];
@@ -549,9 +551,10 @@ export default function OperatorWizard() {
       const key = `op/${acc.id}/${req.id}/${docType}/${Date.now()}-${safeName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('op_verification_docs')
+        .from(OP_DOCS_BUCKET)
         .upload(key, file, { cacheControl: '3600', upsert: false, contentType: file.type || undefined });
       if (uploadError) throw uploadError;
+      newFileKey = key;
 
       const payload = {
         verification_id: req.id,
@@ -562,20 +565,46 @@ export default function OperatorWizard() {
         file_size: file.size,
       };
 
-      const { error: upsertError } = await supabase
+      const { data: existing, error: existingErr } = await supabase
         .from('op_verification_document')
-        .upsert([payload], { onConflict: 'verification_id,doc_type' });
-      if (upsertError) throw upsertError;
+        .select('id,file_key')
+        .eq('verification_id', req.id)
+        .eq('doc_type', docType)
+        .maybeSingle();
+      if (existingErr && existingErr.code !== 'PGRST116') throw existingErr;
+
+      if (existing) {
+        const { error: updateErr } = await supabase
+          .from('op_verification_document')
+          .update(payload)
+          .eq('id', existing.id);
+        if (updateErr) throw updateErr;
+      } else {
+        const { error: insertErr } = await supabase
+          .from('op_verification_document')
+          .insert([payload]);
+        if (insertErr) throw insertErr;
+      }
 
       setDocuments((prev) => ({ ...prev, [docType]: { ...payload } }));
 
-      if (previous?.file_key && previous.file_key !== key) {
+      const keysToRemove = [];
+      const previousKey = previous?.file_key;
+      if (existing?.file_key && existing.file_key !== key) keysToRemove.push(existing.file_key);
+      if (previousKey && previousKey !== key) keysToRemove.push(previousKey);
+      if (keysToRemove.length > 0) {
         const { error: removeErr } = await supabase.storage
-          .from('op_verification_docs')
-          .remove([previous.file_key]);
+          .from(OP_DOCS_BUCKET)
+          .remove([...new Set(keysToRemove)]);
         if (removeErr) console.warn('Previous file cleanup failed', removeErr);
       }
     } catch (e) {
+      if (newFileKey) {
+        supabase.storage
+          .from(OP_DOCS_BUCKET)
+          .remove([newFileKey])
+          .catch((err) => console.warn('Rollback upload cleanup failed', err));
+      }
       console.error('Upload error', e);
       setErrorMessage(e?.message ? `Upload failed: ${e.message}` : 'Upload failed');
     }
@@ -594,7 +623,7 @@ export default function OperatorWizard() {
       if (delErr) throw delErr;
       if (current?.file_key) {
         const { error: removeErr } = await supabase.storage
-          .from('op_verification_docs')
+          .from(OP_DOCS_BUCKET)
           .remove([current.file_key]);
         if (removeErr) console.warn('Storage remove failed', removeErr);
       }
