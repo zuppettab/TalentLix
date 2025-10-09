@@ -723,7 +723,19 @@ export default function OperatorWizard() {
                 }}
               >
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
-                  <div style={{ fontWeight:700, color:'#212529', fontSize: FONT_SIZES.body }}>{label}</div>
+                  <div
+                    style={{
+                      fontWeight:700,
+                      color:'#212529',
+                      fontSize: FONT_SIZES.body,
+                      flex:1,
+                      minWidth:0,
+                      wordBreak:'break-word',
+                      overflowWrap:'anywhere'
+                    }}
+                  >
+                    {label}
+                  </div>
                   <span
                     style={{
                       ...statusBase,
@@ -742,10 +754,28 @@ export default function OperatorWizard() {
                     <span style={{ fontSize: FONT_SIZES.small, color:'#495057' }}>PDF, JPG or PNG</span>
                   </label>
                 ) : (
-                  <div style={{ display:'grid', gap:8, fontSize: FONT_SIZES.body, color:'#495057' }}>
-                    <div><strong>File:</strong> {fileName || 'Uploaded document'}</div>
-                    <div><strong>Size:</strong> {fileSize}</div>
-                    <div><strong>Hash:</strong> {doc.file_hash || '—'}</div>
+                  <div style={{ display:'grid', gap:12, color:'#495057' }}>
+                    <div style={{ display:'grid', gap:4 }}>
+                      <span style={{ fontSize: FONT_SIZES.small, fontWeight:600, letterSpacing:0.4, textTransform:'uppercase', color:'#868e96' }}>
+                        Uploaded file
+                      </span>
+                      <span
+                        style={{
+                          fontSize: FONT_SIZES.body,
+                          fontWeight:600,
+                          color:'#212529',
+                          wordBreak:'break-word',
+                          overflowWrap:'anywhere'
+                        }}
+                      >
+                        {fileName || 'Uploaded document'}
+                      </span>
+                    </div>
+
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:16, fontSize: FONT_SIZES.small }}>
+                      <div><strong style={{ color:'#212529' }}>Size:</strong> {fileSize}</div>
+                    </div>
+
                     <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
                       <label htmlFor={inputId} style={replaceButtonStyle}>Replace file</label>
                       <button type="button" onClick={() => handleRemove(docType)} style={removeButtonStyle}>Remove</button>
