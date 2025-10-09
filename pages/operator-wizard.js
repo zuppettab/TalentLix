@@ -548,7 +548,9 @@ export default function OperatorWizard() {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-zA-Z0-9_.-]/g, '_');
-      key = `op/${acc.id}/${req.id}/${docType}/${Date.now()}-${safeName}`;
+      const timestamp = Date.now();
+      const folder = `op/${acc.id}/${docType}`;
+      key = `${folder}/${req.id}-${timestamp}-${safeName}`;
 
       const { error: uploadError } = await supabase.storage
         .from(OP_DOCS_BUCKET)
