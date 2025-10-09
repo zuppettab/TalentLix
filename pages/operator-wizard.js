@@ -112,6 +112,39 @@ export default function OperatorWizard() {
   // Step
   const [step, setStep] = useState(1);
   const hasInitializedStep = useRef(false);
+  const makeStorageKey = useCallback((id) => (id ? `operator_wizard_step:${id}` : null), []);
+  const stepStorageKey = useMemo(
+    () => makeStorageKey(user?.id || null),
+    [makeStorageKey, user?.id]
+  );
+
+  const readStoredStep = useCallback(() => {
+    if (typeof window === 'undefined' || !stepStorageKey) return null;
+    try {
+      const raw = window.localStorage.getItem(stepStorageKey);
+      if (!raw) return null;
+      const parsed = parseInt(raw, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    } catch (err) {
+      console.warn('Failed to read operator wizard step from storage', err);
+      return null;
+    }
+  }, [stepStorageKey]);
+
+  const writeStoredStep = useCallback((value, idOverride = null) => {
+    if (typeof window === 'undefined') return;
+    const key = idOverride != null ? makeStorageKey(idOverride) : stepStorageKey;
+    if (!key) return;
+    try {
+      if (value == null) {
+        window.localStorage.removeItem(key);
+      } else {
+        window.localStorage.setItem(key, String(value));
+      }
+    } catch (err) {
+      console.warn('Failed to persist operator wizard step', err);
+    }
+  }, [makeStorageKey, stepStorageKey]);
 
   // STEP 1 — Anagrafica
   const [profile, setProfile] = useState({
@@ -228,6 +261,7 @@ export default function OperatorWizard() {
           if (cons?.accepted_at) setPrivacy({ accepted:true, marketing_optin: !!cons.marketing_optin });
 
           if (acc.wizard_status === WIZARD.SUBMITTED || acc.wizard_status === WIZARD.COMPLETED) {
+            writeStoredStep(null, u?.id || null);
             router.replace('/operator-in-review');
             return;
           }
@@ -864,13 +898,19 @@ export default function OperatorWizard() {
     if (loading || !docRulesLoaded) return;
     if (hasInitializedStep.current) return;
 
-    let nextStep = 4;
-    if (!isValidStep1) nextStep = 1;
-    else if (!isValidStep2) nextStep = 2;
-    else if (!isValidStep3) nextStep = 3;
-    else if (!privacy.accepted) nextStep = 4;
+    let computedStep = 4;
+    if (!isValidStep1) computedStep = 1;
+    else if (!isValidStep2) computedStep = 2;
+    else if (!isValidStep3) computedStep = 3;
+    else if (!privacy.accepted) computedStep = 4;
 
-    setStep(nextStep);
+    const storedStep = readStoredStep();
+    if (storedStep != null) {
+      const normalizedStored = Math.min(4, Math.max(1, storedStep));
+      computedStep = Math.min(normalizedStored, computedStep);
+    }
+
+    setStep(computedStep);
     hasInitializedStep.current = true;
   }, [
     loading,
@@ -884,7 +924,17 @@ export default function OperatorWizard() {
     contact,
     selectedTypeCode,
     docRulesLoaded,
+    readStoredStep,
   ]);
+
+  useEffect(() => {
+    if (!hasInitializedStep.current) return;
+    if (typeof step !== 'number') {
+      writeStoredStep(null);
+      return;
+    }
+    writeStoredStep(Math.min(4, Math.max(1, step)));
+  }, [step, writeStoredStep]);
 
   /** -------------------------
    *  RENDER
