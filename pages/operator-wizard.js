@@ -533,6 +533,7 @@ export default function OperatorWizard() {
    * ------------------------- */
   const handleUpload = async (file, docType) => {
     if (!file) return;
+    let key;
     try {
       setErrorMessage('');
       const previous = documents[docType];
@@ -547,7 +548,7 @@ export default function OperatorWizard() {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-zA-Z0-9_.-]/g, '_');
-      const key = `op/${acc.id}/${req.id}/${docType}/${Date.now()}-${safeName}`;
+      key = `op/${acc.id}/${req.id}/${docType}/${Date.now()}-${safeName}`;
 
       const { error: uploadError } = await supabase.storage
         .from(OP_DOCS_BUCKET)
@@ -563,10 +564,16 @@ export default function OperatorWizard() {
         file_size: file.size,
       };
 
-      const { error: upsertError } = await supabase
+      const { error: deleteError } = await supabase
         .from('op_verification_document')
-        .upsert([payload], { onConflict: 'verification_id,doc_type' });
-      if (upsertError) throw upsertError;
+        .delete()
+        .match({ verification_id: req.id, doc_type: docType });
+      if (deleteError) throw deleteError;
+
+      const { error: insertError } = await supabase
+        .from('op_verification_document')
+        .insert([payload]);
+      if (insertError) throw insertError;
 
       setDocuments((prev) => ({ ...prev, [docType]: { ...payload } }));
 
@@ -579,6 +586,12 @@ export default function OperatorWizard() {
     } catch (e) {
       console.error('Upload error', e);
       setErrorMessage(e?.message ? `Upload failed: ${e.message}` : 'Upload failed');
+      if (key) {
+        const { error: cleanupErr } = await supabase.storage
+          .from(OP_DOCS_BUCKET)
+          .remove([key]);
+        if (cleanupErr) console.warn('Failed to cleanup uploaded file after error', cleanupErr);
+      }
     }
   };
 
