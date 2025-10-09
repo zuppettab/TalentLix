@@ -16,6 +16,7 @@ const COOLDOWN_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_RESEND_COOLDOWN ||
 const OTP_TTL_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_OTP_TTL || 600);
 
 const WIZARD = { NOT_STARTED:'NOT_STARTED', IN_PROGRESS:'IN_PROGRESS', SUBMITTED:'SUBMITTED', COMPLETED:'COMPLETED' };
+const OP_DOCS_BUCKET = 'op_assets';
 const VERIF_STATE = {
   NOT_STARTED:'NOT_STARTED',
   IN_REVIEW:'IN_REVIEW',
@@ -549,7 +550,7 @@ export default function OperatorWizard() {
       const key = `op/${acc.id}/${req.id}/${docType}/${Date.now()}-${safeName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('op_verification_docs')
+        .from(OP_DOCS_BUCKET)
         .upload(key, file, { cacheControl: '3600', upsert: false, contentType: file.type || undefined });
       if (uploadError) throw uploadError;
 
@@ -571,7 +572,7 @@ export default function OperatorWizard() {
 
       if (previous?.file_key && previous.file_key !== key) {
         const { error: removeErr } = await supabase.storage
-          .from('op_verification_docs')
+          .from(OP_DOCS_BUCKET)
           .remove([previous.file_key]);
         if (removeErr) console.warn('Previous file cleanup failed', removeErr);
       }
@@ -594,7 +595,7 @@ export default function OperatorWizard() {
       if (delErr) throw delErr;
       if (current?.file_key) {
         const { error: removeErr } = await supabase.storage
-          .from('op_verification_docs')
+          .from(OP_DOCS_BUCKET)
           .remove([current.file_key]);
         if (removeErr) console.warn('Storage remove failed', removeErr);
       }
