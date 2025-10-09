@@ -17,6 +17,13 @@ const OTP_TTL_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_OTP_TTL || 600);
 
 const WIZARD = { NOT_STARTED:'NOT_STARTED', IN_PROGRESS:'IN_PROGRESS', SUBMITTED:'SUBMITTED', COMPLETED:'COMPLETED' };
 const OP_DOCS_BUCKET = 'op_assets';
+const FONT_SIZES = {
+  title: '1.5rem',
+  sectionHeading: '1rem',
+  body: '0.95rem',
+  small: '0.8rem',
+  tiny: '0.75rem',
+};
 const VERIF_STATE = {
   NOT_STARTED:'NOT_STARTED',
   IN_REVIEW:'IN_REVIEW',
@@ -637,7 +644,7 @@ export default function OperatorWizard() {
       alignItems:'center',
       borderRadius:999,
       padding:'4px 10px',
-      fontSize:12,
+      fontSize: FONT_SIZES.small,
       fontWeight:600,
       border:'1px solid transparent'
     };
@@ -676,12 +683,12 @@ export default function OperatorWizard() {
     return (
       <section key={badgeLabel} style={{ display:'grid', gap:12 }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
-          <div style={{ fontSize:16, fontWeight:700, color:'#212529' }}>{title}</div>
+          <div style={{ fontSize: FONT_SIZES.sectionHeading, fontWeight:700, color:'#212529' }}>{title}</div>
           <span
             style={{
               borderRadius:999,
               padding:'4px 10px',
-              fontSize:12,
+              fontSize: FONT_SIZES.small,
               fontWeight:600,
               background:badgePalette.bg,
               border:`1px solid ${badgePalette.border}`,
@@ -716,7 +723,7 @@ export default function OperatorWizard() {
                 }}
               >
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
-                  <div style={{ fontWeight:700, color:'#212529' }}>{label}</div>
+                  <div style={{ fontWeight:700, color:'#212529', fontSize: FONT_SIZES.body }}>{label}</div>
                   <span
                     style={{
                       ...statusBase,
@@ -731,11 +738,11 @@ export default function OperatorWizard() {
 
                 {!hasDoc ? (
                   <label htmlFor={inputId} style={dropzoneStyle}>
-                    <span style={{ fontWeight:600, color:'#1864ab' }}>Select a file</span>
-                    <span style={{ fontSize:12, color:'#495057' }}>PDF, JPG or PNG</span>
+                    <span style={{ fontWeight:600, color:'#1864ab', fontSize: FONT_SIZES.body }}>Select a file</span>
+                    <span style={{ fontSize: FONT_SIZES.small, color:'#495057' }}>PDF, JPG or PNG</span>
                   </label>
                 ) : (
-                  <div style={{ display:'grid', gap:8, fontSize:13, color:'#495057' }}>
+                  <div style={{ display:'grid', gap:8, fontSize: FONT_SIZES.body, color:'#495057' }}>
                     <div><strong>File:</strong> {fileName || 'Uploaded document'}</div>
                     <div><strong>Size:</strong> {fileSize}</div>
                     <div><strong>Hash:</strong> {doc.file_hash || '—'}</div>
@@ -819,7 +826,7 @@ export default function OperatorWizard() {
   const reviewCardTitleStyle = {
     fontWeight:800,
     marginBottom:8,
-    fontSize:16,
+    fontSize: FONT_SIZES.sectionHeading,
     color:'#212529',
   };
 
@@ -990,7 +997,7 @@ export default function OperatorWizard() {
                         }}
                         enableSearch={true}
                         placeholder="Mobile phone number"
-                        inputStyle={{ width:'100%', height:'48px', fontSize:'16px', borderRadius:'8px', paddingLeft:'48px', border:'1px solid #ccc', boxSizing:'border-box' }}
+                        inputStyle={{ width:'100%', height:'48px', fontSize: FONT_SIZES.sectionHeading, borderRadius:'8px', paddingLeft:'48px', border:'1px solid #ccc', boxSizing:'border-box' }}
                         buttonStyle={{ border:'none', background:'none' }}
                         containerStyle={{ width:'100%' }}
                         dropdownStyle={{ borderRadius:'8px', zIndex:1000 }}
@@ -1011,7 +1018,7 @@ export default function OperatorWizard() {
                           >
                             {otpSent ? 'Resend code' : 'Send code'}
                           </button>
-                          <div style={{ marginTop:'6px', fontSize:'12px', color:'#555', textAlign:'left' }}>
+                          <div style={{ marginTop:'6px', fontSize: FONT_SIZES.small, color:'#555', textAlign:'left' }}>
                             {cooldown > 0 ? <span>Resend in {fmtSecs(cooldown)}</span> : (otpSent && <span>You can resend now</span>)}
                             {expiresIn > 0 && <span style={{ marginLeft:8 }}>• Code expires in {fmtSecs(expiresIn)}</span>}
                           </div>
@@ -1036,7 +1043,7 @@ export default function OperatorWizard() {
                               </button>
                             </div>
                           )}
-                          {otpMsg && (<div style={{ fontSize:'0.9rem', color:'#444' }}>{otpMsg}</div>)}
+                          {otpMsg && (<div style={{ fontSize: FONT_SIZES.body, color:'#444' }}>{otpMsg}</div>)}
                         </div>
                       ) : (
                         <div style={{
@@ -1050,7 +1057,7 @@ export default function OperatorWizard() {
                           textAlign:'left'
                         }}>
                           <span>✅ Phone number verified.</span>
-                          {otpMsg && (<div style={{ fontSize:'0.9rem', color:'#145c4d', fontWeight:500 }}>{otpMsg}</div>)}
+                          {otpMsg && (<div style={{ fontSize: FONT_SIZES.body, color:'#145c4d', fontWeight:500 }}>{otpMsg}</div>)}
                         </div>
                       )}
 
@@ -1084,7 +1091,7 @@ export default function OperatorWizard() {
 
                       {docRulesLoaded && activeDocRules.length > 0 && (
                         <div style={{ display:'grid', gap:16, textAlign:'left' }}>
-                          <div style={{ fontSize:14, color:'#495057' }}>
+                          <div style={{ fontSize: FONT_SIZES.body, color:'#495057' }}>
                             Upload clear scans of the documents listed below. Accepted formats: PDF, JPG, PNG.
                           </div>
 
@@ -1147,7 +1154,7 @@ export default function OperatorWizard() {
                         {operatorInitials}
                       </div>
                       <div style={{ flex:1, minWidth:240 }}>
-                        <div style={{ fontSize:24, fontWeight:800 }}>{operatorName}</div>
+                        <div style={{ fontSize: FONT_SIZES.title, fontWeight:800 }}>{operatorName}</div>
                         <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
                           {selectedTypeRow?.name && <span style={chipStyle}>{selectedTypeRow.name}</span>}
                           {verifReq?.state && (
@@ -1202,7 +1209,7 @@ export default function OperatorWizard() {
                         <div style={reviewCardTitleStyle}>Document status</div>
                         <div style={{ display:'grid', rowGap:8 }}>
                           {activeDocRules.length === 0 && (
-                            <span style={{ color:'#555' }}>No documents are required for this operator type.</span>
+                            <span style={{ color:'#555', fontSize: FONT_SIZES.body }}>No documents are required for this operator type.</span>
                           )}
                           {activeDocRules.map((rule) => {
                             const doc = documents[rule.doc_type];
@@ -1215,7 +1222,7 @@ export default function OperatorWizard() {
                             const statusLabel = doc ? 'Uploaded' : rule.is_required ? 'Missing' : 'Optional';
                             return (
                               <div key={rule.doc_type} style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'center' }}>
-                                <span style={{ fontWeight:600, color:'#444' }}>{label}</span>
+                                <span style={{ fontWeight:600, color:'#444', fontSize: FONT_SIZES.body }}>{label}</span>
                                 <span style={statusChip}>{statusLabel}</span>
                               </div>
                             );
@@ -1287,8 +1294,8 @@ const fmtSecs = (secs) => {
 
 const Row = ({ label, value }) => (
   <div style={{ display:'flex', gap:6, alignItems:'baseline', flexWrap:'wrap' }}>
-    <span style={{ color:'#777', minWidth:120 }}>{label}</span>
-    <span style={{ fontWeight:600, wordBreak:'break-word', overflowWrap:'anywhere' }}>{value}</span>
+    <span style={{ color:'#777', minWidth:120, fontSize: FONT_SIZES.small }}>{label}</span>
+    <span style={{ fontWeight:600, wordBreak:'break-word', overflowWrap:'anywhere', fontSize: FONT_SIZES.body }}>{value}</span>
   </div>
 );
 
@@ -1297,7 +1304,7 @@ const chipStyle = {
   border:'1px solid #E9ECEF',
   borderRadius:999,
   padding:'4px 10px',
-  fontSize:12,
+  fontSize: FONT_SIZES.small,
   fontWeight:700,
 };
 
@@ -1305,7 +1312,7 @@ const styles = {
   userMenuContainer:{ position:'absolute', top:'20px', right:'20px', zIndex:20 },
   menuIcon:{ background:'#27E3DA', color:'#fff', width:35, height:35, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px', cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.2)' },
   dropdown:{ position:'absolute', top:45, right:0, background:'#FFF', border:'1px solid #E0E0E0', borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,0.1)', minWidth:180, zIndex:100, padding:'0.5rem' },
-  dropdownUser:{ padding:'0.5rem', fontSize:'0.9rem', color:'#555', borderBottom:'1px solid #eee', marginBottom:'0.5rem' },
+  dropdownUser:{ padding:'0.5rem', fontSize: FONT_SIZES.body, color:'#555', borderBottom:'1px solid #eee', marginBottom:'0.5rem' },
   dropdownButton:{ background:'#DD5555', color:'#FFF', border:'none', padding:'0.5rem', width:'100%', borderRadius:'6px', cursor:'pointer' },
 
   background:{ backgroundImage:"url('/BackG.png')", backgroundSize:'cover', backgroundPosition:'center', backgroundRepeat:'no-repeat', width:'100%', minHeight:'100vh', position:'relative' },
@@ -1317,17 +1324,17 @@ const styles = {
   progressFill:{ background:'linear-gradient(90deg, #27E3DA, #F7B84E)', height:'100%', borderRadius:8 },
   steps:{ display:'flex', justifyContent:'center', gap:'0.5rem', marginBottom:'1.5rem' },
   stepCircle:{ width:30, height:30, borderRadius:'50%', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold' },
-  title:{ fontSize:'1.5rem', marginBottom:'1rem' },
+  title:{ fontSize: FONT_SIZES.title, marginBottom:'1rem' },
   formGroup:{ display:'flex', flexDirection:'column', gap:'1rem', width:'100%' },
   input:{ width:'100%', padding:'0.8rem', borderRadius:'8px', border:'1px solid #ccc', boxSizing:'border-box' },
   button:{ background:'linear-gradient(90deg, #27E3DA, #F7B84E)', color:'#fff', border:'none', padding:'0.8rem', borderRadius:'8px', cursor:'pointer', width:'100%', fontWeight:'bold' },
   buttonDisabled:{ background:'#ccc', color:'#fff', border:'none', padding:'0.8rem', borderRadius:'8px', width:'100%', cursor:'not-allowed' },
-  error:{ color:'red', fontSize:'0.9rem', marginBottom:'1rem' },
-  errList:{ color:'#b00', fontSize:'12px', textAlign:'left', marginTop:'6px', paddingLeft:'18px' },
+  error:{ color:'red', fontSize: FONT_SIZES.body, marginBottom:'1rem' },
+  errList:{ color:'#b00', fontSize: FONT_SIZES.small, textAlign:'left', marginTop:'6px', paddingLeft:'18px' },
 
   loaderContainer:{ display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16, padding:48, textAlign:'center', minHeight:'calc(100vh - 32px)', width:'100%' },
   spinner:{ width:48, height:48, borderRadius:'50%', border:'4px solid #27E3DA', borderTopColor:'#F7B84E', animation:'profileSpin 1s linear infinite' },
   srOnly:{ position:'absolute', width:1, height:1, padding:0, margin:-1, overflow:'hidden', clip:'rect(0,0,0,0)', whiteSpace:'nowrap', border:0 },
 
-  gdprBox:{ border:'1px solid #ccc', borderRadius:8, padding:12, maxHeight:200, overflowY:'auto', background:'#fafafa', fontSize:12, textAlign:'left' },
+  gdprBox:{ border:'1px solid #ccc', borderRadius:8, padding:12, maxHeight:200, overflowY:'auto', background:'#fafafa', fontSize: FONT_SIZES.small, textAlign:'left' },
 };
