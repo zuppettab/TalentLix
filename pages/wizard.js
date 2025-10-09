@@ -1,6 +1,6 @@
 
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../utils/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -43,42 +43,43 @@ export default function Wizard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [athlete, setAthlete] = useState(null);
-const [step, setStep] = useState(1);
-const [loading, setLoading] = useState(true);
-const [errorMessage, setErrorMessage] = useState('');
-const [menuOpen, setMenuOpen] = useState(false);
-const [errors, setErrors] = useState({});
+  const [step, setStep] = useState(1);
+  const hasInitializedStep = useRef(false);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const [formData, setFormData] = useState({
-  first_name: '',
-  last_name: '',
-  date_of_birth: '',
-  gender: '',
-  nationality: '',
-  birth_city: '',
-  native_language: 'English',
-  additional_language: '',
-  profile_picture_url: '',
-  phone: '',
-  residence_city: '',
-  residence_country: '',
-  guardian_first_name: '',
-  guardian_last_name: '',
-  parental_consent: false,
-  parental_consent_at: null,
-  // —— STEP 3
-  sport: '',
-  main_role: '',
-  team_name: '',           // facoltativo
-  previous_team: '',       // NUOVO (facoltativo)
-  years_experience: '',    // NUOVO (0–80) — mostrato solo dopo scelta sport
-  category: '',
-  seeking_team: false,     // NUOVO (checkbox)
-  // ——
-  profile_published: false,
-  gdpr_accepted: false,
-  gdpr_accepted_at: null,
-});
+    first_name: '',
+    last_name: '',
+    date_of_birth: '',
+    gender: '',
+    nationality: '',
+    birth_city: '',
+    native_language: 'English',
+    additional_language: '',
+    profile_picture_url: '',
+    phone: '',
+    residence_city: '',
+    residence_country: '',
+    guardian_first_name: '',
+    guardian_last_name: '',
+    parental_consent: false,
+    parental_consent_at: null,
+    // —— STEP 3
+    sport: '',
+    main_role: '',
+    team_name: '',           // facoltativo
+    previous_team: '',       // NUOVO (facoltativo)
+    years_experience: '',    // NUOVO (0–80) — mostrato solo dopo scelta sport
+    category: '',
+    seeking_team: false,     // NUOVO (checkbox)
+    // ——
+    profile_published: false,
+    gdpr_accepted: false,
+    gdpr_accepted_at: null,
+  });
 
   const loadLatestExperience = async (athleteId, base = {}) => {
     const { data: expRows, error: expErr } = await supabase
@@ -114,15 +115,52 @@ const [errors, setErrors] = useState({});
     };
   };
 
-// Fetch user and athlete data
-useEffect(() => {
-  const initWizard = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/login');
-      return;
+  const makeStorageKey = useCallback((id) => (id ? `athlete_wizard_step:${id}` : null), []);
+  const stepStorageKey = useMemo(
+    () => makeStorageKey(user?.id || null),
+    [makeStorageKey, user?.id]
+  );
+
+  const readStoredStep = useCallback((idOverride = null) => {
+    if (typeof window === 'undefined') return null;
+    const key = idOverride != null ? makeStorageKey(idOverride) : stepStorageKey;
+    if (!key) return null;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = parseInt(raw, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    } catch (err) {
+      console.warn('Failed to read athlete wizard step from storage', err);
+      return null;
     }
-    setUser(user);
+  }, [makeStorageKey, stepStorageKey]);
+
+  const writeStoredStep = useCallback((value, idOverride = null) => {
+    if (typeof window === 'undefined') return;
+    const key = idOverride != null ? makeStorageKey(idOverride) : stepStorageKey;
+    if (!key) return;
+    try {
+      if (value == null) {
+        window.localStorage.removeItem(key);
+      } else {
+        window.localStorage.setItem(key, String(value));
+      }
+    } catch (err) {
+      console.warn('Failed to persist athlete wizard step', err);
+    }
+  }, [makeStorageKey, stepStorageKey]);
+
+  // Fetch user and athlete data
+  useEffect(() => {
+    const initWizard = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+      setUser(user);
+      const storedStep = readStoredStep(user?.id || null);
 
     // 1) Carica ATHLETE
     const { data: athleteData } = await supabase
@@ -132,15 +170,19 @@ useEffect(() => {
       .single();
 
     if (!athleteData) {
-      setStep(1);
+      const initialStep = storedStep != null ? Math.min(4, Math.max(1, storedStep)) : 1;
+      setStep(initialStep);
+      hasInitializedStep.current = true;
       setLoading(false);
       return;
     }
 
     // Se già completato (>=40) esci come prima
     if (athleteData.completion_percentage >= 40) {
+      writeStoredStep(null, user?.id || null);
       setAthlete(athleteData);
       setStep(null);
+      hasInitializedStep.current = true;
       setLoading(false);
       return;
     }
@@ -179,24 +221,40 @@ useEffect(() => {
     nextForm = await loadLatestExperience(user.id, nextForm);
 
     setFormData(nextForm);
-    setStep(athleteData.current_step || 1);
+    const dbStep = athleteData.current_step || 1;
+    const normalizedDbStep = Math.min(4, Math.max(1, dbStep));
+    const initialStep = storedStep != null
+      ? Math.min(Math.min(4, Math.max(1, storedStep)), normalizedDbStep)
+      : normalizedDbStep;
+    setStep(initialStep);
+    hasInitializedStep.current = true;
     setLoading(false);
   };
 
-  initWizard();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [router]);
+    initWizard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
 
-useEffect(() => {
-  const refreshStep3 = async () => {
-    if (step === 3 && user?.id) {
-      const updated = await loadLatestExperience(user.id, formData);
-      setFormData(updated);
+  useEffect(() => {
+    if (!hasInitializedStep.current) return;
+    if (step == null) {
+      writeStoredStep(null);
+      return;
     }
-  };
-  refreshStep3();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [step]);
+    if (typeof step !== 'number') return;
+    writeStoredStep(Math.min(4, Math.max(1, step)));
+  }, [step, writeStoredStep]);
+
+  useEffect(() => {
+    const refreshStep3 = async () => {
+      if (step === 3 && user?.id) {
+        const updated = await loadLatestExperience(user.id, formData);
+        setFormData(updated);
+      }
+    };
+    refreshStep3();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
 
   const handleChange = (e) => {
