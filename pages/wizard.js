@@ -449,6 +449,22 @@ export default function Wizard() {
       .eq('id', user.id);
     if (!error) router.push('/dashboard');
   };
+
+  const goBackOneStep = useCallback(() => {
+    setStep((current) => {
+      if (typeof current !== 'number' || current <= 1) return current;
+      return current - 1;
+    });
+  }, []);
+
+  const handleStepCircleSelect = useCallback((targetStep) => {
+    setStep((current) => {
+      if (typeof current !== 'number') return current;
+      const normalized = Math.min(4, Math.max(1, targetStep));
+      if (normalized >= current) return current;
+      return normalized;
+    });
+  }, []);
   
 const handleLogout = async () => {
   await supabase.auth.signOut();
@@ -524,6 +540,8 @@ const handleLogout = async () => {
     );
   }
 
+  const progressStep = typeof step === 'number' ? step : 4;
+
   return (
     <div style={styles.background}>
       <div style={styles.overlay}>
@@ -541,14 +559,39 @@ const handleLogout = async () => {
           <div className="tlx-card" style={{ ...styles.card, maxWidth: step === 4 ? '960px' : '450px' }}>
             <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
             <div style={styles.progressBar}>
-              <div style={{ ...styles.progressFill, width: `${(step / 4) * 100}%` }} />
+              <div style={{ ...styles.progressFill, width: `${(progressStep / 4) * 100}%` }} />
             </div>
             <div style={styles.steps}>
-              {[1, 2, 3, 4].map((s) => (
-                <div key={s} style={{ ...styles.stepCircle, background: step === s ? '#27E3DA' : '#E0E0E0' }}>
-                  {s}
-                </div>
-              ))}
+              {[1, 2, 3, 4].map((s) => {
+                const isCurrent = step === s;
+                const isPast = typeof step === 'number' && s < step;
+                return (
+                  <div
+                    key={s}
+                    role="button"
+                    tabIndex={isPast ? 0 : -1}
+                    aria-disabled={!isPast}
+                    aria-current={isCurrent ? 'step' : undefined}
+                    aria-label={`Step ${s}`}
+                    onClick={() => { if (isPast) handleStepCircleSelect(s); }}
+                    onKeyDown={(event) => {
+                      if (!isPast) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleStepCircleSelect(s);
+                      }
+                    }}
+                    style={{
+                      ...styles.stepCircle,
+                      background: isCurrent ? '#27E3DA' : '#E0E0E0',
+                      cursor: isPast ? 'pointer' : 'default',
+                      opacity: isPast ? 0.85 : 1,
+                    }}
+                  >
+                    {s}
+                  </div>
+                );
+              })}
             </div>
 
             {errorMessage && <p style={styles.error}>{errorMessage}</p>}
@@ -576,6 +619,7 @@ const handleLogout = async () => {
                       setFormData={setFormData}
                       handleChange={handleChange}
                       saveStep={() => saveStep(3)}
+                      goToPrevious={goBackOneStep}
                     />
                 )}
                 {step === 3 && (
@@ -586,9 +630,17 @@ const handleLogout = async () => {
                     saveStep={() => saveStep(4)}
                     errors={errors}
                     setErrors={setErrors}
+                    goToPrevious={goBackOneStep}
                   />
                 )}
-                {step === 4 && <Step4 formData={formData} setFormData={setFormData} finalize={finalizeProfile} />}
+                {step === 4 && (
+                  <Step4
+                    formData={formData}
+                    setFormData={setFormData}
+                    finalize={finalizeProfile}
+                    goToPrevious={goBackOneStep}
+                  />
+                )}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -735,7 +787,22 @@ useEffect(() => {
             value={formData.birth_city}
             onChange={handleChange}
           />
-        <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
+        <div style={styles.buttonRow}>
+          <button
+            type="button"
+            style={{ ...styles.secondaryButtonDisabled, flex: 1 }}
+            disabled
+          >
+            ⬅️ Previous
+          </button>
+          <button
+            style={isValid ? { ...styles.button, flex: 1 } : { ...styles.buttonDisabled, flex: 1 }}
+            onClick={saveStep}
+            disabled={!isValid}
+          >
+            Next ➡️
+          </button>
+        </div>
         {!isValid && (
           <ul style={{ color:'#b00', fontSize:'12px', textAlign:'left', marginTop:'6px', paddingLeft:'18px' }}>
             {!formData.first_name && <li>First Name missing</li>}
@@ -753,7 +820,7 @@ useEffect(() => {
 };
 
 /* STEP 2 */
-const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
+const Step2 = ({ user, formData, setFormData, handleChange, saveStep, goToPrevious }) => {
   // ── State
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
@@ -1202,14 +1269,23 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
           </div>
         )}
 
-        {/* Next */}
-        <button
-          style={isValid ? styles.button : styles.buttonDisabled}
-          onClick={saveStep}
-          disabled={!isValid}
-        >
-          Next ➡️
-        </button>
+        {/* Navigation */}
+        <div style={styles.buttonRow}>
+          <button
+            type="button"
+            style={{ ...styles.secondaryButton, flex: 1 }}
+            onClick={goToPrevious}
+          >
+            ⬅️ Previous
+          </button>
+          <button
+            style={isValid ? { ...styles.button, flex: 1 } : { ...styles.buttonDisabled, flex: 1 }}
+            onClick={saveStep}
+            disabled={!isValid}
+          >
+            Next ➡️
+          </button>
+        </div>
         {!isValid && (
           <ul style={{color:'#b00', fontSize:'12px', textAlign:'left', marginTop:'6px', paddingLeft:'18px' }}>
               {!isValidPhone && <li>Invalid phone number</li>}
@@ -1228,7 +1304,7 @@ const Step2 = ({ user, formData, setFormData, handleChange, saveStep }) => {
 
 
 /* STEP 3 */
-const Step3 = ({ formData, setFormData, handleChange, saveStep, errors, setErrors }) => {
+const Step3 = ({ formData, setFormData, handleChange, saveStep, errors, setErrors, goToPrevious }) => {
   const showYearsInput = !!formData.sport;
 
   const handleYearsChange = (e) => {
@@ -1321,7 +1397,22 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep, errors, setError
         </label>
 
         <input style={styles.input} name="category" placeholder="Category" value={formData.category} onChange={handleChange} />
-        <button style={isValid ? styles.button : styles.buttonDisabled} onClick={saveStep} disabled={!isValid}>Next ➡️</button>
+        <div style={styles.buttonRow}>
+          <button
+            type="button"
+            style={{ ...styles.secondaryButton, flex: 1 }}
+            onClick={goToPrevious}
+          >
+            ⬅️ Previous
+          </button>
+          <button
+            style={isValid ? { ...styles.button, flex: 1 } : { ...styles.buttonDisabled, flex: 1 }}
+            onClick={saveStep}
+            disabled={!isValid}
+          >
+            Next ➡️
+          </button>
+        </div>
         {!baseValid && (
           <ul style={{ color:'#b00', fontSize:'12px', textAlign:'left', marginTop:'6px', paddingLeft:'18px' }}>
             {!formData.sport && <li>Sport missing</li>}
@@ -1337,7 +1428,7 @@ const Step3 = ({ formData, setFormData, handleChange, saveStep, errors, setError
 };
 
 /* STEP 4 */
-const Step4 = ({ formData, setFormData, finalize }) => {
+const Step4 = ({ formData, setFormData, finalize, goToPrevious }) => {
   const [gdprHtml, setGdprHtml] = useState('');
   const [hasScrolled, setHasScrolled] = useState(false);
   const [parentalErrors, setParentalErrors] = useState({});
@@ -1620,42 +1711,50 @@ const Step4 = ({ formData, setFormData, finalize }) => {
         Publish Profile Now?
       </label>
 
-   {/* Final button */}
-      <button
-        style={gdprAccepted ? { ...styles.button, marginTop:4 } : { ...styles.buttonDisabled, marginTop:4 }}
-        onClick={() => {
-          if (!gdprAccepted) {
-            alert("You must read and accept the GDPR policy before proceeding.");
-            return;
-          }
-
-          if (needsGuardianInfo) {
-            const nextErrors = {};
-            if (!(formData.guardian_first_name || '').trim()) {
-              nextErrors.guardian_first_name = 'Guardian first name is required.';
-            }
-            if (!(formData.guardian_last_name || '').trim()) {
-              nextErrors.guardian_last_name = 'Guardian last name is required.';
-            }
-            if (!formData.parental_consent) {
-              nextErrors.parental_consent = 'Guardian consent must be granted.';
-            }
-
-            setParentalErrors(nextErrors);
-
-            if (Object.keys(nextErrors).length > 0) {
-              alert('Please complete the guardian consent information.');
+      <div style={{ ...styles.buttonRow, marginTop: 4 }}>
+        <button
+          type="button"
+          style={{ ...styles.secondaryButton, flex: 1 }}
+          onClick={goToPrevious}
+        >
+          ⬅️ Previous
+        </button>
+        <button
+          style={gdprAccepted ? { ...styles.button, flex: 1 } : { ...styles.buttonDisabled, flex: 1 }}
+          onClick={() => {
+            if (!gdprAccepted) {
+              alert("You must read and accept the GDPR policy before proceeding.");
               return;
             }
-          }
 
-          finalize();
-        }}
-        disabled={!gdprAccepted}
-        aria-label="Confirm and go to dashboard"
-      >
-        Confirm and Go to Dashboard
-      </button>
+            if (needsGuardianInfo) {
+              const nextErrors = {};
+              if (!(formData.guardian_first_name || '').trim()) {
+                nextErrors.guardian_first_name = 'Guardian first name is required.';
+              }
+              if (!(formData.guardian_last_name || '').trim()) {
+                nextErrors.guardian_last_name = 'Guardian last name is required.';
+              }
+              if (!formData.parental_consent) {
+                nextErrors.parental_consent = 'Guardian consent must be granted.';
+              }
+
+              setParentalErrors(nextErrors);
+
+              if (Object.keys(nextErrors).length > 0) {
+                alert('Please complete the guardian consent information.');
+                return;
+              }
+            }
+
+            finalize();
+          }}
+          disabled={!gdprAccepted}
+          aria-label="Confirm and go to dashboard"
+        >
+          Confirm and Go to Dashboard
+        </button>
+      </div>
     </>
   );
 };
@@ -1780,6 +1879,9 @@ dropdownButton: {
   input: { width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' },
   button: { background: 'linear-gradient(90deg, #27E3DA, #F7B84E)', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', width: '100%', fontWeight: 'bold' },
   buttonDisabled: { background: '#ccc', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '8px', width: '100%', cursor: 'not-allowed' },
+  buttonRow: { display: 'flex', gap: '0.75rem', width: '100%', marginTop: '0.5rem' },
+  secondaryButton: { background: '#fff', color: '#27E3DA', border: '2px solid #27E3DA', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', width: '100%', fontWeight: 'bold' },
+  secondaryButtonDisabled: { background: '#f1f3f5', color: '#999', border: '2px solid #ced4da', padding: '0.8rem', borderRadius: '8px', width: '100%', cursor: 'not-allowed', fontWeight: 'bold' },
   reviewList: { textAlign: 'left', marginBottom: '1.5rem', lineHeight: '1.6' },
   error: { color: 'red', fontSize: '0.9rem', marginBottom: '1rem' },
   loaderContainer: {

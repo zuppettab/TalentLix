@@ -524,6 +524,22 @@ export default function OperatorWizard() {
     router.replace('/operator-in-review');
   };
 
+  const goBackOneStep = useCallback(() => {
+    setStep((current) => {
+      if (typeof current !== 'number' || current <= 1) return current;
+      return current - 1;
+    });
+  }, []);
+
+  const handleStepCircleSelect = useCallback((targetStep) => {
+    setStep((current) => {
+      if (typeof current !== 'number') return current;
+      const normalized = Math.min(4, Math.max(1, targetStep));
+      if (normalized >= current) return current;
+      return normalized;
+    });
+  }, []);
+
   /** -------------------------
    *  OTP handlers (stile atleti)
    * ------------------------- */
@@ -958,6 +974,8 @@ export default function OperatorWizard() {
     );
   }
 
+  const progressStep = typeof step === 'number' ? step : 4;
+
   return (
     <div style={styles.background}>
       <div style={styles.overlay}>
@@ -975,11 +993,38 @@ export default function OperatorWizard() {
 
           <div className="tlx-card" style={{ ...styles.card, maxWidth: step === 4 ? '960px' : '450px' }}>
             <img src="/logo-talentlix.png" alt="TalentLix Logo" style={styles.logo} />
-            <div style={styles.progressBar}><div style={{ ...styles.progressFill, width: `${(step/4)*100}%` }} /></div>
+            <div style={styles.progressBar}><div style={{ ...styles.progressFill, width: `${(progressStep/4)*100}%` }} /></div>
             <div style={styles.steps}>
-              {[1,2,3,4].map((s) => (
-                <div key={s} style={{ ...styles.stepCircle, background: step === s ? '#27E3DA' : '#E0E0E0' }}>{s}</div>
-              ))}
+              {[1,2,3,4].map((s) => {
+                const isCurrent = step === s;
+                const isPast = typeof step === 'number' && s < step;
+                return (
+                  <div
+                    key={s}
+                    role="button"
+                    tabIndex={isPast ? 0 : -1}
+                    aria-disabled={!isPast}
+                    aria-current={isCurrent ? 'step' : undefined}
+                    aria-label={`Step ${s}`}
+                    onClick={() => { if (isPast) handleStepCircleSelect(s); }}
+                    onKeyDown={(event) => {
+                      if (!isPast) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleStepCircleSelect(s);
+                      }
+                    }}
+                    style={{
+                      ...styles.stepCircle,
+                      background: isCurrent ? '#27E3DA' : '#E0E0E0',
+                      cursor: isPast ? 'pointer' : 'default',
+                      opacity: isPast ? 0.85 : 1,
+                    }}
+                  >
+                    {s}
+                  </div>
+                );
+              })}
             </div>
 
             {errorMessage && <p style={styles.error}>{errorMessage}</p>}
@@ -1023,13 +1068,22 @@ export default function OperatorWizard() {
                         styles={{ control:(base)=>({ ...base, padding:'2px', borderRadius:'8px', borderColor:'#ccc' }) }}
                       />
 
-                      <button
-                        style={isValidStep1 ? styles.button : styles.buttonDisabled}
-                        onClick={async () => { try { if (!isValidStep1) return; await saveStep1(); setStep(2); } catch (e) { setErrorMessage(e.message); } }}
-                        disabled={!isValidStep1}
-                      >
-                        Next ➡️
-                      </button>
+                      <div style={styles.buttonRow}>
+                        <button
+                          type="button"
+                          style={{ ...styles.secondaryButtonDisabled, flex: 1 }}
+                          disabled
+                        >
+                          ⬅️ Previous
+                        </button>
+                        <button
+                          style={isValidStep1 ? { ...styles.button, flex: 1 } : { ...styles.buttonDisabled, flex: 1 }}
+                          onClick={async () => { try { if (!isValidStep1) return; await saveStep1(); setStep(2); } catch (e) { setErrorMessage(e.message); } }}
+                          disabled={!isValidStep1}
+                        >
+                          Next ➡️
+                        </button>
+                      </div>
                       {!isValidStep1 && (
                         <ul style={styles.errList}>
                           {!selectedTypeCode && <li>Operator type missing</li>}
@@ -1141,13 +1195,22 @@ export default function OperatorWizard() {
                         </div>
                       )}
 
-                      <button
-                        style={isValidStep2 ? styles.button : styles.buttonDisabled}
-                        onClick={async () => { try { if (!isValidStep2) return; await saveStep2(); setStep(3); } catch (e) { setErrorMessage(e.message); } }}
-                        disabled={!isValidStep2}
-                      >
-                        Next ➡️
-                      </button>
+                      <div style={styles.buttonRow}>
+                        <button
+                          type="button"
+                          style={{ ...styles.secondaryButton, flex: 1 }}
+                          onClick={goBackOneStep}
+                        >
+                          ⬅️ Previous
+                        </button>
+                        <button
+                          style={isValidStep2 ? { ...styles.button, flex: 1 } : { ...styles.buttonDisabled, flex: 1 }}
+                          onClick={async () => { try { if (!isValidStep2) return; await saveStep2(); setStep(3); } catch (e) { setErrorMessage(e.message); } }}
+                          disabled={!isValidStep2}
+                        >
+                          Next ➡️
+                        </button>
+                      </div>
                       {!isValidStep2 && (
                         <ul style={styles.errList}>
                           {!contact.email_primary && <li>Primary email missing</li>}
@@ -1180,13 +1243,22 @@ export default function OperatorWizard() {
                         </div>
                       )}
 
+                    <div style={styles.buttonRow}>
                       <button
-                        style={isValidStep3 ? styles.button : styles.buttonDisabled}
+                        type="button"
+                        style={{ ...styles.secondaryButton, flex: 1 }}
+                        onClick={goBackOneStep}
+                      >
+                        ⬅️ Previous
+                      </button>
+                      <button
+                        style={isValidStep3 ? { ...styles.button, flex: 1 } : { ...styles.buttonDisabled, flex: 1 }}
                         onClick={async () => { try { if (!isValidStep3) return; await saveStep3(); setStep(4); } catch (e) { setErrorMessage(e.message); } }}
                         disabled={!isValidStep3}
                       >
                         Next ➡️
                       </button>
+                    </div>
                       {!isValidStep3 && (
                         <ul style={styles.errList}>
                           {requiredDocTypes.filter((dt) => !documents[dt]).map((dt) => (
@@ -1339,20 +1411,29 @@ export default function OperatorWizard() {
                       I agree to receive TalentLix updates
                     </label>
 
-                    <button
-                      style={privacy.accepted ? { ...styles.button, marginTop:8 } : { ...styles.buttonDisabled, marginTop:8 }}
-                      onClick={async () => {
-                        try {
-                          if (!privacy.accepted) return;
-                          await submitAll();
-                        } catch (e) {
-                          setErrorMessage(e.message);
-                        }
-                      }}
-                      disabled={!privacy.accepted}
-                    >
-                      Submit for review
-                    </button>
+                    <div style={{ ...styles.buttonRow, marginTop: 8 }}>
+                      <button
+                        type="button"
+                        style={{ ...styles.secondaryButton, flex: 1 }}
+                        onClick={goBackOneStep}
+                      >
+                        ⬅️ Previous
+                      </button>
+                      <button
+                        style={privacy.accepted ? { ...styles.button, flex: 1 } : { ...styles.buttonDisabled, flex: 1 }}
+                        onClick={async () => {
+                          try {
+                            if (!privacy.accepted) return;
+                            await submitAll();
+                          } catch (e) {
+                            setErrorMessage(e.message);
+                          }
+                        }}
+                        disabled={!privacy.accepted}
+                      >
+                        Submit for review
+                      </button>
+                    </div>
                   </>
                 )}
               </motion.div>
@@ -1409,6 +1490,9 @@ const styles = {
   input:{ width:'100%', padding:'0.8rem', borderRadius:'8px', border:'1px solid #ccc', boxSizing:'border-box' },
   button:{ background:'linear-gradient(90deg, #27E3DA, #F7B84E)', color:'#fff', border:'none', padding:'0.8rem', borderRadius:'8px', cursor:'pointer', width:'100%', fontWeight:'bold' },
   buttonDisabled:{ background:'#ccc', color:'#fff', border:'none', padding:'0.8rem', borderRadius:'8px', width:'100%', cursor:'not-allowed' },
+  buttonRow:{ display:'flex', gap:'0.75rem', width:'100%', marginTop:'0.5rem' },
+  secondaryButton:{ background:'#fff', color:'#27E3DA', border:'2px solid #27E3DA', padding:'0.8rem', borderRadius:'8px', cursor:'pointer', width:'100%', fontWeight:'bold' },
+  secondaryButtonDisabled:{ background:'#f1f3f5', color:'#999', border:'2px solid #ced4da', padding:'0.8rem', borderRadius:'8px', width:'100%', cursor:'not-allowed', fontWeight:'bold' },
   error:{ color:'red', fontSize: FONT_SIZES.body, marginBottom:'1rem' },
   errList:{ color:'#b00', fontSize: FONT_SIZES.small, textAlign:'left', marginTop:'6px', paddingLeft:'18px' },
 
