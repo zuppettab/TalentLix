@@ -142,7 +142,7 @@ export default async function handler(req, res) {
         },
       });
 
-      const { data, error } = await client.auth.getUser();
+      const { data, error } = await client.auth.getUser(accessToken);
       if (error) {
         console.error('Failed to verify admin session via fallback client', error);
         return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
