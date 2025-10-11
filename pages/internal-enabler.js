@@ -19,10 +19,23 @@ const badgeStyle = (status) => {
   if (value === 'needs_more_info') {
     return { ...base, color: '#0277BD', border: '1px solid #0277BD' };
   }
+  if (value === 'draft' || value === 'not_started' || value === 'in_progress') {
+    return { ...base, color: '#455A64', border: '1px solid #90A4AE' };
+  }
   if (value === 'rejected') {
     return { ...base, color: '#B00020', border: '1px solid #B00020' };
   }
   return { ...base, color: '#555', border: '1px solid #AAA' };
+};
+
+const formatStatusLabel = (status) => {
+  if (!status) return '—';
+  return String(status)
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 };
 
 const miniBtn = (disabled) => ({
@@ -66,6 +79,7 @@ export default function InternalEnabler() {
   const [opRows, setOpRows] = useState([]);
   const [opLoading, setOpLoading] = useState(false);
   const [opBusy, setOpBusy] = useState(null);
+  const [dataError, setDataError] = useState('');
 
   const initializeSession = useCallback(async () => {
     if (!supabase) {
@@ -161,118 +175,48 @@ export default function InternalEnabler() {
       setUser(null);
       setRows([]);
       setOpRows([]);
+      setDataError('');
     }
   };
 
-  const loadAthletes = useCallback(async () => {
-    if (!supabase) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
+  const loadOverview = useCallback(async () => {
     setLoading(true);
+    setOpLoading(true);
+    setDataError('');
     try {
-      const { data, error } = await supabase
-        .from('athlete')
-        .select(`
-          id, first_name, last_name, phone,
-          contacts_verification (
-            review_status, id_verified, rejected_reason,
-            submitted_at, verified_at, verification_status_changed_at,
-            id_document_type, id_document_url, id_selfie_url,
-            phone_verified, residence_city, residence_country
-          )
-        `)
-        .order('last_name', { ascending: true });
-
-      if (error) {
-        throw error;
+      const response = await fetch('/api/internal-enabler/overview');
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
       }
+      const payload = await response.json();
+      const athletes = Array.isArray(payload.athletes) ? payload.athletes : [];
+      const operators = Array.isArray(payload.operators) ? payload.operators : [];
 
-      const norm = (data || []).map((r) => {
-        const cv = Array.isArray(r.contacts_verification) ? r.contacts_verification[0] : r.contacts_verification;
-        const review_status = String(cv?.review_status || 'draft').toLowerCase();
-        return { ...r, cv: cv || null, review_status };
-      });
-      setRows(norm);
-    } catch (err) {
-      console.error('Failed to load athletes', err);
+      setRows(athletes.map((athlete) => ({
+        ...athlete,
+        cv: athlete.cv || null,
+        review_status: String(athlete.review_status || 'not_started'),
+      })));
+
+      setOpRows(operators.map((operator) => ({
+        ...operator,
+        documents: Array.isArray(operator.documents) ? operator.documents : [],
+        review_state: String(operator.review_state || 'not_started'),
+      })));
+    } catch (error) {
+      console.error('Failed to load admin overview', error);
       setRows([]);
+      setOpRows([]);
+      setDataError('Impossibile caricare i dati di verifica. Riprovare più tardi.');
     } finally {
       setLoading(false);
-    }
-  }, []);
-
-  const loadOperators = useCallback(async () => {
-    if (!supabase) {
-      setOpRows([]);
-      setOpLoading(false);
-      return;
-    }
-    setOpLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('op_account')
-        .select(`
-          id, status, wizard_status, type_id,
-          op_type:op_type(id, code, name),
-          op_profile:op_profile(legal_name, trade_name, vat_number, tax_id, country, city, address1, address2),
-          op_contact:op_contact(email_primary, phone_e164, phone_verified_at),
-          op_verification_request:op_verification_request(
-            id, state, reason, submitted_at, created_at, updated_at,
-            op_verification_document:op_verification_document(doc_type, file_key)
-          )
-        `);
-      if (error) throw error;
-
-      const normalized = (data || []).map((row) => {
-        const profileArr = Array.isArray(row.op_profile) ? row.op_profile : (row.op_profile ? [row.op_profile] : []);
-        const contactArr = Array.isArray(row.op_contact) ? row.op_contact : (row.op_contact ? [row.op_contact] : []);
-        const reqArr = Array.isArray(row.op_verification_request)
-          ? row.op_verification_request
-          : (row.op_verification_request ? [row.op_verification_request] : []);
-        const typeArr = Array.isArray(row.op_type) ? row.op_type : (row.op_type ? [row.op_type] : []);
-
-        const profile = profileArr[0] || null;
-        const contact = contactArr[0] || null;
-        const typeInfo = typeArr[0] || null;
-
-        const sortedReqs = [...reqArr].sort((a, b) => {
-          const getTs = (r) => new Date(r?.submitted_at || r?.updated_at || r?.created_at || 0).getTime();
-          return getTs(b) - getTs(a);
-        });
-        const verificationRaw = sortedReqs[0] || null;
-        const docsRaw = verificationRaw?.op_verification_document;
-        const docs = Array.isArray(docsRaw) ? docsRaw : (docsRaw ? [docsRaw] : []);
-        const verification = verificationRaw ? { ...verificationRaw } : null;
-        if (verification) delete verification.op_verification_document;
-        const reviewState = String(verification?.state || row.wizard_status || '').toLowerCase() || 'not_started';
-
-        return {
-          id: row.id,
-          status: row.status || '',
-          wizard_status: row.wizard_status || '',
-          type: typeInfo ? { id: typeInfo.id, code: typeInfo.code, name: typeInfo.name } : null,
-          profile,
-          contact,
-          verification,
-          documents: docs,
-          review_state: reviewState,
-        };
-      });
-      setOpRows(normalized);
-    } catch (err) {
-      console.error('Failed to load operators', err);
-      setOpRows([]);
-    } finally {
       setOpLoading(false);
     }
   }, []);
 
   const refreshAll = useCallback(async () => {
-    if (!supabase) return;
-    await Promise.all([loadAthletes(), loadOperators()]);
-  }, [loadAthletes, loadOperators]);
+    await loadOverview();
+  }, [loadOverview]);
 
   useEffect(() => {
     if (!user) return;
@@ -280,7 +224,18 @@ export default function InternalEnabler() {
   }, [user, refreshAll]);
 
   const ordered = useMemo(() => {
-    const rank = (s) => ({ submitted: 0, in_review: 1, needs_more_info: 2, rejected: 3, approved: 4 })[s] ?? 9;
+    const rank = (s) => ({
+      submitted: 0,
+      in_review: 1,
+      needs_more_info: 2,
+      rejected: 3,
+      approved: 4,
+      verified: 4,
+      completed: 5,
+      in_progress: 6,
+      draft: 7,
+      not_started: 8,
+    }[s] ?? 9);
     return [...rows].sort((a, b) => rank(a.review_status) - rank(b.review_status));
   }, [rows]);
 
@@ -291,7 +246,9 @@ export default function InternalEnabler() {
       if (normalized === 'needs_more_info') return 1;
       if (normalized === 'rejected') return 2;
       if (normalized === 'verified' || normalized === 'completed') return 3;
-      return 5;
+      if (normalized === 'in_progress') return 4;
+      if (normalized === 'draft' || normalized === 'not_started') return 5;
+      return 6;
     };
     return [...opRows].sort((a, b) => rank(a.review_state) - rank(b.review_state));
   }, [opRows]);
@@ -303,6 +260,7 @@ export default function InternalEnabler() {
       return acc;
     }, {});
     const verified = ordered.filter((row) => row.cv?.id_verified).length;
+    const waiting = (totals.draft || 0) + (totals.not_started || 0) + (totals.pending || 0);
     return {
       total: ordered.length,
       submitted: totals.submitted || 0,
@@ -311,6 +269,7 @@ export default function InternalEnabler() {
       rejected: totals.rejected || 0,
       approved: totals.approved || 0,
       verified,
+      waiting,
     };
   }, [ordered]);
 
@@ -327,6 +286,7 @@ export default function InternalEnabler() {
       needsInfo: totals.needs_more_info || 0,
       rejected: totals.rejected || 0,
       verified: totals.verified || totals.completed || 0,
+      onboarding: (totals.in_progress || 0) + (totals.draft || 0) + (totals.not_started || 0),
     };
   }, [opOrdered]);
 
@@ -640,6 +600,10 @@ export default function InternalEnabler() {
         </div>
       </header>
 
+      {dataError && (
+        <div style={styles.errorBanner}>{dataError}</div>
+      )}
+
       <section style={styles.statsGrid}>
         <div style={styles.statCard}>
           <div style={styles.statTitle}>Athletes</div>
@@ -648,6 +612,7 @@ export default function InternalEnabler() {
             Submitted: {athleteStats.submitted} · In review: {athleteStats.inReview} · Approved: {athleteStats.approved}
           </div>
           <div style={styles.statMeta}>Needs info: {athleteStats.needsInfo} · Rejected: {athleteStats.rejected}</div>
+          <div style={styles.statMeta}>Waiting submission: {athleteStats.waiting}</div>
           <div style={styles.statMeta}>ID verified: {athleteStats.verified}</div>
         </div>
         <div style={styles.statCard}>
@@ -657,6 +622,7 @@ export default function InternalEnabler() {
             Submitted: {operatorStats.submitted} · In review: {operatorStats.inReview} · Verified: {operatorStats.verified}
           </div>
           <div style={styles.statMeta}>Needs info: {operatorStats.needsInfo} · Rejected: {operatorStats.rejected}</div>
+          <div style={styles.statMeta}>Onboarding: {operatorStats.onboarding}</div>
         </div>
       </section>
 
@@ -679,7 +645,7 @@ export default function InternalEnabler() {
               <div style={cell}>{item.type}</div>
               <div style={cell}>{item.name}</div>
               <div style={{ ...cell, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={badgeStyle(item.status)}>{item.status}</span>
+                <span style={badgeStyle(item.status)}>{formatStatusLabel(item.status)}</span>
                 <span style={{ fontSize: 12, color: '#666' }}>{item.meta}</span>
               </div>
               <div style={cell}>{item.detail}</div>
@@ -722,7 +688,7 @@ export default function InternalEnabler() {
                 </div>
 
                 <div style={cell}>
-                  <span style={badgeStyle(r.review_status)}>{r.review_status}</span>
+                  <span style={badgeStyle(r.review_status)}>{formatStatusLabel(r.review_status)}</span>
                   <div style={{ fontSize: 12, color: '#666', marginTop: 6 }}>
                     {cv.id_verified ? 'ID verified ✓' : 'ID not verified'}
                     {cv.rejected_reason ? <div style={{ color: '#B00020' }}>Reason: {cv.rejected_reason}</div> : null}
@@ -825,9 +791,9 @@ export default function InternalEnabler() {
                 </div>
 
                 <div style={cell}>
-                  <span style={badgeStyle(review_state)}>{review_state}</span>
+                  <span style={badgeStyle(review_state)}>{formatStatusLabel(review_state)}</span>
                   <div style={{ fontSize: 12, color: '#666', marginTop: 6 }}>
-                    Request: {verification ? (verification.state || '-') : '—'}
+                    Request: {verification ? formatStatusLabel(verification.state) : '—'}
                     {reason ? <div style={{ color: '#B00020' }}>Reason: {reason}</div> : null}
                   </div>
                 </div>
@@ -951,6 +917,15 @@ const styles = {
     color: '#B00020',
     borderRadius: 10,
     fontSize: 13,
+  },
+  errorBanner: {
+    margin: '0 0 24px',
+    padding: '12px 16px',
+    background: 'rgba(176, 0, 32, 0.08)',
+    color: '#B00020',
+    borderRadius: 12,
+    border: '1px solid rgba(176, 0, 32, 0.2)',
+    fontSize: 14,
   },
   page: {
     padding: '32px 40px 60px',
