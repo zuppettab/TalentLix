@@ -17,6 +17,36 @@ const OTP_TTL_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_OTP_TTL || 600);
 
 const WIZARD = { NOT_STARTED:'NOT_STARTED', IN_PROGRESS:'IN_PROGRESS', SUBMITTED:'SUBMITTED', COMPLETED:'COMPLETED' };
 const OP_DOCS_BUCKET = 'op_assets';
+const OP_LOGO_BUCKET = 'op_assets';
+const UI_LANGUAGE_OPTIONS = [
+  { value: 'en', label: 'English' },
+  { value: 'it', label: 'Italiano' },
+  { value: 'es', label: 'Español' },
+  { value: 'fr', label: 'Français' },
+];
+const analyzeWebsiteValue = (raw) => {
+  const trimmed = typeof raw === 'string' ? raw.trim() : '';
+  if (!trimmed) {
+    return { isValid: true, normalized: null, error: '' };
+  }
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(withProtocol);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error('Unsupported protocol');
+    }
+    return { isValid: true, normalized: parsed.toString(), error: '' };
+  } catch (err) {
+    return { isValid: false, normalized: null, error: 'Invalid website URL. Please use a valid domain (e.g. https://example.com).' };
+  }
+};
+const deriveStoragePathFromPublicUrl = (publicUrl, bucket) => {
+  if (!publicUrl || !bucket) return '';
+  const marker = `/storage/v1/object/public/${bucket}/`;
+  const idx = publicUrl.indexOf(marker);
+  if (idx === -1) return '';
+  return publicUrl.substring(idx + marker.length);
+};
 const FONT_SIZES = {
   title: '1.5rem',
   sectionHeading: '1rem',
@@ -148,7 +178,7 @@ export default function OperatorWizard() {
 
   // STEP 1 — Anagrafica
   const [profile, setProfile] = useState({
-    legal_name:'', trade_name:'', website:'',
+    legal_name:'', trade_name:'', website:'', logo_url:'', ui_language:'',
     address1:'', address2:'', city:'', state_region:'', postal_code:'', country:''
   });
 
@@ -156,6 +186,7 @@ export default function OperatorWizard() {
   const [contact, setContact] = useState({
     email_primary:'', email_billing:'', phone_e164:'', phone_verified_at:null
   });
+  const [logoStoragePath, setLogoStoragePath] = useState('');
   const normalizedPhone = (contact.phone_e164 || '').replace(/\s+/g, '');
   const parsedPhone = useMemo(() => parsePhoneNumberFromString(normalizedPhone), [normalizedPhone]);
   const [otpSent, setOtpSent] = useState(false);
@@ -233,11 +264,24 @@ export default function OperatorWizard() {
           if (typeRow) setSelectedTypeCode(typeRow.code);
 
           const prof = Array.isArray(acc.op_profile) ? acc.op_profile[0] : acc.op_profile;
-          if (prof) setProfile({
-            legal_name: prof.legal_name || '', trade_name: prof.trade_name || '', website: prof.website || '',
-            address1: prof.address1 || '', address2: prof.address2 || '', city: prof.city || '',
-            state_region: prof.state_region || '', postal_code: prof.postal_code || '', country: prof.country || ''
-          });
+          if (prof) {
+            setProfile({
+              legal_name: prof.legal_name || '',
+              trade_name: prof.trade_name || '',
+              website: prof.website || '',
+              logo_url: prof.logo_url || '',
+              ui_language: prof.ui_language || '',
+              address1: prof.address1 || '',
+              address2: prof.address2 || '',
+              city: prof.city || '',
+              state_region: prof.state_region || '',
+              postal_code: prof.postal_code || '',
+              country: prof.country || ''
+            });
+            setLogoStoragePath(deriveStoragePathFromPublicUrl(prof.logo_url || '', OP_LOGO_BUCKET));
+          } else {
+            setLogoStoragePath('');
+          }
 
           const c = Array.isArray(acc.op_contact) ? acc.op_contact[0] : acc.op_contact;
           if (c) setContact({
@@ -420,7 +464,7 @@ export default function OperatorWizard() {
     const payload = {
       op_id: acc.id,
       legal_name: profile.legal_name,
-      trade_name: profile.trade_name,
+      trade_name: toNullable(profile.trade_name),
       website: toNullable(profile.website),
       address1: profile.address1,
       address2: toNullable(profile.address2),
@@ -428,6 +472,7 @@ export default function OperatorWizard() {
       state_region: toNullable(profile.state_region),
       postal_code: profile.postal_code,
       country: normalizeCountryCode(profile.country),
+      logo_url: toNullable(profile.logo_url),
     };
     const { error } = await supabase.from('op_profile').upsert([payload], { onConflict:'op_id' });
     if (error) throw error;
@@ -437,6 +482,7 @@ export default function OperatorWizard() {
   // Save STEP 2
   const saveStep2 = async () => {
     const acc = await ensureAccount();
+    const websiteMeta = analyzeWebsiteValue(profile.website);
     const payload = {
       op_id: acc.id,
       email_primary: contact.email_primary || (user?.email ?? ''),
@@ -446,6 +492,27 @@ export default function OperatorWizard() {
     };
     const { error } = await supabase.from('op_contact').upsert([payload], { onConflict:'op_id' });
     if (error) throw error;
+
+    const profilePayload = {
+      op_id: acc.id,
+      legal_name: profile.legal_name,
+      trade_name: toNullable(profile.trade_name),
+      website: websiteMeta.isValid ? websiteMeta.normalized : null,
+      address1: profile.address1,
+      address2: toNullable(profile.address2),
+      city: profile.city,
+      state_region: toNullable(profile.state_region),
+      postal_code: profile.postal_code,
+      country: normalizeCountryCode(profile.country),
+      logo_url: toNullable(profile.logo_url),
+      ui_language: profile.ui_language || null,
+    };
+    const { error: profileErr } = await supabase.from('op_profile').upsert([profilePayload], { onConflict:'op_id' });
+    if (profileErr) throw profileErr;
+
+    if (websiteMeta.isValid) {
+      setProfile((prev) => ({ ...prev, website: websiteMeta.normalized || '' }));
+    }
     await updateWizardStatus(WIZARD.IN_PROGRESS);
   };
 
@@ -583,6 +650,61 @@ export default function OperatorWizard() {
         }], { onConflict:'op_id' });
       }
     } catch (e) { setOtpMsg(`Verification error: ${e?.message || String(e)}`); }
+  };
+
+  /** -------------------------
+   *  LOGO UPLOAD (stile wizard atleta)
+   * ------------------------- */
+  const handleLogoUpload = async (file) => {
+    if (!file) return;
+    try {
+      setErrorMessage('');
+      const acc = await ensureAccount();
+      const ext = (file.name?.split('.').pop() || 'png').toLowerCase();
+      const timestamp = Date.now();
+      const path = `op/${acc.id}/logo/logo-${timestamp}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from(OP_LOGO_BUCKET)
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type || undefined,
+        });
+      if (uploadError) throw uploadError;
+
+      if (logoStoragePath && logoStoragePath !== path) {
+        const { error: cleanupError } = await supabase.storage
+          .from(OP_LOGO_BUCKET)
+          .remove([logoStoragePath]);
+        if (cleanupError) console.warn('Previous logo cleanup failed', cleanupError);
+      }
+
+      const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(path);
+      const publicUrl = data?.publicUrl || '';
+      setProfile((prev) => ({ ...prev, logo_url: publicUrl }));
+      setLogoStoragePath(path);
+    } catch (e) {
+      console.error('Logo upload failed', e);
+      setErrorMessage(e?.message ? `Logo upload failed: ${e.message}` : 'Logo upload failed');
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    try {
+      setErrorMessage('');
+      const path = logoStoragePath || deriveStoragePathFromPublicUrl(profile.logo_url || '', OP_LOGO_BUCKET);
+      if (path) {
+        const { error: removeError } = await supabase.storage
+          .from(OP_LOGO_BUCKET)
+          .remove([path]);
+        if (removeError) throw removeError;
+      }
+      setProfile((prev) => ({ ...prev, logo_url: '' }));
+      setLogoStoragePath('');
+    } catch (e) {
+      console.error('Logo removal failed', e);
+      setErrorMessage(e?.message ? `Logo removal failed: ${e.message}` : 'Logo removal failed');
+    }
   };
 
   /** -------------------------
@@ -858,13 +980,20 @@ export default function OperatorWizard() {
    * ------------------------- */
   const isValidStep1 =
     !!selectedTypeCode &&
-    !!profile.legal_name && !!profile.trade_name &&
+    !!profile.legal_name &&
     !!profile.address1 && !!profile.city && !!profile.postal_code &&
     !!normalizeCountryCode(profile.country);
 
   const nationalLength = parsedPhone?.nationalNumber ? String(parsedPhone.nationalNumber).length : 0;
   const isValidPhone = !!parsedPhone && parsedPhone.isValid() && nationalLength >= 10;
-  const isValidStep2 = !!contact.email_primary && isValidPhone && !!contact.phone_verified_at;
+  const websiteValidation = useMemo(() => analyzeWebsiteValue(profile.website), [profile.website]);
+  const isWebsiteValid = websiteValidation.isValid;
+  const isValidStep2 =
+    !!contact.email_primary &&
+    isValidPhone &&
+    !!contact.phone_verified_at &&
+    isWebsiteValid &&
+    !!profile.ui_language;
 
   const activeDocRules = useMemo(
     () => docRules.filter((r) => matchesConditions(r, { country: normalizeCountryCode(profile.country) })),
@@ -885,6 +1014,18 @@ export default function OperatorWizard() {
     const base = profile.trade_name || profile.legal_name;
     return base ? base.trim() : 'Operator profile';
   }, [profile.trade_name, profile.legal_name]);
+
+  const uiLanguageOption = useMemo(() => {
+    if (!profile.ui_language) return null;
+    const match = UI_LANGUAGE_OPTIONS.find((opt) => opt.value === profile.ui_language);
+    return match || { value: profile.ui_language, label: profile.ui_language };
+  }, [profile.ui_language]);
+  const uiLanguageOptions = useMemo(() => {
+    if (!profile.ui_language) return UI_LANGUAGE_OPTIONS;
+    const exists = UI_LANGUAGE_OPTIONS.some((opt) => opt.value === profile.ui_language);
+    return exists ? UI_LANGUAGE_OPTIONS : [...UI_LANGUAGE_OPTIONS, { value: profile.ui_language, label: profile.ui_language }];
+  }, [profile.ui_language]);
+  const uiLanguageLabel = uiLanguageOption?.label || '';
 
   const operatorInitials = useMemo(() => {
     const name = operatorName || '';
@@ -1045,10 +1186,6 @@ export default function OperatorWizard() {
                       />
                       <input style={styles.input} placeholder={selectedTypeCode==='club' ? 'Legal name (company/club)' : 'Full legal name'}
                              value={profile.legal_name} onChange={(e)=> setProfile({ ...profile, legal_name:e.target.value })}/>
-                      <input style={styles.input} placeholder={selectedTypeCode==='club' ? 'Public name' : 'Professional name (if different)'}
-                             value={profile.trade_name} onChange={(e)=> setProfile({ ...profile, trade_name:e.target.value })}/>
-                      <input style={styles.input} placeholder="Website (optional)" value={profile.website}
-                             onChange={(e)=> setProfile({ ...profile, website:e.target.value })}/>
                       <input style={styles.input} placeholder="Address line 1" value={profile.address1}
                              onChange={(e)=> setProfile({ ...profile, address1:e.target.value })}/>
                       <input style={styles.input} placeholder="Address line 2 (optional)" value={profile.address2}
@@ -1088,7 +1225,6 @@ export default function OperatorWizard() {
                         <ul style={styles.errList}>
                           {!selectedTypeCode && <li>Operator type missing</li>}
                           {!profile.legal_name && <li>Legal name missing</li>}
-                          {!profile.trade_name && <li>Public/Professional name missing</li>}
                           {!profile.address1 && <li>Address line 1 missing</li>}
                           {!profile.city && <li>City missing</li>}
                           {!profile.postal_code && <li>Postal/ZIP missing</li>}
@@ -1102,12 +1238,110 @@ export default function OperatorWizard() {
                 {/* STEP 2 — stile atleti: PhoneInput, OTP, errori inline */}
                 {step === 2 && (
                   <>
-                    <h2 style={styles.title}>Step 2 · Contacts & Phone verification</h2>
+                    <h2 style={styles.title}>Step 2 · Contacts, branding & verification</h2>
                     <div style={styles.formGroup}>
-                      <input style={styles.input} type="email" placeholder="Primary email"
-                             value={contact.email_primary} onChange={(e)=> setContact({ ...contact, email_primary:e.target.value })}/>
+                      <input
+                        style={{ ...styles.input, background:'#f8f9fa', cursor:'not-allowed' }}
+                        type="email"
+                        placeholder="Primary email"
+                        value={contact.email_primary}
+                        readOnly
+                        aria-readonly="true"
+                        title="Primary email is linked to your account"
+                      />
                       <input style={styles.input} type="email" placeholder="Billing email (optional)"
                              value={contact.email_billing} onChange={(e)=> setContact({ ...contact, email_billing:e.target.value })}/>
+
+                      <Select
+                        placeholder="Interface language (required)"
+                        options={uiLanguageOptions}
+                        value={uiLanguageOption}
+                        onChange={(opt) => setProfile((prev) => ({ ...prev, ui_language: opt?.value || '' }))}
+                        styles={{ control:(base)=>({ ...base, padding:'2px', borderRadius:'8px', borderColor: profile.ui_language ? '#ccc' : '#f59f00' }) }}
+                      />
+
+                      <input
+                        style={styles.input}
+                        placeholder={selectedTypeCode==='club' ? 'Public name (optional)' : 'Professional name (optional)'}
+                        value={profile.trade_name}
+                        onChange={(e)=> setProfile({ ...profile, trade_name:e.target.value })}
+                      />
+                      <div style={{ display:'grid', gap:'4px' }}>
+                        <input
+                          style={{
+                            ...styles.input,
+                            border: (!isWebsiteValid && profile.website) ? '1px solid #f03e3e' : '1px solid #ccc',
+                          }}
+                          placeholder="Website (optional)"
+                          value={profile.website}
+                          onChange={(e)=> setProfile({ ...profile, website:e.target.value })}
+                          onBlur={() => {
+                            const meta = analyzeWebsiteValue(profile.website);
+                            if (meta.isValid && meta.normalized) {
+                              setProfile((prev) => ({ ...prev, website: meta.normalized }));
+                            }
+                          }}
+                        />
+                        {!isWebsiteValid && profile.website && (
+                          <span style={{ color:'#c92a2a', fontSize: FONT_SIZES.small, textAlign:'left' }}>{websiteValidation.error}</span>
+                        )}
+                      </div>
+
+                      <div style={{ display:'grid', gap:8, textAlign:'left' }}>
+                        <span style={{ fontWeight:600 }}>Logo (optional)</span>
+                        <div style={{ display:'flex', gap:12, flexWrap:'wrap', alignItems:'center' }}>
+                          <label
+                            htmlFor="operator-logo-upload"
+                            style={{
+                              background:'linear-gradient(90deg, #27E3DA, #F7B84E)',
+                              color:'#fff',
+                              border:'none',
+                              borderRadius:'8px',
+                              padding:'0.6rem 1rem',
+                              cursor:'pointer',
+                              fontWeight:'bold'
+                            }}
+                          >
+                            Choose file
+                          </label>
+                          <input
+                            id="operator-logo-upload"
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                            style={{ display:'none' }}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) await handleLogoUpload(file);
+                              if (e.target) e.target.value = '';
+                            }}
+                          />
+                          <span style={{ fontSize: FONT_SIZES.small, color:'#495057' }}>PNG, JPG or SVG. Recommended square ratio.</span>
+                        </div>
+                        {profile.logo_url ? (
+                          <div style={{ display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
+                            <img
+                              src={profile.logo_url}
+                              alt="Operator logo preview"
+                              style={{ width:80, height:80, borderRadius:12, objectFit:'cover', border:'1px solid #dee2e6' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={handleLogoRemove}
+                              style={{
+                                background:'#fff',
+                                border:'1px solid #ced4da',
+                                borderRadius:'8px',
+                                padding:'0.5rem 0.9rem',
+                                cursor:'pointer',
+                                fontWeight:600,
+                                color:'#c92a2a'
+                              }}
+                            >
+                              Remove logo
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
 
                       <PhoneInput
                         countryCodeEditable={false}
@@ -1214,6 +1448,8 @@ export default function OperatorWizard() {
                       {!isValidStep2 && (
                         <ul style={styles.errList}>
                           {!contact.email_primary && <li>Primary email missing</li>}
+                          {!profile.ui_language && <li>Interface language missing</li>}
+                          {!isWebsiteValid && profile.website && <li>Website URL invalid</li>}
                           {!isValidPhone && <li>Invalid phone number</li>}
                           {!contact.phone_verified_at && <li>Phone not verified</li>}
                         </ul>
@@ -1335,6 +1571,8 @@ export default function OperatorWizard() {
                           <Row label="Legal name" value={profile.legal_name || '—'} />
                           <Row label="Trade name" value={profile.trade_name || '—'} />
                           <Row label="Website" value={profile.website || '—'} />
+                          <Row label="Interface language" value={uiLanguageLabel || '—'} />
+                          <Row label="Logo" value={profile.logo_url ? 'Uploaded' : '—'} />
                           <Row
                             label="Address"
                             value={[
