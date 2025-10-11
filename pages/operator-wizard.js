@@ -272,6 +272,36 @@ export default function OperatorWizard() {
   const [expiresIn, setExpiresIn] = useState(0);
   const isPhoneVerified = !!contact.phone_verified_at;
 
+  const countryDisplayName = useMemo(() => {
+    const raw = profile.country ? String(profile.country).trim() : '';
+    if (!raw) return '';
+    const match = countries.find((c) => c.value === raw || c.label?.toLowerCase() === raw.toLowerCase());
+    if (match) {
+      if (match.value && match.label && match.value !== match.label) {
+        return `${match.label} (${match.value})`;
+      }
+      return match.label || match.value;
+    }
+    return raw;
+  }, [profile.country]);
+
+  const websiteSummary = useMemo(() => {
+    if (!profile.website) return '';
+    const analysis = analyzeWebsiteValue(profile.website);
+    if (analysis?.normalized) return analysis.normalized;
+    return String(profile.website).trim();
+  }, [profile.website]);
+
+  const phoneVerificationLabel = useMemo(() => {
+    if (!contact.phone_verified_at) return 'Pending';
+    try {
+      const iso = new Date(contact.phone_verified_at).toISOString();
+      return `Verified on ${iso}`;
+    } catch (err) {
+      return 'Verified';
+    }
+  }, [contact.phone_verified_at]);
+
   // STEP 3 — Regole dinamiche + Upload
   const [docRules, setDocRules] = useState([]);  // [{doc_type,is_required,conditions}]
   const [docRulesLoaded, setDocRulesLoaded] = useState(false);
@@ -281,7 +311,7 @@ export default function OperatorWizard() {
   // STEP 4 — Privacy
   const [gdprHtml, setGdprHtml] = useState('');
   const [hasScrolled, setHasScrolled] = useState(false);
-  const [privacy, setPrivacy] = useState({ accepted:false, marketing_optin:false });
+  const [privacy, setPrivacy] = useState({ accepted:false });
 
   useEffect(() => {
     let isActive = true;
@@ -328,7 +358,7 @@ export default function OperatorWizard() {
             op_verification_request:op_verification_request(id, state, reason, submitted_at,
               op_verification_document:op_verification_document(*)
             ),
-            op_privacy_consent:op_privacy_consent(policy_version, accepted_at, marketing_optin)
+            op_privacy_consent:op_privacy_consent(policy_version, accepted_at)
           `)
           .eq('auth_user_id', u.id)
           .maybeSingle();
@@ -377,7 +407,7 @@ export default function OperatorWizard() {
           }
 
           const cons = Array.isArray(acc.op_privacy_consent) ? acc.op_privacy_consent[0] : acc.op_privacy_consent;
-          if (cons?.accepted_at) setPrivacy({ accepted:true, marketing_optin: !!cons.marketing_optin });
+          if (cons?.accepted_at) setPrivacy({ accepted:true });
 
           if (acc.wizard_status === WIZARD.SUBMITTED || acc.wizard_status === WIZARD.COMPLETED) {
             writeStoredStep(null, u?.id || null);
@@ -654,7 +684,7 @@ export default function OperatorWizard() {
     const nowIso = new Date().toISOString();
     // insert privacy (storico)
     const { error: cErr } = await supabase.from('op_privacy_consent')
-      .insert([{ op_id: acc.id, policy_version: PRIVACY_POLICY_VERSION, accepted:true, accepted_at: nowIso, marketing_optin: !!privacy.marketing_optin }]);
+      .insert([{ op_id: acc.id, policy_version: PRIVACY_POLICY_VERSION, accepted:true, accepted_at: nowIso }]);
     if (cErr) throw cErr;
     const req = await ensureOpenRequest();
     const { error: rErr } = await supabase.from('op_verification_request')
@@ -1595,17 +1625,27 @@ export default function OperatorWizard() {
                           width:heroAvatarSize,
                           height:heroAvatarSize,
                           borderRadius:16,
-                          background:'linear-gradient(135deg, #27E3DA, #3F8CFF)',
+                          background: logoPreviewUrl ? '#FFFFFF' : 'linear-gradient(135deg, #27E3DA, #3F8CFF)',
                           display:'flex',
                           alignItems:'center',
                           justifyContent:'center',
-                          color:'#fff',
+                          color: logoPreviewUrl ? '#111' : '#fff',
                           fontSize:32,
                           fontWeight:800,
-                          boxShadow:'0 6px 14px rgba(0,0,0,0.08)'
+                          boxShadow:'0 6px 14px rgba(0,0,0,0.08)',
+                          overflow:'hidden',
+                          border: logoPreviewUrl ? '1px solid #E9ECEF' : 'none'
                         }}
                       >
-                        {operatorInitials}
+                        {logoPreviewUrl ? (
+                          <img
+                            src={logoPreviewUrl}
+                            alt={`${operatorName || 'Operator'} logo`}
+                            style={{ width:'100%', height:'100%', objectFit:'contain' }}
+                          />
+                        ) : (
+                          operatorInitials
+                        )}
                       </div>
                       <div style={{ flex:1, minWidth:240 }}>
                         <div style={{ fontSize: FONT_SIZES.title, fontWeight:800 }}>{operatorName}</div>
@@ -1634,29 +1674,59 @@ export default function OperatorWizard() {
                       <div style={reviewCardStyle}>
                         <div style={reviewCardTitleStyle}>Company profile</div>
                         <div style={{ display:'grid', rowGap:8 }}>
-                          <Row label="Legal name" value={profile.legal_name || '—'} />
-                          <Row label="Trade name" value={profile.trade_name || '—'} />
-                          <Row label="Website" value={profile.website || '—'} />
-                          <Row label="Logo" value={profile.logo_url ? 'Uploaded' : '—'} />
+                          <Row label="Legal name" value={profile.legal_name} />
+                          <Row label="Trade name" value={profile.trade_name} />
                           <Row
-                            label="Address"
-                            value={[
-                              profile.address1,
-                              profile.address2,
-                              [profile.city, profile.state_region].filter(Boolean).join(', '),
-                              [profile.postal_code, profile.country].filter(Boolean).join(' ')
-                            ].filter(Boolean).join(' · ') || '—'}
+                            label="Website"
+                            value={websiteSummary ? (
+                              <a
+                                href={websiteSummary}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ color:'#1C7ED6', textDecoration:'underline', fontSize: FONT_SIZES.small }}
+                              >
+                                {websiteSummary}
+                              </a>
+                            ) : ''}
                           />
+                          <Row
+                            label="Logo"
+                            value={profile.logo_url ? (
+                              <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+                                <span style={logoPreviewThumbStyle}>
+                                  <img
+                                    src={logoPreviewUrl || profile.logo_url}
+                                    alt={`${operatorName || 'Operator'} logo preview`}
+                                    style={{ width:'100%', height:'100%', objectFit:'contain' }}
+                                  />
+                                </span>
+                                <a
+                                  href={logoPreviewUrl || profile.logo_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ color:'#1C7ED6', textDecoration:'underline', fontSize: FONT_SIZES.small }}
+                                >
+                                  Open logo
+                                </a>
+                              </div>
+                            ) : ''}
+                          />
+                          <Row label="Address line 1" value={profile.address1} />
+                          <Row label="Address line 2" value={profile.address2} />
+                          <Row label="City" value={profile.city} />
+                          <Row label="State / Region" value={profile.state_region} />
+                          <Row label="Postal code" value={profile.postal_code} />
+                          <Row label="Country" value={countryDisplayName} />
                         </div>
                       </div>
 
                       <div style={reviewCardStyle}>
                         <div style={reviewCardTitleStyle}>Contacts</div>
                         <div style={{ display:'grid', rowGap:8 }}>
-                          <Row label="Primary email" value={contact.email_primary || '—'} />
-                          <Row label="Billing email" value={contact.email_billing || '—'} />
-                          <Row label="Phone" value={contact.phone_e164 || '—'} />
-                          <Row label="Phone verification" value={contact.phone_verified_at ? 'Verified' : 'Pending'} />
+                          <Row label="Primary email" value={contact.email_primary} />
+                          <Row label="Billing email" value={contact.email_billing} />
+                          <Row label="Phone" value={contact.phone_e164} />
+                          <Row label="Phone verification" value={phoneVerificationLabel} />
                         </div>
                       </div>
 
@@ -1705,15 +1775,6 @@ export default function OperatorWizard() {
                       />{' '}
                       I have read and agree to the GDPR Compliance Policy (v{PRIVACY_POLICY_VERSION})
                     </label>
-                    <label style={{ display:'block', marginTop:12 }}>
-                      <input
-                        type="checkbox"
-                        checked={!!privacy.marketing_optin}
-                        onChange={(e) => setPrivacy((prev) => ({ ...prev, marketing_optin:e.target.checked }))}
-                      />{' '}
-                      I agree to receive TalentLix updates
-                    </label>
-
                     <div style={{ ...styles.buttonRow, marginTop: 8 }}>
                       <button
                         type="button"
@@ -1756,12 +1817,28 @@ const fmtSecs = (secs) => {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 };
 
-const Row = ({ label, value }) => (
-  <div style={{ display:'flex', gap:6, alignItems:'baseline', flexWrap:'wrap' }}>
-    <span style={{ color:'#777', minWidth:120, fontSize: FONT_SIZES.small }}>{label}</span>
-    <span style={{ fontWeight:600, wordBreak:'break-word', overflowWrap:'anywhere', fontSize: FONT_SIZES.body }}>{value}</span>
-  </div>
-);
+const Row = ({ label, value }) => {
+  const displayValue = value == null || value === '' ? '—' : value;
+  return (
+    <div style={{ display:'flex', gap:6, alignItems:'flex-start', flexWrap:'wrap' }}>
+      <span style={{ color:'#777', minWidth:120, fontSize: FONT_SIZES.small }}>{label}</span>
+      <div
+        style={{
+          fontWeight:600,
+          wordBreak:'break-word',
+          overflowWrap:'anywhere',
+          fontSize: FONT_SIZES.body,
+          display:'flex',
+          alignItems:'center',
+          gap:8,
+          flexWrap:'wrap'
+        }}
+      >
+        {displayValue}
+      </div>
+    </div>
+  );
+};
 
 const chipStyle = {
   background:'#F1F3F5',
@@ -1770,6 +1847,18 @@ const chipStyle = {
   padding:'4px 10px',
   fontSize: FONT_SIZES.small,
   fontWeight:700,
+};
+
+const logoPreviewThumbStyle = {
+  width:56,
+  height:56,
+  borderRadius:12,
+  border:'1px solid #E9ECEF',
+  background:'#FFFFFF',
+  display:'inline-flex',
+  alignItems:'center',
+  justifyContent:'center',
+  overflow:'hidden',
 };
 
 const styles = {
