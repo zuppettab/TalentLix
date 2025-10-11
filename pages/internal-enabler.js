@@ -184,11 +184,28 @@ export default function InternalEnabler() {
     setOpLoading(true);
     setDataError('');
     try {
-      const response = await fetch('/api/internal-enabler/overview');
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+      if (!supabase) {
+        throw new Error('Supabase client not configured');
       }
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        throw new Error('Unable to determine current session. Please sign in again.');
+      }
+
+      const response = await fetch('/api/internal-enabler/overview', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
       const payload = await response.json();
+      if (!response.ok) {
+        const errorMessage = typeof payload?.error === 'string' && payload.error
+          ? payload.error
+          : `Request failed with status ${response.status}`;
+        throw new Error(errorMessage);
+      }
       const athletes = Array.isArray(payload.athletes) ? payload.athletes : [];
       const operators = Array.isArray(payload.operators) ? payload.operators : [];
 
@@ -207,7 +224,11 @@ export default function InternalEnabler() {
       console.error('Failed to load admin overview', error);
       setRows([]);
       setOpRows([]);
-      setDataError('Unable to load verification data. Please try again later.');
+      const message =
+        typeof error?.message === 'string' && error.message.trim()
+          ? error.message.trim()
+          : 'Unable to load verification data. Please try again later.';
+      setDataError(message);
     } finally {
       setLoading(false);
       setOpLoading(false);
