@@ -181,6 +181,38 @@ export default function OperatorWizard() {
     email_primary:'', email_billing:'', phone_e164:'', phone_verified_at:null
   });
   const [logoStoragePath, setLogoStoragePath] = useState('');
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
+  const logoObjectUrlRef = useRef(null);
+  const cleanupLogoObjectUrl = useCallback(() => {
+    if (logoObjectUrlRef.current) {
+      URL.revokeObjectURL(logoObjectUrlRef.current);
+      logoObjectUrlRef.current = null;
+    }
+  }, []);
+  const resolveLogoPreviewUrl = useCallback((rawValue) => {
+    if (!rawValue) {
+      cleanupLogoObjectUrl();
+      setLogoPreviewUrl('');
+      return;
+    }
+    if (/^https?:\/\//i.test(rawValue)) {
+      cleanupLogoObjectUrl();
+      setLogoPreviewUrl(rawValue);
+      return;
+    }
+    const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(rawValue);
+    const publicUrl = data?.publicUrl || '';
+    if (publicUrl) {
+      cleanupLogoObjectUrl();
+      setLogoPreviewUrl(publicUrl);
+    }
+  }, [cleanupLogoObjectUrl]);
+  useEffect(() => {
+    resolveLogoPreviewUrl(profile.logo_url);
+  }, [profile.logo_url, resolveLogoPreviewUrl]);
+  useEffect(() => () => {
+    cleanupLogoObjectUrl();
+  }, [cleanupLogoObjectUrl]);
   const normalizedPhone = (contact.phone_e164 || '').replace(/\s+/g, '');
   const parsedPhone = useMemo(() => parsePhoneNumberFromString(normalizedPhone), [normalizedPhone]);
   const [otpSent, setOtpSent] = useState(false);
@@ -649,6 +681,12 @@ export default function OperatorWizard() {
    * ------------------------- */
   const handleLogoUpload = async (file) => {
     if (!file) return;
+    const previousPreviewUrl = logoPreviewUrl;
+    const previousWasObjectUrl = !!logoObjectUrlRef.current;
+    cleanupLogoObjectUrl();
+    const tempPreviewUrl = URL.createObjectURL(file);
+    logoObjectUrlRef.current = tempPreviewUrl;
+    setLogoPreviewUrl(tempPreviewUrl);
     try {
       setErrorMessage('');
       const acc = await ensureAccount();
@@ -673,11 +711,18 @@ export default function OperatorWizard() {
 
       const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(path);
       const publicUrl = data?.publicUrl || '';
-      setProfile((prev) => ({ ...prev, logo_url: publicUrl }));
+      setProfile((prev) => ({ ...prev, logo_url: publicUrl || path }));
       setLogoStoragePath(path);
+      resolveLogoPreviewUrl(publicUrl || path);
     } catch (e) {
       console.error('Logo upload failed', e);
       setErrorMessage(e?.message ? `Logo upload failed: ${e.message}` : 'Logo upload failed');
+      cleanupLogoObjectUrl();
+      if (previousPreviewUrl && !previousWasObjectUrl) {
+        setLogoPreviewUrl(previousPreviewUrl);
+      } else {
+        resolveLogoPreviewUrl(profile.logo_url);
+      }
     }
   };
 
@@ -693,6 +738,7 @@ export default function OperatorWizard() {
       }
       setProfile((prev) => ({ ...prev, logo_url: '' }));
       setLogoStoragePath('');
+      resolveLogoPreviewUrl('');
     } catch (e) {
       console.error('Logo removal failed', e);
       setErrorMessage(e?.message ? `Logo removal failed: ${e.message}` : 'Logo removal failed');
@@ -1288,10 +1334,10 @@ export default function OperatorWizard() {
                           />
                           <span style={{ fontSize: FONT_SIZES.small, color:'#495057' }}>PNG, JPG or SVG. Recommended square ratio.</span>
                         </div>
-                        {profile.logo_url ? (
+                        {logoPreviewUrl ? (
                           <div style={{ display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
                             <img
-                              src={profile.logo_url}
+                              src={logoPreviewUrl}
                               alt="Operator logo preview"
                               style={{ width:80, height:80, borderRadius:12, objectFit:'cover', border:'1px solid #dee2e6' }}
                             />
