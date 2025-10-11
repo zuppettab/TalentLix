@@ -122,6 +122,7 @@ export default function OperatorWizard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [docCleanupMessage, setDocCleanupMessage] = useState('');
 
   // Session & Account
   const [user, setUser] = useState(null);
@@ -136,6 +137,7 @@ export default function OperatorWizard() {
   // Step
   const [step, setStep] = useState(1);
   const hasInitializedStep = useRef(false);
+  const previousTypeRef = useRef('');
   const makeStorageKey = useCallback((id) => (id ? `operator_wizard_step:${id}` : null), []);
   const stepStorageKey = useMemo(
     () => makeStorageKey(user?.id || null),
@@ -833,6 +835,7 @@ export default function OperatorWizard() {
     let key;
     try {
       setErrorMessage('');
+      setDocCleanupMessage('');
       const previous = documents[docType];
       const acc = await ensureAccount();
       const req = await ensureOpenRequest();
@@ -897,6 +900,7 @@ export default function OperatorWizard() {
   const handleRemove = async (docType) => {
     try {
       setErrorMessage('');
+      setDocCleanupMessage('');
       const current = documents[docType];
       const req = await ensureOpenRequest();
       if (!req?.id) return;
@@ -921,6 +925,61 @@ export default function OperatorWizard() {
       setErrorMessage(e?.message ? `Remove failed: ${e.message}` : 'Remove failed');
     }
   };
+
+  const cleanupDocumentsForTypeChange = useCallback(
+    async ({ allowedDocTypes, nextTypeLabel }) => {
+      setDocCleanupMessage('');
+      const allowedSet =
+        allowedDocTypes instanceof Set
+          ? allowedDocTypes
+          : new Set(Array.isArray(allowedDocTypes) ? allowedDocTypes : []);
+      const staleEntries = Object.entries(documents).filter(([docType]) => !allowedSet.has(docType));
+      if (staleEntries.length === 0) return;
+
+      try {
+        const req = await ensureOpenRequest();
+        if (!req?.id) return;
+
+        const docTypesToRemove = staleEntries.map(([docType]) => docType);
+        const fileKeysToRemove = staleEntries
+          .map(([, doc]) => doc?.file_key)
+          .filter((key) => !!key);
+
+        const { error: deleteErr } = await supabase
+          .from('op_verification_document')
+          .delete()
+          .eq('verification_id', req.id)
+          .in('doc_type', docTypesToRemove);
+        if (deleteErr) throw deleteErr;
+
+        if (fileKeysToRemove.length > 0) {
+          const { error: storageErr } = await supabase.storage
+            .from(OP_DOCS_BUCKET)
+            .remove(fileKeysToRemove);
+          if (storageErr) console.warn('Storage cleanup warning', storageErr);
+        }
+
+        setDocuments((prev) => {
+          const clone = { ...prev };
+          for (const docType of docTypesToRemove) delete clone[docType];
+          return clone;
+        });
+
+        const docCount = docTypesToRemove.length;
+        const docCountLabel = docCount === 1 ? 'One document' : `${docCount} documents`;
+        const profileLabel = nextTypeLabel ? `${nextTypeLabel} profile` : 'selected operator type';
+        setDocCleanupMessage(
+          `${docCountLabel} ${docCount === 1 ? 'has' : 'have'} been cleared because you switched operator type. Please upload the documents required for the ${profileLabel}.`
+        );
+      } catch (err) {
+        console.error('Automatic document cleanup failed', err);
+        setErrorMessage(
+          err?.message ? `Automatic document cleanup failed: ${err.message}` : 'Automatic document cleanup failed'
+        );
+      }
+    },
+    [documents, ensureOpenRequest]
+  );
 
   const renderDocSection = (title, rules, badgeLabel) => {
     if (!rules || rules.length === 0) return null;
@@ -1124,6 +1183,43 @@ export default function OperatorWizard() {
     () => activeDocRules.filter((r) => !r.is_required),
     [activeDocRules]
   );
+  useEffect(() => {
+    if (!docRulesLoaded) return;
+
+    const currentType = selectedTypeCode || '';
+    const previousType = previousTypeRef.current || '';
+
+    if (!currentType) {
+      if (previousType) {
+        cleanupDocumentsForTypeChange({
+          allowedDocTypes: new Set(),
+          nextTypeLabel: '',
+        });
+      } else {
+        setDocCleanupMessage('');
+      }
+      previousTypeRef.current = currentType;
+      return;
+    }
+
+    if (previousType && previousType !== currentType) {
+      const allowedDocTypes = new Set(activeDocRules.map((rule) => rule.doc_type));
+      cleanupDocumentsForTypeChange({
+        allowedDocTypes,
+        nextTypeLabel: selectedTypeRow?.name || currentType,
+      });
+    } else if (!previousType) {
+      setDocCleanupMessage('');
+    }
+
+    previousTypeRef.current = currentType;
+  }, [
+    selectedTypeCode,
+    docRulesLoaded,
+    activeDocRules,
+    cleanupDocumentsForTypeChange,
+    selectedTypeRow?.name,
+  ]);
   const requiredDocTypes = requiredRules.map((r) => r.doc_type);
   const isValidStep3 = docRulesLoaded && requiredDocTypes.every((dt) => !!documents[dt]);
 
@@ -1273,6 +1369,7 @@ export default function OperatorWizard() {
               })}
             </div>
 
+            {docCleanupMessage && <p style={styles.info}>{docCleanupMessage}</p>}
             {errorMessage && <p style={styles.error}>{errorMessage}</p>}
 
             <AnimatePresence mode="wait">
@@ -1885,6 +1982,16 @@ const styles = {
   buttonRow:{ display:'flex', gap:'0.75rem', width:'100%', marginTop:'0.5rem' },
   secondaryButton:{ background:'#fff', color:'#27E3DA', border:'2px solid #27E3DA', padding:'0.8rem', borderRadius:'8px', cursor:'pointer', width:'100%', fontWeight:'bold' },
   secondaryButtonDisabled:{ background:'#f1f3f5', color:'#999', border:'2px solid #ced4da', padding:'0.8rem', borderRadius:'8px', width:'100%', cursor:'not-allowed', fontWeight:'bold' },
+  info:{
+    background:'#e7f5ff',
+    border:'1px solid #a5d8ff',
+    color:'#0b7285',
+    fontSize: FONT_SIZES.body,
+    padding:'0.75rem 1rem',
+    borderRadius:8,
+    textAlign:'left',
+    marginBottom:'1rem'
+  },
   error:{ color:'red', fontSize: FONT_SIZES.body, marginBottom:'1rem' },
   errList:{ color:'#b00', fontSize: FONT_SIZES.small, textAlign:'left', marginTop:'6px', paddingLeft:'18px' },
 
