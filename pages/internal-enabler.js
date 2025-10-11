@@ -179,6 +179,42 @@ export default function InternalEnabler() {
     }
   };
 
+  const getFreshAccessToken = useCallback(async () => {
+    if (!supabase) return null;
+
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        throw error;
+      }
+
+      let session = data?.session || null;
+      let accessToken = session?.access_token || null;
+
+      if (!accessToken) {
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          const wrapped = new Error(
+            refreshError.message || 'Session expired. Please sign in again.'
+          );
+          wrapped.cause = refreshError;
+          throw wrapped;
+        }
+        session = refreshData?.session || null;
+        accessToken = session?.access_token || null;
+      }
+
+      if (!accessToken) {
+        throw new Error('Session expired. Please sign in again.');
+      }
+
+      return accessToken;
+    } catch (error) {
+      console.error('Failed to resolve admin access token', error);
+      throw error;
+    }
+  }, []);
+
   const loadOverview = useCallback(async () => {
     setLoading(true);
     setOpLoading(true);
@@ -188,8 +224,7 @@ export default function InternalEnabler() {
         throw new Error('Supabase client not configured');
       }
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+      const accessToken = await getFreshAccessToken();
       if (!accessToken) {
         throw new Error('Unable to determine current session. Please sign in again.');
       }
@@ -233,7 +268,7 @@ export default function InternalEnabler() {
       setLoading(false);
       setOpLoading(false);
     }
-  }, []);
+  }, [getFreshAccessToken]);
 
   const refreshAll = useCallback(async () => {
     await loadOverview();

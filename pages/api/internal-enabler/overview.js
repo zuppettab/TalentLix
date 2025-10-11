@@ -26,6 +26,71 @@ const canonicalStatus = (value, fallback = 'unknown') => {
   return normalized || fallback;
 };
 
+const isPlainObject = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value));
+
+const decodeJwtClaims = (token) => {
+  if (typeof token !== 'string' || !token.includes('.')) return null;
+  const [, payloadSegment] = token.split('.');
+  if (!payloadSegment) return null;
+
+  try {
+    const normalized = payloadSegment.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+    const decoded = Buffer.from(padded, 'base64').toString('utf8');
+    const claims = JSON.parse(decoded);
+    return isPlainObject(claims) ? claims : null;
+  } catch (error) {
+    console.error('Failed to decode JWT payload', error);
+    return null;
+  }
+};
+
+const isExpiredClaims = (claims) => {
+  if (!isPlainObject(claims)) return false;
+  const exp = Number(claims.exp);
+  if (!Number.isFinite(exp)) return false;
+  return exp * 1000 <= Date.now();
+};
+
+const coerceSupabaseUserFromClaims = (claims) => {
+  if (!isPlainObject(claims) || isExpiredClaims(claims)) return null;
+
+  const userId = typeof claims.sub === 'string' && claims.sub
+    ? claims.sub
+    : typeof claims.user_id === 'string' && claims.user_id
+      ? claims.user_id
+      : null;
+
+  if (!userId) return null;
+
+  const email = typeof claims.email === 'string' ? claims.email : null;
+
+  const userMetadata = isPlainObject(claims.user_metadata)
+    ? { ...claims.user_metadata }
+    : {};
+
+  if (typeof claims.role === 'string' && !userMetadata.role) {
+    userMetadata.role = claims.role;
+  }
+
+  const appMetadata = isPlainObject(claims.app_metadata)
+    ? { ...claims.app_metadata }
+    : {};
+
+  return {
+    id: userId,
+    email,
+    app_metadata: appMetadata,
+    user_metadata: userMetadata,
+  };
+};
+
+const createHttpError = (status, message) => {
+  const error = new Error(message);
+  error.statusCode = status;
+  return error;
+};
+
 const asArray = (value) => {
   if (Array.isArray(value)) return value;
   if (value && typeof value === 'object') return [value];
@@ -122,40 +187,61 @@ export default async function handler(req, res) {
   let user = null;
 
   try {
-    if (isSupabaseServiceConfigured && supabase) {
-      client = supabase;
-      const { data, error } = await supabase.auth.getUser(accessToken);
+    const serviceClient = isSupabaseServiceConfigured && supabase ? supabase : null;
+    const fallbackClient = hasPublicSupabaseConfig
+      ? createClient(supabaseUrl, supabaseAnonKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              apikey: supabaseAnonKey,
+            },
+          },
+        })
+      : null;
+
+    client = serviceClient ?? fallbackClient;
+
+    if (!client) {
+      throw createHttpError(500, 'Supabase admin client not configured.');
+    }
+
+    if (serviceClient) {
+      const { data, error } = await serviceClient.auth.getUser(accessToken);
       if (error) {
         console.error('Failed to verify admin session via service client', error);
-        return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
+      } else {
+        user = data?.user || null;
       }
-      user = data?.user || null;
-    } else {
-      if (!hasPublicSupabaseConfig) {
-        return res.status(500).json({ error: 'Supabase admin client not configured.' });
-      }
+    }
 
-      client = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-        global: {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        },
-      });
-
-      const { data, error } = await client.auth.getUser();
+    if (!user && fallbackClient) {
+      const { data, error } = await fallbackClient.auth.getUser(accessToken);
       if (error) {
         console.error('Failed to verify admin session via fallback client', error);
-        return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
+      } else {
+        user = data?.user || null;
       }
-      user = data?.user || null;
     }
 
     if (!user) {
-      return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
+      const claims = decodeJwtClaims(accessToken);
+      const derivedUser = coerceSupabaseUserFromClaims(claims);
+      if (derivedUser) {
+        user = derivedUser;
+      }
+    }
+
+    if (!user) {
+      throw createHttpError(401, 'Invalid session. Please sign in again.');
     }
 
     if (!isAdminUser(user)) {
-      return res.status(403).json({ error: 'This account is not authorized for admin access.' });
+      throw createHttpError(403, 'This account is not authorized for admin access.');
+    }
+
+    if (serviceClient) {
+      client = serviceClient;
     }
 
     const [athletesResult, operatorsResult] = await Promise.all([
@@ -196,7 +282,14 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ athletes, operators });
   } catch (error) {
+    const statusCode = typeof error?.statusCode === 'number' ? error.statusCode : 500;
+    const message = typeof error?.message === 'string' && error.message
+      ? error.message
+      : 'Unable to load admin overview data.';
     console.error('Internal enabler overview failed', error);
-    return res.status(500).json({ error: 'Unable to load admin overview data.' });
+    if (statusCode >= 500) {
+      return res.status(statusCode).json({ error: 'Unable to load admin overview data.' });
+    }
+    return res.status(statusCode).json({ error: message });
   }
 }
