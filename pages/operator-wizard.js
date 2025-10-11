@@ -183,28 +183,78 @@ export default function OperatorWizard() {
   const [logoStoragePath, setLogoStoragePath] = useState('');
   const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
   const logoObjectUrlRef = useRef(null);
+  const logoPreviewRequestRef = useRef(0);
   const cleanupLogoObjectUrl = useCallback(() => {
     if (logoObjectUrlRef.current) {
       URL.revokeObjectURL(logoObjectUrlRef.current);
       logoObjectUrlRef.current = null;
     }
   }, []);
-  const resolveLogoPreviewUrl = useCallback((rawValue) => {
-    if (!rawValue) {
+  const resolveLogoPreviewUrl = useCallback(async (rawValue) => {
+    const requestId = ++logoPreviewRequestRef.current;
+    const value = typeof rawValue === 'string' ? rawValue.trim() : '';
+    if (!value) {
       cleanupLogoObjectUrl();
-      setLogoPreviewUrl('');
+      if (logoPreviewRequestRef.current === requestId) setLogoPreviewUrl('');
       return;
     }
-    if (/^https?:\/\//i.test(rawValue)) {
-      cleanupLogoObjectUrl();
-      setLogoPreviewUrl(rawValue);
+
+    const isHttpUrl = /^https?:\/\//i.test(value);
+    const resolvedPath = deriveStoragePathFromPublicUrl(value, OP_LOGO_BUCKET) || value;
+    const normalizedPath = resolvedPath.startsWith(`${OP_LOGO_BUCKET}/`)
+      ? resolvedPath.slice(OP_LOGO_BUCKET.length + 1)
+      : resolvedPath.replace(/^\/+/, '');
+
+    if (!supabase || !supabase.storage) {
+      if (isHttpUrl && logoPreviewRequestRef.current === requestId) {
+        cleanupLogoObjectUrl();
+        setLogoPreviewUrl(value);
+      }
       return;
     }
-    const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(rawValue);
-    const publicUrl = data?.publicUrl || '';
-    if (publicUrl) {
+
+    if (!normalizedPath) {
+      if (isHttpUrl && logoPreviewRequestRef.current === requestId) {
+        cleanupLogoObjectUrl();
+        setLogoPreviewUrl(value);
+      }
+      return;
+    }
+
+    if (isHttpUrl && normalizedPath === value) {
       cleanupLogoObjectUrl();
-      setLogoPreviewUrl(publicUrl);
+      if (logoPreviewRequestRef.current === requestId) setLogoPreviewUrl(value);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.storage
+        .from(OP_LOGO_BUCKET)
+        .createSignedUrl(normalizedPath, 300);
+
+      if (logoPreviewRequestRef.current !== requestId) return;
+
+      if (error) throw error;
+
+      const signedUrl = data?.signedUrl || '';
+      if (signedUrl) {
+        cleanupLogoObjectUrl();
+        setLogoPreviewUrl(signedUrl);
+      } else if (isHttpUrl) {
+        cleanupLogoObjectUrl();
+        setLogoPreviewUrl(value);
+      } else {
+        setLogoPreviewUrl('');
+      }
+    } catch (err) {
+      console.warn('Failed to resolve operator logo preview', err);
+      if (logoPreviewRequestRef.current !== requestId) return;
+      if (isHttpUrl) {
+        cleanupLogoObjectUrl();
+        setLogoPreviewUrl(value);
+      } else {
+        setLogoPreviewUrl('');
+      }
     }
   }, [cleanupLogoObjectUrl]);
   useEffect(() => {
@@ -713,7 +763,7 @@ export default function OperatorWizard() {
       const publicUrl = data?.publicUrl || '';
       setProfile((prev) => ({ ...prev, logo_url: publicUrl || path }));
       setLogoStoragePath(path);
-      resolveLogoPreviewUrl(publicUrl || path);
+      await resolveLogoPreviewUrl(publicUrl || path);
     } catch (e) {
       console.error('Logo upload failed', e);
       setErrorMessage(e?.message ? `Logo upload failed: ${e.message}` : 'Logo upload failed');
@@ -721,7 +771,7 @@ export default function OperatorWizard() {
       if (previousPreviewUrl && !previousWasObjectUrl) {
         setLogoPreviewUrl(previousPreviewUrl);
       } else {
-        resolveLogoPreviewUrl(profile.logo_url);
+        await resolveLogoPreviewUrl(profile.logo_url);
       }
     }
   };
@@ -738,7 +788,7 @@ export default function OperatorWizard() {
       }
       setProfile((prev) => ({ ...prev, logo_url: '' }));
       setLogoStoragePath('');
-      resolveLogoPreviewUrl('');
+      await resolveLogoPreviewUrl('');
     } catch (e) {
       console.error('Logo removal failed', e);
       setErrorMessage(e?.message ? `Logo removal failed: ${e.message}` : 'Logo removal failed');
