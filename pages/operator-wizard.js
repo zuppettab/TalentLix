@@ -18,12 +18,6 @@ const OTP_TTL_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_OTP_TTL || 600);
 const WIZARD = { NOT_STARTED:'NOT_STARTED', IN_PROGRESS:'IN_PROGRESS', SUBMITTED:'SUBMITTED', COMPLETED:'COMPLETED' };
 const OP_DOCS_BUCKET = 'op_assets';
 const OP_LOGO_BUCKET = 'op_assets';
-const UI_LANGUAGE_OPTIONS = [
-  { value: 'en', label: 'English' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'es', label: 'Español' },
-  { value: 'fr', label: 'Français' },
-];
 const analyzeWebsiteValue = (raw) => {
   const trimmed = typeof raw === 'string' ? raw.trim() : '';
   if (!trimmed) {
@@ -178,7 +172,7 @@ export default function OperatorWizard() {
 
   // STEP 1 — Anagrafica
   const [profile, setProfile] = useState({
-    legal_name:'', trade_name:'', website:'', logo_url:'', ui_language:'',
+    legal_name:'', trade_name:'', website:'', logo_url:'',
     address1:'', address2:'', city:'', state_region:'', postal_code:'', country:''
   });
 
@@ -270,7 +264,6 @@ export default function OperatorWizard() {
               trade_name: prof.trade_name || '',
               website: prof.website || '',
               logo_url: prof.logo_url || '',
-              ui_language: prof.ui_language || '',
               address1: prof.address1 || '',
               address2: prof.address2 || '',
               city: prof.city || '',
@@ -505,7 +498,6 @@ export default function OperatorWizard() {
       postal_code: profile.postal_code,
       country: normalizeCountryCode(profile.country),
       logo_url: toNullable(profile.logo_url),
-      ui_language: profile.ui_language || null,
     };
     const { error: profileErr } = await supabase.from('op_profile').upsert([profilePayload], { onConflict:'op_id' });
     if (profileErr) throw profileErr;
@@ -992,8 +984,7 @@ export default function OperatorWizard() {
     !!contact.email_primary &&
     isValidPhone &&
     !!contact.phone_verified_at &&
-    isWebsiteValid &&
-    !!profile.ui_language;
+    isWebsiteValid;
 
   const activeDocRules = useMemo(
     () => docRules.filter((r) => matchesConditions(r, { country: normalizeCountryCode(profile.country) })),
@@ -1014,18 +1005,6 @@ export default function OperatorWizard() {
     const base = profile.trade_name || profile.legal_name;
     return base ? base.trim() : 'Operator profile';
   }, [profile.trade_name, profile.legal_name]);
-
-  const uiLanguageOption = useMemo(() => {
-    if (!profile.ui_language) return null;
-    const match = UI_LANGUAGE_OPTIONS.find((opt) => opt.value === profile.ui_language);
-    return match || { value: profile.ui_language, label: profile.ui_language };
-  }, [profile.ui_language]);
-  const uiLanguageOptions = useMemo(() => {
-    if (!profile.ui_language) return UI_LANGUAGE_OPTIONS;
-    const exists = UI_LANGUAGE_OPTIONS.some((opt) => opt.value === profile.ui_language);
-    return exists ? UI_LANGUAGE_OPTIONS : [...UI_LANGUAGE_OPTIONS, { value: profile.ui_language, label: profile.ui_language }];
-  }, [profile.ui_language]);
-  const uiLanguageLabel = uiLanguageOption?.label || '';
 
   const operatorInitials = useMemo(() => {
     const name = operatorName || '';
@@ -1252,14 +1231,6 @@ export default function OperatorWizard() {
                       <input style={styles.input} type="email" placeholder="Billing email (optional)"
                              value={contact.email_billing} onChange={(e)=> setContact({ ...contact, email_billing:e.target.value })}/>
 
-                      <Select
-                        placeholder="Interface language (required)"
-                        options={uiLanguageOptions}
-                        value={uiLanguageOption}
-                        onChange={(opt) => setProfile((prev) => ({ ...prev, ui_language: opt?.value || '' }))}
-                        styles={{ control:(base)=>({ ...base, padding:'2px', borderRadius:'8px', borderColor: profile.ui_language ? '#ccc' : '#f59f00' }) }}
-                      />
-
                       <input
                         style={styles.input}
                         placeholder={selectedTypeCode==='club' ? 'Public name (optional)' : 'Professional name (optional)'}
@@ -1448,7 +1419,6 @@ export default function OperatorWizard() {
                       {!isValidStep2 && (
                         <ul style={styles.errList}>
                           {!contact.email_primary && <li>Primary email missing</li>}
-                          {!profile.ui_language && <li>Interface language missing</li>}
                           {!isWebsiteValid && profile.website && <li>Website URL invalid</li>}
                           {!isValidPhone && <li>Invalid phone number</li>}
                           {!contact.phone_verified_at && <li>Phone not verified</li>}
@@ -1571,7 +1541,6 @@ export default function OperatorWizard() {
                           <Row label="Legal name" value={profile.legal_name || '—'} />
                           <Row label="Trade name" value={profile.trade_name || '—'} />
                           <Row label="Website" value={profile.website || '—'} />
-                          <Row label="Interface language" value={uiLanguageLabel || '—'} />
                           <Row label="Logo" value={profile.logo_url ? 'Uploaded' : '—'} />
                           <Row
                             label="Address"
