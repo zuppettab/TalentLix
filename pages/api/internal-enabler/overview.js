@@ -1,6 +1,24 @@
+import { createClient } from '@supabase/supabase-js';
+import { isAdminUser } from '../../../utils/authRoles';
 import { getSupabaseServiceClient, isSupabaseServiceConfigured } from '../../../utils/supabaseAdminClient';
 
 const supabase = getSupabaseServiceClient();
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+
+const hasPublicSupabaseConfig =
+  typeof supabaseUrl === 'string' &&
+  supabaseUrl.trim() !== '' &&
+  typeof supabaseAnonKey === 'string' &&
+  supabaseAnonKey.trim() !== '';
+
+const extractBearerToken = (req) => {
+  const header = req.headers.authorization;
+  if (!header) return null;
+  const matches = header.match(/^Bearer\s+(.+)$/i);
+  return matches ? matches[1].trim() : null;
+};
 
 const canonicalStatus = (value, fallback = 'unknown') => {
   if (!value) return fallback;
@@ -95,13 +113,53 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  if (!isSupabaseServiceConfigured || !supabase) {
-    return res.status(500).json({ error: 'Supabase admin client not configured' });
+  const accessToken = extractBearerToken(req);
+  if (!accessToken) {
+    return res.status(401).json({ error: 'Missing access token.' });
   }
 
+  let client = null;
+  let user = null;
+
   try {
+    if (isSupabaseServiceConfigured && supabase) {
+      client = supabase;
+      const { data, error } = await supabase.auth.getUser(accessToken);
+      if (error) {
+        console.error('Failed to verify admin session via service client', error);
+        return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
+      }
+      user = data?.user || null;
+    } else {
+      if (!hasPublicSupabaseConfig) {
+        return res.status(500).json({ error: 'Supabase admin client not configured.' });
+      }
+
+      client = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      });
+
+      const { data, error } = await client.auth.getUser();
+      if (error) {
+        console.error('Failed to verify admin session via fallback client', error);
+        return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
+      }
+      user = data?.user || null;
+    }
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid session. Please sign in again.' });
+    }
+
+    if (!isAdminUser(user)) {
+      return res.status(403).json({ error: 'This account is not authorized for admin access.' });
+    }
+
     const [athletesResult, operatorsResult] = await Promise.all([
-      supabase
+      client
         .from('athlete')
         .select(
           `
@@ -114,7 +172,7 @@ export default async function handler(req, res) {
           )
         `
         ),
-      supabase
+      client
         .from('op_account')
         .select(
           `
