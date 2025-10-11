@@ -207,7 +207,7 @@ export default function InternalEnabler() {
       console.error('Failed to load admin overview', error);
       setRows([]);
       setOpRows([]);
-      setDataError('Impossibile caricare i dati di verifica. Riprovare più tardi.');
+      setDataError('Unable to load verification data. Please try again later.');
     } finally {
       setLoading(false);
       setOpLoading(false);
@@ -348,7 +348,7 @@ export default function InternalEnabler() {
 
   const requestAthleteInfo = async (athleteId) => {
     if (!supabase) return;
-    const reason = window.prompt('Motivo della richiesta di integrazione (opzionale):', '');
+    const reason = window.prompt('Reason for the info request (optional):', '');
     if (reason === null) return;
     try {
       setBusy(athleteId);
@@ -399,7 +399,7 @@ export default function InternalEnabler() {
 
   const doReject = async (athleteId) => {
     if (!supabase) return;
-    const reason = window.prompt('Motivo del rifiuto (opzionale):', '');
+    const reason = window.prompt('Reason for rejection (optional):', '');
     if (reason === null) return;
     try {
       setBusy(athleteId);
@@ -456,10 +456,10 @@ export default function InternalEnabler() {
   const requestOperatorInfo = async (row) => {
     if (!supabase) return;
     if (!row?.verification?.id) { alert('Missing verification request.'); return; }
-    const reason = window.prompt('Motivo della richiesta di integrazione (obbligatorio):', '');
+    const reason = window.prompt('Reason for the info request (required):', '');
     if (reason === null) return;
     const trimmed = reason.trim();
-    if (!trimmed) { alert('Inserire un motivo valido.'); return; }
+    if (!trimmed) { alert('Please provide a valid reason.'); return; }
     try {
       setOpBusy(row.id);
       const { error: reqErr } = await supabase
@@ -512,10 +512,10 @@ export default function InternalEnabler() {
   const rejectOperator = async (row) => {
     if (!supabase) return;
     if (!row?.verification?.id) { alert('Missing verification request.'); return; }
-    const reason = window.prompt('Motivo del rifiuto (richiesto):', '');
+    const reason = window.prompt('Reason for rejection (required):', '');
     if (reason === null) return;
     const trimmed = reason.trim();
-    if (!trimmed) { alert('Inserire un motivo di rifiuto.'); return; }
+    if (!trimmed) { alert('Please provide a rejection reason.'); return; }
     try {
       setOpBusy(row.id);
       const { error: reqErr } = await supabase
@@ -652,7 +652,7 @@ export default function InternalEnabler() {
             </div>
           ))}
           {consolidatedUsers.length === 0 && (
-            <div style={{ padding: 20, color: '#666' }}>Nessun utente trovato.</div>
+            <div style={{ padding: 20, color: '#666' }}>No users found.</div>
           )}
         </div>
       </section>
@@ -749,7 +749,7 @@ export default function InternalEnabler() {
           })}
 
           {ordered.length === 0 && !loading && (
-            <div style={{ padding: 20, color: '#666' }}>Nessun atleta trovato.</div>
+            <div style={{ padding: 20, color: '#666' }}>No athletes found.</div>
           )}
         </div>
       </section>
@@ -852,7 +852,7 @@ export default function InternalEnabler() {
           })}
 
           {opOrdered.length === 0 && !opLoading && (
-            <div style={{ padding: 20, color: '#666' }}>Nessun operatore trovato.</div>
+            <div style={{ padding: 20, color: '#666' }}>No operators found.</div>
           )}
         </div>
       </section>
