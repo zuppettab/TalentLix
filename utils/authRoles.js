@@ -1,6 +1,7 @@
 export const ATHLETE_ROLE = 'athlete';
 export const OPERATOR_ROLE = 'operator';
 export const ADMIN_ROLE = 'admin';
+export const ADMIN_EMAIL_WHITELIST = ['pietro@zuppetta.com'];
 export const OPERATOR_LOGIN_PATH = '/login-operator';
 export const OPERATOR_GUARD_REDIRECT_QUERY_KEY = 'reason';
 export const OPERATOR_GUARD_UNAUTHORIZED_VALUE = 'not_operator';
@@ -44,7 +45,13 @@ export const hasRole = (user, role) => {
 
 export const isOperatorUser = (user) => hasRole(user, OPERATOR_ROLE);
 export const isAthleteUser = (user) => hasRole(user, ATHLETE_ROLE);
-export const isAdminUser = (user) => hasRole(user, ADMIN_ROLE);
+export const isAdminUser = (user) => {
+  const email = typeof user?.email === 'string' ? user.email.toLowerCase() : null;
+  if (email && ADMIN_EMAIL_WHITELIST.includes(email)) {
+    return true;
+  }
+  return hasRole(user, ADMIN_ROLE);
+};
 
 export const buildOperatorUnauthorizedQuery = () => ({
   [OPERATOR_GUARD_REDIRECT_QUERY_KEY]: OPERATOR_GUARD_UNAUTHORIZED_VALUE,
