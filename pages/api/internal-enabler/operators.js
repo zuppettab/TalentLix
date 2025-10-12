@@ -48,7 +48,7 @@ const performStartReview = async (client, operatorId, { verificationId, markSubm
     verificationPayload.submitted_at = timestamp;
   }
 
-  await updateVerificationRequest(client, verificationId, verificationPayload, ['SUBMITTED', 'NEEDS_MORE_INFO']);
+  await updateVerificationRequest(client, verificationId, verificationPayload, ['NOT_STARTED', 'NEEDS_MORE_INFO']);
   await updateOperatorAccount(client, operatorId, { wizard_status: 'SUBMITTED' });
 };
 
@@ -61,7 +61,7 @@ const performRequestInfo = async (client, operatorId, { verificationId, reason }
     client,
     verificationId,
     { state: 'NEEDS_MORE_INFO', reason },
-    ['SUBMITTED', 'IN_REVIEW']
+    ['IN_REVIEW']
   );
   await updateOperatorAccount(client, operatorId, { wizard_status: 'IN_PROGRESS' });
 };
@@ -71,7 +71,7 @@ const performApprove = async (client, operatorId, { verificationId }) => {
     client,
     verificationId,
     { state: 'VERIFIED', reason: null },
-    ['SUBMITTED', 'IN_REVIEW']
+    ['IN_REVIEW']
   );
   await updateOperatorAccount(client, operatorId, { status: 'active', wizard_status: 'COMPLETED' });
 };
@@ -85,7 +85,7 @@ const performReject = async (client, operatorId, { verificationId, reason }) => 
     client,
     verificationId,
     { state: 'REJECTED', reason },
-    ['SUBMITTED', 'IN_REVIEW', 'NEEDS_MORE_INFO']
+    ['IN_REVIEW', 'NEEDS_MORE_INFO']
   );
 };
 
