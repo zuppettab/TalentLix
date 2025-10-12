@@ -52,7 +52,11 @@ export default function LoginOperator() {
 
       if (requestState === 'VERIFIED' || wizardStatus === 'COMPLETED') {
         router.push('/operator-dashboard');
-      } else if (wizardStatus === 'SUBMITTED' || requestState === 'IN_REVIEW') {
+      } else if (
+        wizardStatus === 'SUBMITTED' ||
+        requestState === 'IN_REVIEW' ||
+        requestState === 'REJECTED'
+      ) {
         router.push('/operator-in-review');
       } else {
         router.push('/operator-wizard');

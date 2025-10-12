@@ -139,7 +139,9 @@ export default function OperatorWizard() {
   const hasInitializedStep = useRef(false);
   const restartHandledRef = useRef(false);
   const previousTypeRef = useRef('');
+  const reviewOverrideRef = useRef(false);
   const makeStorageKey = useCallback((id) => (id ? `operator_wizard_step:${id}` : null), []);
+  const makeReviewAckKey = useCallback((id) => (id ? `operator_review_ack:${id}` : null), []);
   const stepStorageKey = useMemo(
     () => makeStorageKey(user?.id || null),
     [makeStorageKey, user?.id]
@@ -373,6 +375,20 @@ export default function OperatorWizard() {
         if (!u) { router.replace('/login-operator'); return; }
         setUser(u);
 
+        if (!reviewOverrideRef.current) {
+          const ackKey = makeReviewAckKey(u.id);
+          if (ackKey && typeof window !== 'undefined') {
+            try {
+              if (window.sessionStorage.getItem(ackKey)) {
+                reviewOverrideRef.current = true;
+                window.sessionStorage.removeItem(ackKey);
+              }
+            } catch (err) {
+              console.warn('Failed to read operator review acknowledgement', err);
+            }
+          }
+        }
+
         const { data: types } = await supabase.from('op_type').select('id,code,name,active').eq('active',true).order('name');
         setOpTypes(types || []);
 
@@ -438,6 +454,7 @@ export default function OperatorWizard() {
 
           const normalizedWizardStatus = acc?.wizard_status ? String(acc.wizard_status).trim().toUpperCase() : '';
           const normalizedReviewState = vr?.state ? String(vr.state).trim().toUpperCase() : '';
+          const isRejected = normalizedReviewState === VERIF_STATE.REJECTED;
 
           if (normalizedReviewState === VERIF_STATE.VERIFIED || normalizedWizardStatus === WIZARD.COMPLETED) {
             writeStoredStep(null, u?.id || null);
@@ -449,6 +466,16 @@ export default function OperatorWizard() {
             writeStoredStep(null, u?.id || null);
             router.replace('/operator-in-review');
             return;
+          }
+
+          if (isRejected && !reviewOverrideRef.current) {
+            writeStoredStep(null, u?.id || null);
+            router.replace('/operator-in-review');
+            return;
+          }
+
+          if (isRejected && reviewOverrideRef.current) {
+            reviewOverrideRef.current = false;
           }
         } else {
           // nuovo operatore: Email primaria precompilata dalla sessione
@@ -462,7 +489,7 @@ export default function OperatorWizard() {
       }
     };
     init();
-  }, [router]);
+  }, [makeReviewAckKey, router, writeStoredStep]);
 
   // Carica regole documentali al cambio tipo
   useEffect(() => {
