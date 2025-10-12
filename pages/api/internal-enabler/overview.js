@@ -1,17 +1,36 @@
-import { createClient } from '@supabase/supabase-js';
 import { isAdminUser } from '../../../utils/authRoles';
-import { getSupabaseServiceClient, isSupabaseServiceConfigured } from '../../../utils/supabaseAdminClient';
+import {
+  describeSupabaseConfigRequirements,
+  getSupabaseConfigSnapshot,
+  getSupabasePublicClient,
+  getSupabaseServiceClient,
+} from '../../../utils/supabaseAdminClient';
 
-const supabase = getSupabaseServiceClient();
+const describeMissingConfig = (snapshot) => {
+  const requirements = describeSupabaseConfigRequirements();
+  const missing = [];
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+  if (!snapshot.supabaseUrl) {
+    missing.push(`Supabase URL via one of: ${requirements.urlKeys.join(', ')}`);
+  }
 
-const hasPublicSupabaseConfig =
-  typeof supabaseUrl === 'string' &&
-  supabaseUrl.trim() !== '' &&
-  typeof supabaseAnonKey === 'string' &&
-  supabaseAnonKey.trim() !== '';
+  if (!snapshot.serviceRoleKey) {
+    missing.push(`Supabase service role key via one of: ${requirements.serviceKeys.join(', ')}`);
+  }
+
+  if (!snapshot.supabaseAnonKey) {
+    const anonKeysList = requirements.anonKeys.join(', ');
+    missing.push(
+      `Supabase anon/public key (required when the service role key is unavailable) via one of: ${anonKeysList}`
+    );
+  }
+
+  if (!missing.length) {
+    return 'Supabase environment variables are missing or empty.';
+  }
+
+  return `Missing configuration: ${missing.join('; ')}.`;
+};
 
 const extractBearerToken = (req) => {
   const header = req.headers.authorization;
@@ -94,11 +113,10 @@ const createHttpError = (status, message, options = {}) => {
   return error;
 };
 
-const buildConfigError = () => {
+const buildConfigError = (snapshot) => {
   return createHttpError(500, 'Supabase admin client is not configured.', {
     code: 'supabase_admin_client_missing',
-    details:
-      'Ensure SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_URL, and NEXT_PUBLIC_SUPABASE_ANON_KEY are defined in the environment.',
+    details: describeMissingConfig(snapshot),
   });
 };
 
@@ -223,14 +241,15 @@ export default async function handler(req, res) {
   let user = null;
 
   try {
-    const serviceClient = isSupabaseServiceConfigured && supabase ? supabase : null;
-    const fallbackClient = hasPublicSupabaseConfig
-      ? createClient(supabaseUrl, supabaseAnonKey, {
+    const configSnapshot = getSupabaseConfigSnapshot();
+    const serviceClient = configSnapshot.isServiceConfigured ? getSupabaseServiceClient() : null;
+    const fallbackClient = configSnapshot.isPublicConfigured
+      ? getSupabasePublicClient({
           auth: { autoRefreshToken: false, persistSession: false },
           global: {
             headers: {
               Authorization: `Bearer ${accessToken}`,
-              apikey: supabaseAnonKey,
+              apikey: configSnapshot.supabaseAnonKey,
             },
           },
         })
@@ -239,7 +258,7 @@ export default async function handler(req, res) {
     client = serviceClient ?? fallbackClient;
 
     if (!client) {
-      throw buildConfigError();
+      throw buildConfigError(configSnapshot);
     }
 
     if (serviceClient) {
