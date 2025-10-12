@@ -38,21 +38,56 @@ const SUPABASE_SCHEMA_KEYS = ['SUPABASE_DB_SCHEMA', 'NEXT_PUBLIC_SUPABASE_SCHEMA
 
 const asArray = (value) => (Array.isArray(value) ? value : []);
 
-const discoverEnvKeys = (tokenGroups) => {
+const SERVICE_ROLE_PATTERN_STRINGS = [
+  'SUPABASE.*SERVICE.*ROLE.*(KEY|TOKEN|SECRET|PRIVATE|JWT)',
+  'SUPABASE.*(ADMIN|SERVICE).*(KEY|TOKEN|SECRET|PRIVATE|JWT)',
+  'SERVICE.*ROLE.*SUPABASE.*(KEY|TOKEN|SECRET|PRIVATE|JWT)',
+  'SUPABASE.*ROLE.*(KEY|TOKEN|SECRET|PRIVATE|JWT)',
+];
+
+const SERVICE_ROLE_PATTERNS = SERVICE_ROLE_PATTERN_STRINGS.map((pattern) => new RegExp(pattern, 'i'));
+
+const discoverEnvKeys = (tokenGroups, patterns) => {
   const envKeys = Object.keys(process.env || {});
   const matches = new Set();
 
   for (const key of envKeys) {
     const normalized = key.toUpperCase();
-    for (const tokens of tokenGroups) {
-      if (tokens.every((token) => normalized.includes(token))) {
-        matches.add(key);
-        break;
-      }
+    const tokenMatch = tokenGroups.some((tokens) => tokens.every((token) => normalized.includes(token)));
+    const patternMatch = patterns.some((pattern) => pattern.test(key));
+
+    if (tokenMatch || patternMatch) {
+      matches.add(key);
     }
   }
 
   return [...matches];
+};
+
+const SERVICE_ALIAS_ENV_KEYS = [
+  'SUPABASE_SERVICE_ROLE_KEY_ALIASES',
+  'SUPABASE_SERVICE_KEY_ALIASES',
+  'SUPABASE_ADMIN_KEY_ALIASES',
+];
+
+const parseAliasList = (raw) => {
+  if (typeof raw !== 'string') return [];
+
+  return raw
+    .split(/[,\n\r\t]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+};
+
+const readConfiguredServiceAliases = () => {
+  const aliases = [];
+
+  for (const aliasEnvKey of SERVICE_ALIAS_ENV_KEYS) {
+    const raw = process.env[aliasEnvKey];
+    aliases.push(...parseAliasList(raw));
+  }
+
+  return aliases;
 };
 
 const getSupabaseServiceKeys = () => {
@@ -65,9 +100,15 @@ const getSupabaseServiceKeys = () => {
     ['SUPABASE', 'ADMIN', 'TOKEN'],
     ['SUPABASE', 'SERVICE', 'ADMIN', 'KEY'],
     ['SUPABASE', 'SERVICE', 'ADMIN', 'TOKEN'],
-  ]);
+  ], SERVICE_ROLE_PATTERNS);
 
-  const keys = new Set([...BASE_SUPABASE_SERVICE_KEYS, ...asArray(dynamicCandidates)]);
+  const configuredAliases = readConfiguredServiceAliases();
+
+  const keys = new Set([
+    ...BASE_SUPABASE_SERVICE_KEYS,
+    ...asArray(dynamicCandidates),
+    ...asArray(configuredAliases),
+  ]);
   return [...keys];
 };
 
@@ -128,45 +169,3 @@ export const getSupabaseServiceClient = () => {
   if (!supabaseUrl || !serviceRoleKey) {
     return null;
   }
-
-  const configKey = `${supabaseUrl}::${serviceRoleKey}::${schema}`;
-  if (!cachedServiceClient || cachedServiceConfigKey !== configKey) {
-    cachedServiceClient = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-      db: { schema },
-      global: {
-        headers: {
-          apikey: serviceRoleKey,
-          Authorization: `Bearer ${serviceRoleKey}`,
-        },
-      },
-    });
-    cachedServiceConfigKey = configKey;
-  }
-
-  return cachedServiceClient;
-};
-
-export const getSupabasePublicClient = () => {
-  const { supabaseUrl, anonKey, schema } = readPublicConfig();
-  if (!supabaseUrl || !anonKey) {
-    return null;
-  }
-
-  const configKey = `${supabaseUrl}::${anonKey}::${schema}`;
-  if (!cachedPublicClient || cachedPublicConfigKey !== configKey) {
-    cachedPublicClient = createClient(supabaseUrl, anonKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-      db: { schema },
-      global: {
-        headers: {
-          apikey: anonKey,
-          Authorization: `Bearer ${anonKey}`,
-        },
-      },
-    });
-    cachedPublicConfigKey = configKey;
-  }
-
-  return cachedPublicClient;
-};
