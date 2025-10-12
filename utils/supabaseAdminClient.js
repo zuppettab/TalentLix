@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL_KEYS = ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL'];
-const SUPABASE_SERVICE_KEYS = [
+const BASE_SUPABASE_SERVICE_KEYS = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'SUPABASE_SERVICE_ROLE',
   'SUPABASE_SERVICE_KEY',
@@ -36,6 +36,82 @@ const SUPABASE_ANON_KEYS = [
 ];
 const SUPABASE_SCHEMA_KEYS = ['SUPABASE_DB_SCHEMA', 'NEXT_PUBLIC_SUPABASE_SCHEMA'];
 
+const asArray = (value) => (Array.isArray(value) ? value : []);
+
+const SERVICE_ROLE_PATTERN_STRINGS = [
+  'SUPABASE.*SERVICE.*ROLE.*(KEY|TOKEN|SECRET|PRIVATE|JWT)',
+  'SUPABASE.*(ADMIN|SERVICE).*(KEY|TOKEN|SECRET|PRIVATE|JWT)',
+  'SERVICE.*ROLE.*SUPABASE.*(KEY|TOKEN|SECRET|PRIVATE|JWT)',
+  'SUPABASE.*ROLE.*(KEY|TOKEN|SECRET|PRIVATE|JWT)',
+];
+
+const SERVICE_ROLE_PATTERNS = SERVICE_ROLE_PATTERN_STRINGS.map((pattern) => new RegExp(pattern, 'i'));
+
+const discoverEnvKeys = (tokenGroups, patterns) => {
+  const envKeys = Object.keys(process.env || {});
+  const matches = new Set();
+
+  for (const key of envKeys) {
+    const normalized = key.toUpperCase();
+    const tokenMatch = tokenGroups.some((tokens) => tokens.every((token) => normalized.includes(token)));
+    const patternMatch = patterns.some((pattern) => pattern.test(key));
+
+    if (tokenMatch || patternMatch) {
+      matches.add(key);
+    }
+  }
+
+  return [...matches];
+};
+
+const SERVICE_ALIAS_ENV_KEYS = [
+  'SUPABASE_SERVICE_ROLE_KEY_ALIASES',
+  'SUPABASE_SERVICE_KEY_ALIASES',
+  'SUPABASE_ADMIN_KEY_ALIASES',
+];
+
+const parseAliasList = (raw) => {
+  if (typeof raw !== 'string') return [];
+
+  return raw
+    .split(/[,\n\r\t]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+};
+
+const readConfiguredServiceAliases = () => {
+  const aliases = [];
+
+  for (const aliasEnvKey of SERVICE_ALIAS_ENV_KEYS) {
+    const raw = process.env[aliasEnvKey];
+    aliases.push(...parseAliasList(raw));
+  }
+
+  return aliases;
+};
+
+const getSupabaseServiceKeys = () => {
+  const dynamicCandidates = discoverEnvKeys([
+    ['SUPABASE', 'SERVICE', 'ROLE', 'KEY'],
+    ['SUPABASE', 'SERVICE', 'ROLE', 'TOKEN'],
+    ['SUPABASE', 'SERVICE', 'ROLE', 'SECRET'],
+    ['SUPABASE', 'SERVICE', 'ROLE', 'PRIVATE'],
+    ['SUPABASE', 'ADMIN', 'KEY'],
+    ['SUPABASE', 'ADMIN', 'TOKEN'],
+    ['SUPABASE', 'SERVICE', 'ADMIN', 'KEY'],
+    ['SUPABASE', 'SERVICE', 'ADMIN', 'TOKEN'],
+  ], SERVICE_ROLE_PATTERNS);
+
+  const configuredAliases = readConfiguredServiceAliases();
+
+  const keys = new Set([
+    ...BASE_SUPABASE_SERVICE_KEYS,
+    ...asArray(dynamicCandidates),
+    ...asArray(configuredAliases),
+  ]);
+  return [...keys];
+};
+
 const getEnvVar = (...candidates) => {
   for (const key of candidates) {
     const raw = process.env[key];
@@ -48,7 +124,7 @@ const getEnvVar = (...candidates) => {
 
 const readServiceConfig = () => {
   const supabaseUrl = getEnvVar(...SUPABASE_URL_KEYS);
-  const serviceRoleKey = getEnvVar(...SUPABASE_SERVICE_KEYS);
+  const serviceRoleKey = getEnvVar(...getSupabaseServiceKeys());
   const schema = getEnvVar(...SUPABASE_SCHEMA_KEYS) || 'public';
   return { supabaseUrl, serviceRoleKey, schema };
 };
@@ -67,7 +143,7 @@ let cachedPublicConfigKey = null;
 
 export const describeSupabaseConfigRequirements = () => ({
   urlKeys: [...SUPABASE_URL_KEYS],
-  serviceKeys: [...SUPABASE_SERVICE_KEYS],
+  serviceKeys: [...getSupabaseServiceKeys()],
   anonKeys: [...SUPABASE_ANON_KEYS],
   schemaKeys: [...SUPABASE_SCHEMA_KEYS],
 });
