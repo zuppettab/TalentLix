@@ -242,40 +242,50 @@ export default async function handler(req, res) {
     const configSnapshot = getSupabaseConfigSnapshot();
     const supabaseUrl = configSnapshot.supabaseUrl || '';
     const supabaseAnonKey = configSnapshot.anonKey || '';
+    const schema = configSnapshot.schema || 'public';
     const hasPublicSupabaseConfig = Boolean(supabaseUrl && supabaseAnonKey);
 
     const serviceClient = isSupabaseServiceConfigured()
       ? getSupabaseServiceClient()
       : null;
 
-    if (!serviceClient) {
+    const delegatedClient = hasPublicSupabaseConfig
+      ? createClient(supabaseUrl, supabaseAnonKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+          db: { schema },
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              apikey: supabaseAnonKey,
+            },
+          },
+        })
+      : null;
+
+    client = serviceClient ?? delegatedClient;
+
+    if (!client) {
       throw buildConfigError(configSnapshot);
     }
 
-    client = serviceClient;
+    const authClients = [
+      { label: 'service', client: serviceClient },
+      { label: 'delegated', client: delegatedClient },
+    ].filter(({ client }) => Boolean(client));
 
-    const { data: serviceAuthData, error: serviceAuthError } = await serviceClient.auth.getUser(accessToken);
-    if (serviceAuthError) {
-      console.error('Failed to verify admin session via service client', serviceAuthError);
-    } else {
-      user = serviceAuthData?.user || null;
-    }
-
-    if (!user && hasPublicSupabaseConfig) {
-      const delegatedClient = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-        global: {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            apikey: supabaseAnonKey,
-          },
-        },
-      });
-      const { data: delegatedAuthData, error: delegatedAuthError } = await delegatedClient.auth.getUser(accessToken);
-      if (delegatedAuthError) {
-        console.error('Failed to verify admin session via delegated client', delegatedAuthError);
-      } else {
-        user = delegatedAuthData?.user || null;
+    for (const { label, client: authClient } of authClients) {
+      try {
+        const { data, error } = await authClient.auth.getUser(accessToken);
+        if (error) {
+          console.error(`Failed to verify admin session via ${label} client`, error);
+          continue;
+        }
+        if (data?.user) {
+          user = data.user;
+          break;
+        }
+      } catch (authError) {
+        console.error(`Failed to verify admin session via ${label} client`, authError);
       }
     }
 
