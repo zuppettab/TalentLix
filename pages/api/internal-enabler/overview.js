@@ -300,7 +300,7 @@ export default async function handler(req, res) {
           `
           id, status, wizard_status, type_id,
           op_type:op_type(id, code, name),
-          op_profile:op_profile(legal_name, trade_name, vat_number, tax_id, country, city, address1, address2),
+          op_profile:op_profile(legal_name, trade_name, tax_id, country, city, address1, address2),
           op_contact:op_contact(email_primary, phone_e164, phone_verified_at),
           op_verification_request:op_verification_request(
             id, state, reason, submitted_at, created_at, updated_at,
