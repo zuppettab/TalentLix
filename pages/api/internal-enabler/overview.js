@@ -1,146 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
-import { isAdminUser } from '../../../utils/authRoles';
 import {
-  describeSupabaseConfigRequirements,
-  getSupabaseConfigSnapshot,
-  getSupabaseServiceClient,
-  isSupabaseServiceConfigured,
-} from '../../../utils/supabaseAdminClient';
-
-const describeMissingConfig = (snapshot) => {
-  const requirements = describeSupabaseConfigRequirements();
-  const missing = [];
-
-  if (!snapshot.supabaseUrl) {
-    missing.push(`Supabase URL via one of: ${requirements.urlKeys.join(', ')}`);
-  }
-
-  if (!snapshot.serviceRoleKey) {
-    missing.push(`Supabase service role key via one of: ${requirements.serviceKeys.join(', ')}`);
-  }
-
-  if (!snapshot.anonKey) {
-    missing.push(`Supabase anon key via one of: ${requirements.anonKeys.join(', ')}`);
-  }
-
-  return `Missing configuration: ${missing.join('; ')}.`;
-};
-
-const extractBearerToken = (req) => {
-  const header = req.headers.authorization;
-  if (!header) return null;
-  const matches = header.match(/^Bearer\s+(.+)$/i);
-  return matches ? matches[1].trim() : null;
-};
+  extractBearerToken,
+  normalizeSupabaseError,
+  resolveAdminRequestContext,
+  createHttpError,
+} from '../../../utils/internalEnablerApi';
 
 const canonicalStatus = (value, fallback = 'unknown') => {
   if (!value) return fallback;
   const normalized = String(value).trim().toLowerCase().replace(/[\s-]+/g, '_');
   return normalized || fallback;
-};
-
-const isPlainObject = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value));
-
-const decodeJwtClaims = (token) => {
-  if (typeof token !== 'string' || !token.includes('.')) return null;
-  const [, payloadSegment] = token.split('.');
-  if (!payloadSegment) return null;
-
-  try {
-    const normalized = payloadSegment.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
-    const decoded = Buffer.from(padded, 'base64').toString('utf8');
-    const claims = JSON.parse(decoded);
-    return isPlainObject(claims) ? claims : null;
-  } catch (error) {
-    console.error('Failed to decode JWT payload', error);
-    return null;
-  }
-};
-
-const isExpiredClaims = (claims) => {
-  if (!isPlainObject(claims)) return false;
-  const exp = Number(claims.exp);
-  if (!Number.isFinite(exp)) return false;
-  return exp * 1000 <= Date.now();
-};
-
-const coerceSupabaseUserFromClaims = (claims) => {
-  if (!isPlainObject(claims) || isExpiredClaims(claims)) return null;
-
-  const userId = typeof claims.sub === 'string' && claims.sub
-    ? claims.sub
-    : typeof claims.user_id === 'string' && claims.user_id
-      ? claims.user_id
-      : null;
-
-  if (!userId) return null;
-
-  const email = typeof claims.email === 'string' ? claims.email : null;
-
-  const userMetadata = isPlainObject(claims.user_metadata)
-    ? { ...claims.user_metadata }
-    : {};
-
-  if (typeof claims.role === 'string' && !userMetadata.role) {
-    userMetadata.role = claims.role;
-  }
-
-  const appMetadata = isPlainObject(claims.app_metadata)
-    ? { ...claims.app_metadata }
-    : {};
-
-  return {
-    id: userId,
-    email,
-    app_metadata: appMetadata,
-    user_metadata: userMetadata,
-  };
-};
-
-const createHttpError = (status, message, options = {}) => {
-  const error = new Error(message);
-  error.statusCode = status;
-  if (options && typeof options === 'object') {
-    Object.assign(error, options);
-  }
-  return error;
-};
-
-const buildConfigError = (snapshot) => {
-  const details = snapshot ? describeMissingConfig(snapshot) : null;
-  const error = createHttpError(500, 'Supabase admin client is not configured.', {
-    code: 'supabase_admin_client_missing',
-  });
-  if (details) {
-    error.details = details;
-  }
-  return error;
-};
-
-const normalizeSupabaseError = (source, error) => {
-  if (!error) {
-    return createHttpError(500, `${source} query failed for an unknown reason.`);
-  }
-
-  const messageParts = [`${source} query failed.`];
-  if (error.message) {
-    messageParts.push(error.message);
-  }
-
-  const statusFromError =
-    typeof error.status === 'number'
-      ? error.status
-      : typeof error.statusCode === 'number'
-        ? error.statusCode
-        : 500;
-
-  return createHttpError(statusFromError, messageParts.join(' '), {
-    code: error.code || null,
-    details: error.details || null,
-    hint: error.hint || null,
-    cause: error,
-  });
 };
 
 const asArray = (value) => {
@@ -230,80 +98,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const accessToken = extractBearerToken(req);
-  if (!accessToken) {
-    return res.status(401).json({ error: 'Missing access token.' });
-  }
-
-  let client = null;
-  let user = null;
-
   try {
-    const configSnapshot = getSupabaseConfigSnapshot();
-    const supabaseUrl = configSnapshot.supabaseUrl || '';
-    const supabaseAnonKey = configSnapshot.anonKey || '';
-    const schema = configSnapshot.schema || 'public';
-    const hasPublicSupabaseConfig = Boolean(supabaseUrl && supabaseAnonKey);
-
-    const serviceClient = isSupabaseServiceConfigured()
-      ? getSupabaseServiceClient()
-      : null;
-
-    const delegatedClient = hasPublicSupabaseConfig
-      ? createClient(supabaseUrl, supabaseAnonKey, {
-          auth: { autoRefreshToken: false, persistSession: false },
-          db: { schema },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              apikey: supabaseAnonKey,
-            },
-          },
-        })
-      : null;
-
-    client = serviceClient ?? delegatedClient;
-
-    if (!client) {
-      throw buildConfigError(configSnapshot);
+    const accessToken = extractBearerToken(req);
+    if (!accessToken) {
+      throw createHttpError(401, 'Missing access token.');
     }
 
-    const authClients = [
-      { label: 'service', client: serviceClient },
-      { label: 'delegated', client: delegatedClient },
-    ].filter(({ client }) => Boolean(client));
-
-    for (const { label, client: authClient } of authClients) {
-      try {
-        const { data, error } = await authClient.auth.getUser(accessToken);
-        if (error) {
-          console.error(`Failed to verify admin session via ${label} client`, error);
-          continue;
-        }
-        if (data?.user) {
-          user = data.user;
-          break;
-        }
-      } catch (authError) {
-        console.error(`Failed to verify admin session via ${label} client`, authError);
-      }
-    }
-
-    if (!user) {
-      const claims = decodeJwtClaims(accessToken);
-      const derivedUser = coerceSupabaseUserFromClaims(claims);
-      if (derivedUser) {
-        user = derivedUser;
-      }
-    }
-
-    if (!user) {
-      throw createHttpError(401, 'Invalid session. Please sign in again.');
-    }
-
-    if (!isAdminUser(user)) {
-      throw createHttpError(403, 'This account is not authorized for admin access.');
-    }
+    const { client } = await resolveAdminRequestContext(accessToken, { requireServiceRole: true });
 
     const [athletesResult, operatorsResult] = await Promise.all([
       client

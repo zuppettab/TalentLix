@@ -215,6 +215,55 @@ export default function InternalEnabler() {
     }
   }, []);
 
+  const callAdminAction = useCallback(
+    async (endpoint, payload) => {
+      if (!supabase) throw new Error('Supabase client not configured');
+
+      const accessToken = await getFreshAccessToken();
+      if (!accessToken) {
+        throw new Error('Unable to determine current session. Please sign in again.');
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload || {}),
+      });
+
+      let body = null;
+      const text = await response.text();
+      if (text) {
+        try {
+          body = JSON.parse(text);
+        } catch (parseError) {
+          console.error('Failed to parse admin action response', parseError);
+        }
+      }
+
+      if (!response.ok) {
+        const baseError = typeof body?.error === 'string' && body.error.trim() ? body.error.trim() : null;
+        const detailParts = [];
+        if (typeof body?.details === 'string' && body.details.trim()) {
+          detailParts.push(body.details.trim());
+        }
+        if (typeof body?.hint === 'string' && body.hint.trim()) {
+          detailParts.push(body.hint.trim());
+        }
+        if (typeof body?.code === 'string' && body.code.trim()) {
+          detailParts.push(`Code: ${body.code.trim()}`);
+        }
+        const fallback = `Request failed with status ${response.status}`;
+        throw new Error([baseError || fallback, ...detailParts].join(' — '));
+      }
+
+      return body;
+    },
+    [getFreshAccessToken]
+  );
+
   const loadOverview = useCallback(async () => {
     setLoading(true);
     setOpLoading(true);
@@ -390,136 +439,95 @@ export default function InternalEnabler() {
   };
 
   const startAthleteReview = async (athleteId) => {
-    if (!supabase) return;
     try {
       setBusy(athleteId);
-      const { error } = await supabase
-        .from('contacts_verification')
-        .update({
-          review_status: 'in_review',
-          verification_status_changed_at: new Date().toISOString(),
-        })
-        .eq('athlete_id', athleteId)
-        .in('review_status', ['submitted', 'needs_more_info']);
-      if (error) throw error;
+      await callAdminAction('/api/internal-enabler/athletes', {
+        action: 'start_review',
+        athleteId,
+      });
       await refreshAll();
     } catch (e) {
       console.error(e);
-      alert('Unable to mark as in review.');
+      alert(e?.message || 'Unable to mark as in review.');
     } finally {
       setBusy(null);
     }
   };
 
   const requestAthleteInfo = async (athleteId) => {
-    if (!supabase) return;
     const reason = window.prompt('Reason for the info request (optional):', '');
     if (reason === null) return;
     try {
       setBusy(athleteId);
-      const { error } = await supabase
-        .from('contacts_verification')
-        .update({
-          review_status: 'needs_more_info',
-          id_verified: false,
-          verification_status_changed_at: new Date().toISOString(),
-          rejected_reason: (reason || '').trim() || null,
-        })
-        .eq('athlete_id', athleteId)
-        .in('review_status', ['submitted', 'in_review']);
-      if (error) throw error;
+      await callAdminAction('/api/internal-enabler/athletes', {
+        action: 'request_info',
+        athleteId,
+        reason: (reason || '').trim() || null,
+      });
       await refreshAll();
     } catch (e) {
       console.error(e);
-      alert('Unable to request additional info.');
+      alert(e?.message || 'Unable to request additional info.');
     } finally {
       setBusy(null);
     }
   };
 
   const doApprove = async (athleteId) => {
-    if (!supabase) return;
     try {
       setBusy(athleteId);
-      const { error } = await supabase
-        .from('contacts_verification')
-        .update({
-          review_status: 'approved',
-          id_verified: true,
-          verified_at: new Date().toISOString(),
-          verification_status_changed_at: new Date().toISOString(),
-          rejected_reason: null,
-        })
-        .eq('athlete_id', athleteId)
-        .in('review_status', ['submitted', 'in_review']);
-      if (error) throw error;
+      await callAdminAction('/api/internal-enabler/athletes', {
+        action: 'approve',
+        athleteId,
+      });
       await refreshAll();
     } catch (e) {
       console.error(e);
-      alert('Approve failed');
+      alert(e?.message || 'Approve failed');
     } finally {
       setBusy(null);
     }
   };
 
   const doReject = async (athleteId) => {
-    if (!supabase) return;
     const reason = window.prompt('Reason for rejection (optional):', '');
     if (reason === null) return;
     try {
       setBusy(athleteId);
-      const { error } = await supabase
-        .from('contacts_verification')
-        .update({
-          review_status: 'rejected',
-          id_verified: false,
-          verification_status_changed_at: new Date().toISOString(),
-          rejected_reason: (reason || '').trim() || null,
-        })
-        .eq('athlete_id', athleteId)
-        .in('review_status', ['submitted', 'in_review']);
-      if (error) throw error;
+      await callAdminAction('/api/internal-enabler/athletes', {
+        action: 'reject',
+        athleteId,
+        reason: (reason || '').trim() || null,
+      });
       await refreshAll();
     } catch (e) {
       console.error(e);
-      alert('Reject failed');
+      alert(e?.message || 'Reject failed');
     } finally {
       setBusy(null);
     }
   };
 
   const startOperatorReview = async (row) => {
-    if (!supabase) return;
     if (!row?.verification?.id) { alert('Missing verification request.'); return; }
     try {
       setOpBusy(row.id);
-      const payload = { state: 'IN_REVIEW', reason: null };
-      if (!row.verification?.submitted_at) {
-        payload.submitted_at = new Date().toISOString();
-      }
-      const { error: reqErr } = await supabase
-        .from('op_verification_request')
-        .update(payload)
-        .eq('id', row.verification.id);
-      if (reqErr) throw reqErr;
-
-      const { error: accErr } = await supabase
-        .from('op_account')
-        .update({ wizard_status: 'SUBMITTED' })
-        .eq('id', row.id);
-      if (accErr) throw accErr;
-
+      await callAdminAction('/api/internal-enabler/operators', {
+        action: 'start_review',
+        operatorId: row.id,
+        verificationId: row.verification.id,
+        markSubmitted: !row.verification?.submitted_at,
+      });
       await refreshAll();
     } catch (e) {
       console.error(e);
-      alert('Failed to start operator review');
+      alert(e?.message || 'Failed to start operator review');
     } finally {
       setOpBusy(null);
     }
   };
 
   const requestOperatorInfo = async (row) => {
-    if (!supabase) return;
     if (!row?.verification?.id) { alert('Missing verification request.'); return; }
     const reason = window.prompt('Reason for the info request (required):', '');
     if (reason === null) return;
@@ -527,55 +535,40 @@ export default function InternalEnabler() {
     if (!trimmed) { alert('Please provide a valid reason.'); return; }
     try {
       setOpBusy(row.id);
-      const { error: reqErr } = await supabase
-        .from('op_verification_request')
-        .update({ state: 'NEEDS_MORE_INFO', reason: trimmed })
-        .eq('id', row.verification.id);
-      if (reqErr) throw reqErr;
-
-      const { error: accErr } = await supabase
-        .from('op_account')
-        .update({ wizard_status: 'IN_PROGRESS' })
-        .eq('id', row.id);
-      if (accErr) throw accErr;
-
+      await callAdminAction('/api/internal-enabler/operators', {
+        action: 'request_info',
+        operatorId: row.id,
+        verificationId: row.verification.id,
+        reason: trimmed,
+      });
       await refreshAll();
     } catch (e) {
       console.error(e);
-      alert('Operator update failed');
+      alert(e?.message || 'Operator update failed');
     } finally {
       setOpBusy(null);
     }
   };
 
   const approveOperator = async (row) => {
-    if (!supabase) return;
     if (!row?.verification?.id) { alert('Missing verification request.'); return; }
     try {
       setOpBusy(row.id);
-      const { error: reqErr } = await supabase
-        .from('op_verification_request')
-        .update({ state: 'VERIFIED', reason: null })
-        .eq('id', row.verification.id);
-      if (reqErr) throw reqErr;
-
-      const { error: accErr } = await supabase
-        .from('op_account')
-        .update({ status: 'active', wizard_status: 'COMPLETED' })
-        .eq('id', row.id);
-      if (accErr) throw accErr;
-
+      await callAdminAction('/api/internal-enabler/operators', {
+        action: 'approve',
+        operatorId: row.id,
+        verificationId: row.verification.id,
+      });
       await refreshAll();
     } catch (e) {
       console.error(e);
-      alert('Operator approve failed');
+      alert(e?.message || 'Operator approve failed');
     } finally {
       setOpBusy(null);
     }
   };
 
   const rejectOperator = async (row) => {
-    if (!supabase) return;
     if (!row?.verification?.id) { alert('Missing verification request.'); return; }
     const reason = window.prompt('Reason for rejection (required):', '');
     if (reason === null) return;
@@ -583,16 +576,16 @@ export default function InternalEnabler() {
     if (!trimmed) { alert('Please provide a rejection reason.'); return; }
     try {
       setOpBusy(row.id);
-      const { error: reqErr } = await supabase
-        .from('op_verification_request')
-        .update({ state: 'REJECTED', reason: trimmed })
-        .eq('id', row.verification.id);
-      if (reqErr) throw reqErr;
-
+      await callAdminAction('/api/internal-enabler/operators', {
+        action: 'reject',
+        operatorId: row.id,
+        verificationId: row.verification.id,
+        reason: trimmed,
+      });
       await refreshAll();
     } catch (e) {
       console.error(e);
-      alert('Operator reject failed');
+      alert(e?.message || 'Operator reject failed');
     } finally {
       setOpBusy(null);
     }
