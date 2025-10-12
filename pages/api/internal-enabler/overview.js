@@ -1,15 +1,28 @@
-import { createClient } from '@supabase/supabase-js';
 import { isAdminUser } from '../../../utils/authRoles';
-import { getSupabaseServiceClient, isSupabaseServiceConfigured } from '../../../utils/supabaseAdminClient';
+import {
+  describeSupabaseConfigRequirements,
+  getSupabaseConfigSnapshot,
+  getSupabasePublicClient,
+  getSupabaseServiceClient,
+} from '../../../utils/supabaseAdminClient';
+
+const describeMissingConfig = (snapshot) => {
+  const requirements = describeSupabaseConfigRequirements();
+  const missing = [];
+
+  if (!snapshot.supabaseUrl) {
+    missing.push(`Supabase URL via one of: ${requirements.urlKeys.join(', ')}`);
+  }
+
+  if (!snapshot.serviceRoleKey) {
+    missing.push(`Supabase service role key via one of: ${requirements.serviceKeys.join(', ')}`);
+  }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
-const hasPublicSupabaseConfig =
-  typeof supabaseUrl === 'string' &&
-  supabaseUrl.trim() !== '' &&
-  typeof supabaseAnonKey === 'string' &&
-  supabaseAnonKey.trim() !== '';
+  return `Missing configuration: ${missing.join('; ')}.`;
+};
 
 const extractBearerToken = (req) => {
   const header = req.headers.authorization;
@@ -92,7 +105,7 @@ const createHttpError = (status, message, options = {}) => {
   return error;
 };
 
-const buildConfigError = () => {
+const buildConfigError = (snapshot) => {
   return createHttpError(500, 'Supabase admin client is not configured.', {
     code: 'supabase_admin_client_missing',
     details:
