@@ -334,6 +334,7 @@ export default function OperatorWizard() {
   const [docRulesLoaded, setDocRulesLoaded] = useState(false);
   const [verifReq, setVerifReq] = useState(null);// {id,state,...}
   const [documents, setDocuments] = useState({}); // { [doc_type]: {file_key,file_hash,...} }
+  const [docUploading, setDocUploading] = useState({}); // { [doc_type]: true }
 
   // STEP 4 — Privacy
   const [gdprHtml, setGdprHtml] = useState('');
@@ -941,11 +942,13 @@ export default function OperatorWizard() {
    *  UPLOAD DOCS (stile upload atleti)
    * ------------------------- */
   const handleUpload = async (file, docType) => {
-    if (!file) return;
+    if (!file || !docType) return;
+    if (docUploading[docType]) return;
     let key;
     try {
       setErrorMessage('');
       setDocCleanupMessage('');
+      setDocUploading((prev) => ({ ...prev, [docType]: true }));
       const previous = documents[docType];
       const acc = await ensureAccount();
       const req = await ensureOpenRequest();
@@ -1004,10 +1007,18 @@ export default function OperatorWizard() {
           .remove([key]);
         if (cleanupErr) console.warn('Failed to cleanup uploaded file after error', cleanupErr);
       }
+    } finally {
+      setDocUploading((prev) => {
+        if (!prev || !prev[docType]) return prev;
+        const clone = { ...prev };
+        delete clone[docType];
+        return clone;
+      });
     }
   };
 
   const handleRemove = async (docType) => {
+    if (docUploading[docType]) return;
     try {
       setErrorMessage('');
       setDocCleanupMessage('');
@@ -1097,7 +1108,9 @@ export default function OperatorWizard() {
       ? { bg:'#e7f5ff', border:'#a5d8ff', color:'#1c7ed6' }
       : { bg:'#f1f3f5', border:'#dee2e6', color:'#495057' };
     const statusUploaded = { bg:'#d3f9d8', border:'#b2f2bb', color:'#2f9e44' };
-    const statusPending = { bg:'#fff4e6', border:'#ffd8a8', color:'#d9480f' };
+    const statusMissing = { bg:'#ffe3e3', border:'#ffa8a8', color:'#c92a2a' };
+    const statusOptional = { bg:'#fff4e6', border:'#ffd8a8', color:'#d9480f' };
+    const statusUploading = { bg:'#fff9db', border:'#ffe066', color:'#e67700' };
     const statusBase = {
       display:'inline-flex',
       alignItems:'center',
@@ -1164,7 +1177,22 @@ export default function OperatorWizard() {
             const label = getDocLabel(docType, selectedTypeCode);
             const doc = documents[docType];
             const hasDoc = !!doc;
-            const statusPalette = hasDoc ? statusUploaded : statusPending;
+            const isUploading = !!docUploading[docType];
+            const disableInteractions = isUploading;
+            const statusPalette = isUploading
+              ? statusUploading
+              : hasDoc
+                ? statusUploaded
+                : rule.is_required
+                  ? statusMissing
+                  : statusOptional;
+            const statusLabel = isUploading
+              ? 'Uploading…'
+              : hasDoc
+                ? 'Uploaded'
+                : rule.is_required
+                  ? 'Missing'
+                  : 'Optional';
             const inputId = `doc-upload-${docType}`;
             const fileName = doc?.file_key ? doc.file_key.split('/').pop() : '';
             const fileSize = doc?.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : '—';
@@ -1178,8 +1206,10 @@ export default function OperatorWizard() {
                   padding:16,
                   background:'#fff',
                   display:'grid',
-                  gap:12
+                  gap:12,
+                  position:'relative'
                 }}
+                aria-busy={isUploading ? 'true' : 'false'}
               >
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
                   <div
@@ -1203,14 +1233,32 @@ export default function OperatorWizard() {
                       color:statusPalette.color
                     }}
                   >
-                    {hasDoc ? 'Uploaded' : 'Pending'}
+                    {statusLabel}
                   </span>
                 </div>
 
                 {!hasDoc ? (
-                  <label htmlFor={inputId} style={dropzoneStyle}>
-                    <span style={{ fontWeight:600, color:'#1864ab', fontSize: FONT_SIZES.body }}>Select a file</span>
-                    <span style={{ fontSize: FONT_SIZES.small, color:'#495057' }}>PDF, JPG or PNG</span>
+                  <label
+                    htmlFor={inputId}
+                    style={{
+                      ...dropzoneStyle,
+                      ...(disableInteractions
+                        ? { cursor:'wait', opacity:0.7, pointerEvents:'none' }
+                        : null),
+                    }}
+                    aria-disabled={disableInteractions || undefined}
+                  >
+                    {disableInteractions ? (
+                      <div style={styles.docUploadingPlaceholder}>
+                        <div style={styles.docUploadingSpinner} aria-hidden="true" />
+                        <span style={styles.srOnly}>Uploading document…</span>
+                      </div>
+                    ) : (
+                      <>
+                        <span style={{ fontWeight:600, color:'#1864ab', fontSize: FONT_SIZES.body }}>Select a file</span>
+                        <span style={{ fontSize: FONT_SIZES.small, color:'#495057' }}>PDF, JPG or PNG</span>
+                      </>
+                    )}
                   </label>
                 ) : (
                   <div style={{ display:'grid', gap:12, color:'#495057' }}>
@@ -1236,8 +1284,26 @@ export default function OperatorWizard() {
                     </div>
 
                     <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-                      <label htmlFor={inputId} style={replaceButtonStyle}>Replace file</label>
-                      <button type="button" onClick={() => handleRemove(docType)} style={removeButtonStyle}>Remove</button>
+                      <label
+                        htmlFor={inputId}
+                        style={{
+                          ...replaceButtonStyle,
+                          ...(disableInteractions ? { opacity:0.65, cursor:'wait', pointerEvents:'none' } : null),
+                        }}
+                      >
+                        {disableInteractions ? 'Uploading…' : 'Replace file'}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(docType)}
+                        style={{
+                          ...removeButtonStyle,
+                          ...(disableInteractions ? { opacity:0.5, cursor:'not-allowed' } : null),
+                        }}
+                        disabled={disableInteractions}
+                      >
+                        Remove
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1254,6 +1320,13 @@ export default function OperatorWizard() {
                     e.target.value = '';
                   }}
                 />
+
+                {isUploading && hasDoc && (
+                  <div style={styles.docUploadingOverlay} role="status" aria-live="polite" aria-atomic="true">
+                    <div style={styles.docUploadingSpinner} aria-hidden="true" />
+                    <span style={styles.srOnly}>Uploading document…</span>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -2108,6 +2181,10 @@ const styles = {
   loaderContainer:{ display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16, padding:48, textAlign:'center', minHeight:'calc(100vh - 32px)', width:'100%' },
   spinner:{ width:48, height:48, borderRadius:'50%', border:'4px solid #27E3DA', borderTopColor:'#F7B84E', animation:'profileSpin 1s linear infinite' },
   srOnly:{ position:'absolute', width:1, height:1, padding:0, margin:-1, overflow:'hidden', clip:'rect(0,0,0,0)', whiteSpace:'nowrap', border:0 },
+
+  docUploadingOverlay:{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:8, background:'rgba(255,255,255,0.8)', borderRadius:12, pointerEvents:'all' },
+  docUploadingPlaceholder:{ display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:8, width:'100%', minHeight:60 },
+  docUploadingSpinner:{ width:32, height:32, borderRadius:'50%', border:'3px solid #27E3DA', borderTopColor:'#F7B84E', animation:'profileSpin 1s linear infinite' },
 
   gdprBox:{ border:'1px solid #ccc', borderRadius:8, padding:12, maxHeight:200, overflowY:'auto', background:'#fafafa', fontSize: FONT_SIZES.small, textAlign:'left' },
 };
