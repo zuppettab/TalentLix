@@ -2,8 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import { isAdminUser } from '../../../utils/authRoles';
 import { getSupabaseServiceClient, isSupabaseServiceConfigured } from '../../../utils/supabaseAdminClient';
 
-const supabase = getSupabaseServiceClient();
-
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
@@ -223,7 +221,9 @@ export default async function handler(req, res) {
   let user = null;
 
   try {
-    const serviceClient = isSupabaseServiceConfigured && supabase ? supabase : null;
+    const serviceClient = isSupabaseServiceConfigured()
+      ? getSupabaseServiceClient()
+      : null;
     const fallbackClient = hasPublicSupabaseConfig
       ? createClient(supabaseUrl, supabaseAnonKey, {
           auth: { autoRefreshToken: false, persistSession: false },
