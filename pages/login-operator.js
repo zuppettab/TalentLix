@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import {
   isOperatorUser,
@@ -26,6 +26,43 @@ export default function LoginOperator() {
     }
   }, [router]);
 
+  const routeAfterLogin = useCallback(async (userId) => {
+    if (!userId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('op_account')
+        .select(`
+          id,
+          wizard_status,
+          op_verification_request:op_verification_request(id, state, submitted_at)
+        `)
+        .eq('auth_user_id', userId)
+        .order('created_at', { ascending: false, foreignTable: 'op_verification_request' })
+        .limit(1, { foreignTable: 'op_verification_request' })
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') throw error;
+
+      const wizardStatus = data?.wizard_status ? String(data.wizard_status).trim().toUpperCase() : '';
+      const request = Array.isArray(data?.op_verification_request)
+        ? data.op_verification_request[0]
+        : data?.op_verification_request || null;
+      const requestState = request?.state ? String(request.state).trim().toUpperCase() : '';
+
+      if (requestState === 'VERIFIED' || wizardStatus === 'COMPLETED') {
+        router.push('/operator-dashboard');
+      } else if (wizardStatus === 'SUBMITTED' || requestState === 'IN_REVIEW') {
+        router.push('/operator-in-review');
+      } else {
+        router.push('/operator-wizard');
+      }
+    } catch (err) {
+      console.error('Failed to determine operator destination', err);
+      router.push('/operator-wizard');
+    }
+  }, [router]);
+
   useEffect(() => {
     const checkUser = async () => {
       if (!supabase) return;
@@ -35,7 +72,7 @@ export default function LoginOperator() {
 
       const user = data?.user;
       if (user && isOperatorUser(user)) {
-        router.push('/operator-wizard');
+        routeAfterLogin(user.id);
       } else if (user) {
         await supabase.auth.signOut();
         setError(OPERATOR_UNAUTHORIZED_MESSAGE);
@@ -43,7 +80,7 @@ export default function LoginOperator() {
     };
 
     checkUser();
-  }, [router]);
+  }, [routeAfterLogin]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -71,7 +108,7 @@ export default function LoginOperator() {
         await supabase.auth.signOut();
         setError(OPERATOR_UNAUTHORIZED_MESSAGE);
       } else {
-        router.push('/operator-wizard');
+        await routeAfterLogin(user.id);
       }
     }
 

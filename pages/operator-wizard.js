@@ -137,6 +137,7 @@ export default function OperatorWizard() {
   // Step
   const [step, setStep] = useState(1);
   const hasInitializedStep = useRef(false);
+  const restartHandledRef = useRef(false);
   const previousTypeRef = useRef('');
   const makeStorageKey = useCallback((id) => (id ? `operator_wizard_step:${id}` : null), []);
   const stepStorageKey = useMemo(
@@ -171,6 +172,30 @@ export default function OperatorWizard() {
       console.warn('Failed to persist operator wizard step', err);
     }
   }, [makeStorageKey, stepStorageKey]);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (restartHandledRef.current) return;
+
+    const rawParam = router.query?.restart;
+    const values = Array.isArray(rawParam) ? rawParam : [rawParam];
+    const shouldRestart = values.some((value) => {
+      if (!value) return false;
+      const normalized = String(value).trim().toLowerCase();
+      return normalized === '1' || normalized === 'true' || normalized === 'yes';
+    });
+
+    if (!shouldRestart) return;
+
+    restartHandledRef.current = true;
+    hasInitializedStep.current = true;
+    setStep(1);
+    writeStoredStep(1);
+
+    const nextQuery = { ...router.query };
+    delete nextQuery.restart;
+    router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
+  }, [router, writeStoredStep]);
 
   // STEP 1 — Anagrafica
   const [profile, setProfile] = useState({
@@ -411,7 +436,16 @@ export default function OperatorWizard() {
           const cons = Array.isArray(acc.op_privacy_consent) ? acc.op_privacy_consent[0] : acc.op_privacy_consent;
           if (cons?.accepted_at) setPrivacy({ accepted:true });
 
-          if (acc.wizard_status === WIZARD.SUBMITTED || acc.wizard_status === WIZARD.COMPLETED) {
+          const normalizedWizardStatus = acc?.wizard_status ? String(acc.wizard_status).trim().toUpperCase() : '';
+          const normalizedReviewState = vr?.state ? String(vr.state).trim().toUpperCase() : '';
+
+          if (normalizedReviewState === VERIF_STATE.VERIFIED || normalizedWizardStatus === WIZARD.COMPLETED) {
+            writeStoredStep(null, u?.id || null);
+            router.replace('/operator-dashboard');
+            return;
+          }
+
+          if (normalizedWizardStatus === WIZARD.SUBMITTED || normalizedReviewState === VERIF_STATE.IN_REVIEW) {
             writeStoredStep(null, u?.id || null);
             router.replace('/operator-in-review');
             return;
