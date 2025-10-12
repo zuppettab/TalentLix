@@ -16,10 +16,13 @@ const readServiceConfig = () => {
     'SUPABASE_SERVICE_ROLE_KEY',
     'SUPABASE_SERVICE_ROLE',
     'SUPABASE_SERVICE_KEY',
+    'SUPABASE_SERVICE_API_KEY',
+    'SUPABASE_SERVICE_SECRET',
     'SUPABASE_SECRET_KEY',
     'SUPABASE_KEY'
   );
-  return { supabaseUrl, serviceRoleKey };
+  const schema = getEnvVar('SUPABASE_DB_SCHEMA', 'NEXT_PUBLIC_SUPABASE_SCHEMA') || 'public';
+  return { supabaseUrl, serviceRoleKey, schema };
 };
 
 let cachedClient = null;
@@ -31,15 +34,22 @@ export const isSupabaseServiceConfigured = () => {
 };
 
 export const getSupabaseServiceClient = () => {
-  const { supabaseUrl, serviceRoleKey } = readServiceConfig();
+  const { supabaseUrl, serviceRoleKey, schema } = readServiceConfig();
   if (!supabaseUrl || !serviceRoleKey) {
     return null;
   }
 
-  const configKey = `${supabaseUrl}::${serviceRoleKey}`;
+  const configKey = `${supabaseUrl}::${serviceRoleKey}::${schema}`;
   if (!cachedClient || cachedConfigKey !== configKey) {
     cachedClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
+      db: { schema },
+      global: {
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+        },
+      },
     });
     cachedConfigKey = configKey;
   }
