@@ -164,8 +164,60 @@ export const isSupabaseServiceConfigured = () => {
   return Boolean(supabaseUrl && serviceRoleKey);
 };
 
+const createServiceCacheKey = ({ supabaseUrl, serviceRoleKey, schema }) =>
+  [supabaseUrl || '', serviceRoleKey || '', schema || 'public'].join('::');
+
+const createPublicCacheKey = ({ supabaseUrl, anonKey, schema }) =>
+  [supabaseUrl || '', anonKey || '', schema || 'public'].join('::');
+
+const createSupabaseClient = (supabaseUrl, supabaseKey, schema) =>
+  createClient(supabaseUrl, supabaseKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    db: { schema },
+    global: {
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+      },
+    },
+  });
+
 export const getSupabaseServiceClient = () => {
   const { supabaseUrl, serviceRoleKey, schema } = readServiceConfig();
   if (!supabaseUrl || !serviceRoleKey) {
     return null;
   }
+
+  const cacheKey = createServiceCacheKey({ supabaseUrl, serviceRoleKey, schema });
+  if (cachedServiceClient && cachedServiceConfigKey === cacheKey) {
+    return cachedServiceClient;
+  }
+
+  cachedServiceClient = createSupabaseClient(supabaseUrl, serviceRoleKey, schema);
+  cachedServiceConfigKey = cacheKey;
+  return cachedServiceClient;
+};
+
+export const getSupabasePublicClient = () => {
+  const { supabaseUrl, anonKey, schema } = readPublicConfig();
+  if (!supabaseUrl || !anonKey) {
+    return null;
+  }
+
+  const cacheKey = createPublicCacheKey({ supabaseUrl, anonKey, schema });
+  if (cachedPublicClient && cachedPublicConfigKey === cacheKey) {
+    return cachedPublicClient;
+  }
+
+  cachedPublicClient = createSupabaseClient(supabaseUrl, anonKey, schema);
+  cachedPublicConfigKey = cacheKey;
+  return cachedPublicClient;
+};
+
+export const resetSupabaseAdminClientCache = () => {
+  cachedServiceClient = null;
+  cachedServiceConfigKey = null;
+  cachedPublicClient = null;
+  cachedPublicConfigKey = null;
+};
+
