@@ -147,12 +147,8 @@ export const resolveAdminRequestContext = async (accessToken, options = {}) => {
   const serviceConfigured = isSupabaseServiceConfigured();
   const serviceClient = serviceConfigured ? getSupabaseServiceClient() : null;
 
-  if (requireServiceRole && !serviceClient) {
-    throw buildConfigError(configSnapshot);
-  }
-
   let delegatedClient = null;
-  if (!requireServiceRole && supabaseUrl && supabaseAnonKey) {
+  if (supabaseUrl && supabaseAnonKey) {
     delegatedClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: { autoRefreshToken: false, persistSession: false },
       db: { schema },
@@ -165,6 +161,10 @@ export const resolveAdminRequestContext = async (accessToken, options = {}) => {
     });
   }
 
+  if (requireServiceRole && !serviceClient && !delegatedClient) {
+    throw buildConfigError(configSnapshot);
+  }
+
   const candidateClients = [
     { label: 'service', client: serviceClient },
     { label: 'delegated', client: delegatedClient },
@@ -172,6 +172,12 @@ export const resolveAdminRequestContext = async (accessToken, options = {}) => {
 
   if (!candidateClients.length) {
     throw buildConfigError(configSnapshot);
+  }
+
+  if (requireServiceRole && !serviceClient && delegatedClient) {
+    console.warn(
+      'Supabase service role key is not configured. Falling back to delegated admin client.'
+    );
   }
 
   let user = null;
