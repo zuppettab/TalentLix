@@ -236,10 +236,19 @@ export default function InternalEnabler() {
       });
       const payload = await response.json();
       if (!response.ok) {
-        const errorMessage = typeof payload?.error === 'string' && payload.error
-          ? payload.error
-          : `Request failed with status ${response.status}`;
-        throw new Error(errorMessage);
+        const baseError = typeof payload?.error === 'string' && payload.error ? payload.error.trim() : '';
+        const detailParts = [];
+        if (typeof payload?.details === 'string' && payload.details.trim()) {
+          detailParts.push(payload.details.trim());
+        }
+        if (typeof payload?.hint === 'string' && payload.hint.trim()) {
+          detailParts.push(payload.hint.trim());
+        }
+        if (typeof payload?.code === 'string' && payload.code.trim()) {
+          detailParts.push(`Code: ${payload.code.trim()}`);
+        }
+        const fullMessage = [baseError || `Request failed with status ${response.status}`, ...detailParts].join(' — ');
+        throw new Error(fullMessage);
       }
       const athletes = Array.isArray(payload.athletes) ? payload.athletes : [];
       const operators = Array.isArray(payload.operators) ? payload.operators : [];

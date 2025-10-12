@@ -85,10 +85,46 @@ const coerceSupabaseUserFromClaims = (claims) => {
   };
 };
 
-const createHttpError = (status, message) => {
+const createHttpError = (status, message, options = {}) => {
   const error = new Error(message);
   error.statusCode = status;
+  if (options && typeof options === 'object') {
+    Object.assign(error, options);
+  }
   return error;
+};
+
+const buildConfigError = () => {
+  return createHttpError(500, 'Supabase admin client is not configured.', {
+    code: 'supabase_admin_client_missing',
+    details:
+      'Ensure SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_URL, and NEXT_PUBLIC_SUPABASE_ANON_KEY are defined in the environment.',
+  });
+};
+
+const normalizeSupabaseError = (source, error) => {
+  if (!error) {
+    return createHttpError(500, `${source} query failed for an unknown reason.`);
+  }
+
+  const messageParts = [`${source} query failed.`];
+  if (error.message) {
+    messageParts.push(error.message);
+  }
+
+  const statusFromError =
+    typeof error.status === 'number'
+      ? error.status
+      : typeof error.statusCode === 'number'
+        ? error.statusCode
+        : 500;
+
+  return createHttpError(statusFromError, messageParts.join(' '), {
+    code: error.code || null,
+    details: error.details || null,
+    hint: error.hint || null,
+    cause: error,
+  });
 };
 
 const asArray = (value) => {
@@ -203,7 +239,7 @@ export default async function handler(req, res) {
     client = serviceClient ?? fallbackClient;
 
     if (!client) {
-      throw createHttpError(500, 'Supabase admin client not configured.');
+      throw buildConfigError();
     }
 
     if (serviceClient) {
@@ -274,8 +310,8 @@ export default async function handler(req, res) {
         ),
     ]);
 
-    if (athletesResult.error) throw athletesResult.error;
-    if (operatorsResult.error) throw operatorsResult.error;
+    if (athletesResult.error) throw normalizeSupabaseError('Athlete overview', athletesResult.error);
+    if (operatorsResult.error) throw normalizeSupabaseError('Operator overview', operatorsResult.error);
 
     const athletes = (athletesResult.data || []).map(normalizeAthleteRow);
     const operators = (operatorsResult.data || []).map(normalizeOperatorRow);
@@ -286,10 +322,17 @@ export default async function handler(req, res) {
     const message = typeof error?.message === 'string' && error.message
       ? error.message
       : 'Unable to load admin overview data.';
+    const code = typeof error?.code === 'string' && error.code ? error.code : null;
+    const details = typeof error?.details === 'string' && error.details ? error.details : null;
+    const hint = typeof error?.hint === 'string' && error.hint ? error.hint : null;
     console.error('Internal enabler overview failed', error);
-    if (statusCode >= 500) {
-      return res.status(statusCode).json({ error: 'Unable to load admin overview data.' });
-    }
-    return res.status(statusCode).json({ error: message });
+    const responseBody = {
+      error: message || 'Unable to load admin overview data.',
+    };
+    if (code) responseBody.code = code;
+    if (details) responseBody.details = details;
+    if (hint) responseBody.hint = hint;
+
+    return res.status(statusCode).json(responseBody);
   }
 }
