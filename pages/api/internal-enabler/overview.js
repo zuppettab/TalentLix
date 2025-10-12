@@ -18,16 +18,8 @@ const describeMissingConfig = (snapshot) => {
     missing.push(`Supabase service role key via one of: ${requirements.serviceKeys.join(', ')}`);
   }
 
-  if (!snapshot.supabaseAnonKey) {
-    const anonKeysList = requirements.anonKeys.join(', ');
-    missing.push(
-      `Supabase anon/public key (required when the service role key is unavailable) via one of: ${anonKeysList}`
-    );
-  }
-
-  if (!missing.length) {
-    return 'Supabase environment variables are missing or empty.';
-  }
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
   return `Missing configuration: ${missing.join('; ')}.`;
 };
@@ -116,7 +108,8 @@ const createHttpError = (status, message, options = {}) => {
 const buildConfigError = (snapshot) => {
   return createHttpError(500, 'Supabase admin client is not configured.', {
     code: 'supabase_admin_client_missing',
-    details: describeMissingConfig(snapshot),
+    details:
+      'Ensure SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY / SUPABASE_SERVICE_API_KEY), NEXT_PUBLIC_SUPABASE_URL, and NEXT_PUBLIC_SUPABASE_ANON_KEY are defined in the environment.',
   });
 };
 
@@ -241,41 +234,38 @@ export default async function handler(req, res) {
   let user = null;
 
   try {
-    const configSnapshot = getSupabaseConfigSnapshot();
-    const serviceClient = configSnapshot.isServiceConfigured ? getSupabaseServiceClient() : null;
-    const fallbackClient = configSnapshot.isPublicConfigured
-      ? getSupabasePublicClient({
-          auth: { autoRefreshToken: false, persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              apikey: configSnapshot.supabaseAnonKey,
-            },
-          },
-        })
+    const serviceClient = isSupabaseServiceConfigured()
+      ? getSupabaseServiceClient()
       : null;
 
-    client = serviceClient ?? fallbackClient;
-
-    if (!client) {
-      throw buildConfigError(configSnapshot);
+    if (!serviceClient) {
+      throw buildConfigError();
     }
 
-    if (serviceClient) {
-      const { data, error } = await serviceClient.auth.getUser(accessToken);
-      if (error) {
-        console.error('Failed to verify admin session via service client', error);
-      } else {
-        user = data?.user || null;
-      }
+    client = serviceClient;
+
+    const { data: serviceAuthData, error: serviceAuthError } = await serviceClient.auth.getUser(accessToken);
+    if (serviceAuthError) {
+      console.error('Failed to verify admin session via service client', serviceAuthError);
+    } else {
+      user = serviceAuthData?.user || null;
     }
 
-    if (!user && fallbackClient) {
-      const { data, error } = await fallbackClient.auth.getUser(accessToken);
-      if (error) {
-        console.error('Failed to verify admin session via fallback client', error);
+    if (!user && hasPublicSupabaseConfig) {
+      const delegatedClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            apikey: supabaseAnonKey,
+          },
+        },
+      });
+      const { data: delegatedAuthData, error: delegatedAuthError } = await delegatedClient.auth.getUser(accessToken);
+      if (delegatedAuthError) {
+        console.error('Failed to verify admin session via delegated client', delegatedAuthError);
       } else {
-        user = data?.user || null;
+        user = delegatedAuthData?.user || null;
       }
     }
 
@@ -293,10 +283,6 @@ export default async function handler(req, res) {
 
     if (!isAdminUser(user)) {
       throw createHttpError(403, 'This account is not authorized for admin access.');
-    }
-
-    if (serviceClient) {
-      client = serviceClient;
     }
 
     const [athletesResult, operatorsResult] = await Promise.all([
