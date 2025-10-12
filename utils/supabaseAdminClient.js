@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL_KEYS = ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL'];
-const SUPABASE_SERVICE_KEYS = [
+const BASE_SUPABASE_SERVICE_KEYS = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'SUPABASE_SERVICE_ROLE',
   'SUPABASE_SERVICE_KEY',
@@ -36,6 +36,41 @@ const SUPABASE_ANON_KEYS = [
 ];
 const SUPABASE_SCHEMA_KEYS = ['SUPABASE_DB_SCHEMA', 'NEXT_PUBLIC_SUPABASE_SCHEMA'];
 
+const asArray = (value) => (Array.isArray(value) ? value : []);
+
+const discoverEnvKeys = (tokenGroups) => {
+  const envKeys = Object.keys(process.env || {});
+  const matches = new Set();
+
+  for (const key of envKeys) {
+    const normalized = key.toUpperCase();
+    for (const tokens of tokenGroups) {
+      if (tokens.every((token) => normalized.includes(token))) {
+        matches.add(key);
+        break;
+      }
+    }
+  }
+
+  return [...matches];
+};
+
+const getSupabaseServiceKeys = () => {
+  const dynamicCandidates = discoverEnvKeys([
+    ['SUPABASE', 'SERVICE', 'ROLE', 'KEY'],
+    ['SUPABASE', 'SERVICE', 'ROLE', 'TOKEN'],
+    ['SUPABASE', 'SERVICE', 'ROLE', 'SECRET'],
+    ['SUPABASE', 'SERVICE', 'ROLE', 'PRIVATE'],
+    ['SUPABASE', 'ADMIN', 'KEY'],
+    ['SUPABASE', 'ADMIN', 'TOKEN'],
+    ['SUPABASE', 'SERVICE', 'ADMIN', 'KEY'],
+    ['SUPABASE', 'SERVICE', 'ADMIN', 'TOKEN'],
+  ]);
+
+  const keys = new Set([...BASE_SUPABASE_SERVICE_KEYS, ...asArray(dynamicCandidates)]);
+  return [...keys];
+};
+
 const getEnvVar = (...candidates) => {
   for (const key of candidates) {
     const raw = process.env[key];
@@ -48,7 +83,7 @@ const getEnvVar = (...candidates) => {
 
 const readServiceConfig = () => {
   const supabaseUrl = getEnvVar(...SUPABASE_URL_KEYS);
-  const serviceRoleKey = getEnvVar(...SUPABASE_SERVICE_KEYS);
+  const serviceRoleKey = getEnvVar(...getSupabaseServiceKeys());
   const schema = getEnvVar(...SUPABASE_SCHEMA_KEYS) || 'public';
   return { supabaseUrl, serviceRoleKey, schema };
 };
@@ -67,7 +102,7 @@ let cachedPublicConfigKey = null;
 
 export const describeSupabaseConfigRequirements = () => ({
   urlKeys: [...SUPABASE_URL_KEYS],
-  serviceKeys: [...SUPABASE_SERVICE_KEYS],
+  serviceKeys: [...getSupabaseServiceKeys()],
   anonKeys: [...SUPABASE_ANON_KEYS],
   schemaKeys: [...SUPABASE_SCHEMA_KEYS],
 });
