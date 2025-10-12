@@ -689,14 +689,90 @@ export default function OperatorWizard() {
       return { id: openReq.id, state: openReq.state, account_id: acc.id };
     }
 
+    let previousDocs = [];
+    try {
+      const { data: latestRequest, error: latestErr } = await supabase
+        .from('op_verification_request')
+        .select('id,op_verification_document:op_verification_document(*)')
+        .eq('op_id', acc.id)
+        .order('created_at', { ascending:false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!latestErr && latestRequest) {
+        const docsArray = Array.isArray(latestRequest.op_verification_document)
+          ? latestRequest.op_verification_document
+          : (latestRequest.op_verification_document ? [latestRequest.op_verification_document] : []);
+        previousDocs = docsArray
+          .filter(Boolean)
+          .map((doc) => ({
+            doc_type: doc.doc_type,
+            file_key: doc.file_key,
+            file_hash: doc.file_hash,
+            mime_type: doc.mime_type,
+            file_size: doc.file_size,
+            expires_at: doc.expires_at || null,
+          }));
+      }
+    } catch (latestErr) {
+      console.warn('Unable to inspect previous operator verification request', latestErr);
+    }
+
     const { data: created, error: insertErr } = await supabase
       .from('op_verification_request')
       .insert([{ op_id: acc.id, state: VERIF_STATE.NOT_STARTED }])
       .select('id,state,reason,submitted_at')
       .single();
     if (insertErr) throw insertErr;
-    setVerifReq(created);
-    setDocuments({});
+
+    setVerifReq({
+      id: created.id,
+      state: created.state,
+      reason: created.reason,
+      submitted_at: created.submitted_at,
+    });
+
+    if (previousDocs.length > 0) {
+      try {
+        const payloads = previousDocs.map((doc) => ({
+          verification_id: created.id,
+          ...doc,
+        }));
+        const { data: clonedDocs, error: cloneErr } = await supabase
+          .from('op_verification_document')
+          .insert(payloads)
+          .select('verification_id,doc_type,file_key,file_hash,mime_type,file_size,expires_at');
+
+        if (cloneErr) throw cloneErr;
+
+        const normalizedDocs = Array.isArray(clonedDocs)
+          ? clonedDocs
+          : (clonedDocs ? [clonedDocs] : []);
+
+        const mapped = {};
+        for (const doc of normalizedDocs) {
+          mapped[doc.doc_type] = {
+            doc_type: doc.doc_type,
+            file_key: doc.file_key,
+            file_hash: doc.file_hash,
+            mime_type: doc.mime_type,
+            file_size: doc.file_size,
+            expires_at: doc.expires_at,
+          };
+        }
+
+        setDocuments(mapped);
+        setDocCleanupMessage('Previously uploaded documents have been restored. Please review them before resubmitting.');
+      } catch (cloneErr) {
+        console.error('Failed to restore previous operator documents', cloneErr);
+        setDocuments({});
+        setDocCleanupMessage('We could not restore your previous documents automatically. Please review them and upload again.');
+      }
+    } else {
+      setDocuments({});
+      setDocCleanupMessage('');
+    }
+
     return { id: created.id, state: created.state, account_id: acc.id };
   }, [ensureAccount]);
 
