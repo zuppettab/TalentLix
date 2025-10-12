@@ -100,7 +100,7 @@ export default function OperatorInReview() {
         window.localStorage.removeItem(`operator_wizard_step:${user.id}`);
       }
 
-      await router.replace('/operator-wizard');
+      await router.replace({ pathname: '/operator-wizard', query: { restart: '1' } });
     } catch (err) {
       setActionState({
         restarting: false,
@@ -116,6 +116,19 @@ export default function OperatorInReview() {
     if (!statusState.reviewState) return null;
     return String(statusState.reviewState).trim().toUpperCase();
   }, [statusState.reviewState]);
+
+  useEffect(() => {
+    if (statusState.loading) return;
+    if (statusState.error) return;
+
+    const normalizedWizard = statusState.wizardStatus
+      ? String(statusState.wizardStatus).trim().toUpperCase()
+      : '';
+
+    if (normalizedState === 'VERIFIED' || normalizedWizard === 'COMPLETED') {
+      router.replace('/operator-dashboard');
+    }
+  }, [normalizedState, router, statusState.error, statusState.loading, statusState.wizardStatus]);
 
   const isRejected = normalizedState === 'REJECTED';
 
