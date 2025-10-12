@@ -435,7 +435,13 @@ export default function OperatorWizard() {
           }
 
           const cons = Array.isArray(acc.op_privacy_consent) ? acc.op_privacy_consent[0] : acc.op_privacy_consent;
-          if (cons?.accepted_at) setPrivacy({ accepted:true });
+          if (cons?.accepted_at && cons?.policy_version === PRIVACY_POLICY_VERSION) {
+            setPrivacy({ accepted:true });
+            setHasScrolled(true);
+          } else {
+            setPrivacy({ accepted:false });
+            setHasScrolled(false);
+          }
 
           const normalizedWizardStatus = acc?.wizard_status ? String(acc.wizard_status).trim().toUpperCase() : '';
           const normalizedReviewState = vr?.state ? String(vr.state).trim().toUpperCase() : '';
@@ -793,6 +799,9 @@ export default function OperatorWizard() {
 
   // Submit (STEP 4)
   const submitAll = async () => {
+    if (!privacy.accepted) {
+      throw new Error('You must accept the privacy policy before submitting your request.');
+    }
     const acc = await ensureAccount();
     const nowIso = new Date().toISOString();
     // insert privacy (storico)
