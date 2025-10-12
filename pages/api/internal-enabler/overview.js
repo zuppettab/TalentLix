@@ -1,9 +1,10 @@
+import { createClient } from '@supabase/supabase-js';
 import { isAdminUser } from '../../../utils/authRoles';
 import {
   describeSupabaseConfigRequirements,
   getSupabaseConfigSnapshot,
-  getSupabasePublicClient,
   getSupabaseServiceClient,
+  isSupabaseServiceConfigured,
 } from '../../../utils/supabaseAdminClient';
 
 const describeMissingConfig = (snapshot) => {
@@ -18,8 +19,9 @@ const describeMissingConfig = (snapshot) => {
     missing.push(`Supabase service role key via one of: ${requirements.serviceKeys.join(', ')}`);
   }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+  if (!snapshot.anonKey) {
+    missing.push(`Supabase anon key via one of: ${requirements.anonKeys.join(', ')}`);
+  }
 
   return `Missing configuration: ${missing.join('; ')}.`;
 };
@@ -106,11 +108,14 @@ const createHttpError = (status, message, options = {}) => {
 };
 
 const buildConfigError = (snapshot) => {
-  return createHttpError(500, 'Supabase admin client is not configured.', {
+  const details = snapshot ? describeMissingConfig(snapshot) : null;
+  const error = createHttpError(500, 'Supabase admin client is not configured.', {
     code: 'supabase_admin_client_missing',
-    details:
-      'Ensure SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY / SUPABASE_SERVICE_API_KEY), NEXT_PUBLIC_SUPABASE_URL, and NEXT_PUBLIC_SUPABASE_ANON_KEY are defined in the environment.',
   });
+  if (details) {
+    error.details = details;
+  }
+  return error;
 };
 
 const normalizeSupabaseError = (source, error) => {
@@ -234,12 +239,17 @@ export default async function handler(req, res) {
   let user = null;
 
   try {
+    const configSnapshot = getSupabaseConfigSnapshot();
+    const supabaseUrl = configSnapshot.supabaseUrl || '';
+    const supabaseAnonKey = configSnapshot.anonKey || '';
+    const hasPublicSupabaseConfig = Boolean(supabaseUrl && supabaseAnonKey);
+
     const serviceClient = isSupabaseServiceConfigured()
       ? getSupabaseServiceClient()
       : null;
 
     if (!serviceClient) {
-      throw buildConfigError();
+      throw buildConfigError(configSnapshot);
     }
 
     client = serviceClient;
