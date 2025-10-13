@@ -250,13 +250,12 @@ const styles = {
     WebkitTextFillColor: 'transparent',
   },
   main: {
-    flex: 1,
     display: 'flex',
     gap: '1rem',
-    padding: '1.25rem',
+    padding: 'clamp(0.75rem, 3vh, 1.5rem)',
     maxWidth: 1080,
     width: '100%',
-    margin: '0 auto',
+    margin: 'clamp(0.5rem, 2vh, 1.75rem) auto 0',
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
@@ -338,6 +337,7 @@ const styles = {
     border: '1px solid #E0E0E0',   // ← fixed
   },
   footer: {
+    marginTop: 'auto',
     padding: '1rem 1.5rem',
     textAlign: 'center',
   },
