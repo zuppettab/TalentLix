@@ -70,37 +70,49 @@ export default function OperatorDashboard() {
   }, []);
 
   const fetchOperatorData = useCallback(async () => {
+    const empty = {
+      account: null,
+      profile: null,
+      contact: null,
+      type: null,
+      privacy: null,
+    };
+
     if (!user?.id) {
-      return {
-        account: null,
-        profile: null,
-        contact: null,
-        type: null,
-        privacy: null,
-      };
+      return empty;
     }
 
-    const { data, error } = await supabase
-      .from('op_account')
-      .select(`
+    const selectClause = `
         id, status, wizard_status, type_id,
         op_type:op_type(id, code, name),
         op_profile:op_profile(*),
         op_contact:op_contact(*),
         op_privacy_consent:op_privacy_consent(id, policy_version, accepted_at, revoked_at, revoked_reason, created_at, updated_at)
-      `)
-      .eq('auth_user_id', user.id)
-      .maybeSingle();
+      `;
 
-    if (error) throw error;
-    if (!data) {
-      return {
-        account: null,
-        profile: null,
-        contact: null,
-        type: null,
-        privacy: null,
-      };
+    const baseQuery = () =>
+      supabase.from('op_account').select(selectClause).eq('auth_user_id', user.id);
+
+    let record = null;
+    const { data, error } = await baseQuery().maybeSingle();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        console.warn('Multiple operator accounts found for auth user. Falling back to the most recent one.');
+        const { data: fallbackData, error: fallbackError } = await baseQuery()
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (fallbackError) throw fallbackError;
+        record = Array.isArray(fallbackData) ? fallbackData[0] : fallbackData || null;
+      } else {
+        throw error;
+      }
+    } else {
+      record = data;
+    }
+
+    if (!record) {
+      return empty;
     }
 
     const toArray = (value) => {
@@ -109,16 +121,16 @@ export default function OperatorDashboard() {
       return [];
     };
 
-    const profileArr = toArray(data.op_profile);
-    const contactArr = toArray(data.op_contact);
-    const typeArr = toArray(data.op_type);
-    const privacyArr = toArray(data.op_privacy_consent);
+    const profileArr = toArray(record.op_profile);
+    const contactArr = toArray(record.op_contact);
+    const typeArr = toArray(record.op_type);
+    const privacyArr = toArray(record.op_privacy_consent);
 
     const account = {
-      id: data.id,
-      status: data.status || '',
-      wizard_status: data.wizard_status || '',
-      type_id: data.type_id,
+      id: record.id,
+      status: record.status || '',
+      wizard_status: record.wizard_status || '',
+      type_id: record.type_id,
     };
 
     const profile = profileArr.length ? profileArr[0] : null;
