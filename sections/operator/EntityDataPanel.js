@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import countries from '../../utils/countries';
 import { supabase } from '../../utils/supabaseClient';
+import { OPERATOR_LOGO_BUCKET } from '../../utils/operatorStorageBuckets';
 
-const OP_LOGO_BUCKET = 'op_assets';
+const OP_LOGO_BUCKET = OPERATOR_LOGO_BUCKET;
 
 const deriveStoragePathFromPublicUrl = (publicUrl, bucket) => {
   if (!publicUrl || !bucket) return '';

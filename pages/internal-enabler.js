@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase as sb } from '../utils/supabaseClient';
 import { isAdminUser } from '../utils/authRoles';
+import { OPERATOR_DOCUMENTS_BUCKET } from '../utils/operatorStorageBuckets';
 
 const supabase = sb;
 
@@ -434,7 +435,7 @@ export default function InternalEnabler() {
   };
 
   const viewOpDoc = async (key) => {
-    const url = await signedUrl(key, 'op_assets');
+    const url = await signedUrl(key, OPERATOR_DOCUMENTS_BUCKET);
     if (url) window.open(url, '_blank', 'noreferrer');
   };
 
