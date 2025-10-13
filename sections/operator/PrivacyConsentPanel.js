@@ -72,7 +72,10 @@ const Chip = ({ label, tone = 'neutral' }) => {
 };
 
 export default function PrivacyConsentPanel({ operatorData = {}, authUser }) {
-  const { loading, error, privacy, contact } = operatorData || {};
+  const { privacy, contact } = operatorData || {};
+  const sectionState = operatorData?.sectionStatus?.privacy || {};
+  const loading = sectionState.loading ?? operatorData.loading;
+  const error = sectionState.error ?? operatorData.error;
 
   const [policyHtml, setPolicyHtml] = useState('');
   const [policyStatus, setPolicyStatus] = useState('loading');

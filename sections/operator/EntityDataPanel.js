@@ -103,7 +103,10 @@ const Chip = ({ label, tone = 'neutral' }) => {
 };
 
 export default function EntityDataPanel({ operatorData = {} }) {
-  const { loading, error, profile, account, type } = operatorData || {};
+  const { profile, account, type } = operatorData || {};
+  const sectionState = operatorData?.sectionStatus?.entity || {};
+  const loading = sectionState.loading ?? operatorData.loading;
+  const error = sectionState.error ?? operatorData.error;
 
   const displayName = useMemo(() => {
     const trade = profile?.trade_name?.trim();

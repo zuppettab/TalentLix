@@ -53,6 +53,11 @@ export default function OperatorDashboard() {
     contact: null,
     type: null,
     privacy: null,
+    sectionStatus: {
+      entity: { loading: true, error: null },
+      contacts: { loading: true, error: null },
+      privacy: { loading: true, error: null },
+    },
   });
 
   const pickLatestRecord = useCallback((records = [], dateFields = []) => {
@@ -70,12 +75,19 @@ export default function OperatorDashboard() {
   }, []);
 
   const fetchOperatorData = useCallback(async () => {
+    const baseSectionStatus = {
+      entity: { loading: false, error: null },
+      contacts: { loading: false, error: null },
+      privacy: { loading: false, error: null },
+    };
+
     const empty = {
       account: null,
       profile: null,
       contact: null,
       type: null,
       privacy: null,
+      sectionStatus: baseSectionStatus,
     };
 
     if (!user?.id) {
@@ -87,73 +99,182 @@ export default function OperatorDashboard() {
       return empty;
     }
 
-    const selectClause = `
-        id, status, wizard_status, type_id,
-        op_type:op_type(id, code, name),
-        op_profile:op_profile(*),
-        op_contact:op_contact(*),
-        op_privacy_consent:op_privacy_consent(id, policy_version, accepted_at, revoked_at, revoked_reason, created_at, updated_at)
-      `;
+    const localSectionStatus = {
+      entity: { loading: true, error: null },
+      contacts: { loading: true, error: null },
+      privacy: { loading: true, error: null },
+    };
 
-    const baseQuery = () =>
-      supabase.from('op_account').select(selectClause).eq('auth_user_id', user.id);
+    const handleSectionError = (keys, err) => {
+      keys.forEach((key) => {
+        if (!localSectionStatus[key]) return;
+        localSectionStatus[key] = {
+          loading: false,
+          error: err,
+        };
+      });
+    };
 
-    let record = null;
-    const { data, error } = await baseQuery().maybeSingle();
+    const finishSectionLoading = (keys) => {
+      keys.forEach((key) => {
+        if (!localSectionStatus[key]) return;
+        localSectionStatus[key] = {
+          ...(localSectionStatus[key] || {}),
+          loading: false,
+        };
+      });
+    };
 
-    if (error) {
-      if (error.code === 'PGRST116') {
+    let account = null;
+    let profile = null;
+    let contact = null;
+    let type = null;
+    let privacy = null;
+
+    const baseAccountQuery = () =>
+      supabase
+        .from('op_account')
+        .select('id, status, wizard_status, type_id, created_at')
+        .eq('auth_user_id', user.id);
+
+    const { data: accountData, error: accountError } = await baseAccountQuery().maybeSingle();
+
+    if (accountError) {
+      if (accountError.code === 'PGRST116') {
         console.warn('Multiple operator accounts found for auth user. Falling back to the most recent one.');
-        const { data: fallbackData, error: fallbackError } = await baseQuery()
+        const { data: fallbackData, error: fallbackError } = await baseAccountQuery()
           .order('created_at', { ascending: false })
           .limit(1);
-        if (fallbackError) throw fallbackError;
-        record = Array.isArray(fallbackData) ? fallbackData[0] : fallbackData || null;
+        if (fallbackError) {
+          handleSectionError(['entity', 'contacts', 'privacy'], fallbackError);
+          return {
+            ...empty,
+            sectionStatus: localSectionStatus,
+          };
+        }
+        account = Array.isArray(fallbackData) ? fallbackData[0] : fallbackData || null;
       } else {
-        throw error;
+        handleSectionError(['entity', 'contacts', 'privacy'], accountError);
+        return {
+          ...empty,
+          sectionStatus: localSectionStatus,
+        };
       }
     } else {
-      record = data;
+      account = accountData;
     }
 
-    if (!record) {
-      return empty;
+    if (!account) {
+      finishSectionLoading(['entity', 'contacts', 'privacy']);
+      return {
+        ...empty,
+        sectionStatus: localSectionStatus,
+      };
     }
 
-    const toArray = (value) => {
-      if (Array.isArray(value)) return value;
-      if (value && typeof value === 'object') return [value];
-      return [];
+    const normalizedAccount = {
+      id: account.id,
+      status: account.status || '',
+      wizard_status: account.wizard_status || '',
+      type_id: account.type_id,
     };
 
-    const profileArr = toArray(record.op_profile);
-    const contactArr = toArray(record.op_contact);
-    const typeArr = toArray(record.op_type);
-    const privacyArr = toArray(record.op_privacy_consent);
+    try {
+      if (account.type_id) {
+        const { data: typeRow, error: typeError } = await supabase
+          .from('op_type')
+          .select('id, code, name')
+          .eq('id', account.type_id)
+          .maybeSingle();
+        if (typeError) throw typeError;
+        type = typeRow || null;
+      }
+    } catch (err) {
+      handleSectionError(['entity'], err);
+    }
 
-    const account = {
-      id: record.id,
-      status: record.status || '',
-      wizard_status: record.wizard_status || '',
-      type_id: record.type_id,
+    try {
+      const { data: profileRow, error: profileError } = await supabase
+        .from('op_profile')
+        .select('*')
+        .eq('op_id', account.id)
+        .maybeSingle();
+      if (profileError) throw profileError;
+      profile = profileRow || null;
+    } catch (err) {
+      handleSectionError(['entity', 'contacts'], err);
+    }
+
+    try {
+      const { data: contactRow, error: contactError } = await supabase
+        .from('op_contact')
+        .select('*')
+        .eq('op_id', account.id)
+        .maybeSingle();
+      if (contactError) throw contactError;
+      contact = contactRow || null;
+    } catch (err) {
+      handleSectionError(['contacts'], err);
+    }
+
+    try {
+      const { data: privacyRow, error: privacyError } = await supabase
+        .from('op_privacy_consent')
+        .select('id, policy_version, accepted_at, revoked_at, revoked_reason, created_at, updated_at')
+        .eq('op_id', account.id)
+        .order('accepted_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (privacyError) throw privacyError;
+      privacy = privacyRow ? pickLatestRecord([privacyRow], ['accepted_at', 'updated_at', 'created_at']) : null;
+      localSectionStatus.privacy = { loading: false, error: null };
+    } catch (err) {
+      handleSectionError(['privacy'], err);
+    }
+
+    finishSectionLoading(['entity', 'contacts', 'privacy']);
+
+    return {
+      account: normalizedAccount,
+      profile,
+      contact,
+      type,
+      privacy,
+      sectionStatus: localSectionStatus,
     };
-
-    const profile = profileArr.length ? profileArr[0] : null;
-    const contact = contactArr.length ? contactArr[0] : null;
-    const type = typeArr.length ? typeArr[0] : null;
-    const privacy = pickLatestRecord(privacyArr, ['accepted_at', 'updated_at', 'created_at']);
-
-    return { account, profile, contact, type, privacy };
   }, [pickLatestRecord, user?.id]);
 
   const loadOperatorData = useCallback(async () => {
     try {
-      setOperatorData((prev) => ({ ...prev, loading: true, error: null }));
+      setOperatorData((prev) => ({
+        ...prev,
+        loading: true,
+        error: null,
+        sectionStatus: {
+          entity: { loading: true, error: null },
+          contacts: { loading: true, error: null },
+          privacy: { loading: true, error: null },
+        },
+      }));
       const result = await fetchOperatorData();
-      setOperatorData({ loading: false, error: null, ...result });
+      setOperatorData({
+        loading: false,
+        error: null,
+        ...result,
+      });
     } catch (err) {
       console.error('Failed to load operator dashboard data', err);
-      setOperatorData((prev) => ({ ...prev, loading: false, error: err }));
+      setOperatorData((prev) => ({
+        ...prev,
+        loading: false,
+        error: err,
+        sectionStatus: {
+          entity: { loading: false, error: err },
+          contacts: { loading: false, error: err },
+          privacy: { loading: false, error: err },
+        },
+      }));
     }
   }, [fetchOperatorData]);
 
@@ -170,17 +291,39 @@ export default function OperatorDashboard() {
     }
 
     let active = true;
-    setOperatorData((prev) => ({ ...prev, loading: true, error: null }));
+    setOperatorData((prev) => ({
+      ...prev,
+      loading: true,
+      error: null,
+      sectionStatus: {
+        entity: { loading: true, error: null },
+        contacts: { loading: true, error: null },
+        privacy: { loading: true, error: null },
+      },
+    }));
 
     fetchOperatorData()
       .then((result) => {
         if (!active) return;
-        setOperatorData({ loading: false, error: null, ...result });
+        setOperatorData({
+          loading: false,
+          error: null,
+          ...result,
+        });
       })
       .catch((err) => {
         console.error('Failed to load operator dashboard data', err);
         if (!active) return;
-        setOperatorData((prev) => ({ ...prev, loading: false, error: err }));
+        setOperatorData((prev) => ({
+          ...prev,
+          loading: false,
+          error: err,
+          sectionStatus: {
+            entity: { loading: false, error: err },
+            contacts: { loading: false, error: err },
+            privacy: { loading: false, error: err },
+          },
+        }));
       });
 
     return () => {

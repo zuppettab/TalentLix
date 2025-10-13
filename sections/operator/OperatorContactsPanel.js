@@ -71,7 +71,10 @@ const Chip = ({ label, tone = 'neutral' }) => {
 };
 
 export default function OperatorContactsPanel({ operatorData = {}, authUser }) {
-  const { loading, error, contact, profile } = operatorData || {};
+  const { contact, profile } = operatorData || {};
+  const sectionState = operatorData?.sectionStatus?.contacts || {};
+  const loading = sectionState.loading ?? operatorData.loading;
+  const error = sectionState.error ?? operatorData.error;
 
   const phoneVerifiedAt = contact?.phone_verified_at ? formatTimestamp(contact.phone_verified_at) : '';
   const phoneVerification = useMemo(() => {
