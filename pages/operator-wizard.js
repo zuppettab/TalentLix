@@ -7,6 +7,7 @@ import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import countries from '../utils/countries';
+import { OPERATOR_DOCUMENTS_BUCKET, OPERATOR_LOGO_BUCKET } from '../utils/operatorStorageBuckets';
 
 /** =========================
  *  CONFIG
@@ -16,8 +17,8 @@ const COOLDOWN_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_RESEND_COOLDOWN ||
 const OTP_TTL_SECONDS = Number(process.env.NEXT_PUBLIC_PHONE_OTP_TTL || 600);
 
 const WIZARD = { NOT_STARTED:'NOT_STARTED', IN_PROGRESS:'IN_PROGRESS', SUBMITTED:'SUBMITTED', COMPLETED:'COMPLETED' };
-const OP_DOCS_BUCKET = 'op_assets';
-const OP_LOGO_BUCKET = 'op_assets';
+const OP_DOCS_BUCKET = OPERATOR_DOCUMENTS_BUCKET;
+const OP_LOGO_BUCKET = OPERATOR_LOGO_BUCKET;
 const analyzeWebsiteValue = (raw) => {
   const trimmed = typeof raw === 'string' ? raw.trim() : '';
   if (!trimmed) {
