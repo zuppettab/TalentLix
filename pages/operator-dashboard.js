@@ -82,6 +82,11 @@ export default function OperatorDashboard() {
       return empty;
     }
 
+    if (!supabase) {
+      console.warn('Supabase client is not available while loading operator dashboard data. Returning empty dataset.');
+      return empty;
+    }
+
     const selectClause = `
         id, status, wizard_status, type_id,
         op_type:op_type(id, code, name),
