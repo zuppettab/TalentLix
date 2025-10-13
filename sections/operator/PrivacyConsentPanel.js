@@ -105,6 +105,8 @@ export default function PrivacyConsentPanel({ operatorData = {}, authUser }) {
     };
   }, []);
 
+  const acceptedFlag = privacy?.accepted === true;
+
   const acceptanceStatus = useMemo(() => {
     if (!privacy) {
       return {
@@ -122,11 +124,13 @@ export default function PrivacyConsentPanel({ operatorData = {}, authUser }) {
       };
     }
 
-    if (privacy.accepted_at) {
+    if (privacy.accepted_at || acceptedFlag) {
       return {
         label: 'Consent accepted',
         tone: 'success',
-        meta: `Accepted on ${formatTimestamp(privacy.accepted_at)}`,
+        meta: privacy.accepted_at
+          ? `Accepted on ${formatTimestamp(privacy.accepted_at)}`
+          : 'Accepted (timestamp unavailable)',
       };
     }
 
@@ -135,7 +139,7 @@ export default function PrivacyConsentPanel({ operatorData = {}, authUser }) {
       tone: 'warning',
       meta: 'The GDPR policy has not been accepted yet.',
     };
-  }, [privacy]);
+  }, [acceptedFlag, privacy]);
 
   const policyVersion = privacy?.policy_version || DEFAULT_POLICY_VERSION;
   const acceptedAt = privacy?.accepted_at ? formatTimestamp(privacy.accepted_at) : '';
