@@ -151,12 +151,12 @@ export default function Home() {
 
       <style jsx>{`
         .hero {
-          padding: 2.75rem 1.5rem 0.65rem;
+          padding: 3.25rem 1.5rem 0.25rem;
           text-align: center;
         }
 
         .hero__logo {
-          width: 180px;
+          width: 220px;
           height: auto;
           margin-bottom: 0.9rem;
           filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
@@ -240,7 +240,7 @@ const styles = {
     minWidth: 180,
   },
   claim: {
-    fontSize: '2rem',
+    fontSize: 'clamp(2rem, 4vw + 1rem, 3.2rem)',
     lineHeight: 1.25,
     margin: 0,
     fontWeight: 800,
