@@ -220,13 +220,25 @@ export default function OperatorDashboard() {
     try {
       const { data: privacyRows, error: privacyError } = await supabase
         .from('op_privacy_consent')
-        .select('id, policy_version, accepted_at, revoked_at, revoked_reason, created_at, updated_at')
+        .select('*')
         .eq('op_id', account.id)
         .order('accepted_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(10);
       if (privacyError) throw privacyError;
-      privacy = pickLatestRecord(privacyRows, ['accepted_at', 'updated_at', 'created_at']);
+      const latestPrivacy = pickLatestRecord(privacyRows, ['accepted_at', 'updated_at', 'created_at']);
+      privacy = latestPrivacy
+        ? {
+            id: latestPrivacy.id,
+            policy_version: latestPrivacy.policy_version ?? null,
+            accepted: typeof latestPrivacy.accepted === 'boolean' ? latestPrivacy.accepted : null,
+            accepted_at: latestPrivacy.accepted_at ?? null,
+            revoked_at: latestPrivacy.revoked_at ?? null,
+            revoked_reason: latestPrivacy.revoked_reason ?? null,
+            created_at: latestPrivacy.created_at ?? null,
+            updated_at: latestPrivacy.updated_at ?? null,
+          }
+        : null;
       localSectionStatus.privacy = { loading: false, error: null };
     } catch (err) {
       handleSectionError(['privacy'], err);
