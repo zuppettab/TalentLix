@@ -1,5 +1,16 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import countries from '../../utils/countries';
+import { supabase } from '../../utils/supabaseClient';
+
+const OP_LOGO_BUCKET = 'op_assets';
+
+const deriveStoragePathFromPublicUrl = (publicUrl, bucket) => {
+  if (!publicUrl || !bucket) return '';
+  const marker = `/storage/v1/object/public/${bucket}/`;
+  const idx = publicUrl.indexOf(marker);
+  if (idx === -1) return '';
+  return publicUrl.substring(idx + marker.length);
+};
 
 const FALLBACK_NAME = 'Organisation profile';
 
@@ -151,7 +162,67 @@ export default function EntityDataPanel({ operatorData = {} }) {
   const countryName = useMemo(() => resolveCountryName(profile?.country), [profile?.country]);
 
   const logoUrl = profile?.logo_url ? String(profile.logo_url) : '';
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
   const initials = useMemo(() => toInitials(displayName || legalName || FALLBACK_NAME), [displayName, legalName]);
+
+  useEffect(() => {
+    let active = true;
+
+    const resolveLogoUrl = async () => {
+      if (!logoUrl) {
+        if (active) setLogoPreviewUrl('');
+        return;
+      }
+
+      if (/^https?:\/\//i.test(logoUrl)) {
+        if (active) setLogoPreviewUrl(logoUrl);
+        return;
+      }
+
+      if (!supabase) {
+        console.warn('Supabase client is not available while resolving operator logo preview.');
+        if (active) setLogoPreviewUrl('');
+        return;
+      }
+
+      const pathFromPublicUrl = deriveStoragePathFromPublicUrl(logoUrl, OP_LOGO_BUCKET);
+      const normalizedPath = pathFromPublicUrl
+        ? pathFromPublicUrl
+        : logoUrl.startsWith(`${OP_LOGO_BUCKET}/`)
+          ? logoUrl.slice(OP_LOGO_BUCKET.length + 1)
+          : logoUrl;
+
+      if (!normalizedPath) {
+        if (active) setLogoPreviewUrl('');
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.storage
+          .from(OP_LOGO_BUCKET)
+          .createSignedUrl(normalizedPath, 300);
+
+        if (!active) return;
+
+        if (error) throw error;
+
+        const signedUrl = data?.signedUrl || '';
+        setLogoPreviewUrl(signedUrl);
+      } catch (err) {
+        console.warn('Failed to resolve operator logo preview for dashboard', err);
+        if (!active) return;
+        setLogoPreviewUrl('');
+      }
+    };
+
+    resolveLogoUrl();
+
+    return () => {
+      active = false;
+    };
+  }, [logoUrl]);
+
+  const resolvedLogoUrl = logoPreviewUrl || (/^https?:\/\//i.test(logoUrl) ? logoUrl : '');
 
   if (loading) {
     return <StateMessage>Loading entity information…</StateMessage>;
@@ -179,8 +250,8 @@ export default function EntityDataPanel({ operatorData = {} }) {
     <div style={styles.wrap}>
       <div style={styles.hero}>
         <div style={styles.heroAvatar} aria-hidden>
-          {logoUrl ? (
-            <img src={logoUrl} alt="Organisation logo" style={styles.heroAvatarImage} />
+          {resolvedLogoUrl ? (
+            <img src={resolvedLogoUrl} alt="Organisation logo" style={styles.heroAvatarImage} />
           ) : (
             <span style={styles.heroAvatarInitials}>{initials}</span>
           )}
@@ -216,12 +287,12 @@ export default function EntityDataPanel({ operatorData = {} }) {
             />
             <InfoRow
               label="Logo"
-              value={logoUrl ? (
+              value={resolvedLogoUrl ? (
                 <div style={styles.logoRow}>
                   <span style={styles.logoThumb}>
-                    <img src={logoUrl} alt="Organisation logo preview" style={styles.logoThumbImage} />
+                    <img src={resolvedLogoUrl} alt="Organisation logo preview" style={styles.logoThumbImage} />
                   </span>
-                  <a href={logoUrl} target="_blank" rel="noreferrer" style={styles.link}>
+                  <a href={resolvedLogoUrl} target="_blank" rel="noreferrer" style={styles.link}>
                     Open logo
                   </a>
                 </div>

@@ -218,16 +218,15 @@ export default function OperatorDashboard() {
     }
 
     try {
-      const { data: privacyRow, error: privacyError } = await supabase
+      const { data: privacyRows, error: privacyError } = await supabase
         .from('op_privacy_consent')
         .select('id, policy_version, accepted_at, revoked_at, revoked_reason, created_at, updated_at')
         .eq('op_id', account.id)
         .order('accepted_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(10);
       if (privacyError) throw privacyError;
-      privacy = privacyRow ? pickLatestRecord([privacyRow], ['accepted_at', 'updated_at', 'created_at']) : null;
+      privacy = pickLatestRecord(privacyRows, ['accepted_at', 'updated_at', 'created_at']);
       localSectionStatus.privacy = { loading: false, error: null };
     } catch (err) {
       handleSectionError(['privacy'], err);
