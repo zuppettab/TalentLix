@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useOperatorGuard } from '../hooks/useOperatorGuard';
 import { supabase } from '../utils/supabaseClient';
@@ -86,17 +86,22 @@ export default function OperatorDashboard() {
     );
   }
 
+  const headerStyle = { ...styles.header, ...(isMobile ? styles.headerMobile : null) };
+  const headerLeftStyle = { ...styles.headerLeft, ...(isMobile ? styles.headerLeftMobile : null) };
+  const headerRightStyle = { ...styles.headerRight, ...(isMobile ? styles.headerRightMobile : null) };
+  const mainStyle = { ...styles.main, ...(isMobile ? styles.mainMobile : null) };
+
   return (
     <div style={styles.page}>
-      <header style={styles.header}>
-        <div style={styles.headerLeft}>
+      <header style={headerStyle}>
+        <div style={headerLeftStyle}>
           <img src="/logo-talentlix.png" alt="TalentLix" style={styles.logo} />
           <div>
             <div style={styles.headerTitle}>Operator dashboard</div>
             <p style={styles.headerSubtitle}>Manage your organisation and talent activities.</p>
           </div>
         </div>
-        <div style={styles.headerRight}>
+        <div style={headerRightStyle}>
           <span style={styles.userEmail}>{user?.email}</span>
           <button type="button" style={styles.signOutBtn} onClick={handleSignOut}>Sign out</button>
         </div>
@@ -106,7 +111,7 @@ export default function OperatorDashboard() {
         <MobileOperatorTabs sections={OPERATOR_SECTIONS} current={current} onSelect={setSection} />
       )}
 
-      <main style={{ ...styles.main, ...(isMobile ? styles.mainMobile : null) }}>
+      <main style={mainStyle}>
         {!isMobile && (
           <nav style={styles.leftNav}>
             {OPERATOR_SECTIONS.map(section => (
@@ -144,9 +149,58 @@ export default function OperatorDashboard() {
 }
 
 function MobileOperatorTabs({ sections, current, onSelect }) {
+  const scrollerRef = useRef(null);
+  const [atStart, setAtStart] = useState(true);
+  const [atEnd, setAtEnd] = useState(false);
+
+  const updateBoundaries = () => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const { scrollLeft, clientWidth, scrollWidth } = el;
+    setAtStart(scrollLeft <= 0);
+    setAtEnd(scrollLeft + clientWidth >= scrollWidth - 1);
+  };
+
+  useEffect(() => {
+    updateBoundaries();
+    const el = scrollerRef.current;
+    if (!el) return;
+    const handleScroll = () => updateBoundaries();
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    let resizeObserver = null;
+    if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
+      resizeObserver = new window.ResizeObserver(updateBoundaries);
+      resizeObserver.observe(el);
+    }
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+      resizeObserver?.disconnect();
+    };
+  }, []);
+
+  const nudge = (direction) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * Math.round(el.clientWidth * 0.9), behavior: 'smooth' });
+  };
+
   return (
     <div style={styles.mobileTabsWrap}>
-      <div style={styles.mobileTabsScroller}>
+      {!atStart && (
+        <button type="button" aria-label="Scroll left" onClick={() => nudge(-1)} style={{ ...styles.nudgeBtn, left: 6 }}>
+          ‹
+        </button>
+      )}
+      {!atEnd && (
+        <button type="button" aria-label="Scroll right" onClick={() => nudge(1)} style={{ ...styles.nudgeBtn, right: 6 }}>
+          ›
+        </button>
+      )}
+
+      {!atStart && <div style={{ ...styles.edgeFade, left: 0, background: 'linear-gradient(90deg, rgba(255,255,255,1) 15%, rgba(255,255,255,0) 85%)' }} />}
+      {!atEnd && <div style={{ ...styles.edgeFade, right: 0, background: 'linear-gradient(270deg, rgba(255,255,255,1) 15%, rgba(255,255,255,0) 85%)' }} />}
+
+      <div ref={scrollerRef} style={styles.mobileTabsScroller}>
         {sections.map(section => (
           <button
             key={section.id}
@@ -178,25 +232,28 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '24px 32px',
+    padding: '16px 24px',
     background: '#FFFFFF',
     borderBottom: '1px solid #E5E7EB',
     position: 'sticky',
     top: 0,
     zIndex: 10,
   },
-  headerLeft: { display: 'flex', alignItems: 'center', gap: 16 },
-  logo: { width: 56, height: 56, objectFit: 'contain' },
-  headerTitle: { fontSize: 24, fontWeight: 700, margin: 0, color: '#0F172A' },
-  headerSubtitle: { fontSize: 14, color: '#4B5563', margin: '4px 0 0 0' },
-  headerRight: { display: 'flex', alignItems: 'center', gap: 16 },
-  userEmail: { fontSize: 14, color: '#4B5563' },
+  headerMobile: { flexWrap: 'wrap', rowGap: 12 },
+  headerLeft: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
+  headerLeftMobile: { flex: '1 1 100%' },
+  logo: { width: 48, height: 48, objectFit: 'contain' },
+  headerTitle: { fontSize: 18, fontWeight: 700, margin: 0, color: '#0F172A', lineHeight: 1.2 },
+  headerSubtitle: { fontSize: 13, color: '#4B5563', margin: '4px 0 0 0', lineHeight: 1.3 },
+  headerRight: { display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'flex-end' },
+  headerRightMobile: { flex: '1 1 100%', justifyContent: 'flex-end' },
+  userEmail: { fontSize: 13, color: '#4B5563', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 180 },
   signOutBtn: {
     background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
     border: 'none',
     color: '#fff',
     fontWeight: 600,
-    padding: '10px 20px',
+    padding: '10px 18px',
     borderRadius: 999,
     cursor: 'pointer',
   },
@@ -260,7 +317,7 @@ const styles = {
     zIndex: 9,
     background: '#FFFFFF',
     borderBottom: '1px solid #E5E7EB',
-    padding: '12px 16px',
+    padding: '8px 8px',
   },
   mobileTabsScroller: {
     display: 'flex',
@@ -268,17 +325,45 @@ const styles = {
     overflowX: 'auto',
     WebkitOverflowScrolling: 'touch',
     scrollbarWidth: 'none',
+    padding: '4px 8px',
   },
   mobileTabBtn: {
-    flex: '0 0 auto',
-    padding: '10px 16px',
+    flex: '0 0 33.33%',
+    padding: '10px 12px',
     border: '1px solid #E5E7EB',
     borderRadius: 999,
     background: '#FFFFFF',
     fontSize: 14,
     cursor: 'pointer',
     whiteSpace: 'nowrap',
+    textOverflow: 'ellipsis',
+    overflow: 'hidden',
+    minHeight: 40,
     transition: 'box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease',
   },
   mobileTabBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.2)', color: '#027373' },
+  nudgeBtn: {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    zIndex: 2,
+    border: '1px solid #E5E7EB',
+    background: '#FFFFFF',
+    borderRadius: 999,
+    width: 40,
+    height: 40,
+    lineHeight: '38px',
+    textAlign: 'center',
+    fontSize: 24,
+    cursor: 'pointer',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.10)'
+  },
+  edgeFade: {
+    position: 'absolute',
+    top: 0,
+    width: 36,
+    height: '100%',
+    zIndex: 1,
+    pointerEvents: 'none'
+  },
 };
