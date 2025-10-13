@@ -232,6 +232,7 @@ export default function OperatorWizard() {
     const normalizedPath = resolvedPath.startsWith(`${OP_LOGO_BUCKET}/`)
       ? resolvedPath.slice(OP_LOGO_BUCKET.length + 1)
       : resolvedPath.replace(/^\/+/, '');
+    const sanitizedPath = normalizedPath.replace(/^\/+/, '');
 
     if (!supabase || !supabase.storage) {
       if (isHttpUrl && logoPreviewRequestRef.current === requestId) {
@@ -255,35 +256,49 @@ export default function OperatorWizard() {
       return;
     }
 
+    const resolvePublicUrl = () => {
+      if (!supabase?.storage) return '';
+      const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(sanitizedPath);
+      return data?.publicUrl || '';
+    };
+
+    let signedUrl = '';
+
     try {
       const { data, error } = await supabase.storage
         .from(OP_LOGO_BUCKET)
-        .createSignedUrl(normalizedPath, 300);
-
-      if (logoPreviewRequestRef.current !== requestId) return;
+        .createSignedUrl(sanitizedPath, 300);
 
       if (error) throw error;
 
-      const signedUrl = data?.signedUrl || '';
-      if (signedUrl) {
-        cleanupLogoObjectUrl();
-        setLogoPreviewUrl(signedUrl);
-      } else if (isHttpUrl) {
-        cleanupLogoObjectUrl();
-        setLogoPreviewUrl(value);
-      } else {
-        setLogoPreviewUrl('');
-      }
+      signedUrl = data?.signedUrl || '';
     } catch (err) {
       console.warn('Failed to resolve operator logo preview', err);
-      if (logoPreviewRequestRef.current !== requestId) return;
-      if (isHttpUrl) {
-        cleanupLogoObjectUrl();
-        setLogoPreviewUrl(value);
-      } else {
-        setLogoPreviewUrl('');
-      }
     }
+
+    if (logoPreviewRequestRef.current !== requestId) return;
+
+    if (signedUrl) {
+      cleanupLogoObjectUrl();
+      setLogoPreviewUrl(signedUrl);
+      return;
+    }
+
+    const publicUrl = resolvePublicUrl();
+
+    if (publicUrl) {
+      cleanupLogoObjectUrl();
+      setLogoPreviewUrl(publicUrl);
+      return;
+    }
+
+    if (isHttpUrl) {
+      cleanupLogoObjectUrl();
+      setLogoPreviewUrl(value);
+      return;
+    }
+
+    setLogoPreviewUrl('');
   }, [cleanupLogoObjectUrl]);
   useEffect(() => {
     resolveLogoPreviewUrl(profile.logo_url);

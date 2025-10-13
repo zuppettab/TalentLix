@@ -198,22 +198,45 @@ export default function EntityDataPanel({ operatorData = {} }) {
         return;
       }
 
+      const sanitizedPath = normalizedPath.replace(/^\/+/, '');
+
+      const resolvePublicUrl = () => {
+        if (!supabase?.storage) return '';
+        const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(sanitizedPath);
+        return data?.publicUrl || '';
+      };
+
+      let signedUrl = '';
+
       try {
         const { data, error } = await supabase.storage
           .from(OP_LOGO_BUCKET)
-          .createSignedUrl(normalizedPath, 300);
+          .createSignedUrl(sanitizedPath, 300);
 
         if (!active) return;
 
         if (error) throw error;
 
-        const signedUrl = data?.signedUrl || '';
-        setLogoPreviewUrl(signedUrl);
+        signedUrl = data?.signedUrl || '';
       } catch (err) {
         console.warn('Failed to resolve operator logo preview for dashboard', err);
-        if (!active) return;
-        setLogoPreviewUrl('');
       }
+
+      if (!active) return;
+
+      if (signedUrl) {
+        setLogoPreviewUrl(signedUrl);
+        return;
+      }
+
+      const publicUrl = resolvePublicUrl();
+
+      if (publicUrl) {
+        setLogoPreviewUrl(publicUrl);
+        return;
+      }
+
+      setLogoPreviewUrl('');
     };
 
     resolveLogoUrl();
