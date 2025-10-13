@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useOperatorGuard } from '../hooks/useOperatorGuard';
 import { supabase } from '../utils/supabaseClient';
@@ -45,12 +45,131 @@ export default function OperatorDashboard() {
   const router = useRouter();
   const { loading, user } = useOperatorGuard({ redirectTo: '/login-operator', includeReason: false });
   const isMobile = useIsMobile(720);
+  const [operatorData, setOperatorData] = useState({
+    loading: true,
+    error: null,
+    account: null,
+    profile: null,
+    contact: null,
+    type: null,
+    privacy: null,
+  });
+
+  const pickLatestRecord = useCallback((records = [], dateFields = []) => {
+    if (!Array.isArray(records) || records.length === 0) return null;
+    const sortBy = (record) => {
+      return dateFields.reduce((acc, field) => {
+        const raw = record?.[field];
+        if (!raw) return acc;
+        const timestamp = new Date(raw).getTime();
+        if (Number.isNaN(timestamp)) return acc;
+        return Math.max(acc, timestamp);
+      }, 0);
+    };
+    return [...records].sort((a, b) => sortBy(b) - sortBy(a))[0] || records[0];
+  }, []);
+
+  const fetchOperatorData = useCallback(async () => {
+    if (!user?.id) {
+      return {
+        account: null,
+        profile: null,
+        contact: null,
+        type: null,
+        privacy: null,
+      };
+    }
+
+    const { data, error } = await supabase
+      .from('op_account')
+      .select(`
+        id, status, wizard_status, type_id,
+        op_type:op_type(id, code, name),
+        op_profile:op_profile(*),
+        op_contact:op_contact(*),
+        op_privacy_consent:op_privacy_consent(id, policy_version, accepted_at, revoked_at, revoked_reason, created_at, updated_at)
+      `)
+      .eq('auth_user_id', user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) {
+      return {
+        account: null,
+        profile: null,
+        contact: null,
+        type: null,
+        privacy: null,
+      };
+    }
+
+    const toArray = (value) => {
+      if (Array.isArray(value)) return value;
+      if (value && typeof value === 'object') return [value];
+      return [];
+    };
+
+    const profileArr = toArray(data.op_profile);
+    const contactArr = toArray(data.op_contact);
+    const typeArr = toArray(data.op_type);
+    const privacyArr = toArray(data.op_privacy_consent);
+
+    const account = {
+      id: data.id,
+      status: data.status || '',
+      wizard_status: data.wizard_status || '',
+      type_id: data.type_id,
+    };
+
+    const profile = profileArr.length ? profileArr[0] : null;
+    const contact = contactArr.length ? contactArr[0] : null;
+    const type = typeArr.length ? typeArr[0] : null;
+    const privacy = pickLatestRecord(privacyArr, ['accepted_at', 'updated_at', 'created_at']);
+
+    return { account, profile, contact, type, privacy };
+  }, [pickLatestRecord, user?.id]);
+
+  const loadOperatorData = useCallback(async () => {
+    try {
+      setOperatorData((prev) => ({ ...prev, loading: true, error: null }));
+      const result = await fetchOperatorData();
+      setOperatorData({ loading: false, error: null, ...result });
+    } catch (err) {
+      console.error('Failed to load operator dashboard data', err);
+      setOperatorData((prev) => ({ ...prev, loading: false, error: err }));
+    }
+  }, [fetchOperatorData]);
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace('/login-operator');
     }
   }, [loading, router, user]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setOperatorData((prev) => ({ ...prev, loading: false }));
+      return;
+    }
+
+    let active = true;
+    setOperatorData((prev) => ({ ...prev, loading: true, error: null }));
+
+    fetchOperatorData()
+      .then((result) => {
+        if (!active) return;
+        setOperatorData({ loading: false, error: null, ...result });
+      })
+      .catch((err) => {
+        console.error('Failed to load operator dashboard data', err);
+        if (!active) return;
+        setOperatorData((prev) => ({ ...prev, loading: false, error: err }));
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [fetchOperatorData, user?.id]);
 
   const current = useMemo(() => {
     const raw = Array.isArray(router.query.section) ? router.query.section[0] : router.query.section;
@@ -133,7 +252,12 @@ export default function OperatorDashboard() {
         <section style={styles.panel}>
           <h2 style={styles.panelTitle}>{sectionObj?.title}</h2>
           <div style={styles.panelBody}>
-            <SectionComponent />
+            <SectionComponent
+              operatorData={operatorData}
+              authUser={user}
+              onRefresh={loadOperatorData}
+              isMobile={isMobile}
+            />
           </div>
         </section>
       </main>
