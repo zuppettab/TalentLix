@@ -188,6 +188,59 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
     }
   }, []);
 
+  const resolveLogoPreview = useCallback(
+    async (rawValue, { storagePathHint = '', suppressWarning = false } = {}) => {
+      const trimmed = typeof rawValue === 'string' ? rawValue.trim() : '';
+      if (!trimmed) {
+        return { previewUrl: '', storagePath: '' };
+      }
+
+      const derivedPath = storagePathHint || deriveStoragePathFromPublicUrl(trimmed, OP_LOGO_BUCKET);
+      const normalizedPath = derivedPath?.replace(/^\/+/, '') || '';
+      const isHttpUrl = /^https?:\/\//i.test(trimmed);
+
+      if (!supabase?.storage) {
+        return { previewUrl: isHttpUrl ? trimmed : '', storagePath: normalizedPath };
+      }
+
+      if (!normalizedPath) {
+        return { previewUrl: isHttpUrl ? trimmed : '', storagePath: '' };
+      }
+
+      if (isHttpUrl && normalizedPath === trimmed) {
+        return { previewUrl: trimmed, storagePath: normalizedPath };
+      }
+
+      try {
+        const { data, error } = await supabase.storage
+          .from(OP_LOGO_BUCKET)
+          .createSignedUrl(normalizedPath, 300);
+
+        if (error) throw error;
+
+        if (data?.signedUrl) {
+          return { previewUrl: data.signedUrl, storagePath: normalizedPath };
+        }
+      } catch (err) {
+        if (!suppressWarning) {
+          console.warn('Failed to resolve operator logo preview for dashboard', err);
+        }
+      }
+
+      const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(normalizedPath);
+      if (data?.publicUrl) {
+        return { previewUrl: data.publicUrl, storagePath: normalizedPath };
+      }
+
+      if (isHttpUrl) {
+        return { previewUrl: trimmed, storagePath: normalizedPath };
+      }
+
+      return { previewUrl: '', storagePath: normalizedPath };
+    },
+    [supabase]
+  );
+
   useEffect(() => {
     return () => {
       cleanupLogoObjectUrl();
@@ -221,95 +274,19 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
       };
     }
 
-    const resolveLogoUrl = async () => {
-      const rawValue = typeof form.logo_url === 'string' ? form.logo_url.trim() : '';
-      const derivedPath = deriveStoragePathFromPublicUrl(rawValue, OP_LOGO_BUCKET);
-      setLogoStoragePath(derivedPath || '');
-
-      if (!rawValue) {
-        if (active) setLogoPreviewUrl('');
-        return;
-      }
-
-      const isHttpUrl = /^https?:\/\//i.test(rawValue);
-      const normalizedPath = derivedPath?.replace(/^\/+/, '') || '';
-
-      if (!supabase || !supabase.storage) {
-        if (active) {
-          if (isHttpUrl) {
-            setLogoPreviewUrl(rawValue);
-          } else {
-            console.warn('Supabase client is not available while resolving operator logo preview.');
-            setLogoPreviewUrl('');
-          }
-        }
-        return;
-      }
-
-      if (!normalizedPath) {
-        if (active) {
-          if (isHttpUrl) {
-            setLogoPreviewUrl(rawValue);
-          } else {
-            setLogoPreviewUrl('');
-          }
-        }
-        return;
-      }
-
-      if (isHttpUrl && normalizedPath === rawValue) {
-        if (active) setLogoPreviewUrl(rawValue);
-        return;
-      }
-
-      const resolvePublicUrl = () => {
-        if (!supabase?.storage) return '';
-        const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(normalizedPath);
-        return data?.publicUrl || '';
-      };
-
-      let signedUrl = '';
-
-      try {
-        const { data, error } = await supabase.storage
-          .from(OP_LOGO_BUCKET)
-          .createSignedUrl(normalizedPath, 300);
-
-        if (error) throw error;
-
-        signedUrl = data?.signedUrl || '';
-      } catch (err) {
-        console.warn('Failed to resolve operator logo preview for dashboard', err);
-      }
-
+    const run = async () => {
+      const { previewUrl, storagePath } = await resolveLogoPreview(form.logo_url);
       if (!active) return;
-
-      if (signedUrl) {
-        setLogoPreviewUrl(signedUrl);
-        return;
-      }
-
-      const publicUrl = resolvePublicUrl();
-
-      if (publicUrl) {
-        setLogoPreviewUrl(publicUrl);
-        return;
-      }
-
-      if (isHttpUrl) {
-        setLogoPreviewUrl(rawValue);
-        return;
-      }
-
-      setLogoPreviewUrl('');
+      setLogoPreviewUrl(previewUrl);
+      setLogoStoragePath(storagePath || '');
     };
 
-    resolveLogoUrl();
+    run();
 
     return () => {
       active = false;
     };
-  }, [form.logo_url, logoFile]);
+  }, [form.logo_url, logoFile, resolveLogoPreview]);
 
   useEffect(() => {
     const beforeUnload = (event) => {
@@ -562,12 +539,20 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
       setDirty(false);
       setLogoMarkedForRemoval(false);
       setLogoFile(null);
-      const shouldResetPreview = Boolean(logoFile || wasRemovingLogo);
+      const shouldUpdatePreview = Boolean(logoFile || wasRemovingLogo);
       cleanupLogoObjectUrl();
-      if (shouldResetPreview) {
+
+      if (shouldUpdatePreview) {
         setLogoPreviewUrl('');
+        const { previewUrl, storagePath } = await resolveLogoPreview(newLogoUrlValue, {
+          storagePathHint: newLogoStoragePath,
+          suppressWarning: true,
+        });
+        setLogoPreviewUrl(previewUrl);
+        setLogoStoragePath(storagePath || '');
+      } else {
+        setLogoStoragePath(newLogoStoragePath || '');
       }
-      setLogoStoragePath(newLogoStoragePath || '');
       setErrors({});
       setStatus({ type: 'success', msg: 'Saved ✓' });
 
