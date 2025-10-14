@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import OperatorSocialProfilesCard from './OperatorSocialProfilesCard';
 
 const formatTimestamp = (value) => {
   if (!value) return '';
@@ -70,7 +71,7 @@ const Chip = ({ label, tone = 'neutral' }) => {
   return <span style={base}>{label}</span>;
 };
 
-export default function OperatorContactsPanel({ operatorData = {}, authUser }) {
+export default function OperatorContactsPanel({ operatorData = {}, authUser, onRefresh, isMobile = false }) {
   const { contact, profile } = operatorData || {};
   const sectionState = operatorData?.sectionStatus?.contacts || {};
   const loading = sectionState.loading ?? operatorData.loading;
@@ -191,6 +192,14 @@ export default function OperatorContactsPanel({ operatorData = {}, authUser }) {
             />
           </div>
         </div>
+      </div>
+
+      <div style={styles.card}>
+        <OperatorSocialProfilesCard
+          operatorId={operatorData?.account?.id}
+          onSaved={onRefresh}
+          isMobile={isMobile}
+        />
       </div>
     </div>
   );
