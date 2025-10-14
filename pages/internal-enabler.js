@@ -39,6 +39,16 @@ const formatStatusLabel = (status) => {
     .join(' ');
 };
 
+const formatDateTime = (value) => {
+  if (!value) return null;
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) return null;
+  return new Intl.DateTimeFormat('it-IT', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(timestamp);
+};
+
 const miniBtn = (disabled) => ({
   height: 30,
   padding: '0 10px',
@@ -81,6 +91,7 @@ export default function InternalEnabler() {
   const [opLoading, setOpLoading] = useState(false);
   const [opBusy, setOpBusy] = useState(null);
   const [dataError, setDataError] = useState('');
+  const [selectedEntity, setSelectedEntity] = useState(null);
 
   const initializeSession = useCallback(async () => {
     if (!supabase) {
@@ -408,6 +419,8 @@ export default function InternalEnabler() {
   const consolidatedUsers = useMemo(() => {
     const athletes = ordered.map((row) => ({
       id: `athlete-${row.id}`,
+      kind: 'athlete',
+      rawId: row.id,
       type: 'Athlete',
       name: `${row.last_name || ''} ${row.first_name || ''}`.trim() || '—',
       status: row.review_status,
@@ -419,6 +432,8 @@ export default function InternalEnabler() {
 
     const operators = opOrdered.map((row) => ({
       id: `operator-${row.id}`,
+      kind: 'operator',
+      rawId: row.id,
       type: row.type?.name || row.type?.code || 'Operator',
       name: row.profile?.legal_name || row.profile?.trade_name || '—',
       status: row.review_state,
@@ -429,6 +444,25 @@ export default function InternalEnabler() {
     return [...athletes, ...operators].sort((a, b) => a.name.localeCompare(b.name));
   }, [ordered, opOrdered]);
 
+  const activeDetail = useMemo(() => {
+    if (!selectedEntity) return null;
+    if (selectedEntity.type === 'athlete') {
+      const athlete = ordered.find((row) => String(row.id) === String(selectedEntity.id));
+      return athlete ? { type: 'athlete', record: athlete } : null;
+    }
+    if (selectedEntity.type === 'operator') {
+      const operator = opOrdered.find((row) => String(row.id) === String(selectedEntity.id));
+      return operator ? { type: 'operator', record: operator } : null;
+    }
+    return null;
+  }, [selectedEntity, ordered, opOrdered]);
+
+  useEffect(() => {
+    if (selectedEntity && !activeDetail) {
+      setSelectedEntity(null);
+    }
+  }, [selectedEntity, activeDetail]);
+
   const viewDoc = async (key) => {
     const url = await signedUrl(key);
     if (url) window.open(url, '_blank', 'noreferrer');
@@ -438,6 +472,15 @@ export default function InternalEnabler() {
     const url = await signedUrl(key, OPERATOR_DOCUMENTS_BUCKET);
     if (url) window.open(url, '_blank', 'noreferrer');
   };
+
+  const handleDirectorySelect = useCallback((item) => {
+    setSelectedEntity((previous) => {
+      if (previous && previous.type === item.kind && String(previous.id) === String(item.rawId)) {
+        return null;
+      }
+      return { type: item.kind, id: item.rawId };
+    });
+  }, []);
 
   const startAthleteReview = async (athleteId) => {
     try {
@@ -699,22 +742,64 @@ export default function InternalEnabler() {
             <div style={cellHead}>Status</div>
             <div style={cellHead}>Details</div>
           </div>
-          {consolidatedUsers.map((item) => (
-            <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '160px 220px 160px 1fr', borderTop: '1px solid #EEE' }}>
-              <div style={cell}>{item.type}</div>
-              <div style={cell}>{item.name}</div>
-              <div style={{ ...cell, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={badgeStyle(item.status)}>{formatStatusLabel(item.status)}</span>
-                <span style={{ fontSize: 12, color: '#666' }}>{item.meta}</span>
+          {consolidatedUsers.map((item) => {
+            const isSelected = Boolean(
+              activeDetail &&
+                activeDetail.type === item.kind &&
+                String(activeDetail.record?.id) === String(item.rawId)
+            );
+            return (
+              <div
+                key={item.id}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '160px 220px 160px 1fr',
+                  borderTop: '1px solid #EEE',
+                  background: isSelected ? '#F1F5F9' : '#FFF',
+                  transition: 'background 0.2s ease',
+                }}
+              >
+                <div style={cell}>{item.type}</div>
+                <div style={{ ...cell, display: 'flex', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleDirectorySelect(item)}
+                    style={{ ...styles.directoryNameButton, ...(isSelected ? styles.directoryNameButtonActive : {}) }}
+                  >
+                    {item.name}
+                  </button>
+                </div>
+                <div style={{ ...cell, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={badgeStyle(item.status)}>{formatStatusLabel(item.status)}</span>
+                  <span style={{ fontSize: 12, color: '#666' }}>{item.meta}</span>
+                </div>
+                <div style={cell}>{item.detail}</div>
               </div>
-              <div style={cell}>{item.detail}</div>
-            </div>
-          ))}
+            );
+          })}
           {consolidatedUsers.length === 0 && (
             <div style={{ padding: 20, color: '#666' }}>No users found.</div>
           )}
         </div>
       </section>
+
+      {activeDetail && (
+        <section style={styles.section}>
+          {activeDetail.type === 'athlete' ? (
+            <AthleteDetail
+              athlete={activeDetail.record}
+              onClose={() => setSelectedEntity(null)}
+              onViewDocument={viewDoc}
+            />
+          ) : (
+            <OperatorDetail
+              operator={activeDetail.record}
+              onClose={() => setSelectedEntity(null)}
+              onViewDocument={viewOpDoc}
+            />
+          )}
+        </section>
+      )}
 
       <section style={styles.section}>
         <div style={styles.sectionHeader}>
@@ -919,6 +1004,265 @@ export default function InternalEnabler() {
   );
 }
 
+function InfoRow({ label, value }) {
+  const displayValue =
+    value === null ||
+    value === undefined ||
+    (typeof value === 'string' && value.trim() === '')
+      ? '—'
+      : value;
+  return (
+    <div style={styles.detailRow}>
+      <div style={styles.detailLabel}>{label}</div>
+      <div style={styles.detailValue}>{displayValue}</div>
+    </div>
+  );
+}
+
+function CollapsibleSection({ title, defaultOpen = false, children, badge }) {
+  const detailsProps = defaultOpen ? { open: true } : {};
+  return (
+    <details style={styles.collapse} {...detailsProps}>
+      <summary style={styles.collapseSummary}>
+        <span>{title}</span>
+        {badge ? <span style={styles.collapseBadge}>{badge}</span> : null}
+      </summary>
+      <div style={styles.collapseBody}>{children}</div>
+    </details>
+  );
+}
+
+function LogList({ entries }) {
+  if (!entries.length) {
+    return <div style={styles.logEmpty}>Nessun log disponibile per questa entità.</div>;
+  }
+
+  return (
+    <ul style={styles.logList}>
+      {entries.map((entry, index) => (
+        <li key={`${entry.label}-${index}`} style={styles.logItem}>
+          <div style={styles.logTitle}>{entry.label}</div>
+          <div style={styles.logDate}>{entry.date}</div>
+          {entry.note ? <div style={styles.logNote}>{entry.note}</div> : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function prepareLogEntries(rawEntries) {
+  return rawEntries
+    .map((entry) => {
+      if (!entry || !entry.value) return null;
+      const date = formatDateTime(entry.value);
+      if (!date) return null;
+      const timestamp = new Date(entry.value).getTime();
+      if (Number.isNaN(timestamp)) return null;
+      return {
+        label: entry.label,
+        date,
+        note: entry.note || null,
+        timestamp,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, 10)
+    .map(({ timestamp, ...rest }) => rest);
+}
+
+function AthleteDetail({ athlete, onClose, onViewDocument }) {
+  const cv = athlete.cv || {};
+  const fullName = `${athlete.last_name || ''} ${athlete.first_name || ''}`.trim() || '—';
+  const residence = [cv.residence_city, cv.residence_country].filter(Boolean).join(', ') || '—';
+  const documents = [
+    cv.id_document_url
+      ? { key: cv.id_document_url, label: cv.id_document_type || 'Documento identificativo' }
+      : null,
+    cv.id_selfie_url ? { key: cv.id_selfie_url, label: 'Selfie di verifica' } : null,
+  ].filter(Boolean);
+
+  const logEntries = prepareLogEntries([
+    cv.updated_at ? { label: 'Ultima modifica al profilo', value: cv.updated_at } : null,
+    cv.verification_status_changed_at
+      ? { label: 'Aggiornamento stato revisione', value: cv.verification_status_changed_at }
+      : null,
+    cv.verified_at ? { label: 'Verifica documento completata', value: cv.verified_at } : null,
+    cv.submitted_at ? { label: 'Invio della verifica', value: cv.submitted_at } : null,
+    cv.created_at ? { label: 'Creazione verifica', value: cv.created_at } : null,
+  ]);
+
+  return (
+    <div style={styles.detailCard}>
+      <div style={styles.detailHeader}>
+        <div>
+          <h3 style={styles.detailTitle}>Dettaglio atleta</h3>
+          <div style={styles.detailSubtitle}>{fullName}</div>
+        </div>
+        <button type="button" onClick={onClose} style={styles.closeButton}>
+          Chiudi
+        </button>
+      </div>
+
+      <div style={styles.detailBody}>
+        <CollapsibleSection title="Anagrafica" defaultOpen>
+          <InfoRow label="Nome completo" value={fullName} />
+          <InfoRow label="Telefono" value={athlete.phone || '—'} />
+          <InfoRow label="Residenza" value={residence} />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Stato verifica identità"
+          defaultOpen
+          badge={formatStatusLabel(cv.review_status || athlete.review_status)}
+        >
+          <InfoRow
+            label="Revisione"
+            value={<span style={badgeStyle(cv.review_status || athlete.review_status)}>{formatStatusLabel(cv.review_status || athlete.review_status)}</span>}
+          />
+          <InfoRow label="Documento verificato" value={cv.id_verified ? 'Sì' : 'No'} />
+          <InfoRow label="Telefono verificato" value={cv.phone_verified ? 'Sì' : 'No'} />
+          {cv.rejected_reason ? (
+            <InfoRow
+              label="Motivazione rifiuto"
+              value={<span style={{ color: '#B00020' }}>{cv.rejected_reason}</span>}
+            />
+          ) : null}
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Documenti inviati" defaultOpen={documents.length > 0}>
+          {documents.length === 0 ? (
+            <div style={styles.detailValue}>Nessun documento disponibile.</div>
+          ) : (
+            <div style={styles.detailActionGroup}>
+              {documents.map((doc) => (
+                <button
+                  key={doc.key}
+                  type="button"
+                  onClick={() => onViewDocument(doc.key)}
+                  style={styles.docButton}
+                >
+                  {doc.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </CollapsibleSection>
+      </div>
+
+      <div style={styles.logSection}>
+        <h4 style={styles.logHeading}>Attività recenti</h4>
+        <LogList entries={logEntries} />
+      </div>
+    </div>
+  );
+}
+
+function OperatorDetail({ operator, onClose, onViewDocument }) {
+  const profile = operator.profile || {};
+  const contact = operator.contact || {};
+  const verification = operator.verification || {};
+  const location = [profile.city, profile.country].filter(Boolean).join(', ') || '—';
+  const phoneVerifiedDate = formatDateTime(contact.phone_verified_at);
+  const phoneVerifiedLabel = contact.phone_verified_at
+    ? `Sì${phoneVerifiedDate ? ` (${phoneVerifiedDate})` : ''}`
+    : 'No';
+
+  const logEntries = prepareLogEntries([
+    verification.updated_at
+      ? { label: 'Aggiornamento richiesta verifica', value: verification.updated_at }
+      : null,
+    verification.submitted_at
+      ? { label: 'Invio richiesta verifica', value: verification.submitted_at }
+      : null,
+    verification.created_at
+      ? { label: 'Creazione richiesta verifica', value: verification.created_at }
+      : null,
+    profile.updated_at
+      ? { label: 'Aggiornamento profilo operatore', value: profile.updated_at }
+      : null,
+    profile.created_at
+      ? { label: 'Creazione profilo operatore', value: profile.created_at }
+      : null,
+  ]);
+
+  return (
+    <div style={styles.detailCard}>
+      <div style={styles.detailHeader}>
+        <div>
+          <h3 style={styles.detailTitle}>Dettaglio operatore</h3>
+          <div style={styles.detailSubtitle}>{profile.legal_name || profile.trade_name || '—'}</div>
+        </div>
+        <button type="button" onClick={onClose} style={styles.closeButton}>
+          Chiudi
+        </button>
+      </div>
+
+      <div style={styles.detailBody}>
+        <CollapsibleSection title="Profilo" defaultOpen>
+          <InfoRow label="Ragione sociale" value={profile.legal_name || '—'} />
+          <InfoRow label="Nome commerciale" value={profile.trade_name || '—'} />
+          <InfoRow label="Tipologia" value={operator.type?.name || operator.type?.code || '—'} />
+          <InfoRow label="Località" value={location} />
+          <InfoRow label="Stato account" value={`Account: ${operator.status || '-'} · Wizard: ${operator.wizard_status || '-'}`} />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Contatti" defaultOpen>
+          <InfoRow label="Email" value={contact.email_primary || '—'} />
+          <InfoRow label="Telefono" value={contact.phone_e164 || '—'} />
+          <InfoRow label="Telefono verificato" value={phoneVerifiedLabel} />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Richiesta di verifica"
+          defaultOpen
+          badge={verification.state ? formatStatusLabel(verification.state) : null}
+        >
+          <InfoRow
+            label="Stato richiesta"
+            value={
+              verification.state ? (
+                <span style={badgeStyle(verification.state)}>{formatStatusLabel(verification.state)}</span>
+              ) : (
+                '—'
+              )
+            }
+          />
+          {verification.reason ? (
+            <InfoRow
+              label="Motivazione"
+              value={<span style={{ color: '#B00020' }}>{verification.reason}</span>}
+            />
+          ) : null}
+
+          <div style={styles.detailLabel}>Documenti inviati</div>
+          {operator.documents.length === 0 ? (
+            <div style={styles.detailValue}>Nessun documento caricato.</div>
+          ) : (
+            <div style={styles.detailActionGroup}>
+              {operator.documents.map((doc) => (
+                <button
+                  key={`${doc.doc_type}-${doc.file_key}`}
+                  type="button"
+                  onClick={() => onViewDocument(doc.file_key)}
+                  style={styles.docButton}
+                >
+                  {doc.doc_type || 'Documento'}
+                </button>
+              ))}
+            </div>
+          )}
+        </CollapsibleSection>
+      </div>
+
+      <div style={styles.logSection}>
+        <h4 style={styles.logHeading}>Attività recenti</h4>
+        <LogList entries={logEntries} />
+      </div>
+    </div>
+  );
+}
+
 const styles = {
   fullPage: {
     minHeight: '100vh',
@@ -1016,6 +1360,164 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 600,
     color: '#B91C1C',
+  },
+  directoryNameButton: {
+    background: 'transparent',
+    border: 'none',
+    padding: 0,
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#0F172A',
+    cursor: 'pointer',
+    textAlign: 'left',
+    textDecoration: 'underline',
+    textDecorationColor: 'rgba(14, 116, 144, 0.4)',
+  },
+  directoryNameButtonActive: {
+    color: '#0F766E',
+    textDecorationColor: '#0F766E',
+  },
+  detailCard: {
+    background: '#FFFFFF',
+    borderRadius: 16,
+    border: '1px solid rgba(15,23,42,0.06)',
+    boxShadow: '0 18px 35px rgba(15, 23, 42, 0.05)',
+    padding: 28,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 24,
+  },
+  detailHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 20,
+  },
+  detailTitle: {
+    margin: 0,
+    fontSize: 20,
+    fontWeight: 700,
+  },
+  detailSubtitle: {
+    marginTop: 4,
+    fontSize: 15,
+    color: '#475569',
+  },
+  closeButton: {
+    border: '1px solid #CBD5E1',
+    borderRadius: 999,
+    padding: '6px 14px',
+    background: '#F8FAFC',
+    cursor: 'pointer',
+    fontWeight: 600,
+    color: '#0F172A',
+  },
+  detailBody: {
+    display: 'grid',
+    gap: 16,
+  },
+  collapse: {
+    border: '1px solid #E2E8F0',
+    borderRadius: 12,
+    padding: '12px 16px',
+    background: '#F8FAFC',
+  },
+  collapseSummary: {
+    listStyle: 'none',
+    cursor: 'pointer',
+    fontWeight: 600,
+    color: '#0F172A',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  collapseBadge: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: '#0F766E',
+    background: 'rgba(15, 118, 110, 0.12)',
+    padding: '4px 10px',
+    borderRadius: 999,
+  },
+  collapseBody: {
+    marginTop: 12,
+    display: 'grid',
+    gap: 12,
+  },
+  detailRow: {
+    display: 'grid',
+    gridTemplateColumns: '200px 1fr',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  detailLabel: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#64748B',
+  },
+  detailValue: {
+    fontSize: 14,
+    color: '#0F172A',
+    lineHeight: 1.45,
+  },
+  detailActionGroup: {
+    display: 'flex',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  docButton: {
+    borderRadius: 10,
+    border: '1px solid #38BDF8',
+    background: '#F0F9FF',
+    color: '#0F172A',
+    padding: '8px 14px',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  logSection: {
+    borderTop: '1px solid #E2E8F0',
+    paddingTop: 16,
+  },
+  logHeading: {
+    margin: '0 0 12px',
+    fontSize: 16,
+    fontWeight: 700,
+    color: '#0F172A',
+  },
+  logList: {
+    listStyle: 'none',
+    margin: 0,
+    padding: 0,
+    display: 'grid',
+    gap: 12,
+  },
+  logItem: {
+    padding: '12px 14px',
+    borderRadius: 12,
+    background: '#F8FAFC',
+    border: '1px solid #E2E8F0',
+  },
+  logTitle: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  logDate: {
+    fontSize: 13,
+    color: '#475569',
+  },
+  logNote: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#B91C1C',
+  },
+  logEmpty: {
+    fontSize: 13,
+    color: '#64748B',
+    padding: '4px 0',
   },
   statsGrid: {
     display: 'grid',
