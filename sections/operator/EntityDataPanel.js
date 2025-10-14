@@ -456,6 +456,9 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
     let removePreviousPath = '';
     const wasRemovingLogo = logoMarkedForRemoval;
 
+    const hadLogoFile = Boolean(logoFile);
+    let shouldCleanupLogoObjectUrl = false;
+
     try {
       setSaving(true);
       setStatus({ type: '', msg: '' });
@@ -550,22 +553,28 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
       setLogoMarkedForRemoval(false);
       setLogoFile(null);
       const shouldUpdatePreview = Boolean(logoFile || wasRemovingLogo);
-      cleanupLogoObjectUrl();
+      let nextPreviewUrl = logoPreviewUrl;
+      let nextStoragePath = newLogoStoragePath || '';
 
       if (shouldUpdatePreview) {
-        setLogoPreviewUrl('');
         const { previewUrl, storagePath } = await resolveLogoPreview(newLogoUrlValue, {
           storagePathHint: newLogoStoragePath,
           suppressWarning: true,
         });
-        setLogoPreviewUrl(previewUrl);
-        bumpLogoPreviewVersion();
-        setLogoStoragePath(storagePath || '');
-      } else {
-        setLogoStoragePath(newLogoStoragePath || '');
+        nextPreviewUrl = previewUrl;
+        nextStoragePath = storagePath || '';
       }
+
+      setLogoPreviewUrl(shouldUpdatePreview ? nextPreviewUrl : logoPreviewUrl);
+      if (shouldUpdatePreview) {
+        bumpLogoPreviewVersion();
+      }
+      setLogoStoragePath(nextStoragePath);
       setErrors({});
       setStatus({ type: 'success', msg: 'Saved ✓' });
+      if (hadLogoFile) {
+        shouldCleanupLogoObjectUrl = true;
+      }
 
       if (onRefresh) {
         try {
@@ -586,6 +595,9 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
       }
       setStatus({ type: 'error', msg: 'Save failed. Please try again.' });
     } finally {
+      if (shouldCleanupLogoObjectUrl) {
+        cleanupLogoObjectUrl();
+      }
       setSaving(false);
     }
   };
