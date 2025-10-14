@@ -20,6 +20,19 @@ const PLATFORM_SUGGESTIONS = [
   'Other',
 ];
 
+const ICON_BUTTON_BASE = {
+  background: 'transparent',
+  border: 'none',
+  padding: 4,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  lineHeight: 1,
+  borderRadius: 8,
+  minWidth: 32,
+  minHeight: 32,
+};
+
 const socialStyles = {
   grid: { display: 'grid', gridTemplateColumns: '1fr', gap: 24 },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
@@ -39,6 +52,7 @@ const socialStyles = {
     borderRadius: 10,
     fontSize: 14,
     background: '#FFF',
+    boxSizing: 'border-box',
   },
   checkboxRow: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
   th: { textAlign: 'left', fontSize: 12, fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid #EEE', whiteSpace: 'nowrap' },
@@ -62,10 +76,10 @@ const socialStyles = {
   },
   tableWrap: { overflowX: 'auto', border: '1px solid #EEE', borderRadius: 10, background: '#FFF' },
   table: { width: '100%', borderCollapse: 'separate', borderSpacing: '8px 0' },
-  tableActions: { display: 'inline-flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' },
+  tableActionsCell: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 },
   urlIcon: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#1976d2' },
 
-  card: { border: '1px solid #EEE', borderRadius: 12, marginBottom: 8, background: '#FFF' },
+  card: { border: '1px solid #EEE', borderRadius: 12, marginBottom: 8, background: '#FFF', width: '100%' },
   summary: {
     width: '100%',
     display: 'flex',
@@ -88,7 +102,7 @@ const socialStyles = {
     marginLeft: 8,
   },
   chevron: { width: 16, height: 16, transition: 'transform 0.2s', flexShrink: 0 },
-  details: { padding: 12, borderTop: '1px solid #EEE', display: 'flex', flexDirection: 'column', gap: 8 },
+  details: { padding: 12, borderTop: '1px solid #EEE', display: 'flex', flexDirection: 'column', gap: 8, width: '100%' },
   actions: { display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end', flexWrap: 'wrap' },
 
   smallBtn: {
@@ -121,25 +135,14 @@ const socialStyles = {
     fontWeight: 600,
   },
   linkBtn: {
-    background: 'transparent',
-    border: 'none',
-    padding: 0,
+    ...ICON_BUTTON_BASE,
     color: '#1976d2',
-    cursor: 'pointer',
-    fontWeight: 600,
-  },
-  iconBtn: {
-    background: 'transparent',
-    border: 'none',
-    color: '#1976d2',
-    cursor: 'pointer',
-    fontWeight: 600,
-    padding: 4,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: 4,
-    lineHeight: 1,
+  },
+  iconBtnDanger: {
+    ...ICON_BUTTON_BASE,
+    color: '#b00',
+    gap: 4,
   },
   error: { fontSize: 12, color: '#b00' },
 
@@ -469,6 +472,13 @@ export default function OperatorSocialProfilesCard({ operatorId, onSaved, isMobi
   const saveBtnStyle = isSaveDisabled
     ? { ...socialStyles.saveBtn, ...socialStyles.saveBtnDisabled }
     : { ...socialStyles.saveBtn, ...socialStyles.saveBtnEnabled };
+  const saveBarStyle = isMobile
+    ? { ...socialStyles.saveBar, flexWrap: 'wrap', justifyContent: 'flex-end', rowGap: 8 }
+    : socialStyles.saveBar;
+  const statusBaseStyle = status.type === 'error' ? socialStyles.statusTextERR : socialStyles.statusTextOK;
+  const statusStyle = isMobile
+    ? { ...statusBaseStyle, display: 'flex', flexBasis: '100%', justifyContent: 'flex-end', marginLeft: 0 }
+    : statusBaseStyle;
 
   return (
     <div style={socialStyles.grid}>
@@ -654,26 +664,25 @@ export default function OperatorSocialProfilesCard({ operatorId, onSaved, isMobi
                           aria-label="Primary"
                         />
                       </td>
-                      <td style={{ ...socialStyles.td, textAlign: 'right' }}>
-                        <div style={socialStyles.tableActions}>
-                          <a
-                            href={row.profile_url || '#'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={row.profile_url}
-                            style={socialStyles.linkBtn}
-                          >
-                            <FiLink />
-                          </a>
-                          <button
-                            type="button"
-                            style={{ ...socialStyles.iconBtn, color: '#b00' }}
-                            onClick={() => deleteRow(row.id)}
-                            aria-label="Delete social profile"
-                          >
-                            <Trash2 size={16} aria-hidden="true" />
-                          </button>
-                        </div>
+                      <td style={{ ...socialStyles.td, ...socialStyles.tableActionsCell }}>
+                        <a
+                          href={row.profile_url || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={row.profile_url}
+                          style={socialStyles.linkBtn}
+                          aria-label="Open social profile"
+                        >
+                          <FiLink size={16} />
+                        </a>
+                        <button
+                          type="button"
+                          style={socialStyles.iconBtnDanger}
+                          onClick={() => deleteRow(row.id)}
+                          aria-label="Delete social profile"
+                        >
+                          <Trash2 size={16} aria-hidden="true" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -702,7 +711,7 @@ export default function OperatorSocialProfilesCard({ operatorId, onSaved, isMobi
         </div>
       )}
 
-      <div style={socialStyles.saveBar}>
+      <div style={saveBarStyle}>
         <button
           type="button"
           disabled={isSaveDisabled}
@@ -716,7 +725,7 @@ export default function OperatorSocialProfilesCard({ operatorId, onSaved, isMobi
           <span
             role="status"
             aria-live="polite"
-            style={status.type === 'error' ? socialStyles.statusTextERR : socialStyles.statusTextOK}
+            style={statusStyle}
           >
             {status.msg}
           </span>
@@ -818,11 +827,11 @@ function OperatorSocialAccordionItem({ row, onField, onTogglePublic, onTogglePri
               title={row.profile_url}
               style={{ ...socialStyles.smallBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              <FiLink />
+              <FiLink size={16} />
             </a>
             <button
               type="button"
-              style={{ ...socialStyles.iconBtn, color: '#b00' }}
+              style={socialStyles.iconBtnDanger}
               onClick={onDelete}
               aria-label="Delete social profile"
             >
