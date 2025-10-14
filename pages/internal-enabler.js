@@ -407,25 +407,37 @@ export default function InternalEnabler() {
   }, [opOrdered]);
 
   const consolidatedUsers = useMemo(() => {
-    const athletes = ordered.map((row) => ({
-      id: `athlete-${row.id}`,
-      type: 'Athlete',
-      name: `${row.last_name || ''} ${row.first_name || ''}`.trim() || '—',
-      status: row.review_status,
-      detail: row.cv?.residence_city || row.cv?.residence_country
-        ? [row.cv?.residence_city, row.cv?.residence_country].filter(Boolean).join(', ')
-        : '—',
-      meta: row.cv?.id_verified ? 'ID verified' : 'ID not verified',
-    }));
+    const athletes = ordered.map((row) => {
+      const displayName = `${row.last_name || ''} ${row.first_name || ''}`.trim() || '—';
+      return {
+        id: `athlete-${row.id}`,
+        kind: 'athlete',
+        rawId: row.id,
+        type: 'Athlete',
+        name: displayName,
+        status: row.review_status,
+        detail: row.cv?.residence_city || row.cv?.residence_country
+          ? [row.cv?.residence_city, row.cv?.residence_country].filter(Boolean).join(', ')
+          : '—',
+        meta: row.cv?.id_verified ? 'ID verified' : 'ID not verified',
+        href: row.id ? `/internal-enabler/athlete/${row.id}` : null,
+      };
+    });
 
-    const operators = opOrdered.map((row) => ({
-      id: `operator-${row.id}`,
-      type: row.type?.name || row.type?.code || 'Operator',
-      name: row.profile?.legal_name || row.profile?.trade_name || '—',
-      status: row.review_state,
-      detail: row.contact?.email_primary || row.contact?.phone_e164 || '—',
-      meta: `Account: ${row.status || '-'} · Wizard: ${row.wizard_status || '-'}`,
-    }));
+    const operators = opOrdered.map((row) => {
+      const displayName = row.profile?.legal_name || row.profile?.trade_name || '—';
+      return {
+        id: `operator-${row.id}`,
+        kind: 'operator',
+        rawId: row.id,
+        type: row.type?.name || row.type?.code || 'Operator',
+        name: displayName,
+        status: row.review_state,
+        detail: row.contact?.email_primary || row.contact?.phone_e164 || '—',
+        meta: `Account: ${row.status || '-'} · Wizard: ${row.wizard_status || '-'}`,
+        href: row.id ? `/internal-enabler/operator/${row.id}` : null,
+      };
+    });
 
     return [...athletes, ...operators].sort((a, b) => a.name.localeCompare(b.name));
   }, [ordered, opOrdered]);
@@ -703,7 +715,13 @@ export default function InternalEnabler() {
           {consolidatedUsers.map((item) => (
             <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '160px 220px 160px 1fr', borderTop: '1px solid #EEE' }}>
               <div style={cell}>{item.type}</div>
-              <div style={cell}>{item.name}</div>
+              <div style={{ ...cell, display: 'flex', alignItems: 'flex-start' }}>
+                {item.href ? (
+                  <a href={item.href} style={styles.tableLink}>{item.name}</a>
+                ) : (
+                  <span>{item.name}</span>
+                )}
+              </div>
               <div style={{ ...cell, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span style={badgeStyle(item.status)}>{formatStatusLabel(item.status)}</span>
                 <span style={{ fontSize: 12, color: '#666' }}>{item.meta}</span>
@@ -1023,6 +1041,11 @@ const styles = {
     gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
     gap: 20,
     marginBottom: 40,
+  },
+  tableLink: {
+    color: '#0F62FE',
+    fontWeight: 600,
+    textDecoration: 'none',
   },
   statCard: {
     background: '#FFFFFF',
