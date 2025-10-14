@@ -395,8 +395,159 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
     }
   };
 
+  const autoSaveLogo = useCallback(
+    async (file, context = {}) => {
+      if (!file) return;
+
+      const { previousPreviewUrl = '', previousStoragePath = '' } = context;
+
+      if (!operatorId || !supabase) {
+        setStatus({ type: 'error', msg: 'Unable to update logo right now.' });
+        setLogoPreviewUrl(previousPreviewUrl || '');
+        setLogoStoragePath(previousStoragePath || '');
+        setLogoFile(null);
+        cleanupLogoObjectUrl();
+        return;
+      }
+
+      let uploadedLogoPath = '';
+      const ext = normalizeFileExtension(file) || (file.type === 'image/svg+xml' ? 'svg' : 'png');
+      const timestamp = Date.now();
+      const path = `op/${operatorId}/logo/logo-${timestamp}.${ext || 'png'}`;
+
+      try {
+        setSaving(true);
+        setStatus({ type: '', msg: '' });
+
+        const { error: uploadError } = await supabase.storage
+          .from(OP_LOGO_BUCKET)
+          .upload(path, file, {
+            cacheControl: '3600',
+            upsert: true,
+            contentType: file.type || undefined,
+          });
+
+        if (uploadError) throw uploadError;
+
+        uploadedLogoPath = path;
+
+        const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(path);
+        const newLogoUrlValue = data?.publicUrl || path;
+
+        const { data: existingRow, error: existingErr } = await supabase
+          .from('op_profile')
+          .select('op_id')
+          .eq('op_id', operatorId)
+          .maybeSingle();
+
+        if (existingErr && existingErr.code !== 'PGRST116') throw existingErr;
+
+        if (existingRow) {
+          const { error: updateErr } = await supabase
+            .from('op_profile')
+            .update({ logo_url: newLogoUrlValue ? newLogoUrlValue : null })
+            .eq('op_id', operatorId);
+          if (updateErr) throw updateErr;
+        } else {
+          const insertPayload = {
+            op_id: operatorId,
+            legal_name: toNullable(profile?.legal_name) || null,
+            trade_name: toNullable(profile?.trade_name) || null,
+            website: toNullable(profile?.website) || null,
+            address1: toNullable(profile?.address1),
+            address2: toNullable(profile?.address2),
+            city: toNullable(profile?.city),
+            state_region: toNullable(profile?.state_region),
+            postal_code: toNullable(profile?.postal_code),
+            country: toNullable(profile?.country),
+            logo_url: newLogoUrlValue ? newLogoUrlValue : null,
+          };
+          const { error: insertErr } = await supabase.from('op_profile').insert([insertPayload]);
+          if (insertErr) throw insertErr;
+        }
+
+        if (previousStoragePath && previousStoragePath !== path) {
+          const { error: cleanupErr } = await supabase.storage
+            .from(OP_LOGO_BUCKET)
+            .remove([previousStoragePath]);
+          if (cleanupErr) {
+            console.warn('Unable to remove previous logo from storage', cleanupErr);
+          }
+        }
+
+        const { previewUrl, storagePath } = await resolveLogoPreview(newLogoUrlValue, {
+          storagePathHint: path,
+          suppressWarning: true,
+        });
+
+        const hasPendingTextChanges =
+          (form.trade_name || '') !== (snapshot.trade_name || '') ||
+          (form.website || '') !== (snapshot.website || '');
+
+        setSnapshot((prev) => ({ ...prev, logo_url: newLogoUrlValue || '' }));
+        setForm((prev) => ({ ...prev, logo_url: newLogoUrlValue || '' }));
+        setLogoPreviewUrl(previewUrl || newLogoUrlValue || '');
+        setLogoStoragePath(storagePath || path || '');
+        bumpLogoPreviewVersion();
+        setLogoFile(null);
+        setLogoMarkedForRemoval(false);
+        cleanupLogoObjectUrl();
+        setDirty(hasPendingTextChanges);
+        setStatus({ type: 'success', msg: 'Logo updated ✓' });
+
+        if (onRefresh) {
+          try {
+            await onRefresh();
+          } catch (refreshErr) {
+            console.warn('Refresh after logo auto-save failed', refreshErr);
+          }
+        }
+      } catch (err) {
+        console.error('Auto logo update failed', err);
+        if (uploadedLogoPath) {
+          const { error: cleanupErr } = await supabase.storage
+            .from(OP_LOGO_BUCKET)
+            .remove([uploadedLogoPath]);
+          if (cleanupErr) {
+            console.warn('Failed to rollback uploaded logo after auto-save error', cleanupErr);
+          }
+        }
+        setLogoPreviewUrl(previousPreviewUrl || '');
+        setLogoStoragePath(previousStoragePath || '');
+        setLogoFile(null);
+        cleanupLogoObjectUrl();
+        setStatus({ type: 'error', msg: 'Logo update failed. Please try again.' });
+      } finally {
+        setSaving(false);
+      }
+    },
+    [
+      operatorId,
+      supabase,
+      profile?.legal_name,
+      profile?.trade_name,
+      profile?.website,
+      profile?.address1,
+      profile?.address2,
+      profile?.city,
+      profile?.state_region,
+      profile?.postal_code,
+      profile?.country,
+      resolveLogoPreview,
+      form.trade_name,
+      form.website,
+      snapshot.trade_name,
+      snapshot.website,
+      bumpLogoPreviewVersion,
+      cleanupLogoObjectUrl,
+      onRefresh,
+    ]
+  );
+
   const handleLogoSelect = (file) => {
     if (!file) return;
+    const previousPreviewUrl = logoPreviewUrl;
+    const previousStoragePath = logoStoragePath;
     cleanupLogoObjectUrl();
     try {
       const objectUrl = URL.createObjectURL(file);
@@ -405,8 +556,8 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
       bumpLogoPreviewVersion();
       setLogoFile(file);
       setLogoMarkedForRemoval(false);
-      setDirty(true);
       setStatus({ type: '', msg: '' });
+      autoSaveLogo(file, { previousPreviewUrl, previousStoragePath });
     } catch (err) {
       console.error('Unable to preview selected logo file', err);
       setStatus({ type: 'error', msg: 'Unable to preview selected file.' });
