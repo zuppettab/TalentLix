@@ -439,6 +439,45 @@ export default function OperatorDashboard() {
   const sectionObj = getOperatorSectionById(current);
   const SectionComponent = SECTION_COMPONENTS[current] || EntityDataPanel;
 
+  const sectionStatusMap = useMemo(() => {
+    const baseStatus = {};
+    OPERATOR_SECTIONS.forEach((section) => {
+      baseStatus[section.id] = 'unknown';
+    });
+
+    if (!operatorData || operatorData.loading) {
+      return baseStatus;
+    }
+
+    const hasInfo = (value) => {
+      if (value == null) return false;
+      if (typeof value === 'boolean') return true;
+      if (typeof value === 'number') return true;
+      if (typeof value === 'string') return value.trim().length > 0;
+      if (Array.isArray(value)) return value.length > 0;
+      if (value instanceof Date) return true;
+      if (typeof value === 'object') {
+        return Object.values(value).some((inner) => hasInfo(inner));
+      }
+      return false;
+    };
+
+    const nextStatus = { ...baseStatus };
+
+    const hasEntityData = hasInfo(operatorData.profile) || hasInfo(operatorData.account) || hasInfo(operatorData.type);
+    nextStatus.entity = hasEntityData ? 'complete' : 'incomplete';
+
+    nextStatus.contacts = hasInfo(operatorData.contact) ? 'complete' : 'incomplete';
+
+    const verification = operatorData.verification || {};
+    const hasIdentityData = hasInfo(verification.request) || (verification.documents && Object.keys(verification.documents).length > 0);
+    nextStatus.identity = hasIdentityData ? 'complete' : 'incomplete';
+
+    nextStatus.privacy = hasInfo(operatorData.privacy) ? 'complete' : 'incomplete';
+
+    return nextStatus;
+  }, [operatorData]);
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.replace('/login-operator');
@@ -483,25 +522,35 @@ export default function OperatorDashboard() {
       </header>
 
       {isMobile && (
-        <MobileOperatorTabs sections={OPERATOR_SECTIONS} current={current} onSelect={setSection} />
+        <MobileOperatorTabs
+          sections={OPERATOR_SECTIONS}
+          current={current}
+          onSelect={setSection}
+          statusMap={sectionStatusMap}
+        />
       )}
 
       <main style={mainStyle}>
         {!isMobile && (
           <nav style={styles.leftNav}>
-            {OPERATOR_SECTIONS.map(section => (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => setSection(section.id)}
-                style={{
-                  ...styles.navBtn,
-                  ...(current === section.id ? styles.navBtnActive : null),
-                }}
-              >
-                {section.title}
-              </button>
-            ))}
+            {OPERATOR_SECTIONS.map((section) => {
+              const status = sectionStatusMap[section.id] || 'unknown';
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setSection(section.id)}
+                  style={{
+                    ...styles.navBtn,
+                    ...(status === 'complete' ? styles.navBtnComplete : null),
+                    ...(status === 'incomplete' ? styles.navBtnIncomplete : null),
+                    ...(current === section.id ? styles.navBtnActive : null),
+                  }}
+                >
+                  {section.title}
+                </button>
+              );
+            })}
           </nav>
         )}
 
@@ -528,7 +577,7 @@ export default function OperatorDashboard() {
   );
 }
 
-function MobileOperatorTabs({ sections, current, onSelect }) {
+function MobileOperatorTabs({ sections, current, onSelect, statusMap }) {
   const scrollerRef = useRef(null);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
@@ -581,19 +630,24 @@ function MobileOperatorTabs({ sections, current, onSelect }) {
       {!atEnd && <div style={{ ...styles.edgeFade, right: 0, background: 'linear-gradient(270deg, rgba(255,255,255,1) 15%, rgba(255,255,255,0) 85%)' }} />}
 
       <div ref={scrollerRef} style={styles.mobileTabsScroller}>
-        {sections.map(section => (
-          <button
-            key={section.id}
-            type="button"
-            onClick={() => onSelect(section.id)}
-            style={{
-              ...styles.mobileTabBtn,
-              ...(current === section.id ? styles.mobileTabBtnActive : null),
-            }}
-          >
-            {section.title}
-          </button>
-        ))}
+        {sections.map((section) => {
+          const status = statusMap?.[section.id] || 'unknown';
+          return (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => onSelect(section.id)}
+              style={{
+                ...styles.mobileTabBtn,
+                ...(status === 'complete' ? styles.mobileTabBtnComplete : null),
+                ...(status === 'incomplete' ? styles.mobileTabBtnIncomplete : null),
+                ...(current === section.id ? styles.mobileTabBtnActive : null),
+              }}
+            >
+              {section.title}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -658,6 +712,8 @@ const styles = {
     fontWeight: 500,
     transition: 'box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease',
   },
+  navBtnComplete: { borderColor: '#1E88E5', background: '#E3F2FD', color: '#0B3D91' },
+  navBtnIncomplete: { borderColor: '#FB8C00', background: '#FFF4E5', color: '#7C3A00' },
   navBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.25)', color: '#027373' },
   panel: {
     background: '#FFFFFF',
@@ -721,6 +777,8 @@ const styles = {
     minHeight: 40,
     transition: 'box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease',
   },
+  mobileTabBtnComplete: { borderColor: '#1E88E5', background: '#E3F2FD', color: '#0B3D91' },
+  mobileTabBtnIncomplete: { borderColor: '#FB8C00', background: '#FFF4E5', color: '#7C3A00' },
   mobileTabBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.2)', color: '#027373' },
   nudgeBtn: {
     position: 'absolute',
