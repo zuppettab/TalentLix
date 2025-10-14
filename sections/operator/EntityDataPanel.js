@@ -1,9 +1,56 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/router';
 import countries from '../../utils/countries';
 import { supabase } from '../../utils/supabaseClient';
 import { OPERATOR_LOGO_BUCKET } from '../../utils/operatorStorageBuckets';
 
 const OP_LOGO_BUCKET = OPERATOR_LOGO_BUCKET;
+
+const analyzeWebsiteValue = (raw) => {
+  const trimmed = typeof raw === 'string' ? raw.trim() : '';
+  if (!trimmed) {
+    return { isValid: true, normalized: null, error: '' };
+  }
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(withProtocol);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error('Unsupported protocol');
+    }
+    return { isValid: true, normalized: parsed.toString(), error: '' };
+  } catch (err) {
+    return {
+      isValid: false,
+      normalized: null,
+      error: 'Invalid website URL. Please use a valid domain (e.g. https://example.com).',
+    };
+  }
+};
+
+const toNullable = (value) => {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  }
+  return value;
+};
+
+const normalizeFileExtension = (file) => {
+  if (!file) return '';
+  const name = file.name || '';
+  const parts = name.split('.');
+  if (parts.length < 2) {
+    if (file.type === 'image/svg+xml') return 'svg';
+    if (file.type === 'image/png') return 'png';
+    if (file.type === 'image/jpeg') return 'jpg';
+    return '';
+  }
+  const ext = parts.pop() || '';
+  return ext.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
+};
+
+const LOGO_FILE_ACCEPT = 'image/png,image/jpeg,image/jpg,image/svg+xml';
 
 const deriveStoragePathFromPublicUrl = (publicUrl, bucket) => {
   if (!publicUrl || !bucket) return '';
@@ -114,63 +161,70 @@ const Chip = ({ label, tone = 'neutral' }) => {
   return <span style={base}>{label}</span>;
 };
 
-export default function EntityDataPanel({ operatorData = {} }) {
+export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile = false }) {
+  const router = useRouter();
   const { profile, account, type } = operatorData || {};
   const sectionState = operatorData?.sectionStatus?.entity || {};
   const loading = sectionState.loading ?? operatorData.loading;
   const error = sectionState.error ?? operatorData.error;
+  const operatorId = operatorData?.account?.id;
 
-  const displayName = useMemo(() => {
-    const trade = profile?.trade_name?.trim();
-    const legal = profile?.legal_name?.trim();
-    if (trade) return trade;
-    if (legal) return legal;
-    return FALLBACK_NAME;
-  }, [profile?.legal_name, profile?.trade_name]);
-
-  const legalName = profile?.legal_name?.trim() || '';
-  const typeLabel = type?.name || (type?.code ? String(type.code).toUpperCase() : '');
-  const locationLine = useMemo(() => {
-    const parts = [profile?.city, profile?.country ? resolveCountryName(profile.country) : '', profile?.state_region]
-      .map((value) => (value || '').trim())
-      .filter(Boolean);
-    return parts.join(' · ');
-  }, [profile?.city, profile?.country, profile?.state_region]);
-
-  const heroSubtitle = useMemo(() => {
-    if (displayName && legalName && displayName !== legalName) {
-      return legalName;
-    }
-    if (typeLabel) return typeLabel;
-    return locationLine;
-  }, [displayName, legalName, locationLine, typeLabel]);
-
-  const chips = useMemo(() => {
-    const out = [];
-    if (typeLabel) {
-      out.push({ key: 'type', label: typeLabel, tone: 'accent' });
-    }
-    if (account?.status) {
-      out.push({ key: 'status', label: `Status: ${normalizeStatusLabel(account.status)}`, tone: determineChipTone('status', account.status) });
-    }
-    if (account?.wizard_status) {
-      out.push({ key: 'wizard', label: `Wizard: ${normalizeStatusLabel(account.wizard_status)}`, tone: determineChipTone('wizard', account.wizard_status) });
-    }
-    return out;
-  }, [account?.status, account?.wizard_status, typeLabel]);
-
-  const websiteLink = useMemo(() => buildWebsiteLink(profile?.website), [profile?.website]);
-  const countryName = useMemo(() => resolveCountryName(profile?.country), [profile?.country]);
-
-  const logoUrl = profile?.logo_url ? String(profile.logo_url) : '';
+  const [form, setForm] = useState({ trade_name: '', website: '', logo_url: '' });
+  const [snapshot, setSnapshot] = useState({ trade_name: '', website: '', logo_url: '' });
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [status, setStatus] = useState({ type: '', msg: '' });
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoMarkedForRemoval, setLogoMarkedForRemoval] = useState(false);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
-  const initials = useMemo(() => toInitials(displayName || legalName || FALLBACK_NAME), [displayName, legalName]);
+  const [logoStoragePath, setLogoStoragePath] = useState('');
+  const logoObjectUrlRef = useRef('');
+
+  const cleanupLogoObjectUrl = useCallback(() => {
+    if (logoObjectUrlRef.current) {
+      URL.revokeObjectURL(logoObjectUrlRef.current);
+      logoObjectUrlRef.current = '';
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      cleanupLogoObjectUrl();
+    };
+  }, [cleanupLogoObjectUrl]);
+
+  useEffect(() => {
+    const nextForm = {
+      trade_name: profile?.trade_name || '',
+      website: profile?.website || '',
+      logo_url: profile?.logo_url || '',
+    };
+    setForm(nextForm);
+    setSnapshot(nextForm);
+    setErrors({});
+    setDirty(false);
+    setStatus({ type: '', msg: '' });
+    setLogoMarkedForRemoval(false);
+    setLogoFile(null);
+    cleanupLogoObjectUrl();
+    setLogoPreviewUrl('');
+    setLogoStoragePath(deriveStoragePathFromPublicUrl(nextForm.logo_url, OP_LOGO_BUCKET) || '');
+  }, [profile?.logo_url, profile?.trade_name, profile?.website, cleanupLogoObjectUrl]);
 
   useEffect(() => {
     let active = true;
 
+    if (logoFile) {
+      return () => {
+        active = false;
+      };
+    }
+
     const resolveLogoUrl = async () => {
-      const rawValue = typeof logoUrl === 'string' ? logoUrl.trim() : '';
+      const rawValue = typeof form.logo_url === 'string' ? form.logo_url.trim() : '';
+      const derivedPath = deriveStoragePathFromPublicUrl(rawValue, OP_LOGO_BUCKET);
+      setLogoStoragePath(derivedPath || '');
 
       if (!rawValue) {
         if (active) setLogoPreviewUrl('');
@@ -178,11 +232,7 @@ export default function EntityDataPanel({ operatorData = {} }) {
       }
 
       const isHttpUrl = /^https?:\/\//i.test(rawValue);
-      const resolvedPath = deriveStoragePathFromPublicUrl(rawValue, OP_LOGO_BUCKET) || rawValue;
-      const normalizedPath = resolvedPath.startsWith(`${OP_LOGO_BUCKET}/`)
-        ? resolvedPath.slice(OP_LOGO_BUCKET.length + 1)
-        : resolvedPath.replace(/^\/+/, '');
-      const sanitizedPath = normalizedPath.replace(/^\/+/, '');
+      const normalizedPath = derivedPath?.replace(/^\/+/, '') || '';
 
       if (!supabase || !supabase.storage) {
         if (active) {
@@ -214,7 +264,7 @@ export default function EntityDataPanel({ operatorData = {} }) {
 
       const resolvePublicUrl = () => {
         if (!supabase?.storage) return '';
-        const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(sanitizedPath);
+        const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(normalizedPath);
         return data?.publicUrl || '';
       };
 
@@ -223,7 +273,7 @@ export default function EntityDataPanel({ operatorData = {} }) {
       try {
         const { data, error } = await supabase.storage
           .from(OP_LOGO_BUCKET)
-          .createSignedUrl(sanitizedPath, 300);
+          .createSignedUrl(normalizedPath, 300);
 
         if (error) throw error;
 
@@ -259,9 +309,292 @@ export default function EntityDataPanel({ operatorData = {} }) {
     return () => {
       active = false;
     };
-  }, [logoUrl]);
+  }, [form.logo_url, logoFile]);
 
-  const resolvedLogoUrl = logoPreviewUrl || (/^https?:\/\//i.test(logoUrl) ? logoUrl : '');
+  useEffect(() => {
+    const beforeUnload = (event) => {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', beforeUnload);
+    }
+
+    const handleRouteChangeStart = () => {
+      if (!dirty) return;
+      const ok = typeof window === 'undefined' ? true : window.confirm('You have unsaved changes. Leave without saving?');
+      if (!ok) {
+        router.events.emit('routeChangeError');
+        // eslint-disable-next-line no-throw-literal
+        throw 'Route change aborted due to unsaved changes';
+      }
+    };
+
+    router.events.on('routeChangeStart', handleRouteChangeStart);
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', beforeUnload);
+      }
+      router.events.off('routeChangeStart', handleRouteChangeStart);
+    };
+  }, [dirty, router.events]);
+
+  const displayName = useMemo(() => {
+    const trade = form?.trade_name?.trim();
+    const legal = profile?.legal_name?.trim();
+    if (trade) return trade;
+    if (legal) return legal;
+    return FALLBACK_NAME;
+  }, [form?.trade_name, profile?.legal_name]);
+
+  const legalName = profile?.legal_name?.trim() || '';
+  const typeLabel = type?.name || (type?.code ? String(type.code).toUpperCase() : '');
+  const locationLine = useMemo(() => {
+    const parts = [profile?.city, profile?.country ? resolveCountryName(profile.country) : '', profile?.state_region]
+      .map((value) => (value || '').trim())
+      .filter(Boolean);
+    return parts.join(' · ');
+  }, [profile?.city, profile?.country, profile?.state_region]);
+
+  const heroSubtitle = useMemo(() => {
+    if (displayName && legalName && displayName !== legalName) {
+      return legalName;
+    }
+    if (typeLabel) return typeLabel;
+    return locationLine;
+  }, [displayName, legalName, locationLine, typeLabel]);
+
+  const chips = useMemo(() => {
+    const out = [];
+    if (typeLabel) {
+      out.push({ key: 'type', label: typeLabel, tone: 'accent' });
+    }
+    if (account?.status) {
+      out.push({ key: 'status', label: `Status: ${normalizeStatusLabel(account.status)}`, tone: determineChipTone('status', account.status) });
+    }
+    if (account?.wizard_status) {
+      out.push({ key: 'wizard', label: `Wizard: ${normalizeStatusLabel(account.wizard_status)}`, tone: determineChipTone('wizard', account.wizard_status) });
+    }
+    return out;
+  }, [account?.status, account?.wizard_status, typeLabel]);
+
+  const websiteLink = useMemo(() => buildWebsiteLink(form?.website), [form?.website]);
+  const countryName = useMemo(() => resolveCountryName(profile?.country), [profile?.country]);
+  const initials = useMemo(() => toInitials(displayName || legalName || FALLBACK_NAME), [displayName, legalName]);
+  const logoInputId = useMemo(() => `operator-logo-upload-${operatorId || 'current'}`, [operatorId]);
+
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setDirty(true);
+    setStatus({ type: '', msg: '' });
+    if (name === 'website') {
+      const meta = analyzeWebsiteValue(value);
+      setErrors((prev) => ({ ...prev, website: meta.isValid ? '' : meta.error }));
+    } else if (name === 'trade_name') {
+      setErrors((prev) => ({ ...prev, trade_name: '' }));
+    }
+  };
+
+  const handleWebsiteBlur = () => {
+    const meta = analyzeWebsiteValue(form.website);
+    if (meta.isValid) {
+      setForm((prev) => ({ ...prev, website: meta.normalized || '' }));
+      setErrors((prev) => ({ ...prev, website: '' }));
+    } else if (form.website) {
+      setErrors((prev) => ({ ...prev, website: meta.error || 'Invalid website URL. Please use a valid domain (e.g. https://example.com).' }));
+    }
+  };
+
+  const handleLogoSelect = (file) => {
+    if (!file) return;
+    cleanupLogoObjectUrl();
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      logoObjectUrlRef.current = objectUrl;
+      setLogoPreviewUrl(objectUrl);
+      setLogoFile(file);
+      setLogoMarkedForRemoval(false);
+      setDirty(true);
+      setStatus({ type: '', msg: '' });
+    } catch (err) {
+      console.error('Unable to preview selected logo file', err);
+      setStatus({ type: 'error', msg: 'Unable to preview selected file.' });
+    }
+  };
+
+  const handleLogoRemove = () => {
+    if (!logoFile && !form.logo_url) return;
+    cleanupLogoObjectUrl();
+    setLogoFile(null);
+    setLogoMarkedForRemoval(true);
+    setForm((prev) => ({ ...prev, logo_url: '' }));
+    setLogoPreviewUrl('');
+    setDirty(true);
+    setStatus({ type: '', msg: '' });
+  };
+
+  const hasErrors = useMemo(() => Object.values(errors).some(Boolean), [errors]);
+  const isSaveDisabled =
+    saving || !dirty || hasErrors || !operatorId || !supabase;
+
+  const saveBtnStyle = isSaveDisabled
+    ? { ...styles.saveBtn, ...styles.saveBtnDisabled }
+    : { ...styles.saveBtn, ...styles.saveBtnEnabled };
+  const saveBarStyle = isMobile ? { ...styles.saveBar, justifyContent: 'flex-start' } : styles.saveBar;
+
+  const onSave = async () => {
+    if (isSaveDisabled) return;
+
+    const websiteMeta = analyzeWebsiteValue(form.website);
+    if (!websiteMeta.isValid) {
+      setErrors((prev) => ({ ...prev, website: websiteMeta.error }));
+      return;
+    }
+
+    if (!supabase) {
+      setStatus({ type: 'error', msg: 'Service unavailable.' });
+      return;
+    }
+
+    const trimmedTradeName = form.trade_name?.trim() || '';
+    const previousLogoValue = snapshot.logo_url || '';
+    const previousLogoPath = deriveStoragePathFromPublicUrl(previousLogoValue, OP_LOGO_BUCKET);
+    let newLogoUrlValue = previousLogoValue;
+    let newLogoStoragePath = logoStoragePath;
+    let uploadedLogoPath = '';
+    let removePreviousPath = '';
+    const wasRemovingLogo = logoMarkedForRemoval;
+
+    try {
+      setSaving(true);
+      setStatus({ type: '', msg: '' });
+
+      if (logoFile) {
+        if (!operatorId) {
+          throw new Error('Missing operator ID.');
+        }
+        const ext = normalizeFileExtension(logoFile) || (logoFile.type === 'image/svg+xml' ? 'svg' : 'png');
+        const timestamp = Date.now();
+        const path = `op/${operatorId}/logo/logo-${timestamp}.${ext || 'png'}`;
+        const { error: uploadError } = await supabase.storage
+          .from(OP_LOGO_BUCKET)
+          .upload(path, logoFile, {
+            cacheControl: '3600',
+            upsert: true,
+            contentType: logoFile.type || undefined,
+          });
+        if (uploadError) throw uploadError;
+        uploadedLogoPath = path;
+        const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(path);
+        newLogoUrlValue = data?.publicUrl || path;
+        newLogoStoragePath = path;
+        if (previousLogoPath && previousLogoPath !== path) {
+          removePreviousPath = previousLogoPath;
+        }
+      } else if (logoMarkedForRemoval) {
+        newLogoUrlValue = '';
+        newLogoStoragePath = '';
+        if (previousLogoPath) {
+          removePreviousPath = previousLogoPath;
+        }
+      }
+
+      const payload = {
+        trade_name: toNullable(trimmedTradeName),
+        website: websiteMeta.normalized ? websiteMeta.normalized : null,
+        logo_url: newLogoUrlValue ? newLogoUrlValue : null,
+      };
+
+      const { data: existingRow, error: existingErr } = await supabase
+        .from('op_profile')
+        .select('op_id')
+        .eq('op_id', operatorId)
+        .maybeSingle();
+
+      if (existingErr && existingErr.code !== 'PGRST116') throw existingErr;
+
+      if (existingRow) {
+        const { error: updateErr } = await supabase
+          .from('op_profile')
+          .update(payload)
+          .eq('op_id', operatorId);
+        if (updateErr) throw updateErr;
+      } else {
+        const insertPayload = {
+          op_id: operatorId,
+          legal_name: toNullable(profile?.legal_name) || null,
+          trade_name: payload.trade_name,
+          website: payload.website,
+          address1: toNullable(profile?.address1),
+          address2: toNullable(profile?.address2),
+          city: toNullable(profile?.city),
+          state_region: toNullable(profile?.state_region),
+          postal_code: toNullable(profile?.postal_code),
+          country: toNullable(profile?.country),
+          logo_url: payload.logo_url,
+        };
+        const { error: insertErr } = await supabase.from('op_profile').insert([insertPayload]);
+        if (insertErr) throw insertErr;
+      }
+
+      if (removePreviousPath) {
+        const { error: cleanupErr } = await supabase.storage
+          .from(OP_LOGO_BUCKET)
+          .remove([removePreviousPath]);
+        if (cleanupErr) {
+          console.warn('Unable to remove previous logo from storage', cleanupErr);
+        }
+      }
+
+      const normalizedWebsiteValue = websiteMeta.normalized || '';
+      const nextSnapshot = {
+        trade_name: trimmedTradeName,
+        website: normalizedWebsiteValue,
+        logo_url: newLogoUrlValue || '',
+      };
+
+      setSnapshot(nextSnapshot);
+      setForm(nextSnapshot);
+      setDirty(false);
+      setLogoMarkedForRemoval(false);
+      setLogoFile(null);
+      const shouldResetPreview = Boolean(logoFile || wasRemovingLogo);
+      cleanupLogoObjectUrl();
+      if (shouldResetPreview) {
+        setLogoPreviewUrl('');
+      }
+      setLogoStoragePath(newLogoStoragePath || '');
+      setErrors({});
+      setStatus({ type: 'success', msg: 'Saved ✓' });
+
+      if (onRefresh) {
+        try {
+          await onRefresh();
+        } catch (refreshErr) {
+          console.warn('Refresh after save failed', refreshErr);
+        }
+      }
+    } catch (err) {
+      console.error('Save failed', err);
+      if (uploadedLogoPath) {
+        const { error: rollbackErr } = await supabase.storage
+          .from(OP_LOGO_BUCKET)
+          .remove([uploadedLogoPath]);
+        if (rollbackErr) {
+          console.warn('Failed to rollback uploaded logo after error', rollbackErr);
+        }
+      }
+      setStatus({ type: 'error', msg: 'Save failed. Please try again.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resolvedLogoUrl = logoPreviewUrl || (/^https?:\/\//i.test(form.logo_url || '') ? form.logo_url : '');
 
   if (loading) {
     return <StateMessage>Loading entity information…</StateMessage>;
@@ -315,28 +648,93 @@ export default function EntityDataPanel({ operatorData = {} }) {
           <div style={styles.cardBody}>
             <InfoRow label="Operator type" value={typeLabel} />
             <InfoRow label="Legal name" value={profile?.legal_name} />
-            <InfoRow label="Trade name" value={profile?.trade_name} />
+            <InfoRow
+              label="Trade name"
+              value={(
+                <div style={styles.editField}>
+                  <input
+                    name="trade_name"
+                    value={form.trade_name}
+                    onChange={handleInputChange}
+                    placeholder="Public or professional name"
+                    style={styles.input}
+                  />
+                </div>
+              )}
+            />
             <InfoRow
               label="Website"
-              value={websiteLink ? (
-                <a href={websiteLink.href} target="_blank" rel="noreferrer" style={styles.link}>
-                  {websiteLink.label}
-                </a>
-              ) : null}
+              value={(
+                <div style={styles.editField}>
+                  <input
+                    name="website"
+                    value={form.website}
+                    onChange={handleInputChange}
+                    onBlur={handleWebsiteBlur}
+                    placeholder="https://example.com"
+                    style={{
+                      ...styles.input,
+                      borderColor: errors.website ? '#b00' : '#E0E0E0',
+                    }}
+                  />
+                  {errors.website && <div style={styles.error}>{errors.website}</div>}
+                  {!errors.website && websiteLink && websiteLink.href && (
+                    <a href={websiteLink.href} target="_blank" rel="noreferrer" style={styles.link}>
+                      Open website
+                    </a>
+                  )}
+                </div>
+              )}
             />
             <InfoRow
               label="Logo"
-              value={resolvedLogoUrl ? (
-                <div style={styles.logoRow}>
-                  <span style={styles.logoThumb}>
-                    <img src={resolvedLogoUrl} alt="Organisation logo preview" style={styles.logoThumbImage} />
-                  </span>
-                  <a href={resolvedLogoUrl} target="_blank" rel="noreferrer" style={styles.link}>
-                    Open logo
-                  </a>
+              value={(
+                <div style={styles.editField}>
+                  {resolvedLogoUrl ? (
+                    <div style={styles.logoRow}>
+                      <span style={styles.logoThumb}>
+                        <img src={resolvedLogoUrl} alt="Organisation logo preview" style={styles.logoThumbImage} />
+                      </span>
+                      <div style={styles.logoActions}>
+                        <a href={resolvedLogoUrl} target="_blank" rel="noreferrer" style={styles.link}>
+                          Open logo
+                        </a>
+                        <button type="button" style={styles.removeLogoBtn} onClick={handleLogoRemove}>
+                          Remove logo
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <span style={styles.muted}>No logo uploaded</span>
+                  )}
+                  <div style={styles.logoUploadRow}>
+                    <label htmlFor={logoInputId} style={styles.uploadLabel}>
+                      Choose file
+                    </label>
+                    <input
+                      id={logoInputId}
+                      type="file"
+                      accept={LOGO_FILE_ACCEPT}
+                      style={{ display: 'none' }}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) handleLogoSelect(file);
+                        if (event.target) event.target.value = '';
+                      }}
+                    />
+                    {logoFile && <span style={styles.logoFileName}>{logoFile.name}</span>}
+                  </div>
                 </div>
-              ) : null}
+              )}
             />
+          </div>
+          <div style={saveBarStyle}>
+            <button type="button" onClick={onSave} disabled={isSaveDisabled} style={saveBtnStyle}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            {status.msg ? (
+              <span style={status.type === 'error' ? styles.statusError : styles.statusSuccess}>{status.msg}</span>
+            ) : null}
           </div>
         </div>
 
@@ -443,6 +841,24 @@ const styles = {
     display: 'grid',
     gap: 12,
   },
+  editField: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  input: {
+    padding: '10px 12px',
+    border: '1px solid #E0E0E0',
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 500,
+    background: '#FFFFFF',
+  },
+  error: {
+    fontSize: 12,
+    color: '#b00',
+    fontWeight: 500,
+  },
   infoRow: {
     display: 'grid',
     gap: 6,
@@ -493,6 +909,41 @@ const styles = {
     height: '100%',
     objectFit: 'contain',
   },
+  logoActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  logoUploadRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  uploadLabel: {
+    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+    color: '#fff',
+    borderRadius: 8,
+    padding: '0.45rem 0.9rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    border: 'none',
+  },
+  removeLogoBtn: {
+    background: '#FFFFFF',
+    border: '1px solid #E2E8F0',
+    borderRadius: 8,
+    padding: '0.45rem 0.9rem',
+    fontWeight: 600,
+    color: '#c92a2a',
+    cursor: 'pointer',
+  },
+  logoFileName: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: 500,
+  },
   chip: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -540,5 +991,41 @@ const styles = {
     borderColor: '#FCA5A5',
     background: '#FEF2F2',
     color: '#B91C1C',
+  },
+  saveBar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  saveBtn: {
+    height: 38,
+    padding: '0 16px',
+    borderRadius: 8,
+    fontWeight: 600,
+    border: 'none',
+  },
+  saveBtnEnabled: {
+    background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
+    color: '#fff',
+    cursor: 'pointer',
+  },
+  saveBtnDisabled: {
+    background: '#EEE',
+    color: '#999',
+    border: '1px solid #E0E0E0',
+    cursor: 'not-allowed',
+  },
+  statusSuccess: {
+    color: '#2E7D32',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+  },
+  statusError: {
+    color: '#b00',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
   },
 };
