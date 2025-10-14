@@ -170,35 +170,47 @@ export default function EntityDataPanel({ operatorData = {} }) {
     let active = true;
 
     const resolveLogoUrl = async () => {
-      if (!logoUrl) {
+      const rawValue = typeof logoUrl === 'string' ? logoUrl.trim() : '';
+
+      if (!rawValue) {
         if (active) setLogoPreviewUrl('');
         return;
       }
 
-      if (/^https?:\/\//i.test(logoUrl)) {
-        if (active) setLogoPreviewUrl(logoUrl);
+      const isHttpUrl = /^https?:\/\//i.test(rawValue);
+      const resolvedPath = deriveStoragePathFromPublicUrl(rawValue, OP_LOGO_BUCKET) || rawValue;
+      const normalizedPath = resolvedPath.startsWith(`${OP_LOGO_BUCKET}/`)
+        ? resolvedPath.slice(OP_LOGO_BUCKET.length + 1)
+        : resolvedPath.replace(/^\/+/, '');
+      const sanitizedPath = normalizedPath.replace(/^\/+/, '');
+
+      if (!supabase || !supabase.storage) {
+        if (active) {
+          if (isHttpUrl) {
+            setLogoPreviewUrl(rawValue);
+          } else {
+            console.warn('Supabase client is not available while resolving operator logo preview.');
+            setLogoPreviewUrl('');
+          }
+        }
         return;
       }
-
-      if (!supabase) {
-        console.warn('Supabase client is not available while resolving operator logo preview.');
-        if (active) setLogoPreviewUrl('');
-        return;
-      }
-
-      const pathFromPublicUrl = deriveStoragePathFromPublicUrl(logoUrl, OP_LOGO_BUCKET);
-      const normalizedPath = pathFromPublicUrl
-        ? pathFromPublicUrl
-        : logoUrl.startsWith(`${OP_LOGO_BUCKET}/`)
-          ? logoUrl.slice(OP_LOGO_BUCKET.length + 1)
-          : logoUrl;
 
       if (!normalizedPath) {
-        if (active) setLogoPreviewUrl('');
+        if (active) {
+          if (isHttpUrl) {
+            setLogoPreviewUrl(rawValue);
+          } else {
+            setLogoPreviewUrl('');
+          }
+        }
         return;
       }
 
-      const sanitizedPath = normalizedPath.replace(/^\/+/, '');
+      if (isHttpUrl && normalizedPath === rawValue) {
+        if (active) setLogoPreviewUrl(rawValue);
+        return;
+      }
 
       const resolvePublicUrl = () => {
         if (!supabase?.storage) return '';
@@ -212,8 +224,6 @@ export default function EntityDataPanel({ operatorData = {} }) {
         const { data, error } = await supabase.storage
           .from(OP_LOGO_BUCKET)
           .createSignedUrl(sanitizedPath, 300);
-
-        if (!active) return;
 
         if (error) throw error;
 
@@ -233,6 +243,11 @@ export default function EntityDataPanel({ operatorData = {} }) {
 
       if (publicUrl) {
         setLogoPreviewUrl(publicUrl);
+        return;
+      }
+
+      if (isHttpUrl) {
+        setLogoPreviewUrl(rawValue);
         return;
       }
 
