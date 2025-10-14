@@ -79,7 +79,14 @@ const socialStyles = {
   tableActionsCell: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 },
   urlIcon: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#1976d2' },
 
-  card: { border: '1px solid #EEE', borderRadius: 12, marginBottom: 8, background: '#FFF', width: '100%' },
+  card: {
+    border: '1px solid #EEE',
+    borderRadius: 12,
+    marginBottom: 8,
+    background: '#FFF',
+    width: '100%',
+    boxSizing: 'border-box',
+  },
   summary: {
     width: '100%',
     display: 'flex',
@@ -91,6 +98,7 @@ const socialStyles = {
     textAlign: 'left',
     cursor: 'pointer',
     minHeight: 56,
+    boxSizing: 'border-box',
   },
   titleText: {
     flex: 1,
@@ -102,7 +110,15 @@ const socialStyles = {
     marginLeft: 8,
   },
   chevron: { width: 16, height: 16, transition: 'transform 0.2s', flexShrink: 0 },
-  details: { padding: 12, borderTop: '1px solid #EEE', display: 'flex', flexDirection: 'column', gap: 8, width: '100%' },
+  details: {
+    padding: 12,
+    borderTop: '1px solid #EEE',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    width: '100%',
+    boxSizing: 'border-box',
+  },
   actions: { display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end', flexWrap: 'wrap' },
 
   smallBtn: {
