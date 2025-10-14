@@ -1,12 +1,5 @@
-import { useMemo } from 'react';
 import OperatorSocialProfilesCard from './OperatorSocialProfilesCard';
-
-const formatTimestamp = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString();
-};
+import OperatorPhoneVerificationCard from './OperatorPhoneVerificationCard';
 
 const renderValue = (value, styles) => {
   if (value == null) {
@@ -27,14 +20,6 @@ const buildMailto = (value) => {
   const trimmed = String(value).trim();
   if (!trimmed) return null;
   return `mailto:${trimmed}`;
-};
-
-const buildTel = (value) => {
-  if (!value) return null;
-  const trimmed = String(value).trim();
-  if (!trimmed) return null;
-  const numeric = trimmed.replace(/[^0-9+]/g, '');
-  return `tel:${numeric}`;
 };
 
 const buildWebsiteLink = (value) => {
@@ -63,43 +48,11 @@ const InfoRow = ({ label, value }) => (
   </div>
 );
 
-const Chip = ({ label, tone = 'neutral' }) => {
-  const base = { ...styles.chip };
-  if (tone === 'success') Object.assign(base, styles.chipSuccess);
-  if (tone === 'warning') Object.assign(base, styles.chipWarning);
-  if (tone === 'danger') Object.assign(base, styles.chipDanger);
-  return <span style={base}>{label}</span>;
-};
-
 export default function OperatorContactsPanel({ operatorData = {}, authUser, onRefresh, isMobile = false }) {
   const { contact, profile } = operatorData || {};
   const sectionState = operatorData?.sectionStatus?.contacts || {};
   const loading = sectionState.loading ?? operatorData.loading;
   const error = sectionState.error ?? operatorData.error;
-
-  const phoneVerifiedAt = contact?.phone_verified_at ? formatTimestamp(contact.phone_verified_at) : '';
-  const phoneVerification = useMemo(() => {
-    if (!contact?.phone_e164) {
-      return {
-        status: 'Phone number missing',
-        tone: 'warning',
-        meta: 'Add a phone number via the onboarding wizard.',
-      };
-    }
-    if (contact.phone_verified_at) {
-      return {
-        status: 'Phone verified',
-        tone: 'success',
-        meta: phoneVerifiedAt ? `Verified on ${phoneVerifiedAt}` : 'Verification completed',
-      };
-    }
-    return {
-      status: 'Verification pending',
-      tone: 'warning',
-      meta: 'Complete the SMS verification step to activate notifications.',
-    };
-  }, [contact?.phone_e164, contact?.phone_verified_at, phoneVerifiedAt]);
-
   if (loading) {
     return <StateMessage>Loading contact details…</StateMessage>;
   }
@@ -119,7 +72,6 @@ export default function OperatorContactsPanel({ operatorData = {}, authUser, onR
 
   const primaryEmailLink = buildMailto(contact.email_primary);
   const billingEmailLink = buildMailto(contact.email_billing);
-  const phoneLink = buildTel(contact.phone_e164);
   const websiteLink = buildWebsiteLink(profile?.website);
   const authEmail = authUser?.email || '';
 
@@ -140,22 +92,10 @@ export default function OperatorContactsPanel({ operatorData = {}, authUser, onR
                 </a>
               ) : contact?.email_primary}
             />
-            <InfoRow
-              label="Phone number"
-              value={phoneLink ? (
-                <a href={phoneLink} style={styles.link}>
-                  {contact.phone_e164}
-                </a>
-              ) : contact?.phone_e164}
-            />
-            <InfoRow
-              label="Verification"
-              value={(
-                <div style={styles.statusRow}>
-                  <Chip label={phoneVerification.status} tone={phoneVerification.tone} />
-                  <span style={styles.statusMeta}>{phoneVerification.meta}</span>
-                </div>
-              )}
+            <OperatorPhoneVerificationCard
+              operatorId={operatorData?.account?.id}
+              contact={contact}
+              onRefresh={onRefresh}
             />
           </div>
         </div>
@@ -259,17 +199,6 @@ const styles = {
     wordBreak: 'break-word',
     overflowWrap: 'anywhere',
   },
-  statusRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 10,
-  },
-  statusMeta: {
-    fontSize: 13,
-    color: '#475569',
-    fontWeight: 500,
-  },
   muted: {
     color: '#94A3B8',
     fontWeight: 500,
@@ -279,33 +208,6 @@ const styles = {
     textDecoration: 'underline',
     fontWeight: 600,
     wordBreak: 'break-word',
-  },
-  chip: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '6px 12px',
-    borderRadius: 999,
-    border: '1px solid #CBD5F5',
-    background: '#F1F5F9',
-    fontSize: 13,
-    fontWeight: 600,
-    color: '#0F172A',
-  },
-  chipSuccess: {
-    background: '#DCFCE7',
-    borderColor: '#86EFAC',
-    color: '#166534',
-  },
-  chipWarning: {
-    background: '#FEF3C7',
-    borderColor: '#FCD34D',
-    color: '#92400E',
-  },
-  chipDanger: {
-    background: '#FEE2E2',
-    borderColor: '#FCA5A5',
-    color: '#B91C1C',
   },
   stateBox: {
     borderRadius: 16,
