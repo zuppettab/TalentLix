@@ -44,7 +44,6 @@ export default async function handler(req, res) {
       .eq('athlete_id', rawId)
       .order('verification_status_changed_at', { ascending: false })
       .order('submitted_at', { ascending: false })
-      .order('created_at', { ascending: false })
       .limit(1);
     const sportsPromise = client
       .from('sports_experiences')
@@ -159,7 +158,8 @@ export default async function handler(req, res) {
     pushEvent(activity, athlete.created_at, 'Profile created');
     pushEvent(activity, athlete.updated_at, 'Profile updated');
     if (contacts) {
-      pushEvent(activity, contacts.created_at, 'Verification record created');
+      const createdAt = contacts.created_at || contacts.inserted_at || contacts.created || null;
+      pushEvent(activity, createdAt, 'Verification record created');
       pushEvent(activity, contacts.submitted_at, 'Identity submitted');
       pushEvent(activity, contacts.verification_status_changed_at, 'Verification status updated', contacts.review_status);
       pushEvent(activity, contacts.verified_at, 'Identity verified');
