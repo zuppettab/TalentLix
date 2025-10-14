@@ -53,9 +53,15 @@ export default function OperatorDashboard() {
     contact: null,
     type: null,
     privacy: null,
+    verification: {
+      request: null,
+      documents: {},
+      rules: [],
+    },
     sectionStatus: {
       entity: { loading: true, error: null },
       contacts: { loading: true, error: null },
+      identity: { loading: true, error: null },
       privacy: { loading: true, error: null },
     },
   });
@@ -78,6 +84,7 @@ export default function OperatorDashboard() {
     const baseSectionStatus = {
       entity: { loading: false, error: null },
       contacts: { loading: false, error: null },
+      identity: { loading: false, error: null },
       privacy: { loading: false, error: null },
     };
 
@@ -87,6 +94,11 @@ export default function OperatorDashboard() {
       contact: null,
       type: null,
       privacy: null,
+      verification: {
+        request: null,
+        documents: {},
+        rules: [],
+      },
       sectionStatus: baseSectionStatus,
     };
 
@@ -102,6 +114,7 @@ export default function OperatorDashboard() {
     const localSectionStatus = {
       entity: { loading: true, error: null },
       contacts: { loading: true, error: null },
+      identity: { loading: true, error: null },
       privacy: { loading: true, error: null },
     };
 
@@ -130,6 +143,11 @@ export default function OperatorDashboard() {
     let contact = null;
     let type = null;
     let privacy = null;
+    let verification = {
+      request: null,
+      documents: {},
+      rules: [],
+    };
 
     const baseAccountQuery = () =>
       supabase
@@ -194,6 +212,21 @@ export default function OperatorDashboard() {
     }
 
     try {
+      if (normalizedAccount.type_id) {
+        const { data: ruleRows, error: rulesError } = await supabase
+          .from('op_type_required_doc')
+          .select('doc_type,is_required,conditions')
+          .eq('type_id', normalizedAccount.type_id)
+          .order('is_required', { ascending: false })
+          .order('doc_type', { ascending: true });
+        if (rulesError) throw rulesError;
+        verification.rules = Array.isArray(ruleRows) ? ruleRows.filter(Boolean) : [];
+      }
+    } catch (err) {
+      handleSectionError(['identity'], err);
+    }
+
+    try {
       const { data: profileRow, error: profileError } = await supabase
         .from('op_profile')
         .select('*')
@@ -215,6 +248,53 @@ export default function OperatorDashboard() {
       contact = contactRow || null;
     } catch (err) {
       handleSectionError(['contacts'], err);
+    }
+
+    try {
+      const { data: requestRows, error: requestError } = await supabase
+        .from('op_verification_request')
+        .select('id,state,reason,submitted_at,created_at,updated_at,op_verification_document:op_verification_document(*)')
+        .eq('op_id', account.id)
+        .order('created_at', { ascending: false, nullsFirst: false })
+        .limit(1);
+      if (requestError) throw requestError;
+      const requestRow = Array.isArray(requestRows) ? requestRows[0] : requestRows || null;
+      if (requestRow) {
+        const docsArray = Array.isArray(requestRow.op_verification_document)
+          ? requestRow.op_verification_document
+          : requestRow.op_verification_document
+            ? [requestRow.op_verification_document]
+            : [];
+        const docMap = {};
+        docsArray.forEach((doc) => {
+          if (!doc || !doc.doc_type) return;
+          docMap[doc.doc_type] = {
+            doc_type: doc.doc_type,
+            file_key: doc.file_key || '',
+            file_hash: doc.file_hash || '',
+            mime_type: doc.mime_type || '',
+            file_size: doc.file_size ?? null,
+            expires_at: doc.expires_at || null,
+            created_at: doc.created_at || null,
+            updated_at: doc.updated_at || null,
+          };
+        });
+        verification = {
+          ...verification,
+          request: {
+            id: requestRow.id,
+            state: requestRow.state || '',
+            reason: requestRow.reason || null,
+            submitted_at: requestRow.submitted_at || null,
+            created_at: requestRow.created_at || null,
+            updated_at: requestRow.updated_at || null,
+          },
+          documents: docMap,
+        };
+      }
+      localSectionStatus.identity = { loading: false, error: null };
+    } catch (err) {
+      handleSectionError(['identity'], err);
     }
 
     try {
@@ -244,7 +324,7 @@ export default function OperatorDashboard() {
       handleSectionError(['privacy'], err);
     }
 
-    finishSectionLoading(['entity', 'contacts', 'privacy']);
+    finishSectionLoading(['entity', 'contacts', 'identity', 'privacy']);
 
     return {
       account: normalizedAccount,
@@ -252,6 +332,7 @@ export default function OperatorDashboard() {
       contact,
       type,
       privacy,
+      verification,
       sectionStatus: localSectionStatus,
     };
   }, [pickLatestRecord, user?.id]);
@@ -265,6 +346,7 @@ export default function OperatorDashboard() {
         sectionStatus: {
           entity: { loading: true, error: null },
           contacts: { loading: true, error: null },
+          identity: { loading: true, error: null },
           privacy: { loading: true, error: null },
         },
       }));
@@ -283,6 +365,7 @@ export default function OperatorDashboard() {
         sectionStatus: {
           entity: { loading: false, error: err },
           contacts: { loading: false, error: err },
+          identity: { loading: false, error: err },
           privacy: { loading: false, error: err },
         },
       }));
@@ -309,6 +392,7 @@ export default function OperatorDashboard() {
       sectionStatus: {
         entity: { loading: true, error: null },
         contacts: { loading: true, error: null },
+        identity: { loading: true, error: null },
         privacy: { loading: true, error: null },
       },
     }));
@@ -326,15 +410,16 @@ export default function OperatorDashboard() {
         console.error('Failed to load operator dashboard data', err);
         if (!active) return;
         setOperatorData((prev) => ({
-          ...prev,
-          loading: false,
-          error: err,
-          sectionStatus: {
-            entity: { loading: false, error: err },
-            contacts: { loading: false, error: err },
-            privacy: { loading: false, error: err },
-          },
-        }));
+        ...prev,
+        loading: false,
+        error: err,
+        sectionStatus: {
+          entity: { loading: false, error: err },
+          contacts: { loading: false, error: err },
+          identity: { loading: false, error: err },
+          privacy: { loading: false, error: err },
+        },
+      }));
       });
 
     return () => {
