@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { OPERATOR_DOCUMENTS_BUCKET } from '../../utils/operatorStorageBuckets';
 import { useSignedUrlCache } from '../../utils/useSignedUrlCache';
+import OperatorSocialProfilesCard from './OperatorSocialProfilesCard';
 
 const VERIFICATION_STATE_META = {
   NOT_STARTED: {
@@ -140,7 +141,7 @@ const Chip = ({ label, tone = 'neutral' }) => {
   return <span style={base}>{label}</span>;
 };
 
-export default function IdentityPanel({ operatorData = {} }) {
+export default function IdentityPanel({ operatorData = {}, isMobile = false, onRefresh }) {
   const { verification = {}, profile, type } = operatorData || {};
   const sectionState = operatorData?.sectionStatus?.identity || {};
   const loading = sectionState.loading ?? operatorData.loading;
@@ -228,17 +229,16 @@ export default function IdentityPanel({ operatorData = {} }) {
     );
   }
 
-  if (!request && activeRules.length === 0) {
-    return (
-      <StateMessage tone="info">
-        Identity verification has not been configured yet. Complete step 3 of the onboarding wizard to upload your
-        documents.
-      </StateMessage>
-    );
-  }
+  const showVerificationSetupMessage = !request && activeRules.length === 0;
 
   return (
     <div style={styles.wrap}>
+      {showVerificationSetupMessage ? (
+        <StateMessage tone="info">
+          Identity verification has not been configured yet. Complete step 3 of the onboarding wizard to upload your
+          documents.
+        </StateMessage>
+      ) : null}
       <div style={styles.grid}>
         <div style={styles.card}>
           <h4 style={styles.cardTitle}>Verification status</h4>
@@ -372,6 +372,14 @@ export default function IdentityPanel({ operatorData = {} }) {
           </div>
         </div>
       ) : null}
+
+      <div style={styles.card}>
+        <OperatorSocialProfilesCard
+          operatorId={operatorData?.account?.id}
+          onSaved={onRefresh}
+          isMobile={isMobile}
+        />
+      </div>
     </div>
   );
 }
