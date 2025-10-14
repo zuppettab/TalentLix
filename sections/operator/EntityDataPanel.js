@@ -179,7 +179,15 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
   const [logoMarkedForRemoval, setLogoMarkedForRemoval] = useState(false);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
   const [logoStoragePath, setLogoStoragePath] = useState('');
+  const [logoPreviewVersion, setLogoPreviewVersion] = useState(0);
   const logoObjectUrlRef = useRef('');
+
+  const bumpLogoPreviewVersion = useCallback(() => {
+    setLogoPreviewVersion((previous) => {
+      const next = previous + 1;
+      return next > Number.MAX_SAFE_INTEGER - 1 ? 1 : next;
+    });
+  }, []);
 
   const cleanupLogoObjectUrl = useCallback(() => {
     if (logoObjectUrlRef.current) {
@@ -278,6 +286,7 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
       const { previewUrl, storagePath } = await resolveLogoPreview(form.logo_url);
       if (!active) return;
       setLogoPreviewUrl(previewUrl);
+      bumpLogoPreviewVersion();
       setLogoStoragePath(storagePath || '');
     };
 
@@ -286,7 +295,7 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
     return () => {
       active = false;
     };
-  }, [form.logo_url, logoFile, resolveLogoPreview]);
+  }, [form.logo_url, logoFile, resolveLogoPreview, bumpLogoPreviewVersion]);
 
   useEffect(() => {
     const beforeUnload = (event) => {
@@ -393,6 +402,7 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
       const objectUrl = URL.createObjectURL(file);
       logoObjectUrlRef.current = objectUrl;
       setLogoPreviewUrl(objectUrl);
+      bumpLogoPreviewVersion();
       setLogoFile(file);
       setLogoMarkedForRemoval(false);
       setDirty(true);
@@ -549,6 +559,7 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
           suppressWarning: true,
         });
         setLogoPreviewUrl(previewUrl);
+        bumpLogoPreviewVersion();
         setLogoStoragePath(storagePath || '');
       } else {
         setLogoStoragePath(newLogoStoragePath || '');
@@ -579,7 +590,28 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
     }
   };
 
-  const resolvedLogoUrl = logoPreviewUrl || (/^https?:\/\//i.test(form.logo_url || '') ? form.logo_url : '');
+  const fallbackLogoUrl = useMemo(() => {
+    const raw = form.logo_url || '';
+    return /^https?:\/\//i.test(raw) ? raw : '';
+  }, [form.logo_url]);
+
+  useEffect(() => {
+    if (fallbackLogoUrl && !logoPreviewUrl) {
+      bumpLogoPreviewVersion();
+    }
+  }, [fallbackLogoUrl, logoPreviewUrl, bumpLogoPreviewVersion]);
+
+  const resolvedLogoUrl = useMemo(() => {
+    const base = logoPreviewUrl || fallbackLogoUrl;
+    if (!base) return '';
+    if (/^(blob:|data:)/i.test(base)) {
+      return base;
+    }
+    const version = logoPreviewVersion;
+    if (!version) return base;
+    const separator = base.includes('?') ? '&' : '?';
+    return `${base}${separator}cb=${version}`;
+  }, [logoPreviewUrl, fallbackLogoUrl, logoPreviewVersion]);
 
   if (loading) {
     return <StateMessage>Loading entity information…</StateMessage>;
