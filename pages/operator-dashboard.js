@@ -337,40 +337,58 @@ export default function OperatorDashboard() {
     };
   }, [pickLatestRecord, user?.id]);
 
-  const loadOperatorData = useCallback(async () => {
-    try {
-      setOperatorData((prev) => ({
-        ...prev,
-        loading: true,
-        error: null,
-        sectionStatus: {
-          entity: { loading: true, error: null },
-          contacts: { loading: true, error: null },
-          identity: { loading: true, error: null },
-          privacy: { loading: true, error: null },
-        },
-      }));
-      const result = await fetchOperatorData();
-      setOperatorData({
-        loading: false,
-        error: null,
-        ...result,
-      });
-    } catch (err) {
-      console.error('Failed to load operator dashboard data', err);
-      setOperatorData((prev) => ({
-        ...prev,
-        loading: false,
-        error: err,
-        sectionStatus: {
-          entity: { loading: false, error: err },
-          contacts: { loading: false, error: err },
-          identity: { loading: false, error: err },
-          privacy: { loading: false, error: err },
-        },
-      }));
-    }
-  }, [fetchOperatorData]);
+  const loadOperatorData = useCallback(
+    async (options = {}) => {
+      const { silent = false } = options || {};
+
+      try {
+        setOperatorData((prev) => {
+          if (silent) {
+            return { ...prev, error: null };
+          }
+
+          return {
+            ...prev,
+            loading: true,
+            error: null,
+            sectionStatus: {
+              entity: { loading: true, error: null },
+              contacts: { loading: true, error: null },
+              identity: { loading: true, error: null },
+              privacy: { loading: true, error: null },
+            },
+          };
+        });
+
+        const result = await fetchOperatorData();
+        setOperatorData({
+          loading: false,
+          error: null,
+          ...result,
+        });
+      } catch (err) {
+        console.error('Failed to load operator dashboard data', err);
+        setOperatorData((prev) => {
+          if (silent) {
+            return { ...prev, loading: false, error: err };
+          }
+
+          return {
+            ...prev,
+            loading: false,
+            error: err,
+            sectionStatus: {
+              entity: { loading: false, error: err },
+              contacts: { loading: false, error: err },
+              identity: { loading: false, error: err },
+              privacy: { loading: false, error: err },
+            },
+          };
+        });
+      }
+    },
+    [fetchOperatorData]
+  );
 
   useEffect(() => {
     if (!loading && !user) {
