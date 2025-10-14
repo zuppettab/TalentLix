@@ -42,7 +42,9 @@ export default async function handler(req, res) {
       .from('contacts_verification')
       .select('*')
       .eq('athlete_id', rawId)
-      .order('updated_at', { ascending: false })
+      .order('verification_status_changed_at', { ascending: false })
+      .order('submitted_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(1);
     const sportsPromise = client
       .from('sports_experiences')
