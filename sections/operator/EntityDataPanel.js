@@ -497,7 +497,7 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
 
         if (onRefresh) {
           try {
-            await onRefresh();
+            await onRefresh({ silent: true });
           } catch (refreshErr) {
             console.warn('Refresh after logo auto-save failed', refreshErr);
           }
