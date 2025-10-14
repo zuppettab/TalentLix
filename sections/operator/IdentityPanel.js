@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { OPERATOR_DOCUMENTS_BUCKET } from '../../utils/operatorStorageBuckets';
 import { useSignedUrlCache } from '../../utils/useSignedUrlCache';
-import OperatorSocialProfilesCard from './OperatorSocialProfilesCard';
 
 const VERIFICATION_STATE_META = {
   NOT_STARTED: {
@@ -373,13 +372,6 @@ export default function IdentityPanel({ operatorData = {}, isMobile = false, onR
         </div>
       ) : null}
 
-      <div style={styles.card}>
-        <OperatorSocialProfilesCard
-          operatorId={operatorData?.account?.id}
-          onSaved={onRefresh}
-          isMobile={isMobile}
-        />
-      </div>
     </div>
   );
 }
