@@ -676,18 +676,13 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
               value={(
                 <div style={styles.editField}>
                   {resolvedLogoUrl ? (
-                    <div style={styles.logoRow}>
-                      <span style={styles.logoThumb}>
-                        <img src={resolvedLogoUrl} alt="Organisation logo preview" style={styles.logoThumbImage} />
-                      </span>
-                      <div style={styles.logoActions}>
-                        <a href={resolvedLogoUrl} target="_blank" rel="noreferrer" style={styles.link}>
-                          Open logo
-                        </a>
-                        <button type="button" style={styles.removeLogoBtn} onClick={handleLogoRemove}>
-                          Remove logo
-                        </button>
-                      </div>
+                    <div style={styles.logoActions}>
+                      <a href={resolvedLogoUrl} target="_blank" rel="noreferrer" style={styles.link}>
+                        Open logo
+                      </a>
+                      <button type="button" style={styles.removeLogoBtn} onClick={handleLogoRemove}>
+                        Remove logo
+                      </button>
                     </div>
                   ) : (
                     <span style={styles.muted}>No logo uploaded</span>
@@ -871,28 +866,6 @@ const styles = {
     textDecoration: 'underline',
     fontWeight: 600,
     wordBreak: 'break-word',
-  },
-  logoRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    flexWrap: 'wrap',
-  },
-  logoThumb: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    border: '1px solid #E2E8F0',
-    background: '#FFFFFF',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  logoThumbImage: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'contain',
   },
   logoActions: {
     display: 'flex',
