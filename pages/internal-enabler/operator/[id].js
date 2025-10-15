@@ -1,7 +1,7 @@
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase as sb } from '../../../utils/supabaseClient';
-import { OPERATOR_DOCUMENTS_BUCKET } from '../../../utils/operatorStorageBuckets';
+import { OPERATOR_DOCUMENTS_BUCKET, OPERATOR_LOGO_BUCKET } from '../../../utils/operatorStorageBuckets';
 import { isAdminUser } from '../../../utils/authRoles';
 
 const supabase = sb;
@@ -110,6 +110,16 @@ const renderList = (items, renderItem, emptyLabel = 'No data available.') => {
   return <div style={styles.listStack}>{items.map(renderItem)}</div>;
 };
 
+const deriveInitials = (value) => {
+  if (!value) return 'OP';
+  const normalized = String(value)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase());
+  if (!normalized.length) return 'OP';
+  return normalized.slice(0, 2).join('');
+};
+
 export default function OperatorDetailPage() {
   const router = useRouter();
   const { id } = router.query;
@@ -121,6 +131,7 @@ export default function OperatorDetailPage() {
   const [loading, setLoading] = useState(false);
   const [dataError, setDataError] = useState('');
   const [detail, setDetail] = useState(null);
+  const [logoUrl, setLogoUrl] = useState('');
 
   const operatorId = useMemo(() => (Array.isArray(id) ? id[0] : id) || '', [id]);
 
@@ -251,6 +262,8 @@ export default function OperatorDetailPage() {
       { label: 'Type', value: type.name || type.code || '—' },
       { label: 'Account status', value: formatStatusLabel(account.status) },
       { label: 'Wizard status', value: formatStatusLabel(account.wizard_status) },
+      { label: 'Display name', value: account.display_name || '—' },
+      { label: 'Auth user ID', value: account.auth_user_id || '—' },
       { label: 'Created at', value: formatDateTime(account.created_at) },
       { label: 'Updated at', value: formatDateTime(account.updated_at) },
     ];
@@ -259,13 +272,17 @@ export default function OperatorDetailPage() {
   const accountItems = useMemo(() => {
     const account = detail?.account || {};
     const profile = detail?.profile || {};
+    const contact = detail?.contact || {};
     return [
+      { label: 'Account email', value: account.email || contact.email_primary || '—' },
       { label: 'Legal entity', value: profile.legal_name || account.legal_name || '—' },
       { label: 'Trade name', value: profile.trade_name || account.trade_name || '—' },
       { label: 'VAT number', value: profile.vat_number || account.vat_number || '—' },
       { label: 'Country', value: profile.country || account.country || '—' },
       { label: 'Last login', value: formatDateTime(account.last_login_at) },
       { label: 'Last activity', value: formatDateTime(account.last_activity_at) },
+      { label: 'Type ID', value: account.type_id || '—' },
+      { label: 'Onboarding completed at', value: formatDateTime(account.onboarded_at) },
     ];
   }, [detail]);
 
@@ -279,8 +296,13 @@ export default function OperatorDetailPage() {
       { label: 'Registration number', value: profile.registration_number || '—' },
       { label: 'Country of registration', value: profile.country || '—' },
       { label: 'Headquarters city', value: profile.city || '—' },
-      { label: 'Address', value: profile.address || '—' },
+      { label: 'Address line 1', value: profile.address1 || '—' },
+      { label: 'Address line 2', value: profile.address2 || '—' },
+      { label: 'State / Region', value: profile.state_region || '—' },
+      { label: 'Postal code', value: profile.postal_code || '—' },
       { label: 'Description', value: profile.description || '—' },
+      { label: 'Profile created at', value: formatDateTime(profile.created_at) },
+      { label: 'Profile updated at', value: formatDateTime(profile.updated_at) },
     ];
   }, [detail]);
 
@@ -288,9 +310,12 @@ export default function OperatorDetailPage() {
     const contact = detail?.contact || {};
     return [
       { label: 'Primary email', value: contact.email_primary || '—' },
+      { label: 'Billing email', value: contact.email_billing || '—' },
       { label: 'Secondary email', value: contact.email_secondary || '—' },
       { label: 'Phone', value: contact.phone_e164 || contact.phone || '—' },
+      { label: 'Phone (national)', value: contact.phone_national || '—' },
       { label: 'Phone verified at', value: formatDateTime(contact.phone_verified_at) },
+      { label: 'Contact created at', value: formatDateTime(contact.created_at) },
       { label: 'Updated at', value: formatDateTime(contact.updated_at) },
     ];
   }, [detail]);
@@ -299,6 +324,74 @@ export default function OperatorDetailPage() {
   const socialProfiles = useMemo(() => detail?.socialProfiles || [], [detail]);
   const documents = useMemo(() => detail?.documents || [], [detail]);
   const activityEntries = useMemo(() => detail?.activity || [], [detail]);
+
+  const rawLogoReference = useMemo(() => {
+    const profileLogo = detail?.profile?.logo_url;
+    if (profileLogo) return profileLogo;
+    const accountLogo = detail?.account?.logo_url;
+    if (accountLogo) return accountLogo;
+    return '';
+  }, [detail]);
+
+  useEffect(() => {
+    let active = true;
+    const resolveLogoUrl = async () => {
+      const raw = (rawLogoReference || '').trim();
+      if (!raw) {
+        if (active) setLogoUrl('');
+        return;
+      }
+      if (/^https?:\/\//i.test(raw)) {
+        if (active) setLogoUrl(raw);
+        return;
+      }
+      const signed = await createSignedUrl(raw, OPERATOR_LOGO_BUCKET);
+      if (!active) return;
+      setLogoUrl(signed || raw || '');
+    };
+    resolveLogoUrl();
+    return () => {
+      active = false;
+    };
+  }, [rawLogoReference]);
+
+  const operatorInitials = useMemo(() => deriveInitials(operatorName), [operatorName]);
+
+  const brandingItems = useMemo(() => {
+    const account = detail?.account || {};
+    const profile = detail?.profile || {};
+    const items = [];
+    const logoReference = profile.logo_url || account.logo_url || '';
+    const website = profile.website || account.website || '';
+    items.push({ label: 'Logo reference', value: logoReference || '—' });
+    items.push({
+      label: 'Website',
+      value: website
+        ? (
+          <a href={website} target="_blank" rel="noopener noreferrer" style={styles.link}>
+            {website}
+          </a>
+        )
+        : '—',
+    });
+    if (account.display_name) {
+      items.push({ label: 'Display name', value: account.display_name });
+    }
+    if (account.email) {
+      items.push({ label: 'Account email', value: account.email });
+    }
+    if (profile.logo_updated_at || profile.updated_at) {
+      items.push({ label: 'Logo updated at', value: formatDateTime(profile.logo_updated_at || profile.updated_at) });
+    }
+    return items;
+  }, [detail]);
+
+  const handleOpenLogo = useCallback(() => {
+    if (!logoUrl) return;
+    if (typeof window !== 'undefined') {
+      window.open(logoUrl, '_blank', 'noopener,noreferrer');
+    }
+  }, [logoUrl]);
 
   const openDocument = useCallback(async (path) => {
     const url = await createSignedUrl(path, OPERATOR_DOCUMENTS_BUCKET);
@@ -328,15 +421,37 @@ export default function OperatorDetailPage() {
   return (
     <div style={styles.page}>
       <header style={styles.pageHeader}>
-        <div>
+        <div style={styles.headerContent}>
           <a href="/internal-enabler" style={styles.backLink}>← Back to overview</a>
-          <h1 style={styles.pageTitle}>{operatorName}</h1>
-          <p style={styles.pageSubtitle}>Detailed operator dossier with collapsible sections.</p>
+          <div style={styles.identityRow}>
+            <div style={styles.identityLogo}>
+              {logoUrl ? (
+                <img src={logoUrl} alt={`${operatorName} logo`} style={styles.identityLogoImage} />
+              ) : (
+                <div style={styles.identityLogoFallback}>{operatorInitials}</div>
+              )}
+            </div>
+            <div>
+              <h1 style={styles.pageTitle}>{operatorName}</h1>
+              <p style={styles.pageSubtitle}>Detailed operator dossier with collapsible sections.</p>
+              {rawLogoReference ? (
+                <div style={styles.logoMetaRow}>
+                  <span style={styles.logoMetaLabel}>Logo source:</span>
+                  <span style={styles.logoMetaValue}>{rawLogoReference}</span>
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
-        <div>
+        <div style={styles.headerActions}>
           <button type="button" onClick={loadDetail} style={styles.secondaryButton} disabled={loading}>
             {loading ? 'Refreshing…' : 'Refresh data'}
           </button>
+          {logoUrl ? (
+            <button type="button" onClick={handleOpenLogo} style={styles.ghostButton}>
+              Open logo
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -361,6 +476,32 @@ export default function OperatorDetailPage() {
 
           <CollapsibleSection title="Contacts">
             <KeyValueGrid items={contactItems} />
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Brand assets" description="Operator logo and related metadata." defaultOpen={!!logoUrl}>
+            <div style={styles.brandLayout}>
+              <div style={styles.brandPreview}>
+                <div style={styles.brandPreviewBox}>
+                  {logoUrl ? (
+                    <img src={logoUrl} alt={`${operatorName} logo`} style={styles.brandLogoImage} />
+                  ) : (
+                    <div style={styles.brandLogoFallback}>{operatorInitials}</div>
+                  )}
+                </div>
+                <div style={styles.brandActions}>
+                  {logoUrl ? (
+                    <button type="button" onClick={handleOpenLogo} style={styles.documentButton}>
+                      Open logo
+                    </button>
+                  ) : (
+                    <span style={styles.brandEmpty}>Logo not available</span>
+                  )}
+                </div>
+              </div>
+              <div style={styles.brandMeta}>
+                <KeyValueGrid items={brandingItems} />
+              </div>
+            </div>
           </CollapsibleSection>
 
           <CollapsibleSection title="Verification timeline" description="History of submitted verification requests.">
@@ -451,12 +592,53 @@ const styles = {
     gap: 16,
     marginBottom: 24,
   },
+  headerContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+    flex: 1,
+    minWidth: 0,
+  },
+  headerActions: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    alignItems: 'flex-end',
+  },
   backLink: {
     display: 'inline-block',
     marginBottom: 12,
     color: '#2563EB',
     textDecoration: 'none',
     fontWeight: 600,
+  },
+  identityRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+    flexWrap: 'wrap',
+  },
+  identityLogo: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    background: '#E2E8F0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  identityLogoImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+    background: '#FFFFFF',
+  },
+  identityLogoFallback: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: '#0F172A',
   },
   pageTitle: {
     fontSize: 28,
@@ -468,6 +650,20 @@ const styles = {
     color: '#475569',
     maxWidth: 520,
   },
+  logoMetaRow: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#475569',
+    display: 'flex',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  logoMetaLabel: {
+    fontWeight: 600,
+  },
+  logoMetaValue: {
+    wordBreak: 'break-all',
+  },
   secondaryButton: {
     padding: '10px 14px',
     borderRadius: 10,
@@ -476,6 +672,14 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 600,
     minWidth: 140,
+  },
+  ghostButton: {
+    padding: '8px 12px',
+    borderRadius: 10,
+    border: '1px solid rgba(148, 163, 184, 0.6)',
+    background: '#F8FAFC',
+    cursor: 'pointer',
+    fontWeight: 600,
   },
   section: {
     background: '#FFFFFF',
@@ -605,6 +809,52 @@ const styles = {
     background: '#F8FAFC',
     cursor: 'pointer',
     fontWeight: 600,
+  },
+  brandLayout: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 24,
+  },
+  brandPreview: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+    alignItems: 'center',
+    minWidth: 200,
+  },
+  brandPreviewBox: {
+    width: 180,
+    height: 180,
+    borderRadius: 24,
+    border: '1px solid rgba(15,23,42,0.1)',
+    background: '#FFFFFF',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  brandLogoImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+  },
+  brandLogoFallback: {
+    fontSize: 40,
+    fontWeight: 800,
+    color: '#0F172A',
+  },
+  brandActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+  },
+  brandEmpty: {
+    color: '#64748B',
+    fontSize: 14,
+  },
+  brandMeta: {
+    flex: 1,
+    minWidth: 240,
   },
   socialRow: {
     display: 'flex',
