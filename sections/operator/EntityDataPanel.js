@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import countries from '../../utils/countries';
 import { supabase } from '../../utils/supabaseClient';
 import { OPERATOR_LOGO_BUCKET } from '../../utils/operatorStorageBuckets';
+import { useSignedUrlCache } from '../../utils/useSignedUrlCache';
 
 const OP_LOGO_BUCKET = OPERATOR_LOGO_BUCKET;
 
@@ -179,15 +180,7 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
   const [logoMarkedForRemoval, setLogoMarkedForRemoval] = useState(false);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
   const [logoStoragePath, setLogoStoragePath] = useState('');
-  const [logoPreviewVersion, setLogoPreviewVersion] = useState(0);
   const logoObjectUrlRef = useRef('');
-
-  const bumpLogoPreviewVersion = useCallback(() => {
-    setLogoPreviewVersion((previous) => {
-      const next = previous + 1;
-      return next > Number.MAX_SAFE_INTEGER - 1 ? 1 : next;
-    });
-  }, []);
 
   const cleanupLogoObjectUrl = useCallback(() => {
     if (logoObjectUrlRef.current) {
@@ -196,58 +189,7 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
     }
   }, []);
 
-  const resolveLogoPreview = useCallback(
-    async (rawValue, { storagePathHint = '', suppressWarning = false } = {}) => {
-      const trimmed = typeof rawValue === 'string' ? rawValue.trim() : '';
-      if (!trimmed) {
-        return { previewUrl: '', storagePath: '' };
-      }
-
-      const derivedPath = storagePathHint || deriveStoragePathFromPublicUrl(trimmed, OP_LOGO_BUCKET);
-      const normalizedPath = derivedPath?.replace(/^\/+/, '') || '';
-      const isHttpUrl = /^https?:\/\//i.test(trimmed);
-
-      if (!supabase?.storage) {
-        return { previewUrl: isHttpUrl ? trimmed : '', storagePath: normalizedPath };
-      }
-
-      if (!normalizedPath) {
-        return { previewUrl: isHttpUrl ? trimmed : '', storagePath: '' };
-      }
-
-      if (isHttpUrl && normalizedPath === trimmed) {
-        return { previewUrl: trimmed, storagePath: normalizedPath };
-      }
-
-      try {
-        const { data, error } = await supabase.storage
-          .from(OP_LOGO_BUCKET)
-          .createSignedUrl(normalizedPath, 300);
-
-        if (error) throw error;
-
-        if (data?.signedUrl) {
-          return { previewUrl: data.signedUrl, storagePath: normalizedPath };
-        }
-      } catch (err) {
-        if (!suppressWarning) {
-          console.warn('Failed to resolve operator logo preview for dashboard', err);
-        }
-      }
-
-      const { data } = supabase.storage.from(OP_LOGO_BUCKET).getPublicUrl(normalizedPath);
-      if (data?.publicUrl) {
-        return { previewUrl: data.publicUrl, storagePath: normalizedPath };
-      }
-
-      if (isHttpUrl) {
-        return { previewUrl: trimmed, storagePath: normalizedPath };
-      }
-
-      return { previewUrl: '', storagePath: normalizedPath };
-    },
-    [supabase]
-  );
+  const getSignedLogoUrl = useSignedUrlCache(OP_LOGO_BUCKET);
 
   useEffect(() => {
     return () => {
@@ -273,29 +215,39 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
     setLogoStoragePath(deriveStoragePathFromPublicUrl(nextForm.logo_url, OP_LOGO_BUCKET) || '');
   }, [profile?.logo_url, profile?.trade_name, profile?.website, cleanupLogoObjectUrl]);
 
+  const fallbackLogoUrl = useMemo(() => {
+    const raw = form.logo_url || '';
+    return /^https?:\/\//i.test(raw) ? raw : '';
+  }, [form.logo_url]);
+
   useEffect(() => {
+    if (logoFile) return;
+
     let active = true;
+    let refreshTimer = null;
 
-    if (logoFile) {
-      return () => {
-        active = false;
-      };
-    }
-
-    const run = async () => {
-      const { previewUrl, storagePath } = await resolveLogoPreview(form.logo_url);
+    const updatePreview = async () => {
       if (!active) return;
-      setLogoPreviewUrl(previewUrl);
-      bumpLogoPreviewVersion();
-      setLogoStoragePath(storagePath || '');
+      if (logoStoragePath) {
+        const url = await getSignedLogoUrl(logoStoragePath);
+        if (!active) return;
+        setLogoPreviewUrl(url || '');
+        if (refreshTimer) clearTimeout(refreshTimer);
+        if (url) {
+          refreshTimer = setTimeout(updatePreview, 55_000);
+        }
+        return;
+      }
+      setLogoPreviewUrl(fallbackLogoUrl || '');
     };
 
-    run();
+    updatePreview();
 
     return () => {
       active = false;
+      if (refreshTimer) clearTimeout(refreshTimer);
     };
-  }, [form.logo_url, logoFile, resolveLogoPreview, bumpLogoPreviewVersion]);
+  }, [logoFile, logoStoragePath, getSignedLogoUrl, fallbackLogoUrl]);
 
   useEffect(() => {
     const beforeUnload = (event) => {
@@ -475,20 +427,15 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
           }
         }
 
-        const { previewUrl, storagePath } = await resolveLogoPreview(newLogoUrlValue, {
-          storagePathHint: path,
-          suppressWarning: true,
-        });
-
         const hasPendingTextChanges =
           (form.trade_name || '') !== (snapshot.trade_name || '') ||
           (form.website || '') !== (snapshot.website || '');
 
         setSnapshot((prev) => ({ ...prev, logo_url: newLogoUrlValue || '' }));
         setForm((prev) => ({ ...prev, logo_url: newLogoUrlValue || '' }));
-        setLogoPreviewUrl(previewUrl || newLogoUrlValue || '');
-        setLogoStoragePath(storagePath || path || '');
-        bumpLogoPreviewVersion();
+        const signedPreviewUrl = await getSignedLogoUrl(path);
+        setLogoPreviewUrl(signedPreviewUrl || newLogoUrlValue || '');
+        setLogoStoragePath(path || '');
         setLogoFile(null);
         setLogoMarkedForRemoval(false);
         cleanupLogoObjectUrl();
@@ -533,12 +480,11 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
       profile?.state_region,
       profile?.postal_code,
       profile?.country,
-      resolveLogoPreview,
+      getSignedLogoUrl,
       form.trade_name,
       form.website,
       snapshot.trade_name,
       snapshot.website,
-      bumpLogoPreviewVersion,
       cleanupLogoObjectUrl,
       onRefresh,
     ]
@@ -553,7 +499,6 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
       const objectUrl = URL.createObjectURL(file);
       logoObjectUrlRef.current = objectUrl;
       setLogoPreviewUrl(objectUrl);
-      bumpLogoPreviewVersion();
       setLogoFile(file);
       setLogoMarkedForRemoval(false);
       setStatus({ type: '', msg: '' });
@@ -571,6 +516,7 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
     setLogoMarkedForRemoval(true);
     setForm((prev) => ({ ...prev, logo_url: '' }));
     setLogoPreviewUrl('');
+    setLogoStoragePath('');
     setDirty(true);
     setStatus({ type: '', msg: '' });
   };
@@ -708,18 +654,18 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
       let nextStoragePath = newLogoStoragePath || '';
 
       if (shouldUpdatePreview) {
-        const { previewUrl, storagePath } = await resolveLogoPreview(newLogoUrlValue, {
-          storagePathHint: newLogoStoragePath,
-          suppressWarning: true,
-        });
-        nextPreviewUrl = previewUrl;
-        nextStoragePath = storagePath || '';
+        if (newLogoStoragePath) {
+          const signedUrl = await getSignedLogoUrl(newLogoStoragePath);
+          nextPreviewUrl = signedUrl || (newLogoUrlValue || '');
+          nextStoragePath = newLogoStoragePath;
+        } else {
+          const trimmed = typeof newLogoUrlValue === 'string' ? newLogoUrlValue.trim() : '';
+          nextPreviewUrl = /^https?:\/\//i.test(trimmed) ? trimmed : '';
+          nextStoragePath = '';
+        }
       }
 
       setLogoPreviewUrl(shouldUpdatePreview ? nextPreviewUrl : logoPreviewUrl);
-      if (shouldUpdatePreview) {
-        bumpLogoPreviewVersion();
-      }
       setLogoStoragePath(nextStoragePath);
       setErrors({});
       setStatus({ type: 'success', msg: 'Saved ✓' });
@@ -753,28 +699,14 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
     }
   };
 
-  const fallbackLogoUrl = useMemo(() => {
-    const raw = form.logo_url || '';
-    return /^https?:\/\//i.test(raw) ? raw : '';
-  }, [form.logo_url]);
-
-  useEffect(() => {
-    if (fallbackLogoUrl && !logoPreviewUrl) {
-      bumpLogoPreviewVersion();
-    }
-  }, [fallbackLogoUrl, logoPreviewUrl, bumpLogoPreviewVersion]);
-
   const resolvedLogoUrl = useMemo(() => {
     const base = logoPreviewUrl || fallbackLogoUrl;
     if (!base) return '';
     if (/^(blob:|data:)/i.test(base)) {
       return base;
     }
-    const version = logoPreviewVersion;
-    if (!version) return base;
-    const separator = base.includes('?') ? '&' : '?';
-    return `${base}${separator}cb=${version}`;
-  }, [logoPreviewUrl, fallbackLogoUrl, logoPreviewVersion]);
+    return base;
+  }, [logoPreviewUrl, fallbackLogoUrl]);
 
   if (loading) {
     return <StateMessage>Loading entity information…</StateMessage>;
