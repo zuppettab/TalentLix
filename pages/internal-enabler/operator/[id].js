@@ -93,23 +93,50 @@ const ActivityLog = ({ entries = [] }) => {
   );
 };
 
-const STORAGE_URL_PREFIX = /\/storage\/v1\/object\/(public|sign)\//i;
+const STORAGE_URL_MATCH = /^https?:\/\/[^/]+\/storage\/v1\/object\/(public|sign)\/([^/]+)\/(.+)$/i;
+const STORAGE_PATH_MATCH = /^\/?storage\/v1\/object\/(public|sign)\/([^/]+)\/(.+)$/i;
 
-const normalizeStoragePath = (value, bucket) => {
-  if (!value) return '';
-  let normalized = String(value).trim();
-  if (!normalized) return '';
-  normalized = normalized.replace(/^\/+/, '');
-  if (bucket) {
-    const bucketPrefix = `${bucket.replace(/^\/+|\/+$/g, '')}/`;
-    if (normalized.startsWith(bucketPrefix)) {
-      normalized = normalized.slice(bucketPrefix.length);
+const sanitizeBucketName = (value) => (value ? value.replace(/^\/+|\/+$/g, '') : '');
+
+const extractStorageReference = (value, fallbackBucket) => {
+  const normalizedFallbackBucket = sanitizeBucketName(fallbackBucket);
+  if (!value) {
+    return { bucket: normalizedFallbackBucket, path: '' };
+  }
+
+  let raw = String(value).trim();
+  if (!raw) {
+    return { bucket: normalizedFallbackBucket, path: '' };
+  }
+
+  const urlMatch = raw.match(STORAGE_URL_MATCH);
+  if (urlMatch) {
+    return { bucket: sanitizeBucketName(urlMatch[2]), path: (urlMatch[3] || '').replace(/^\/+/, '') };
+  }
+
+  const pathMatch = raw.match(STORAGE_PATH_MATCH);
+  if (pathMatch) {
+    return { bucket: sanitizeBucketName(pathMatch[2]), path: (pathMatch[3] || '').replace(/^\/+/, '') };
+  }
+
+  raw = raw.replace(/^public\//i, '');
+
+  const fallbackPrefix = normalizedFallbackBucket ? `${normalizedFallbackBucket}/` : '';
+  if (fallbackPrefix && raw.startsWith(fallbackPrefix)) {
+    return { bucket: normalizedFallbackBucket, path: raw.slice(fallbackPrefix.length).replace(/^\/+/, '') };
+  }
+
+  if (!normalizedFallbackBucket) {
+    const dynamicMatch = raw.match(/^([^/]+)\/(.+)$/);
+    if (dynamicMatch) {
+      return { bucket: sanitizeBucketName(dynamicMatch[1]), path: (dynamicMatch[2] || '').replace(/^\/+/, '') };
     }
   }
-  normalized = normalized.replace(/^public\//i, '');
-  normalized = normalized.replace(STORAGE_URL_PREFIX, '');
-  return normalized.replace(/^\/+/, '');
+
+  return { bucket: normalizedFallbackBucket, path: raw.replace(/^\/+/, '') };
 };
+
+const normalizeStoragePath = (value, bucket) => extractStorageReference(value, bucket).path;
 
 const createSignedUrl = async (path, bucket) => {
   if (!path || !supabase) return '';
@@ -117,15 +144,15 @@ const createSignedUrl = async (path, bucket) => {
   if (!raw) return '';
   if (/^https?:\/\//i.test(raw)) return raw;
 
-  const objectPath = normalizeStoragePath(raw, bucket);
-  if (!objectPath) return '';
+  const { bucket: targetBucket, path: objectPath } = extractStorageReference(raw, bucket);
+  if (!targetBucket || !objectPath) return '';
 
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(objectPath, 600);
+  const { data, error } = await supabase.storage.from(targetBucket).createSignedUrl(objectPath, 600);
   if (!error && data?.signedUrl) {
     return data.signedUrl;
   }
 
-  const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+  const { data: publicData } = supabase.storage.from(targetBucket).getPublicUrl(objectPath);
   if (publicData?.publicUrl) {
     return publicData.publicUrl;
   }
