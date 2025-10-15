@@ -93,14 +93,44 @@ const ActivityLog = ({ entries = [] }) => {
   );
 };
 
+const STORAGE_URL_PREFIX = /\/storage\/v1\/object\/(public|sign)\//i;
+
+const normalizeStoragePath = (value, bucket) => {
+  if (!value) return '';
+  let normalized = String(value).trim();
+  if (!normalized) return '';
+  normalized = normalized.replace(/^\/+/, '');
+  if (bucket) {
+    const bucketPrefix = `${bucket.replace(/^\/+|\/+$/g, '')}/`;
+    if (normalized.startsWith(bucketPrefix)) {
+      normalized = normalized.slice(bucketPrefix.length);
+    }
+  }
+  normalized = normalized.replace(/^public\//i, '');
+  normalized = normalized.replace(STORAGE_URL_PREFIX, '');
+  return normalized.replace(/^\/+/, '');
+};
+
 const createSignedUrl = async (path, bucket) => {
   if (!path || !supabase) return '';
-  const normalized = String(path).trim();
-  if (!normalized) return '';
-  if (/^https?:\/\//i.test(normalized)) return normalized;
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(normalized, 60);
-  if (error) return '';
-  return data?.signedUrl || '';
+  const raw = String(path).trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+
+  const objectPath = normalizeStoragePath(raw, bucket);
+  if (!objectPath) return '';
+
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(objectPath, 600);
+  if (!error && data?.signedUrl) {
+    return data.signedUrl;
+  }
+
+  const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+  if (publicData?.publicUrl) {
+    return publicData.publicUrl;
+  }
+
+  return '';
 };
 
 const renderList = (items, renderItem, emptyLabel = 'No data available.') => {
