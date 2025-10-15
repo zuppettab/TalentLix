@@ -211,8 +211,16 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
     setLogoMarkedForRemoval(false);
     setLogoFile(null);
     cleanupLogoObjectUrl();
-    setLogoPreviewUrl('');
-    setLogoStoragePath(deriveStoragePathFromPublicUrl(nextForm.logo_url, OP_LOGO_BUCKET) || '');
+    const nextStoragePath = deriveStoragePathFromPublicUrl(nextForm.logo_url, OP_LOGO_BUCKET) || '';
+    setLogoStoragePath(nextStoragePath);
+    setLogoPreviewUrl((prev) => {
+      const raw = nextForm.logo_url || '';
+      if (!raw) return '';
+      if (/^https?:\/\//i.test(raw)) {
+        return raw;
+      }
+      return prev;
+    });
   }, [profile?.logo_url, profile?.trade_name, profile?.website, cleanupLogoObjectUrl]);
 
   const fallbackLogoUrl = useMemo(() => {
