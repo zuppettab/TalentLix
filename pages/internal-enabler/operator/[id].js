@@ -96,6 +96,9 @@ const ActivityLog = ({ entries = [] }) => {
 const STORAGE_URL_MATCH = /^https?:\/\/[^/]+\/storage\/v1\/object\/(public|sign)\/([^/]+)\/(.+)$/i;
 const STORAGE_PATH_MATCH = /^\/?storage\/v1\/object\/(public|sign)\/([^/]+)\/(.+)$/i;
 
+const LOGO_SIGNED_URL_TTL = 43200; // 12 hours
+const DOCUMENT_SIGNED_URL_TTL = 600; // 10 minutes
+
 const sanitizeBucketName = (value) => (value ? value.replace(/^\/+|\/+$/g, '') : '');
 
 const extractStorageReference = (value, fallbackBucket) => {
@@ -138,26 +141,46 @@ const extractStorageReference = (value, fallbackBucket) => {
 
 const normalizeStoragePath = (value, bucket) => extractStorageReference(value, bucket).path;
 
-const createSignedUrl = async (path, bucket) => {
-  if (!path || !supabase) return '';
-  const raw = String(path).trim();
-  if (!raw) return '';
-  if (/^https?:\/\//i.test(raw)) return raw;
+const resolveStorageUrl = async (reference, bucket, { ttl = LOGO_SIGNED_URL_TTL } = {}) => {
+  if (!reference || !supabase) {
+    return { url: '', bucket: sanitizeBucketName(bucket), path: '' };
+  }
+
+  const raw = String(reference).trim();
+  if (!raw) {
+    return { url: '', bucket: sanitizeBucketName(bucket), path: '' };
+  }
 
   const { bucket: targetBucket, path: objectPath } = extractStorageReference(raw, bucket);
-  if (!targetBucket || !objectPath) return '';
-
-  const { data, error } = await supabase.storage.from(targetBucket).createSignedUrl(objectPath, 600);
-  if (!error && data?.signedUrl) {
-    return data.signedUrl;
+  const normalizedBucket = sanitizeBucketName(targetBucket);
+  if (!normalizedBucket || !objectPath) {
+    return { url: '', bucket: normalizedBucket, path: objectPath };
   }
 
-  const { data: publicData } = supabase.storage.from(targetBucket).getPublicUrl(objectPath);
+  try {
+    const { data, error } = await supabase.storage.from(normalizedBucket).createSignedUrl(objectPath, ttl);
+    if (!error && data?.signedUrl) {
+      return { url: data.signedUrl, bucket: normalizedBucket, path: objectPath };
+    }
+  } catch (error) {
+    console.warn('Failed to create signed URL', error);
+  }
+
+  const { data: publicData } = supabase.storage.from(normalizedBucket).getPublicUrl(objectPath);
   if (publicData?.publicUrl) {
-    return publicData.publicUrl;
+    return { url: publicData.publicUrl, bucket: normalizedBucket, path: objectPath };
   }
 
-  return '';
+  return { url: '', bucket: normalizedBucket, path: objectPath };
+};
+
+const appendCacheBuster = (url, version) => {
+  if (!url) return '';
+  if (!version) return url;
+  const value = typeof version === 'string' ? version.trim() : String(version);
+  if (!value) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}v=${encodeURIComponent(value)}`;
 };
 
 const renderList = (items, renderItem, emptyLabel = 'No data available.') => {
@@ -390,27 +413,49 @@ export default function OperatorDetailPage() {
     return '';
   }, [detail]);
 
+  const logoStorageReference = useMemo(
+    () => extractStorageReference(rawLogoReference, OPERATOR_LOGO_BUCKET),
+    [rawLogoReference],
+  );
+
+  const normalizedLogoReference = useMemo(() => {
+    const bucket = sanitizeBucketName(logoStorageReference.bucket);
+    const path = (logoStorageReference.path || '').replace(/^\/+/, '');
+    if (!bucket && !path) return '';
+    if (!bucket) return path;
+    if (!path) return bucket;
+    return `${bucket}/${path}`;
+  }, [logoStorageReference]);
+
+  const logoVersion = useMemo(() => {
+    const profile = detail?.profile || {};
+    const account = detail?.account || {};
+    return (
+      profile.logo_updated_at
+      || account.logo_updated_at
+      || profile.updated_at
+      || account.updated_at
+      || ''
+    );
+  }, [detail]);
+
   useEffect(() => {
     let active = true;
     const resolveLogoUrl = async () => {
-      const raw = (rawLogoReference || '').trim();
-      if (!raw) {
+      const path = (logoStorageReference.path || '').trim();
+      if (!path) {
         if (active) setLogoUrl('');
         return;
       }
-      if (/^https?:\/\//i.test(raw)) {
-        if (active) setLogoUrl(raw);
-        return;
-      }
-      const signed = await createSignedUrl(raw, OPERATOR_LOGO_BUCKET);
+      const { url } = await resolveStorageUrl(path, logoStorageReference.bucket, { ttl: LOGO_SIGNED_URL_TTL });
       if (!active) return;
-      setLogoUrl(signed || raw || '');
+      setLogoUrl(appendCacheBuster(url, logoVersion));
     };
     resolveLogoUrl();
     return () => {
       active = false;
     };
-  }, [rawLogoReference]);
+  }, [logoStorageReference, logoVersion]);
 
   const operatorInitials = useMemo(() => deriveInitials(operatorName), [operatorName]);
 
@@ -418,7 +463,7 @@ export default function OperatorDetailPage() {
     const account = detail?.account || {};
     const profile = detail?.profile || {};
     const items = [];
-    const logoReference = profile.logo_url || account.logo_url || '';
+    const logoReference = normalizedLogoReference || profile.logo_url || account.logo_url || '';
     const website = profile.website || account.website || '';
     items.push({ label: 'Logo reference', value: logoReference || '—' });
     items.push({
@@ -443,15 +488,19 @@ export default function OperatorDetailPage() {
     return items;
   }, [detail]);
 
-  const handleOpenLogo = useCallback(() => {
-    if (!logoUrl) return;
+  const handleOpenLogo = useCallback(async () => {
+    const path = (logoStorageReference.path || '').trim();
+    if (!path) return;
+    const { url } = await resolveStorageUrl(path, logoStorageReference.bucket, { ttl: LOGO_SIGNED_URL_TTL });
+    const finalUrl = appendCacheBuster(url, logoVersion);
+    if (!finalUrl) return;
     if (typeof window !== 'undefined') {
-      window.open(logoUrl, '_blank', 'noopener,noreferrer');
+      window.open(finalUrl, '_blank', 'noopener,noreferrer');
     }
-  }, [logoUrl]);
+  }, [logoStorageReference, logoVersion]);
 
   const openDocument = useCallback(async (path) => {
-    const url = await createSignedUrl(path, OPERATOR_DOCUMENTS_BUCKET);
+    const { url } = await resolveStorageUrl(path, OPERATOR_DOCUMENTS_BUCKET, { ttl: DOCUMENT_SIGNED_URL_TTL });
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
   }, []);
 
@@ -491,10 +540,10 @@ export default function OperatorDetailPage() {
             <div>
               <h1 style={styles.pageTitle}>{operatorName}</h1>
               <p style={styles.pageSubtitle}>Detailed operator dossier with collapsible sections.</p>
-              {rawLogoReference ? (
+              {(normalizedLogoReference || rawLogoReference) ? (
                 <div style={styles.logoMetaRow}>
                   <span style={styles.logoMetaLabel}>Logo source:</span>
-                  <span style={styles.logoMetaValue}>{rawLogoReference}</span>
+                  <span style={styles.logoMetaValue}>{normalizedLogoReference || rawLogoReference}</span>
                 </div>
               ) : null}
             </div>
