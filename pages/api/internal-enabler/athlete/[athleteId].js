@@ -60,7 +60,7 @@ export default async function handler(req, res) {
       .from('physical_data')
       .select('*')
       .eq('athlete_id', rawId)
-      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .limit(1);
     const socialPromise = client
       .from('social_profiles')
@@ -138,7 +138,47 @@ export default async function handler(req, res) {
       gamesMeta = metaResult.data || [];
     }
 
-    const groupedMedia = mediaItems.reduce((acc, item) => {
+    const MEDIA_BUCKET = 'media';
+
+    const resolveSignedUrl = async (path) => {
+      if (!path) return '';
+      if (/^https?:\/\//i.test(String(path))) return path;
+      if (!client?.storage || typeof client.storage.from !== 'function') {
+        return '';
+      }
+      try {
+        const { data, error } = await client.storage.from(MEDIA_BUCKET).createSignedUrl(path, 300);
+        if (error) return '';
+        return data?.signedUrl || '';
+      } catch (signError) {
+        console.error('Failed to sign media asset', signError);
+        return '';
+      }
+    };
+
+    const mediaWithUrls = await Promise.all(
+      mediaItems.map(async (item) => {
+        const [url, thumbnail_url] = await Promise.all([
+          resolveSignedUrl(item.external_url ? item.external_url : item.storage_path),
+          resolveSignedUrl(item.thumbnail_path || ''),
+        ]);
+
+        return {
+          ...item,
+          url,
+          thumbnail_url,
+        };
+      })
+    );
+
+    const gamesMetaMap = new Map((gamesMeta || []).map((meta) => [meta.media_item_id, meta]));
+
+    const mediaWithMeta = mediaWithUrls.map((item) => ({
+      ...item,
+      meta: gamesMetaMap.get(item.id) || null,
+    }));
+
+    const groupedMedia = mediaWithMeta.reduce((acc, item) => {
       const category = (item?.category || 'uncategorized').toLowerCase();
       if (!acc[category]) acc[category] = [];
       acc[category].push(item);
@@ -157,13 +197,37 @@ export default async function handler(req, res) {
     const activity = [];
     pushEvent(activity, athlete.created_at, 'Profile created');
     pushEvent(activity, athlete.updated_at, 'Profile updated');
-    if (contacts) {
-      const createdAt = contacts.created_at || contacts.inserted_at || contacts.created || null;
+    const normalizedContacts = contacts
+      ? {
+          ...contacts,
+          phone: contacts.phone ?? contacts.phone_number ?? null,
+          residence_city: contacts.residence_city ?? contacts.city ?? contacts.city_name ?? contacts.town ?? null,
+          residence_country: contacts.residence_country ?? contacts.country ?? contacts.country_name ?? null,
+          id_verified:
+            typeof contacts.id_verified === 'boolean'
+              ? contacts.id_verified
+              : Boolean(contacts.verified_at),
+          phone_verified:
+            typeof contacts.phone_verified === 'boolean'
+              ? contacts.phone_verified
+              : Boolean(contacts.phone_verified_at),
+        }
+      : null;
+    if (normalizedContacts) {
+      const createdAt = normalizedContacts.created_at
+        || normalizedContacts.inserted_at
+        || normalizedContacts.created
+        || null;
       pushEvent(activity, createdAt, 'Verification record created');
-      pushEvent(activity, contacts.submitted_at, 'Identity submitted');
-      pushEvent(activity, contacts.verification_status_changed_at, 'Verification status updated', contacts.review_status);
-      pushEvent(activity, contacts.verified_at, 'Identity verified');
-      pushEvent(activity, contacts.updated_at, 'Verification record updated');
+      pushEvent(activity, normalizedContacts.submitted_at, 'Identity submitted');
+      pushEvent(
+        activity,
+        normalizedContacts.verification_status_changed_at,
+        'Verification status updated',
+        normalizedContacts.review_status,
+      );
+      pushEvent(activity, normalizedContacts.verified_at, 'Identity verified');
+      pushEvent(activity, normalizedContacts.updated_at, 'Verification record updated');
     }
     sports.forEach((row) => {
       pushEvent(activity, row.created_at, 'Sport experience added', row.sport || row.role || '');
@@ -179,17 +243,22 @@ export default async function handler(req, res) {
       .sort((a, b) => (b.sortKey ?? 0) - (a.sortKey ?? 0))
       .slice(0, 25);
 
+    const normalizedSocial = social.map((row) => ({
+      ...row,
+      url: row.profile_url || row.url || '',
+    }));
+
     return res.status(200).json({
       athlete,
-      contacts,
+      contacts: normalizedContacts,
       sports,
       career,
       physical,
-      social,
+      social: normalizedSocial,
       awards,
       media: {
         grouped: groupedMedia,
-        raw: mediaItems,
+        raw: mediaWithMeta,
         gamesMeta,
       },
       activity: sortedActivity,
