@@ -207,12 +207,18 @@ export default function EntityDataPanel({ operatorData = {}, onRefresh, isMobile
     setSnapshot(nextForm);
     setErrors({});
     setDirty(false);
-    setStatus({ type: '', msg: '' });
     setLogoMarkedForRemoval(false);
     setLogoFile(null);
     cleanupLogoObjectUrl();
-    setLogoPreviewUrl('');
-    setLogoStoragePath(deriveStoragePathFromPublicUrl(nextForm.logo_url, OP_LOGO_BUCKET) || '');
+    const rawLogoValue = nextForm.logo_url || '';
+    const fromPublic = deriveStoragePathFromPublicUrl(rawLogoValue, OP_LOGO_BUCKET);
+    const normalizedPath = fromPublic || (!/^https?:\/\//i.test(rawLogoValue) ? String(rawLogoValue).replace(/^\/+/, '') : '');
+    if (normalizedPath !== logoStoragePath) {
+      setLogoPreviewUrl('');
+    } else if (!normalizedPath && !/^https?:\/\//i.test(rawLogoValue)) {
+      setLogoPreviewUrl('');
+    }
+    setLogoStoragePath(normalizedPath);
   }, [profile?.logo_url, profile?.trade_name, profile?.website, cleanupLogoObjectUrl]);
 
   const fallbackLogoUrl = useMemo(() => {
