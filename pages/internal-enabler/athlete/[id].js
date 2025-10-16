@@ -37,6 +37,66 @@ const formatStatusLabel = (value) => {
     .join(' ');
 };
 
+const formatPercentage = (value) => {
+  const percentage = Number(value);
+  if (!Number.isFinite(percentage)) return '—';
+  return `${Math.round(percentage)}%`;
+};
+
+const formatYesNo = (value) => {
+  if (value === null || value === undefined) return '—';
+  return value ? 'Yes' : 'No';
+};
+
+const formatSeason = (start, end) => {
+  const normalizedStart = start ? String(start) : '';
+  const normalizedEnd = end ? String(end) : '';
+  if (normalizedStart && normalizedEnd) {
+    const endSuffix = normalizedEnd.length === 4 ? normalizedEnd.slice(2) : normalizedEnd;
+    return `${normalizedStart}/${endSuffix}`;
+  }
+  return normalizedStart || normalizedEnd || '—';
+};
+
+const contractStatusText = (value) => {
+  switch (value) {
+    case 'free_agent':
+      return 'Free agent';
+    case 'under_contract':
+      return 'Under contract';
+    case 'on_loan':
+      return 'On loan';
+    default:
+      return '—';
+  }
+};
+
+const MEDIA_CATEGORY_MAP = {
+  featured_headshot: 'featured_photos',
+  featured_game1: 'full_games',
+  featured_game2: 'full_games',
+  game: 'full_games',
+  intro: 'intro',
+  highlight: 'highlights',
+  gallery: 'gallery',
+};
+
+const MEDIA_LABELS = {
+  featured_photos: 'Featured photos',
+  intro: 'Intro',
+  highlights: 'Highlights',
+  full_games: 'Full games',
+  gallery: 'Gallery',
+};
+
+const MEDIA_ORDER = ['featured_photos', 'intro', 'highlights', 'full_games', 'gallery'];
+
+const mapMediaCategoryKey = (value) => {
+  const normalized = String(value || '').toLowerCase();
+  if (!normalized) return 'uncategorized';
+  return MEDIA_CATEGORY_MAP[normalized] || normalized;
+};
+
 const CollapsibleSection = ({ title, description, children, defaultOpen = true }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -61,12 +121,15 @@ const KeyValueGrid = ({ items = [] }) => {
   }
   return (
     <dl style={styles.definitionList}>
-      {items.map(({ label, value }) => (
-        <div key={label} style={styles.definitionItem}>
-          <dt style={styles.definitionTerm}>{label}</dt>
-          <dd style={styles.definitionDescription}>{value ?? '—'}</dd>
-        </div>
-      ))}
+      {items.map(({ label, value, key }, index) => {
+        const entryKey = key || `${label || 'item'}-${index}`;
+        return (
+          <div key={entryKey} style={styles.definitionItem}>
+            <dt style={styles.definitionTerm}>{label}</dt>
+            <dd style={styles.definitionDescription}>{value ?? '—'}</dd>
+          </div>
+        );
+      })}
     </dl>
   );
 };
@@ -236,48 +299,106 @@ export default function AthleteDetailPage() {
     loadDetail();
   }, [user, athleteId, loadDetail]);
 
+  const openDocument = useCallback(async (path) => {
+    const url = await createSignedUrl(path);
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  }, []);
+
   const fullName = useMemo(() => {
     if (!detail?.athlete) return '—';
     const { first_name, last_name } = detail.athlete;
-    const composed = `${last_name || ''} ${first_name || ''}`.trim();
+    const composed = `${first_name || ''} ${last_name || ''}`.trim();
     return composed || '—';
   }, [detail]);
 
   const summaryItems = useMemo(() => {
     const athlete = detail?.athlete || {};
     const contacts = detail?.contacts || {};
+    const phone = athlete.phone || contacts.phone_number || contacts.phone || '';
+    const residenceParts = [contacts.residence_city, contacts.residence_country].filter(Boolean);
     return [
+      { label: 'Full name', value: fullName },
+      { label: 'Email', value: contacts.athlete_email || '—' },
+      { label: 'Phone', value: phone || '—' },
+      { label: 'Residence', value: residenceParts.join(', ') || '—' },
+      { label: 'Profile completion', value: formatPercentage(athlete.completion_percentage) },
+      { label: 'Review status (admin)', value: formatStatusLabel(contacts.review_status) },
       { label: 'Athlete ID', value: athlete.id || '—' },
-      { label: 'Status', value: formatStatusLabel(contacts.review_status || athlete.review_status) },
-      { label: 'Residence', value: [contacts.residence_city, contacts.residence_country].filter(Boolean).join(', ') || '—' },
-      { label: 'Phone', value: athlete.phone || contacts.phone || '—' },
       { label: 'Created at', value: formatDateTime(athlete.created_at) },
       { label: 'Updated at', value: formatDateTime(athlete.updated_at) },
     ];
-  }, [detail]);
+  }, [detail, fullName]);
 
   const personalItems = useMemo(() => {
     const athlete = detail?.athlete || {};
-    const contacts = detail?.contacts || {};
     return [
-      { label: 'First name', value: athlete.first_name || '—' },
-      { label: 'Last name', value: athlete.last_name || '—' },
       { label: 'Date of birth', value: formatDate(athlete.date_of_birth) },
       { label: 'Nationality', value: athlete.nationality || '—' },
+      { label: 'Birth city', value: athlete.birth_city || '—' },
+      { label: 'Native language', value: athlete.native_language || '—' },
+      { label: 'Additional language', value: athlete.additional_language || '—' },
       { label: 'Gender', value: athlete.gender || '—' },
       { label: 'Preferred foot', value: athlete.preferred_foot || '—' },
-      { label: 'ID verification', value: contacts.id_verified ? 'Verified' : 'Not verified' },
-      { label: 'Verification status', value: formatStatusLabel(contacts.review_status) },
-      { label: 'Verification notes', value: contacts.rejected_reason || '—' },
+    ];
+  }, [detail]);
+
+  const contactsAdminItems = useMemo(() => {
+    const contacts = detail?.contacts || {};
+    const reviewLabel = formatStatusLabel(contacts.review_status);
+    const reviewValue = contacts.rejected_reason
+      ? (
+        <div>
+          <div>{reviewLabel}</div>
+          <div style={styles.mutedText}>{contacts.rejected_reason}</div>
+        </div>
+      )
+      : reviewLabel;
+
+    return [
+      { label: 'Phone verified', value: formatYesNo(contacts.phone_verified) },
+      { label: 'ID verified', value: formatYesNo(contacts.id_verified) },
       { label: 'Document type', value: contacts.id_document_type || '—' },
       { label: 'Submission date', value: formatDateTime(contacts.submitted_at) },
       { label: 'Verification updated', value: formatDateTime(contacts.verification_status_changed_at) },
+      { label: 'Review status / notes', value: reviewValue },
+      {
+        label: 'ID document',
+        value: contacts.id_document_url
+          ? (
+            <button
+              type="button"
+              style={styles.inlineActionButton}
+              onClick={() => openDocument(contacts.id_document_url)}
+            >
+              Open document
+            </button>
+          )
+          : '—',
+      },
+      {
+        label: 'Selfie',
+        value: contacts.id_selfie_url
+          ? (
+            <button
+              type="button"
+              style={styles.inlineActionButton}
+              onClick={() => openDocument(contacts.id_selfie_url)}
+            >
+              Open selfie
+            </button>
+          )
+          : '—',
+      },
     ];
-  }, [detail]);
+  }, [detail, openDocument]);
 
   const sportsItems = useMemo(() => {
     const current = detail?.sports?.[0] || null;
     if (!current) return [];
+    const agentAgency = [current.agent_name, current.agency_name].filter(Boolean).join(' · ');
+    const preferredRegions = Array.isArray(current.preferred_regions)
+      ? current.preferred_regions.filter(Boolean).join(', ') || '—'
+      : current.preferred_regions || '—';
     return [
       { label: 'Sport', value: current.sport || '—' },
       { label: 'Role', value: current.role || '—' },
@@ -285,34 +406,73 @@ export default function AthleteDetailPage() {
       { label: 'Team', value: current.team || '—' },
       { label: 'Category', value: current.category || '—' },
       { label: 'Playing style', value: current.playing_style || '—' },
-      { label: 'Contract status', value: formatStatusLabel(current.contract_status) },
-      { label: 'Contract end date', value: formatDate(current.contract_end_date) },
-      { label: 'Seeking team', value: current.seeking_team ? 'Yes' : 'No' },
-      { label: 'Preferred regions', value: Array.isArray(current.preferred_regions) ? current.preferred_regions.join(', ') : current.preferred_regions || '—' },
+      { label: 'Seeking team', value: formatYesNo(current.seeking_team) },
+      { label: 'Contract', value: contractStatusText(current.contract_status) },
+      { label: 'Contract end', value: formatDate(current.contract_end_date) },
+      { label: 'Preferred regions', value: preferredRegions },
       { label: 'Trial window', value: current.trial_window || '—' },
-      { label: 'Agent name', value: current.agent_name || '—' },
-      { label: 'Agency name', value: current.agency_name || '—' },
+      { label: 'Agent / Agency', value: agentAgency || '—' },
     ];
   }, [detail]);
 
-  const physicalItems = useMemo(() => {
+  const physicalSections = useMemo(() => {
     const physical = detail?.physical || {};
-    if (!Object.keys(physical).length) return [];
-    return [
+    if (!Object.keys(physical).length) {
+      return { primary: [], extended: [], timing: [] };
+    }
+
+    const primary = [
       { label: 'Height (cm)', value: physical.height_cm ?? '—' },
       { label: 'Weight (kg)', value: physical.weight_kg ?? '—' },
       { label: 'Wingspan (cm)', value: physical.wingspan_cm ?? '—' },
       { label: 'Dominant hand', value: physical.dominant_hand || '—' },
+      { label: 'Dominant foot', value: physical.dominant_foot || '—' },
+      { label: 'Dominant eye', value: physical.dominant_eye || '—' },
+    ];
+
+    const extended = [
+      { label: 'Standing reach (cm)', value: physical.standing_reach_cm ?? '—' },
+      { label: 'Body fat (%)', value: physical.body_fat_percent ?? '—' },
+      { label: 'Sprint 10m (s)', value: physical.sprint_10m_s ?? '—' },
+      { label: 'Sprint 20m (s)', value: physical.sprint_20m_s ?? '—' },
+      { label: 'Pro agility 5-10-5 (s)', value: physical.pro_agility_5_10_5_s ?? '—' },
+      { label: 'Vertical jump CMJ (cm)', value: physical.vertical_jump_cmj_cm ?? '—' },
+      { label: 'Standing long jump (cm)', value: physical.standing_long_jump_cm ?? '—' },
+      { label: 'Grip strength left (kg)', value: physical.grip_strength_left_kg ?? '—' },
+      { label: 'Grip strength right (kg)', value: physical.grip_strength_right_kg ?? '—' },
+      { label: 'Sit and reach (cm)', value: physical.sit_and_reach_cm ?? '—' },
+      { label: 'Plank hold (s)', value: physical.plank_hold_s ?? '—' },
+      { label: 'Cooper 12 min (m)', value: physical.cooper_12min_m ?? '—' },
+    ];
+
+    const timing = [
+      { label: 'Physical measured at', value: formatDateTime(physical.physical_measured_at) },
+      { label: 'Performance measured at', value: formatDateTime(physical.performance_measured_at) },
       { label: 'Updated at', value: formatDateTime(physical.updated_at) },
     ];
+
+    return { primary, extended, timing };
   }, [detail]);
 
   const socialItems = useMemo(() => {
     const socials = detail?.social || [];
-    return socials.map((row) => ({
-      label: row.platform || row.handle || row.url || `Social ${row.id}`,
-      value: row.url || row.handle || '—',
-    }));
+    return socials.map((row, index) => {
+      const profileUrl = row.profile_url || row.url || '';
+      const value = profileUrl
+        ? (
+          <div>
+            <a href={profileUrl} target="_blank" rel="noopener noreferrer" style={styles.link}>{profileUrl}</a>
+            {row.handle ? <div style={styles.mutedText}>{row.handle}</div> : null}
+          </div>
+        )
+        : row.handle || '—';
+
+      return {
+        key: `social-${row.id || index}`,
+        label: row.platform || `Social ${index + 1}`,
+        value,
+      };
+    });
   }, [detail]);
 
   const awardCards = useMemo(() => detail?.awards || [], [detail]);
@@ -321,16 +481,31 @@ export default function AthleteDetailPage() {
 
   const mediaGroups = useMemo(() => {
     const grouped = detail?.media?.grouped || {};
-    const entries = Object.entries(grouped).map(([key, items]) => ({ key, items }));
-    return entries.sort((a, b) => a.key.localeCompare(b.key));
+    const accumulator = new Map();
+
+    Object.entries(grouped).forEach(([rawKey, items]) => {
+      const normalizedKey = mapMediaCategoryKey(rawKey);
+      const existing = accumulator.get(normalizedKey) || [];
+      accumulator.set(normalizedKey, existing.concat(items));
+    });
+
+    const groups = Array.from(accumulator.entries()).map(([key, items]) => ({
+      key,
+      label: MEDIA_LABELS[key] || formatStatusLabel(key),
+      items,
+    }));
+
+    return groups.sort((a, b) => {
+      const indexA = MEDIA_ORDER.indexOf(a.key);
+      const indexB = MEDIA_ORDER.indexOf(b.key);
+      if (indexA === -1 && indexB === -1) return a.label.localeCompare(b.label);
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
   }, [detail]);
 
   const activityEntries = useMemo(() => detail?.activity || [], [detail]);
-
-  const openDocument = useCallback(async (path) => {
-    const url = await createSignedUrl(path);
-    if (url) window.open(url, '_blank', 'noopener,noreferrer');
-  }, []);
 
   if (!authChecked) {
     return (
@@ -379,91 +554,110 @@ export default function AthleteDetailPage() {
             <KeyValueGrid items={summaryItems} />
           </CollapsibleSection>
 
-          <CollapsibleSection title="Personal information">
+          <CollapsibleSection title="Profile" description="Personal details and languages.">
             <KeyValueGrid items={personalItems} />
-            <div style={styles.docActions}>
-              <button
-                type="button"
-                style={styles.documentButton}
-                disabled={!detail?.contacts?.id_document_url}
-                onClick={() => openDocument(detail?.contacts?.id_document_url)}
-              >
-                View ID document
-              </button>
-              <button
-                type="button"
-                style={styles.documentButton}
-                disabled={!detail?.contacts?.id_selfie_url}
-                onClick={() => openDocument(detail?.contacts?.id_selfie_url)}
-              >
-                View face photo
-              </button>
-            </div>
           </CollapsibleSection>
 
-          <CollapsibleSection title="Current sport focus" description="Latest sports experience submitted.">
+          <CollapsibleSection title="Contacts & verification (admin)" description="Verification status and uploaded documents.">
+            <KeyValueGrid items={contactsAdminItems} />
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Sport" description="Latest sports experience submitted.">
             <KeyValueGrid items={sportsItems} />
           </CollapsibleSection>
 
-          <CollapsibleSection title="Career history" description="Complete list of previous clubs and seasons.">
-            {renderList(careerCards, (row) => (
-              <article key={row.id} style={styles.card}>
+          <CollapsibleSection title="Career" description="Season-by-season club history.">
+            {renderList(careerCards, (row, index) => (
+              <article key={row.id || index} style={styles.card}>
                 <header style={styles.cardHeader}>
                   <div style={styles.cardTitleRow}>
-                    <span style={styles.cardTitleText}>{row.team || 'Unknown team'}</span>
-                    <span style={styles.cardMeta}>{row.country || row.league || ''}</span>
+                    <span style={styles.cardTitleText}>{row.team_name || row.team || '—'}</span>
+                    <span style={styles.cardMeta}>{row.league || ''}</span>
                   </div>
-                  <div style={styles.cardMeta}>{row.season_start || ''}{row.season_end ? ` / ${row.season_end}` : ''}</div>
+                  <div style={styles.cardMeta}>{formatSeason(row.season_start, row.season_end)}</div>
                 </header>
                 <div style={styles.cardContent}>
+                  <div style={styles.cardDetail}><strong>Sport:</strong> {row.sport || '—'}</div>
                   <div style={styles.cardDetail}><strong>Role:</strong> {row.role || '—'}</div>
-                  <div style={styles.cardDetail}><strong>Appearances:</strong> {row.matches_played ?? '—'}</div>
-                  <div style={styles.cardDetail}><strong>Goals:</strong> {row.goals ?? '—'}</div>
-                  <div style={styles.cardDetail}><strong>Assists:</strong> {row.assists ?? '—'}</div>
-                  <div style={styles.cardDetail}><strong>Notes:</strong> {row.notes || '—'}</div>
+                  <div style={styles.cardDetail}><strong>Category:</strong> {row.category || '—'}</div>
+                  <div style={styles.cardDetail}><strong>Current:</strong> {formatYesNo(row.is_current)}</div>
+                  <div style={styles.cardDetail}><strong>League:</strong> {row.league || '—'}</div>
+                  {row.notes ? (
+                    <div style={styles.cardDetail}><strong>Notes:</strong> {row.notes}</div>
+                  ) : null}
                 </div>
               </article>
             ), 'No career entries recorded.')}
           </CollapsibleSection>
 
-          <CollapsibleSection title="Physical data" description="Latest measurements provided.">
-            <KeyValueGrid items={physicalItems} />
+          <CollapsibleSection title="Physical data" description="Latest measurements and performance metrics.">
+            <KeyValueGrid items={physicalSections.primary} />
+            {physicalSections.extended.length ? (
+              <>
+                <h3 style={styles.subSectionTitle}>Performance metrics</h3>
+                <KeyValueGrid items={physicalSections.extended} />
+              </>
+            ) : null}
+            {physicalSections.timing.length ? (
+              <>
+                <h3 style={styles.subSectionTitle}>Measurement dates</h3>
+                <KeyValueGrid items={physicalSections.timing} />
+              </>
+            ) : null}
           </CollapsibleSection>
 
-          <CollapsibleSection title="Social presence" description="Links to athlete social profiles.">
+          <CollapsibleSection title="Social" description="Links to athlete social profiles.">
             <KeyValueGrid items={socialItems} />
           </CollapsibleSection>
 
-          <CollapsibleSection title="Awards & recognitions">
-            {renderList(awardCards, (row) => (
-              <article key={row.id} style={styles.card}>
+          <CollapsibleSection title="Awards" description="Recognitions, trophies and supporting evidence.">
+            {renderList(awardCards, (row, index) => (
+              <article key={row.id || index} style={styles.card}>
                 <header style={styles.cardHeader}>
                   <div style={styles.cardTitleRow}>
                     <span style={styles.cardTitleText}>{row.title || row.competition || 'Award'}</span>
-                    <span style={styles.cardMeta}>{formatDate(row.date_awarded) }</span>
+                    <span style={styles.cardMeta}>{formatSeason(row.season_start, row.season_end)}</span>
                   </div>
+                  <div style={styles.cardMeta}>{formatDate(row.date_awarded)}</div>
                 </header>
                 <div style={styles.cardContent}>
+                  <div style={styles.cardDetail}><strong>Awarding entity:</strong> {row.awarding_entity || '—'}</div>
                   <div style={styles.cardDetail}><strong>Competition:</strong> {row.competition || '—'}</div>
                   <div style={styles.cardDetail}><strong>Result:</strong> {row.result || '—'}</div>
                   <div style={styles.cardDetail}><strong>Description:</strong> {row.description || '—'}</div>
+                  {row.evidence_external_url ? (
+                    <div style={styles.cardDetail}>
+                      <a href={row.evidence_external_url} target="_blank" rel="noopener noreferrer" style={styles.link}>Open evidence link</a>
+                    </div>
+                  ) : null}
+                  {row.evidence_file_path ? (
+                    <div style={styles.cardDetail}>
+                      <button
+                        type="button"
+                        style={styles.inlineActionButton}
+                        onClick={() => openDocument(row.evidence_file_path)}
+                      >
+                        Open evidence document
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </article>
             ), 'No awards recorded yet.')}
           </CollapsibleSection>
 
-          <CollapsibleSection title="Media library" description="Signed assets grouped by category.">
+          <CollapsibleSection title="Media" description="Signed assets grouped by category.">
             {mediaGroups.length === 0 ? (
               <div style={styles.emptyState}>No media uploaded.</div>
             ) : (
               <div style={styles.mediaGrid}>
-                {mediaGroups.map(({ key, items }) => (
+                {mediaGroups.map(({ key, label, items }) => (
                   <div key={key} style={styles.mediaColumn}>
-                    <h3 style={styles.mediaTitle}>{formatStatusLabel(key)}</h3>
+                    <h3 style={styles.mediaTitle}>{label}</h3>
                     <ul style={styles.mediaList}>
-                      {items.map((item) => (
-                        <li key={item.id} style={styles.mediaItem}>
-                          <div style={styles.mediaItemTitle}>{item.title || item.caption || `Media #${item.id}`}</div>
+                      {items.map((item, index) => (
+                        <li key={item.id || `${key}-${index}`} style={styles.mediaItem}>
+                          <div style={styles.mediaItemTitle}>{item.title || item.caption || `Media #${item.id || index + 1}`}</div>
                           <div style={styles.mediaItemMeta}>Uploaded: {formatDateTime(item.created_at)}</div>
                           {item.url ? (
                             <a href={item.url} target="_blank" rel="noopener noreferrer" style={styles.link}>Open</a>
@@ -598,6 +792,26 @@ const styles = {
     color: '#0F172A',
     wordBreak: 'break-word',
   },
+  subSectionTitle: {
+    margin: '24px 0 12px',
+    fontSize: 16,
+    fontWeight: 600,
+    color: '#0F172A',
+  },
+  mutedText: {
+    marginTop: 4,
+    color: '#64748B',
+    fontSize: 13,
+  },
+  inlineActionButton: {
+    padding: '6px 10px',
+    borderRadius: 8,
+    border: '1px solid #CBD5E1',
+    background: '#F8FAFC',
+    cursor: 'pointer',
+    fontWeight: 600,
+    fontSize: 13,
+  },
   emptyState: {
     padding: 16,
     borderRadius: 12,
@@ -708,20 +922,6 @@ const styles = {
     fontSize: 13,
     color: '#475569',
     marginTop: 2,
-  },
-  docActions: {
-    marginTop: 16,
-    display: 'flex',
-    gap: 12,
-    flexWrap: 'wrap',
-  },
-  documentButton: {
-    padding: '8px 12px',
-    borderRadius: 8,
-    border: '1px solid #CBD5E1',
-    background: '#F8FAFC',
-    cursor: 'pointer',
-    fontWeight: 600,
   },
   errorBanner: {
     marginBottom: 24,
