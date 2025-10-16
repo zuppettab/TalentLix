@@ -121,6 +121,20 @@ export default async function handler(req, res) {
     const awards = awardsResult.data || [];
     const mediaItems = mediaResult.data || [];
 
+    let athleteEmail = typeof athlete?.email === 'string' ? athlete.email : null;
+    if (!athleteEmail && athlete?.id && client?.auth?.admin?.getUserById) {
+      try {
+        const { data, error } = await client.auth.admin.getUserById(athlete.id);
+        if (error) {
+          console.error('Failed to load athlete auth user', error);
+        } else {
+          athleteEmail = data?.user?.email || null;
+        }
+      } catch (userError) {
+        console.error('Failed to load athlete auth user', userError);
+      }
+    }
+
     let gamesMeta = [];
     const gameIds = mediaItems
       .filter((item) => (item?.category || '').toLowerCase() === 'game')
@@ -201,6 +215,7 @@ export default async function handler(req, res) {
       ? {
           ...contacts,
           phone: contacts.phone ?? contacts.phone_number ?? null,
+          phone_number: contacts.phone_number ?? contacts.phone ?? null,
           residence_city: contacts.residence_city ?? contacts.city ?? contacts.city_name ?? contacts.town ?? null,
           residence_country: contacts.residence_country ?? contacts.country ?? contacts.country_name ?? null,
           id_verified:
@@ -212,8 +227,16 @@ export default async function handler(req, res) {
               ? contacts.phone_verified
               : Boolean(contacts.phone_verified_at),
         }
-      : null;
-    if (normalizedContacts) {
+      : {};
+
+    if (athleteEmail) {
+      normalizedContacts.athlete_email = athleteEmail;
+    } else if (typeof normalizedContacts.athlete_email !== 'string') {
+      delete normalizedContacts.athlete_email;
+    }
+
+    const hasContactRecord = Boolean(contacts);
+    if (hasContactRecord) {
       const createdAt = normalizedContacts.created_at
         || normalizedContacts.inserted_at
         || normalizedContacts.created
@@ -246,11 +269,12 @@ export default async function handler(req, res) {
     const normalizedSocial = social.map((row) => ({
       ...row,
       url: row.profile_url || row.url || '',
+      profile_url: row.profile_url || row.url || '',
     }));
 
     return res.status(200).json({
       athlete,
-      contacts: normalizedContacts,
+      contacts: Object.keys(normalizedContacts).length ? normalizedContacts : null,
       sports,
       career,
       physical,
