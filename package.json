@@ -23,6 +23,5 @@
     "react-icons": "^4.11.0",
     "lucide-react": "^0.277.0",
     "algoliasearch": "^4.23.0",
-    "@algolia/react-instantsearch": "^7"
   }
 }
