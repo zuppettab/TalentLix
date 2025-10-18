@@ -55,7 +55,7 @@ const normalizeAthleteRow = (row) => {
     id: row.id,
     first_name: row.first_name,
     last_name: row.last_name,
-    email: row.email,
+    email: typeof row.email === 'string' ? row.email : null,
     phone: row.phone,
     cv: normalizedCv,
     review_status: reviewStatus,
@@ -112,7 +112,7 @@ export default async function handler(req, res) {
         .from('athlete')
         .select(
           `
-          id, first_name, last_name, phone, email,
+          id, first_name, last_name, phone,
           contacts_verification (
             id, review_status, id_verified, rejected_reason,
             submitted_at, verified_at, verification_status_changed_at,
@@ -140,7 +140,37 @@ export default async function handler(req, res) {
     if (athletesResult.error) throw normalizeSupabaseError('Athlete overview', athletesResult.error);
     if (operatorsResult.error) throw normalizeSupabaseError('Operator overview', operatorsResult.error);
 
-    const athletes = (athletesResult.data || []).map(normalizeAthleteRow);
+    const athleteRows = athletesResult.data || [];
+
+    const athletesWithEmail = await Promise.all(
+      athleteRows.map(async (row) => {
+        if (typeof row?.email === 'string' && row.email) {
+          return row;
+        }
+
+        if (!row?.id || !client?.auth?.admin?.getUserById) {
+          return row;
+        }
+
+        try {
+          const { data, error } = await client.auth.admin.getUserById(row.id);
+          if (error) {
+            console.error('Failed to load athlete auth user for overview', error);
+            return row;
+          }
+
+          return {
+            ...row,
+            email: data?.user?.email || null,
+          };
+        } catch (adminError) {
+          console.error('Failed to load athlete auth user for overview', adminError);
+          return row;
+        }
+      })
+    );
+
+    const athletes = athletesWithEmail.map(normalizeAthleteRow);
     const operators = (operatorsResult.data || []).map(normalizeOperatorRow);
 
     return res.status(200).json({ athletes, operators });
