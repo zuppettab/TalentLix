@@ -743,9 +743,10 @@ export default function InternalEnabler() {
           </p>
         </div>
         <div style={{ border: '1px solid #EEE', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 1fr 1fr 1fr', background: '#FAFAFA' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 1fr 1fr 1fr 1fr', background: '#FAFAFA' }}>
             <div style={cellHead}>Athlete</div>
             <div style={cellHead}>Status</div>
+            <div style={cellHead}>Email</div>
             <div style={cellHead}>Phone</div>
             <div style={cellHead}>Documents</div>
             <div style={cellHead}>Actions</div>
@@ -757,7 +758,7 @@ export default function InternalEnabler() {
             const canFinalize = ['submitted', 'in_review'].includes(r.review_status);
             const canRequestInfo = ['submitted', 'in_review'].includes(r.review_status);
             return (
-              <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '220px 1fr 1fr 1fr 1fr', borderTop: '1px solid #EEE' }}>
+              <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '220px 1fr 1fr 1fr 1fr 1fr', borderTop: '1px solid #EEE' }}>
                 <div style={cell}>
                   <div style={{ fontWeight: 700 }}>{r.last_name} {r.first_name}</div>
                   <div style={{ fontSize: 12, color: '#999' }}>
@@ -771,6 +772,10 @@ export default function InternalEnabler() {
                     {cv.id_verified ? 'ID verified ✓' : 'ID not verified'}
                     {cv.rejected_reason ? <div style={{ color: '#B00020' }}>Reason: {cv.rejected_reason}</div> : null}
                   </div>
+                </div>
+
+                <div style={cell}>
+                  <div style={{ fontSize: 13, color: '#555' }}>{r.email || '-'}</div>
                 </div>
 
                 <div style={cell}>

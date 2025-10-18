@@ -55,6 +55,7 @@ const normalizeAthleteRow = (row) => {
     id: row.id,
     first_name: row.first_name,
     last_name: row.last_name,
+    email: row.email,
     phone: row.phone,
     cv: normalizedCv,
     review_status: reviewStatus,
@@ -111,7 +112,7 @@ export default async function handler(req, res) {
         .from('athlete')
         .select(
           `
-          id, first_name, last_name, phone,
+          id, first_name, last_name, phone, email,
           contacts_verification (
             id, review_status, id_verified, rejected_reason,
             submitted_at, verified_at, verification_status_changed_at,
