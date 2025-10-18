@@ -2,7 +2,6 @@
 
 import React from 'react';
 import Head from 'next/head';
-import singletonRouter from 'next/router';
 import { liteClient as algoliasearch } from 'algoliasearch/lite';
 import {
   InstantSearch,
@@ -17,7 +16,6 @@ import {
   Pagination,
   Configure,
 } from 'react-instantsearch';
-import { createInstantSearchRouterNext } from 'react-instantsearch-router-nextjs';
 
 // Env client
 const APP_ID = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID;
@@ -26,9 +24,6 @@ const INDEX_NAME = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_ATHLETE_SEARCH;
 
 // Client Algolia (lite per il browser)
 const searchClient = algoliasearch(APP_ID, SEARCH_KEY);
-
-// Router Next per sincronizzare stato ↔ URL
-const routing = { router: createInstantSearchRouterNext({ singletonRouter }) };
 
 function Hit({ hit }) {
   return (
@@ -73,7 +68,7 @@ export default function SearchPanel() {
       </Head>
 
       <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 16, minHeight: '70vh' }}>
-        <InstantSearch searchClient={searchClient} indexName={INDEX_NAME} routing={routing} insights>
+        <InstantSearch searchClient={searchClient} indexName={INDEX_NAME} insights>
           <Configure hitsPerPage={24} />
 
           {/* Sidebar filtri */}
