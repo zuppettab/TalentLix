@@ -1,5 +1,5 @@
 // pages/api/algolia/sync.js
-import algoliasearch from "algoliasearch";
+import { algoliasearch } from "algoliasearch";
 import { createClient } from "@supabase/supabase-js";
 
 const VIEW_NAME = "algolia_athlete_search";
