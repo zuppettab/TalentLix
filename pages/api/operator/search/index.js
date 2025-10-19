@@ -53,18 +53,21 @@ const createArrayFilterVariants = (attribute, value) => {
   variations.add(base.toUpperCase());
   variations.add(toTitleCase(base));
 
-  const escapeArrayValue = (entry) =>
-    entry
-      .replace(/\\/g, '\\\\')
-      .replace(/"/g, '\\"')
-      .replace(/\{/g, '\\{')
-      .replace(/\}/g, '\\}')
-      .trim();
-
   return [...variations]
-    .map((variant) => variant && escapeArrayValue(variant))
+    .map((variant) => variant && escapeLikeValue(variant))
     .filter(Boolean)
-    .map((sanitized) => `${attribute}.cs.{"${sanitized}"}`);
+    .map((sanitized) => `${attribute}.ilike.%${sanitized}%`);
+};
+
+const buildTextFacetFilter = (attribute, values = []) => {
+  const normalized = values
+    .map((value) => (typeof value === 'string' ? value.trim() : value))
+    .filter((value) => typeof value === 'string' && value !== '')
+    .map((value) => escapeLikeValue(value));
+
+  if (!normalized.length) return '';
+
+  return normalized.map((value) => `${attribute}.ilike.%${value}%`).join(',');
 };
 
 const applySearchFilters = (builder, { query, facets, toggles, age }) => {
@@ -92,16 +95,9 @@ const applySearchFilters = (builder, { query, facets, toggles, age }) => {
     if (!list.length) return;
 
     if (attribute === 'secondary_role' || attribute === 'preferred_regions') {
-      if (list.length === 1) {
-        chain = chain.contains(attribute, list);
-      } else {
-        const orFilters = list
-          .map((value) => {
-            const quoted = JSON.stringify(String(value));
-            return `${attribute}.cs.{${quoted}}`;
-          })
-          .join(',');
-        chain = chain.or(orFilters);
+      const filterExpression = buildTextFacetFilter(attribute, list);
+      if (filterExpression) {
+        chain = chain.or(filterExpression);
       }
     } else {
       chain = chain.in(attribute, list);
