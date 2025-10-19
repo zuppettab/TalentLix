@@ -15,6 +15,8 @@ import {
   ClearRefinements,
   Pagination,
   Configure,
+  Stats,
+  useInstantSearch,
 } from 'react-instantsearch';
 
 // Env client
@@ -80,22 +82,24 @@ function Hit({ hit }) {
           <span className="hitCard__id">#{hit.objectID}</span>
           {hit.category && <span className="hitCard__category">{hit.category}</span>}
         </div>
-        <h3 className="hitCard__title">
-          <Highlight attribute="role" hit={hit} />
-        </h3>
-        <p className="hitCard__subtitle">
-          <span className="hitCard__sport">
-            <Highlight attribute="sport" hit={hit} />
-          </span>
-          {hit.gender && <span className="hitCard__dot">•</span>}
-          {hit.gender && <span className="hitCard__meta">{hit.gender}</span>}
-          {typeof hit.age === 'number' && (
-            <>
-              <span className="hitCard__dot">•</span>
-              <span className="hitCard__meta">{hit.age} y</span>
-            </>
-          )}
-        </p>
+        <div className="hitCard__headline">
+          <h3 className="hitCard__title">
+            <Highlight attribute="role" hit={hit} />
+          </h3>
+          <p className="hitCard__subtitle">
+            <span className="hitCard__sport">
+              <Highlight attribute="sport" hit={hit} />
+            </span>
+            {hit.gender && <span className="hitCard__dot">•</span>}
+            {hit.gender && <span className="hitCard__meta">{hit.gender}</span>}
+            {typeof hit.age === 'number' && (
+              <>
+                <span className="hitCard__dot">•</span>
+                <span className="hitCard__meta">{hit.age} y</span>
+              </>
+            )}
+          </p>
+        </div>
       </header>
 
       <div className="hitCard__body">
@@ -119,19 +123,47 @@ function Hit({ hit }) {
             </div>
           )}
         </dl>
+        {tags.length > 0 && (
+          <footer className="hitCard__footer">
+            {tags.map((tag) => (
+              <span key={tag.key} className={`hitCard__tag hitCard__tag--${tag.tone}`}>
+                {tag.label}
+              </span>
+            ))}
+          </footer>
+        )}
       </div>
-
-      {tags.length > 0 && (
-        <footer className="hitCard__footer">
-          {tags.map((tag) => (
-            <span key={tag.key} className={`hitCard__tag hitCard__tag--${tag.tone}`}>
-              {tag.label}
-            </span>
-          ))}
-        </footer>
-      )}
     </article>
   );
+}
+
+function NoResultsBoundary({ children }) {
+  const { results, status } = useInstantSearch();
+
+  if (status === 'loading') {
+    return (
+      <div className="searchPanel__placeholder">
+        <div className="searchPanel__loader" aria-hidden />
+        <p>Fetching matching athletes…</p>
+      </div>
+    );
+  }
+
+  if (results && results.nbHits === 0) {
+    return (
+      <div className="searchPanel__placeholder">
+        <div className="searchPanel__placeholderBadge">No matches</div>
+        <h3>We couldn&apos;t find athletes for this query.</h3>
+        <p>Try clearing a filter or broadening your search terms.</p>
+        <ClearRefinements
+          className="clearButton clearButton--inline"
+          translations={{ resetButtonText: 'Reset filters' }}
+        />
+      </div>
+    );
+  }
+
+  return children;
 }
 
 export default function SearchPanel() {
@@ -160,10 +192,19 @@ export default function SearchPanel() {
               <p className="searchPanel__eyebrow">Talent directory</p>
               <h1>Find athletes fast</h1>
               <p className="searchPanel__description">Search by sport, role or region and tune filters in real time.</p>
+              <div className="searchPanel__heroActions">
+                <ClearRefinements className="clearButton" translations={{ resetButtonText: 'Reset all filters' }} />
+                <CurrentRefinements className="currentRefinements" />
+              </div>
             </div>
-            <div className="searchPanel__quickActions">
-              <ClearRefinements className="clearButton" translations={{ resetButtonText: 'Reset all filters' }} />
-              <CurrentRefinements className="currentRefinements" />
+            <div className="searchPanel__heroCard">
+              <h2>Smart filters</h2>
+              <p>Combine filters to surface athletes that match your roster needs in seconds.</p>
+              <ul>
+                <li>Search across sports and primary roles</li>
+                <li>Layer profile, availability and region preferences</li>
+                <li>Save time with instant visual feedback</li>
+              </ul>
             </div>
           </div>
 
@@ -246,23 +287,28 @@ export default function SearchPanel() {
 
             <main className="searchPanel__results">
               <header className="resultsHeader">
-                <div>
+                <div className="resultsHeader__copy">
                   <h2>Athletes</h2>
                   <p>Profiles update in real time as you adjust filters.</p>
+                </div>
+                <div className="resultsHeader__meta">
+                  <Stats translations={{ stats: (nbHits) => `${nbHits} athletes` }} />
                   {!isSearchConfigured && (
                     <p className="resultsHeader__notice">Search is disabled in this demo environment.</p>
                   )}
                 </div>
               </header>
-              <Hits
-                hitComponent={Hit}
-                classNames={{
-                  root: 'hits',
-                  list: 'hits__list',
-                  item: 'hits__item',
-                }}
-              />
-              <Pagination classNames={{ root: 'pagination' }} />
+              <NoResultsBoundary>
+                <Hits
+                  hitComponent={Hit}
+                  classNames={{
+                    root: 'hits',
+                    list: 'hits__list',
+                    item: 'hits__item',
+                  }}
+                />
+                <Pagination classNames={{ root: 'pagination' }} />
+              </NoResultsBoundary>
             </main>
           </div>
         </InstantSearch>
@@ -272,20 +318,21 @@ export default function SearchPanel() {
         .searchPanel {
           min-height: 100vh;
           padding: clamp(2rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem);
-          background: linear-gradient(150deg, rgba(39, 227, 218, 0.18), rgba(247, 184, 78, 0.18) 42%, #f8fafc 90%);
+          background: radial-gradient(circle at top left, rgba(39, 227, 218, 0.35), transparent 55%),
+            radial-gradient(circle at bottom right, rgba(247, 184, 78, 0.3), transparent 50%), #f8fafc;
           color: #0f172a;
         }
 
         .searchPanel__hero {
           display: grid;
-          gap: clamp(1.25rem, 4vw, 2.5rem);
-          grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-          align-items: start;
+          gap: clamp(1.5rem, 4vw, 3rem);
+          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+          align-items: stretch;
           max-width: 1180px;
           margin: 0 auto clamp(2rem, 4vw, 3rem);
           padding: clamp(1.75rem, 4vw, 2.5rem);
           border-radius: 28px;
-          background: linear-gradient(135deg, rgba(39, 227, 218, 0.18), rgba(247, 184, 78, 0.22));
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(39, 227, 218, 0.12));
           border: 1px solid rgba(39, 227, 218, 0.22);
           box-shadow: 0 35px 90px -60px rgba(15, 23, 42, 0.45);
         }
@@ -300,7 +347,7 @@ export default function SearchPanel() {
 
         .searchPanel__heroText {
           display: grid;
-          gap: 0.75rem;
+          gap: 1rem;
         }
 
         .searchPanel__eyebrow {
@@ -321,10 +368,57 @@ export default function SearchPanel() {
           max-width: 360px;
         }
 
-        .searchPanel__quickActions {
+        .searchPanel__heroActions {
           display: grid;
-          gap: 1rem;
-          justify-items: end;
+          gap: 0.75rem;
+          align-content: start;
+        }
+
+        .searchPanel__heroCard {
+          background: linear-gradient(160deg, rgba(15, 23, 42, 0.92), rgba(8, 145, 178, 0.75));
+          color: #f8fafc;
+          border-radius: 22px;
+          padding: clamp(1.25rem, 3vw, 1.75rem);
+          display: grid;
+          gap: 0.75rem;
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 40px 70px -45px rgba(15, 23, 42, 0.8);
+        }
+
+        .searchPanel__heroCard h2 {
+          margin: 0;
+          font-size: 1.35rem;
+          font-weight: 600;
+        }
+
+        .searchPanel__heroCard p {
+          margin: 0;
+          font-size: 0.95rem;
+          line-height: 1.5;
+          color: rgba(241, 245, 249, 0.92);
+        }
+
+        .searchPanel__heroCard ul {
+          margin: 0;
+          padding: 0;
+          list-style: none;
+          display: grid;
+          gap: 0.45rem;
+        }
+
+        .searchPanel__heroCard li {
+          display: flex;
+          align-items: center;
+          gap: 0.55rem;
+          font-size: 0.9rem;
+        }
+
+        .searchPanel__heroCard li::before {
+          content: '';
+          width: 0.5rem;
+          height: 0.5rem;
+          border-radius: 999px;
+          background: rgba(248, 250, 252, 0.85);
+          box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
         }
 
         .searchPanel__layout {
@@ -344,14 +438,14 @@ export default function SearchPanel() {
         }
 
         .filterCard {
-          background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(39, 227, 218, 0.08));
-          border: 1px solid rgba(39, 227, 218, 0.18);
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(39, 227, 218, 0.12));
+          border: 1px solid rgba(148, 163, 184, 0.25);
           border-radius: 20px;
           padding: 1.35rem;
-          box-shadow: 0 28px 60px -40px rgba(15, 23, 42, 0.35);
+          box-shadow: 0 28px 60px -44px rgba(15, 23, 42, 0.35);
           display: grid;
           gap: 1rem;
-          backdrop-filter: blur(22px);
+          backdrop-filter: blur(18px);
         }
 
         .filterCard header h2 {
@@ -390,6 +484,14 @@ export default function SearchPanel() {
           min-width: 0;
         }
 
+        .resultsHeader {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          gap: 1rem;
+          align-items: center;
+        }
+
         .resultsHeader h2 {
           margin: 0;
           font-size: 1.6rem;
@@ -397,10 +499,24 @@ export default function SearchPanel() {
           color: #0f172a;
         }
 
-        .resultsHeader p {
-          margin: 0.25rem 0 0;
+        .resultsHeader__copy p {
+          margin: 0.35rem 0 0;
           color: #334155;
           font-weight: 500;
+        }
+
+        .resultsHeader__meta {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          align-items: flex-end;
+          font-weight: 600;
+          color: #0f172a;
+        }
+
+        .resultsHeader__meta :global(.ais-Stats-text) {
+          font-size: 0.95rem;
+          color: #0f172a;
         }
 
         .resultsHeader__notice {
@@ -417,18 +533,26 @@ export default function SearchPanel() {
         }
 
         .hitCard {
-          background: rgba(255, 255, 255, 0.92);
+          background: rgba(255, 255, 255, 0.95);
           border-radius: 20px;
           border: 1px solid rgba(15, 23, 42, 0.08);
-          padding: 1.35rem;
+          padding: 1.5rem;
           display: grid;
-          gap: 1.15rem;
-          box-shadow: 0 18px 48px -28px rgba(15, 23, 42, 0.22);
+          gap: 1.25rem;
+          box-shadow: 0 20px 54px -32px rgba(15, 23, 42, 0.25);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .hitCard:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 28px 60px -28px rgba(15, 23, 42, 0.28);
         }
 
         .hitCard__header {
-          display: grid;
-          gap: 0.4rem;
+          display: flex;
+          justify-content: space-between;
+          gap: 1rem;
+          align-items: flex-start;
         }
 
         .hitCard__title {
@@ -436,6 +560,11 @@ export default function SearchPanel() {
           font-size: 1.25rem;
           font-weight: 700;
           color: #0f172a;
+        }
+
+        .hitCard__headline {
+          display: grid;
+          gap: 0.4rem;
         }
 
         .hitCard__subtitle {
@@ -489,6 +618,11 @@ export default function SearchPanel() {
           gap: 0.75rem;
         }
 
+        .hitCard__body {
+          display: grid;
+          gap: 1.15rem;
+        }
+
         .hitCard__listItem {
           display: grid;
           gap: 0.3rem;
@@ -511,6 +645,7 @@ export default function SearchPanel() {
           display: flex;
           flex-wrap: wrap;
           gap: 0.5rem;
+          justify-content: flex-start;
         }
 
         .hitCard__tag {
@@ -561,7 +696,7 @@ export default function SearchPanel() {
             top: 0;
           }
 
-          .searchPanel__quickActions {
+          .searchPanel__heroActions {
             justify-items: start;
           }
         }
@@ -579,7 +714,7 @@ export default function SearchPanel() {
             padding: 1.5rem;
           }
 
-          .searchPanel__quickActions {
+          .searchPanel__heroActions {
             gap: 0.75rem;
           }
         }
@@ -607,6 +742,21 @@ export default function SearchPanel() {
           transform: translateY(-1px);
           filter: brightness(1.05);
           box-shadow: 0 24px 50px -26px rgba(247, 184, 78, 0.75);
+        }
+
+        .clearButton--inline {
+          background: rgba(14, 165, 233, 0.12);
+          color: #0369a1;
+          box-shadow: none;
+          border: 1px solid rgba(14, 165, 233, 0.35);
+          padding: 0.55rem 1.15rem;
+        }
+
+        .clearButton--inline:hover {
+          transform: none;
+          filter: none;
+          box-shadow: none;
+          background: rgba(14, 165, 233, 0.18);
         }
 
         .currentRefinements {
@@ -849,7 +999,61 @@ export default function SearchPanel() {
           color: #1d4ed8;
           border-color: rgba(37, 99, 235, 0.35);
         }
+
+        .searchPanel__placeholder {
+          border-radius: 24px;
+          border: 1px dashed rgba(148, 163, 184, 0.4);
+          background: rgba(255, 255, 255, 0.85);
+          padding: clamp(2.5rem, 6vw, 3.5rem);
+          text-align: center;
+          display: grid;
+          gap: 1rem;
+          justify-items: center;
+          color: #0f172a;
+        }
+
+        .searchPanel__placeholder h3 {
+          margin: 0;
+          font-size: 1.3rem;
+          font-weight: 600;
+        }
+
+        .searchPanel__placeholder p {
+          margin: 0;
+          max-width: 340px;
+          color: #64748b;
+        }
+
+        .searchPanel__placeholderBadge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.4rem 0.9rem;
+          border-radius: 999px;
+          background: rgba(59, 130, 246, 0.14);
+          color: #1d4ed8;
+          font-size: 0.78rem;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+        }
+
+        .searchPanel__loader {
+          width: 3rem;
+          height: 3rem;
+          border-radius: 50%;
+          border: 4px solid rgba(148, 163, 184, 0.35);
+          border-top-color: #0ea5e9;
+          animation: searchPanelSpinner 0.8s linear infinite;
+        }
+
+        @keyframes searchPanelSpinner {
+          to {
+            transform: rotate(360deg);
+          }
+        }
       `}</style>
     </>
   );
 }
+
