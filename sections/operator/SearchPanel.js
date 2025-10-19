@@ -7,7 +7,6 @@ import {
   InstantSearch,
   SearchBox,
   Hits,
-  Highlight,
   RefinementList,
   ToggleRefinement,
   RangeInput,
@@ -56,6 +55,28 @@ const fallbackSearchClient = {
   },
 };
 
+// ----------------------
+// Helpers di formattazione
+// ----------------------
+function humanizeLabel(input) {
+  if (input == null) return '';
+  const s = String(input);
+  // rimuove cifre finali (es. power_forward3 -> power_forward)
+  const noTrailingDigits = s.replace(/\d+$/, '');
+  // sostituisce _ e - con spazio
+  const withSpaces = noTrailingDigits.replace(/[_-]+/g, ' ').trim();
+  // Title Case
+  return withSpaces.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatGender(g) {
+  if (!g) return '';
+  const v = String(g).toLowerCase();
+  if (v === 'm' || v === 'male') return 'male';
+  if (v === 'f' || v === 'female') return 'female';
+  return v;
+}
+
 const tagConfig = [
   { key: 'is_verified', label: 'Verified', tone: 'success' },
   { key: 'seeking_team', label: 'Seeking team', tone: 'accent' },
@@ -63,6 +84,9 @@ const tagConfig = [
   { key: 'is_represented', label: 'Agent', tone: 'neutral' },
 ];
 
+// ----------------------
+// Card del risultato
+// ----------------------
 function Hit({ hit }) {
   const tags = useMemo(() => {
     return tagConfig
@@ -70,17 +94,25 @@ function Hit({ hit }) {
       .map(({ key, label, tone }) => ({ key, label, tone }));
   }, [hit]);
 
-  const secondaryRoles = Array.isArray(hit.secondary_role) ? hit.secondary_role.filter(Boolean) : [];
-  const preferredRegions = Array.isArray(hit.preferred_regions)
-    ? hit.preferred_regions.filter(Boolean)
-    : [];
+  // Normalizza/umanizza ciò che mostriamo (senza toccare i dati in Algolia)
+  const titleRole = humanizeLabel(hit?.role || 'Athlete');
+  const sportLabel = humanizeLabel(hit?.sport || '');
+
+  const secondaryRolesRaw = Array.isArray(hit?.secondary_role) ? hit.secondary_role.filter(Boolean) : [];
+  const secondaryRoles = secondaryRolesRaw.map(humanizeLabel);
+
+  const preferredRegions = Array.isArray(hit?.preferred_regions) ? hit.preferred_regions.filter(Boolean) : [];
+
+  // token del sottotitolo: inseriamo i puntini solo tra token presenti
+  const subtitleTokens = [];
+  if (sportLabel) subtitleTokens.push(<span key="sport" className="hitCard__sport">{sportLabel}</span>);
+  if (hit?.gender) subtitleTokens.push(<span key="gender" className="hitCard__meta">{formatGender(hit.gender)}</span>);
+  if (typeof hit?.age === 'number') subtitleTokens.push(<span key="age" className="hitCard__meta">{hit.age} y</span>);
 
   const quickFacts = [];
-
-  if (hit.nationality) {
-    quickFacts.push({ key: 'nationality', label: 'Nationality', value: hit.nationality });
+  if (hit?.nationality) {
+    quickFacts.push({ key: 'nationality', label: 'Nationality', value: humanizeLabel(hit.nationality) });
   }
-
   if (preferredRegions.length > 0) {
     quickFacts.push({
       key: 'preferred_regions',
@@ -88,7 +120,6 @@ function Hit({ hit }) {
       value: preferredRegions.join(', '),
     });
   }
-
   if (secondaryRoles.length > 0) {
     quickFacts.push({
       key: 'secondary_roles',
@@ -101,26 +132,24 @@ function Hit({ hit }) {
     <article className="hitCard">
       <header className="hitCard__header">
         <div className="hitCard__titleGroup">
-          <span className="hitCard__id">#{hit.objectID}</span>
-          {hit.category && <span className="hitCard__category">{hit.category}</span>}
+          {hit?.objectID && <span className="hitCard__id">#{hit.objectID}</span>}
+          {hit?.category && <span className="hitCard__category">{humanizeLabel(hit.category)}</span>}
         </div>
+
         <div className="hitCard__headline">
-          <h3 className="hitCard__title">
-            <Highlight attribute="role" hit={hit} />
-          </h3>
-          <p className="hitCard__subtitle">
-            <span className="hitCard__sport">
-              <Highlight attribute="sport" hit={hit} />
-            </span>
-            {hit.gender && <span className="hitCard__dot">•</span>}
-            {hit.gender && <span className="hitCard__meta">{hit.gender}</span>}
-            {typeof hit.age === 'number' && (
-              <>
-                <span className="hitCard__dot">•</span>
-                <span className="hitCard__meta">{hit.age} y</span>
-              </>
-            )}
-          </p>
+          <h3 className="hitCard__title">{titleRole}</h3>
+          {subtitleTokens.length > 0 && (
+            <p className="hitCard__subtitle">
+              {subtitleTokens.map((node, i) =>
+                i === 0 ? node : (
+                  <React.Fragment key={i}>
+                    <span className="hitCard__dot">•</span>
+                    {node}
+                  </React.Fragment>
+                )
+              )}
+            </p>
+          )}
         </div>
       </header>
 
@@ -135,6 +164,7 @@ function Hit({ hit }) {
             ))}
           </dl>
         )}
+
         {tags.length > 0 && (
           <footer className="hitCard__footer">
             {tags.map((tag) => (
@@ -149,6 +179,9 @@ function Hit({ hit }) {
   );
 }
 
+// ----------------------
+// Placeholder / nessun risultato
+// ----------------------
 function NoResultsBoundary({ children }) {
   const { results, status } = useInstantSearch();
 
@@ -187,6 +220,10 @@ export default function SearchPanel() {
     return fallbackSearchClient;
   }, [isSearchConfigured]);
   const indexName = isSearchConfigured ? INDEX_NAME : 'placeholder-index';
+
+  // Trasforma le etichette dei facet in visualizzazione (rimuovo cifre finali, underscore, Title Case)
+  const transformFacetItems = (items) =>
+    items.map((it) => ({ ...it, label: humanizeLabel(it.label) }));
 
   return (
     <>
@@ -246,32 +283,63 @@ export default function SearchPanel() {
                 <header>
                   <h2>Sports & Roles</h2>
                 </header>
-                <RefinementList attribute="sport" className="refinementList" searchable searchablePlaceholder="Search sport" />
-                <RefinementList attribute="role" className="refinementList" searchable searchablePlaceholder="Search role" />
+
+                <RefinementList
+                  attribute="sport"
+                  className="refinementList"
+                  searchable
+                  searchablePlaceholder="Search sport"
+                  transformItems={transformFacetItems}
+                />
+
+                <RefinementList
+                  attribute="role"
+                  className="refinementList"
+                  searchable
+                  searchablePlaceholder="Search role"
+                  transformItems={transformFacetItems}
+                />
+
                 <RefinementList
                   attribute="secondary_role"
                   className="refinementList"
                   searchable
                   searchablePlaceholder="Search secondary role"
+                  transformItems={transformFacetItems}
                 />
-                <RefinementList attribute="category" className="refinementList" />
+
+                <RefinementList
+                  attribute="category"
+                  className="refinementList"
+                  transformItems={transformFacetItems}
+                />
               </section>
 
               <section className="filterCard">
                 <header>
                   <h2>Player profile</h2>
                 </header>
-                <RefinementList attribute="gender" className="refinementList" />
+
+                <RefinementList attribute="gender" className="refinementList" transformItems={(items) =>
+                  items.map((it) => ({
+                    ...it,
+                    label: humanizeLabel(formatGender(it.label)),
+                  }))
+                } />
+
                 <RefinementList
                   attribute="nationality"
                   className="refinementList"
                   searchable
                   searchablePlaceholder="Search nationality"
+                  transformItems={transformFacetItems}
                 />
+
                 <div className="filterCard__group">
                   <h3>Age range</h3>
                   <RangeInput attribute="age" className="rangeInput" />
                 </div>
+
                 <div className="filterCard__group">
                   <h3>Preferred regions</h3>
                   <RefinementList
@@ -279,6 +347,7 @@ export default function SearchPanel() {
                     className="refinementList"
                     searchable
                     searchablePlaceholder="Search region"
+                    transformItems={transformFacetItems}
                   />
                 </div>
               </section>
@@ -310,6 +379,7 @@ export default function SearchPanel() {
                   )}
                 </div>
               </header>
+
               <NoResultsBoundary>
                 <Hits
                   hitComponent={Hit}
@@ -545,7 +615,7 @@ export default function SearchPanel() {
           background: linear-gradient(120deg, rgba(39, 227, 218, 0.25), rgba(247, 184, 78, 0.3));
           color: #0f172a;
           font-size: 0.78rem;
-          font-weight: 600;
+          font-weight: 700;
           letter-spacing: 0.01em;
         }
 
@@ -592,16 +662,6 @@ export default function SearchPanel() {
           flex-wrap: wrap;
           gap: 0.35rem;
           align-items: center;
-        }
-
-        .hitCard__sport :global(mark) {
-          background: rgba(59, 130, 246, 0.18);
-          color: #0f172a;
-        }
-
-        .hitCard__title :global(mark) {
-          background: rgba(20, 184, 166, 0.18);
-          color: #0f172a;
         }
 
         .hitCard__titleGroup {
@@ -879,6 +939,11 @@ export default function SearchPanel() {
           display: none;
         }
 
+        /*  HIDE facet counts + compat */
+        .refinementList :global(.ais-RefinementList-count) {
+          display: none !important;
+        }
+
         .refinementList ul {
           margin: 0;
           padding: 0;
@@ -1087,4 +1152,3 @@ export default function SearchPanel() {
     </>
   );
 }
-
