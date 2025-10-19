@@ -46,14 +46,35 @@ const fetchArrayValues = async (client, column) => {
 };
 
 const fetchAgeStats = async (client) => {
-  const { data, error } = await client
-    .from(VIEW_NAME)
-    .select('min_age:age.min(), max_age:age.max()')
-    .single();
-  if (error && error.code !== 'PGRST116') throw error;
+  const [minResult, maxResult] = await Promise.all([
+    client
+      .from(VIEW_NAME)
+      .select('age')
+      .not('age', 'is', null)
+      .order('age', { ascending: true })
+      .limit(1),
+    client
+      .from(VIEW_NAME)
+      .select('age')
+      .not('age', 'is', null)
+      .order('age', { ascending: false })
+      .limit(1),
+  ]);
+
+  if (minResult.error) throw minResult.error;
+  if (maxResult.error) throw maxResult.error;
+
+  const toNumberOrNull = (value) => {
+    const num = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(num) ? num : null;
+  };
+
+  const minAge = Array.isArray(minResult.data) && minResult.data.length > 0 ? toNumberOrNull(minResult.data[0]?.age) : null;
+  const maxAge = Array.isArray(maxResult.data) && maxResult.data.length > 0 ? toNumberOrNull(maxResult.data[0]?.age) : null;
+
   return {
-    min: typeof data?.min_age === 'number' ? data.min_age : null,
-    max: typeof data?.max_age === 'number' ? data.max_age : null,
+    min: minAge,
+    max: maxAge,
   };
 };
 
