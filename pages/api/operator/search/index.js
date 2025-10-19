@@ -41,6 +41,11 @@ const toTitleCase = (value) =>
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
+const formatArrayFilterValue = (value) => {
+  const jsonArray = JSON.stringify([value]);
+  return `{${jsonArray.slice(1, -1)}}`;
+};
+
 const createArrayFilterVariants = (attribute, value) => {
   if (value == null) return [];
   const base = String(value).trim();
@@ -54,20 +59,21 @@ const createArrayFilterVariants = (attribute, value) => {
   variations.add(toTitleCase(base));
 
   return [...variations]
-    .map((variant) => variant && escapeLikeValue(variant))
-    .filter(Boolean)
-    .map((sanitized) => `${attribute}.ilike.%${sanitized}%`);
+    .map((variant) => (typeof variant === 'string' ? variant.trim() : ''))
+    .filter((variant) => variant !== '')
+    .map((variant) => `${attribute}.cs.${formatArrayFilterValue(variant)}`);
 };
 
-const buildTextFacetFilter = (attribute, values = []) => {
+const buildArrayFacetFilter = (attribute, values = []) => {
   const normalized = values
     .map((value) => (typeof value === 'string' ? value.trim() : value))
-    .filter((value) => typeof value === 'string' && value !== '')
-    .map((value) => escapeLikeValue(value));
+    .filter((value) => typeof value === 'string' && value !== '');
 
   if (!normalized.length) return '';
 
-  return normalized.map((value) => `${attribute}.ilike.%${value}%`).join(',');
+  return normalized
+    .map((value) => `${attribute}.cs.${formatArrayFilterValue(value)}`)
+    .join(',');
 };
 
 const applySearchFilters = (builder, { query, facets, toggles, age }) => {
@@ -95,7 +101,7 @@ const applySearchFilters = (builder, { query, facets, toggles, age }) => {
     if (!list.length) return;
 
     if (attribute === 'secondary_role' || attribute === 'preferred_regions') {
-      const filterExpression = buildTextFacetFilter(attribute, list);
+      const filterExpression = buildArrayFacetFilter(attribute, list);
       if (filterExpression) {
         chain = chain.or(filterExpression);
       }
