@@ -31,22 +31,60 @@ const ensureObjectId = (row) => {
   return { ...row, objectID: objectID ? String(objectID) : `athlete_${Math.random().toString(36).slice(2)}` };
 };
 
+const escapeLikeValue = (value) => value.replace(/%/g, '\\%').replace(/_/g, '\\_').replace(/'/g, "''");
+
+const toTitleCase = (value) =>
+  value
+    .toLowerCase()
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+const createArrayFilterVariants = (attribute, value) => {
+  if (value == null) return [];
+  const base = String(value).trim();
+  if (!base) return [];
+
+  const lower = base.toLowerCase();
+  const variations = new Set();
+  variations.add(base);
+  variations.add(lower);
+  variations.add(base.toUpperCase());
+  variations.add(toTitleCase(base));
+
+  const escapeArrayValue = (entry) =>
+    entry
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\{/g, '\\{')
+      .replace(/\}/g, '\\}')
+      .trim();
+
+  return [...variations]
+    .map((variant) => variant && escapeArrayValue(variant))
+    .filter(Boolean)
+    .map((sanitized) => `${attribute}.cs.{"${sanitized}"}`);
+};
+
 const applySearchFilters = (builder, { query, facets, toggles, age }) => {
   let chain = builder;
 
   const normalizedQuery = typeof query === 'string' ? query.trim() : '';
   if (normalizedQuery) {
-    const escaped = normalizedQuery.replace(/%/g, '\\%').replace(/_/g, '\\_').replace(/'/g, "''");
+    const escaped = escapeLikeValue(normalizedQuery);
     const like = `%${escaped}%`;
     const orFilters = [
       `role.ilike.${like}`,
       `sport.ilike.${like}`,
-      `secondary_role.ilike.${like}`,
-      `preferred_regions.ilike.${like}`,
       `nationality.ilike.${like}`,
       `category.ilike.${like}`,
+      ...createArrayFilterVariants('secondary_role', normalizedQuery),
+      ...createArrayFilterVariants('preferred_regions', normalizedQuery),
     ];
-    chain = chain.or(orFilters.join(','));
+    if (orFilters.length) {
+      chain = chain.or(orFilters.join(','));
+    }
   }
 
   Object.entries(facets).forEach(([attribute, values]) => {
