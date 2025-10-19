@@ -1,80 +1,46 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
-import { liteClient as algoliasearch } from 'algoliasearch/lite';
-import {
-  InstantSearch,
-  SearchBox,
-  Hits,
-  RefinementList,
-  ToggleRefinement,
-  RangeInput,
-  CurrentRefinements,
-  ClearRefinements,
-  Pagination,
-  Configure,
-  Stats,
-  useInstantSearch,
-} from 'react-instantsearch';
 
-// Env client
-const APP_ID = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID;
-const SEARCH_KEY = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY;
-const INDEX_NAME = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_ATHLETE_SEARCH;
+const FACET_CONFIG = [
+  { attribute: 'sport', title: 'Sport' },
+  { attribute: 'role', title: 'Role' },
+  { attribute: 'secondary_role', title: 'Secondary role' },
+  { attribute: 'gender', title: 'Gender' },
+  { attribute: 'nationality', title: 'Nationality', searchable: true, placeholder: 'Search nationalities' },
+  { attribute: 'category', title: 'Category' },
+  { attribute: 'preferred_regions', title: 'Preferred regions', searchable: true, placeholder: 'Search regions' },
+];
 
-const fallbackSearchClient = {
-  search(requests = []) {
-    return Promise.resolve({
-      results: requests.map((request) => {
-        const params = request?.params || {};
-        const hitsPerPage = Number(params?.hitsPerPage) || 24;
-        const page = Number(params?.page) || 0;
-        const query = typeof params?.query === 'string' ? params.query : '';
-        const serializedParams =
-          typeof params === 'string'
-            ? params
-            : new URLSearchParams(Object.entries(params || {}).filter(([, value]) => value != null)).toString();
+const TOGGLE_CONFIG = [
+  { attribute: 'is_verified', label: 'Verified' },
+  { attribute: 'seeking_team', label: 'Seeking team' },
+  { attribute: 'has_active_contract', label: 'Has active contract' },
+  { attribute: 'is_represented', label: 'Has agent' },
+];
 
-        return {
-          hits: [],
-          nbHits: 0,
-          processingTimeMS: 0,
-          hitsPerPage,
-          page,
-          exhaustiveNbHits: false,
-          query,
-          params: serializedParams,
-          facets: {},
-        };
-      }),
-    });
-  },
-  searchForFacetValues() {
-    return Promise.resolve({ facetHits: [] });
-  },
-};
+const HITS_PER_PAGE = 24;
 
-// ----------------------
-// Helpers di formattazione
-// ----------------------
+const createInitialFacetState = () => FACET_CONFIG.reduce((acc, item) => ({ ...acc, [item.attribute]: [] }), {});
+const createInitialToggleState = () => TOGGLE_CONFIG.reduce((acc, item) => ({ ...acc, [item.attribute]: false }), {});
+
+const defaultFacetOptions = FACET_CONFIG.reduce((acc, item) => ({ ...acc, [item.attribute]: [] }), {});
+
 function humanizeLabel(input) {
   if (input == null) return '';
   const s = String(input);
-  // rimuove cifre finali (es. power_forward3 -> power_forward)
   const noTrailingDigits = s.replace(/\d+$/, '');
-  // sostituisce _ e - con spazio
   const withSpaces = noTrailingDigits.replace(/[_-]+/g, ' ').trim();
-  // Title Case
   return withSpaces.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatGender(g) {
-  if (!g) return '';
-  const v = String(g).toLowerCase();
-  if (v === 'm' || v === 'male') return 'male';
-  if (v === 'f' || v === 'female') return 'female';
-  return v;
+function formatGender(value) {
+  if (!value) return '';
+  const normalized = String(value).toLowerCase();
+  if (normalized === 'm' || normalized === 'male') return 'male';
+  if (normalized === 'f' || normalized === 'female') return 'female';
+  return normalized;
 }
 
 const tagConfig = [
@@ -84,146 +50,548 @@ const tagConfig = [
   { key: 'is_represented', label: 'Agent', tone: 'neutral' },
 ];
 
-// ----------------------
-// Card del risultato
-// ----------------------
-function Hit({ hit }) {
-  const tags = useMemo(() => {
-    return tagConfig
-      .filter(({ key }) => Boolean(hit?.[key]))
-      .map(({ key, label, tone }) => ({ key, label, tone }));
-  }, [hit]);
+const StateMessage = ({ tone = 'default', children }) => {
+  const base = { ...styles.stateBox };
+  if (tone === 'error') Object.assign(base, styles.stateBoxError);
+  return <div style={base}>{children}</div>;
+};
 
-  // Normalizza/umanizza ciò che mostriamo (senza toccare i dati in Algolia)
-  const titleRole = humanizeLabel(hit?.role || 'Athlete');
-  const sportLabel = humanizeLabel(hit?.sport || '');
-
-  const secondaryRolesRaw = Array.isArray(hit?.secondary_role) ? hit.secondary_role.filter(Boolean) : [];
-  const secondaryRoles = secondaryRolesRaw.map(humanizeLabel);
-
-  const preferredRegions = Array.isArray(hit?.preferred_regions) ? hit.preferred_regions.filter(Boolean) : [];
-
-  // token del sottotitolo: inseriamo i puntini solo tra token presenti
-  const subtitleTokens = [];
-  if (sportLabel) subtitleTokens.push(<span key="sport" className="hitCard__sport">{sportLabel}</span>);
-  if (hit?.gender) subtitleTokens.push(<span key="gender" className="hitCard__meta">{formatGender(hit.gender)}</span>);
-  if (typeof hit?.age === 'number') subtitleTokens.push(<span key="age" className="hitCard__meta">{hit.age} y</span>);
-
-  const quickFacts = [];
-  if (hit?.nationality) {
-    quickFacts.push({ key: 'nationality', label: 'Nationality', value: humanizeLabel(hit.nationality) });
-  }
-  if (preferredRegions.length > 0) {
-    quickFacts.push({
-      key: 'preferred_regions',
-      label: 'Preferred regions',
-      value: preferredRegions.join(', '),
-    });
-  }
-  if (secondaryRoles.length > 0) {
-    quickFacts.push({
-      key: 'secondary_roles',
-      label: 'Secondary roles',
-      value: secondaryRoles.join(', '),
-    });
-  }
-
+function SearchToolbar({ query, onQueryChange, onClearSearch, onResetFilters, hasFilters }) {
   return (
-    <article className="hitCard">
-      <header className="hitCard__header">
-        <div className="hitCard__titleGroup">
-          {hit?.objectID && <span className="hitCard__id">#{hit.objectID}</span>}
-          {hit?.category && <span className="hitCard__category">{humanizeLabel(hit.category)}</span>}
-        </div>
-
-        <div className="hitCard__headline">
-          <h3 className="hitCard__title">{titleRole}</h3>
-          {subtitleTokens.length > 0 && (
-            <p className="hitCard__subtitle">
-              {subtitleTokens.map((node, i) =>
-                i === 0 ? node : (
-                  <React.Fragment key={i}>
-                    <span className="hitCard__dot">•</span>
-                    {node}
-                  </React.Fragment>
-                )
-              )}
-            </p>
-          )}
-        </div>
-      </header>
-
-      <div className="hitCard__body">
-        {quickFacts.length > 0 && (
-          <dl className="hitCard__factGrid">
-            {quickFacts.map((fact) => (
-              <div key={fact.key} className="hitCard__fact">
-                <dt>{fact.label}</dt>
-                <dd>{fact.value}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-
-        {tags.length > 0 && (
-          <footer className="hitCard__footer">
-            {tags.map((tag) => (
-              <span key={tag.key} className={`hitCard__tag hitCard__tag--${tag.tone}`}>
-                {tag.label}
-              </span>
-            ))}
-          </footer>
+    <div style={styles.toolbar}>
+      <div style={styles.searchInputWrap}>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => onQueryChange(event.currentTarget.value)}
+          placeholder="Search by role, sport, nationality or regions"
+          style={styles.searchInput}
+        />
+        {query && (
+          <button type="button" onClick={onClearSearch} style={styles.searchClearBtn}>
+            Clear
+          </button>
         )}
       </div>
-    </article>
+      <button
+        type="button"
+        onClick={onResetFilters}
+        style={{
+          ...styles.clearFiltersBtn,
+          ...(hasFilters ? null : styles.clearFiltersBtnDisabled),
+        }}
+        disabled={!hasFilters}
+      >
+        Reset filters
+      </button>
+    </div>
   );
 }
 
-// ----------------------
-// Placeholder / nessun risultato
-// ----------------------
-function NoResultsBoundary({ children }) {
-  const { results, status } = useInstantSearch();
+function FacetGroup({ attribute, title, options, selectedValues, onToggle, searchable, placeholder = 'Search…' }) {
+  const [query, setQuery] = useState('');
+  const [expanded, setExpanded] = useState(false);
 
-  if (status === 'loading') {
-    return (
-      <div className="searchPanel__placeholder">
-        <div className="searchPanel__loader" aria-hidden />
-        <p>Fetching matching athletes…</p>
+  useEffect(() => {
+    setExpanded(false);
+    setQuery('');
+  }, [attribute, options]);
+
+  const filteredOptions = useMemo(() => {
+    if (!query.trim()) return options;
+    const lower = query.trim().toLowerCase();
+    return options.filter((item) => item.label.toLowerCase().includes(lower));
+  }, [options, query]);
+
+  const displayOptions = useMemo(() => {
+    if (expanded) return filteredOptions;
+    return filteredOptions.slice(0, 8);
+  }, [expanded, filteredOptions]);
+
+  const canShowMore = filteredOptions.length > 8;
+
+  return (
+    <div style={styles.facetGroup}>
+      <div style={styles.facetHeader}>
+        <span style={styles.facetTitle}>{title}</span>
+        {canShowMore && (
+          <button type="button" onClick={() => setExpanded((value) => !value)} style={styles.showMoreBtn}>
+            {expanded ? 'Show less' : 'Show more'}
+          </button>
+        )}
       </div>
-    );
-  }
-
-  if (results && results.nbHits === 0) {
-    return (
-      <div className="searchPanel__placeholder">
-        <div className="searchPanel__placeholderBadge">No matches</div>
-        <h3>We couldn&apos;t find athletes for this query.</h3>
-        <p>Try clearing a filter or broadening your search terms.</p>
-        <ClearRefinements
-          className="clearButton clearButton--inline"
-          translations={{ resetButtonText: 'Reset filters' }}
+      {searchable && (
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.currentTarget.value)}
+          placeholder={placeholder}
+          style={styles.facetSearchInput}
         />
+      )}
+      <div style={styles.facetList}>
+        {displayOptions.length ? (
+          displayOptions.map((item) => {
+            const active = selectedValues.includes(item.value);
+            return (
+              <label key={item.value} style={{ ...styles.facetItem, ...(active ? styles.facetItemActive : null) }}>
+                <input
+                  type="checkbox"
+                  checked={active}
+                  onChange={() => onToggle(attribute, item.value)}
+                  style={styles.facetCheckbox}
+                />
+                <span style={styles.facetLabel}>{item.label}</span>
+              </label>
+            );
+          })
+        ) : (
+          <div style={styles.emptyFacet}>No options available</div>
+        )}
       </div>
-    );
-  }
-
-  return children;
+    </div>
+  );
 }
 
-export default function SearchPanel() {
-  const isSearchConfigured = Boolean(APP_ID && SEARCH_KEY && INDEX_NAME);
-  const searchClient = useMemo(() => {
-    if (isSearchConfigured) {
-      return algoliasearch(APP_ID, SEARCH_KEY);
-    }
-    return fallbackSearchClient;
-  }, [isSearchConfigured]);
-  const indexName = isSearchConfigured ? INDEX_NAME : 'placeholder-index';
+function AgeRangeFacet({ value, stats, onApply, onReset }) {
+  const [minInput, setMinInput] = useState(value.min ?? '');
+  const [maxInput, setMaxInput] = useState(value.max ?? '');
 
-  // Trasforma le etichette dei facet in visualizzazione (rimuovo cifre finali, underscore, Title Case)
-  const transformFacetItems = (items) =>
-    items.map((it) => ({ ...it, label: humanizeLabel(it.label) }));
+  useEffect(() => {
+    setMinInput(value.min ?? '');
+    setMaxInput(value.max ?? '');
+  }, [value.min, value.max]);
+
+  const hasStats = Number.isFinite(stats?.min) && Number.isFinite(stats?.max) && stats.min !== stats.max;
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onApply(minInput, maxInput);
+  };
+
+  return (
+    <div style={styles.facetGroup}>
+      <div style={styles.facetHeader}>
+        <span style={styles.facetTitle}>Age range</span>
+      </div>
+      {!hasStats && <div style={styles.emptyFacet}>No age data available</div>}
+      {hasStats && (
+        <form onSubmit={handleSubmit} style={styles.ageForm}>
+          <div style={styles.ageInputs}>
+            <label style={styles.ageInputLabel}>
+              Min
+              <input
+                type="number"
+                value={minInput}
+                onChange={(event) => setMinInput(event.currentTarget.value)}
+                min={stats.min}
+                max={stats.max}
+                style={styles.ageInput}
+              />
+            </label>
+            <label style={styles.ageInputLabel}>
+              Max
+              <input
+                type="number"
+                value={maxInput}
+                onChange={(event) => setMaxInput(event.currentTarget.value)}
+                min={stats.min}
+                max={stats.max}
+                style={styles.ageInput}
+              />
+            </label>
+          </div>
+          <div style={styles.ageActions}>
+            <button type="submit" style={styles.ageApplyBtn}>
+              Apply
+            </button>
+            <button type="button" onClick={onReset} style={styles.ageResetBtn}>
+              Reset
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function ToggleGroup({ values, onToggle }) {
+  return (
+    <div style={styles.toggleGroup}>
+      {TOGGLE_CONFIG.map((item) => {
+        const checked = !!values[item.attribute];
+        return (
+          <label key={item.attribute} style={{ ...styles.toggleRow, ...(checked ? null : styles.toggleRowInactive) }}>
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => onToggle(item.attribute)}
+              style={styles.toggleInput}
+            />
+            <span style={styles.toggleLabel}>{item.label}</span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+function StatsHeader({ status, total, processingTimeMS }) {
+  const loading = status === 'loading';
+  const error = status === 'error';
+  return (
+    <div style={styles.statsBar}>
+      <span style={styles.statsText}>
+        {loading && 'Searching athletes…'}
+        {error && 'Unable to load athletes'}
+        {!loading && !error && `${total.toLocaleString()} athletes found`}
+      </span>
+      {!loading && !error && (
+        <span style={styles.statsMeta}>Updated in {processingTimeMS} ms</span>
+      )}
+    </div>
+  );
+}
+
+function Flag({ value, label }) {
+  const active = Boolean(value);
+  return (
+    <span style={{ ...styles.flagBadge, ...(active ? styles.flagBadgeActive : styles.flagBadgeInactive) }}>
+      {label}
+    </span>
+  );
+}
+
+function HitsGrid({ status, hits }) {
+  if (status === 'loading') {
+    return (
+      <div style={styles.hitsGrid}>
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} style={styles.hitCardSkeleton}>
+            <div style={styles.hitSkeletonLine} />
+            <div style={{ ...styles.hitSkeletonLine, width: '60%' }} />
+            <div style={{ ...styles.hitSkeletonLine, width: '40%' }} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return <div style={styles.emptyResults}>Unable to load athletes for the selected filters.</div>;
+  }
+
+  if (!hits.length) {
+    return <div style={styles.emptyResults}>No athletes match the current filters.</div>;
+  }
+
+  return (
+    <div style={styles.hitsGrid}>
+      {hits.map((hit) => {
+        const tags = tagConfig.filter(({ key }) => Boolean(hit?.[key]));
+        const titleRole = humanizeLabel(hit?.role || 'Athlete');
+        const sportLabel = humanizeLabel(hit?.sport || '');
+        const secondaryRoles = Array.isArray(hit?.secondary_role)
+          ? hit.secondary_role.filter(Boolean).map(humanizeLabel)
+          : [];
+        const preferredRegions = Array.isArray(hit?.preferred_regions)
+          ? hit.preferred_regions.filter(Boolean)
+          : [];
+
+        return (
+          <div key={hit.objectID || hit.id} style={styles.hitCard}>
+            <div style={styles.hitHeader}>
+              <span style={styles.hitRole}>{titleRole}</span>
+              {sportLabel && <span style={styles.hitBadge}>{sportLabel}</span>}
+            </div>
+            {secondaryRoles.length > 0 && (
+              <div style={styles.hitTags}>
+                {secondaryRoles.map((item) => (
+                  <span key={item} style={styles.hitTag}>
+                    {item}
+                  </span>
+                ))}
+              </div>
+            )}
+            <div style={styles.hitMeta}>
+              {hit?.nationality && <span style={styles.metaItem}>Nationality: {humanizeLabel(hit.nationality)}</span>}
+              {Number.isFinite(hit?.age) && <span style={styles.metaItem}>Age: {hit.age}</span>}
+              {hit?.category && <span style={styles.metaItem}>Category: {humanizeLabel(hit.category)}</span>}
+            </div>
+            {preferredRegions.length > 0 && (
+              <div style={styles.hitRegions}>
+                Preferred regions:
+                <div style={styles.hitRegionList}>
+                  {preferredRegions.map((region) => (
+                    <span key={region} style={styles.regionBadge}>
+                      {humanizeLabel(region)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={styles.hitFlags}>
+              <Flag value={hit?.is_verified} label="Verified" />
+              <Flag value={hit?.seeking_team} label="Seeking team" />
+              <Flag value={hit?.has_active_contract} label="Active contract" />
+              <Flag value={hit?.is_represented} label="Has agent" />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PaginationControls({ status, page, nbPages, onPageChange }) {
+  if (nbPages <= 1) return null;
+
+  const pages = Array.from({ length: nbPages }, (_, index) => index);
+
+  return (
+    <div style={styles.pagination}>
+      <button
+        type="button"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page === 0 || status === 'loading'}
+        style={{ ...styles.pageBtn, ...(page === 0 || status === 'loading' ? styles.pageBtnDisabled : null) }}
+      >
+        Previous
+      </button>
+      <div style={styles.pageList}>
+        {pages.map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onPageChange(item)}
+            disabled={status === 'loading'}
+            style={{
+              ...styles.pageNumber,
+              ...(item === page ? styles.pageNumberActive : null),
+              ...(status === 'loading' ? styles.pageBtnDisabled : null),
+            }}
+          >
+            {item + 1}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => onPageChange(page + 1)}
+        disabled={page + 1 >= nbPages || status === 'loading'}
+        style={{
+          ...styles.pageBtn,
+          ...(page + 1 >= nbPages || status === 'loading' ? styles.pageBtnDisabled : null),
+        }}
+      >
+        Next
+      </button>
+    </div>
+  );
+}
+
+const formatFacetOption = (attribute, value) => {
+  if (value == null) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (attribute === 'gender') {
+    return { value: raw, label: humanizeLabel(formatGender(raw)) };
+  }
+  return { value: raw, label: humanizeLabel(raw) };
+};
+
+function useDebouncedValue(value, delay = 250) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debounced;
+}
+
+export default function SearchPanel({ isMobile = false }) {
+  const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query, 250);
+  const [facetSelections, setFacetSelections] = useState(() => createInitialFacetState());
+  const [facetOptions, setFacetOptions] = useState(defaultFacetOptions);
+  const [toggles, setToggles] = useState(() => createInitialToggleState());
+  const [ageRange, setAgeRange] = useState({ min: '', max: '' });
+  const [page, setPage] = useState(0);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState({ hits: [], total: 0, nbPages: 0, processingTimeMS: 0 });
+  const [optionsState, setOptionsState] = useState({ loading: true, error: null, age: { min: null, max: null } });
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+
+    setOptionsState((prev) => ({ ...prev, loading: true, error: null }));
+
+    fetch('/api/operator/search/options', { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload?.error || 'Unable to load search filters metadata.');
+        }
+        return response.json();
+      })
+      .then((payload) => {
+        if (!active) return;
+        const rawOptions = payload?.options || {};
+        const mapped = FACET_CONFIG.reduce((acc, item) => {
+          const values = Array.isArray(rawOptions[item.attribute]) ? rawOptions[item.attribute] : [];
+          const formatted = values
+            .map((value) => formatFacetOption(item.attribute, value))
+            .filter(Boolean);
+          acc[item.attribute] = formatted;
+          return acc;
+        }, {});
+        setFacetOptions((prev) => ({ ...prev, ...mapped }));
+        setOptionsState({
+          loading: false,
+          error: null,
+          age: {
+            min: typeof payload?.age?.min === 'number' ? payload.age.min : null,
+            max: typeof payload?.age?.max === 'number' ? payload.age.max : null,
+          },
+        });
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError' || !active) return;
+        console.error('Failed to load operator search options', err);
+        setOptionsState({ loading: false, error: err, age: { min: null, max: null } });
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
+
+  const requestSignature = useMemo(() => {
+    return JSON.stringify({
+      query: debouncedQuery,
+      page,
+      perPage: HITS_PER_PAGE,
+      filters: {
+        facets: facetSelections,
+        toggles,
+        age: ageRange,
+      },
+    });
+  }, [debouncedQuery, page, facetSelections, toggles, ageRange]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setStatus('loading');
+    setError(null);
+
+    fetch('/api/operator/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: requestSignature,
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload?.error || 'Unable to fetch athlete directory records.');
+        }
+        return response.json();
+      })
+      .then((payload) => {
+        setResult({
+          hits: Array.isArray(payload?.hits) ? payload.hits : [],
+          total: typeof payload?.total === 'number' ? payload.total : 0,
+          nbPages: typeof payload?.nbPages === 'number' ? payload.nbPages : 0,
+          processingTimeMS: typeof payload?.processingTimeMS === 'number' ? payload.processingTimeMS : 0,
+        });
+        setStatus('success');
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        console.error('Operator search request failed', err);
+        setStatus('error');
+        setError(err);
+        setResult({ hits: [], total: 0, nbPages: 0, processingTimeMS: 0 });
+      });
+
+    return () => controller.abort();
+  }, [requestSignature]);
+
+  const hasFilters = useMemo(() => {
+    const hasFacetSelections = Object.values(facetSelections).some((values) => (values || []).length > 0);
+    const hasToggle = Object.values(toggles).some(Boolean);
+    const hasAge = ageRange.min !== '' || ageRange.max !== '';
+    return hasFacetSelections || hasToggle || hasAge;
+  }, [facetSelections, toggles, ageRange]);
+
+  const handleQueryChange = useCallback((value) => {
+    setQuery(value);
+    setPage(0);
+  }, []);
+
+  const handleClearSearch = useCallback(() => {
+    setQuery('');
+    setPage(0);
+  }, []);
+
+  const handleToggleFacet = useCallback((attribute, value) => {
+    setFacetSelections((prev) => {
+      const nextValues = prev[attribute] || [];
+      const exists = nextValues.includes(value);
+      const updated = exists ? nextValues.filter((item) => item !== value) : [...nextValues, value];
+      return {
+        ...prev,
+        [attribute]: updated,
+      };
+    });
+    setPage(0);
+  }, []);
+
+  const handleToggle = useCallback((attribute) => {
+    setToggles((prev) => ({
+      ...prev,
+      [attribute]: !prev[attribute],
+    }));
+    setPage(0);
+  }, []);
+
+  const handleApplyAgeRange = useCallback((min, max) => {
+    setAgeRange({
+      min: min ?? '',
+      max: max ?? '',
+    });
+    setPage(0);
+  }, []);
+
+  const handleResetAgeRange = useCallback(() => {
+    setAgeRange({ min: '', max: '' });
+    setPage(0);
+  }, []);
+
+  const handleResetFilters = useCallback(() => {
+    setFacetSelections(createInitialFacetState());
+    setToggles(createInitialToggleState());
+    setAgeRange({ min: '', max: '' });
+    setPage(0);
+  }, []);
+
+  const handlePageChange = useCallback((nextPage) => {
+    if (Number.isInteger(nextPage) && nextPage >= 0 && nextPage !== page) {
+      setPage(Math.min(nextPage, Math.max(result.nbPages - 1, 0)));
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  }, [page, result.nbPages]);
+
+  const layoutStyle = { ...styles.layout, ...(isMobile ? styles.layoutMobile : null) };
+  const filtersStyle = { ...styles.filters, ...(isMobile ? styles.filtersMobile : null) };
+  const resultsStyle = { ...styles.results, ...(isMobile ? styles.resultsMobile : null) };
 
   return (
     <>
@@ -232,923 +600,507 @@ export default function SearchPanel() {
         <link rel="icon" href="/talentlix_favicon_16x16.ico" sizes="16x16" />
       </Head>
 
-      <div className="searchPanel">
-        <InstantSearch searchClient={searchClient} indexName={indexName} insights>
-          <Configure hitsPerPage={24} />
+      <div style={styles.wrapper}>
+        <div style={styles.headerCard}>
+          <h2 style={styles.headerTitle}>Talent Search</h2>
+          <p style={styles.headerSubtitle}>
+            Discover athletes that match your scouting strategy. Refine results with sport, position, nationality, regions and
+            more to build tailored shortlists.
+          </p>
+          <SearchToolbar
+            query={query}
+            onQueryChange={handleQueryChange}
+            onClearSearch={handleClearSearch}
+            onResetFilters={handleResetFilters}
+            hasFilters={hasFilters}
+          />
+        </div>
 
-          <div className="searchPanel__hero">
-            <div className="searchPanel__heroText">
-              <p className="searchPanel__eyebrow">Talent directory</p>
-              <h1>Find athletes fast</h1>
-              <p className="searchPanel__description">Search by sport, role or region and tune filters in real time.</p>
-              <div className="searchPanel__heroActions">
-                <ClearRefinements className="clearButton" translations={{ resetButtonText: 'Reset all filters' }} />
-                <CurrentRefinements className="currentRefinements" />
+        {status === 'error' && error && (
+          <StateMessage tone="error">{error.message || 'Unable to load search results.'}</StateMessage>
+        )}
+
+        <div style={layoutStyle}>
+          <aside style={filtersStyle}>
+            {optionsState.loading && <div style={styles.filterNotice}>Loading filter options…</div>}
+            {optionsState.error && (
+              <div style={styles.filterError}>
+                {optionsState.error.message || 'Unable to load filter options.'}
               </div>
-            </div>
-            <div className="searchPanel__heroCard">
-              <h2>Smart filters</h2>
-              <p>Combine filters to surface athletes that match your roster needs in seconds.</p>
-              <ul>
-                <li>Search across sports and primary roles</li>
-                <li>Layer profile, availability and region preferences</li>
-                <li>Save time with instant visual feedback</li>
-              </ul>
+            )}
+
+            {FACET_CONFIG.map((facet) => (
+              <FacetGroup
+                key={facet.attribute}
+                attribute={facet.attribute}
+                title={facet.title}
+                options={facetOptions[facet.attribute] || []}
+                selectedValues={facetSelections[facet.attribute] || []}
+                onToggle={handleToggleFacet}
+                searchable={facet.searchable}
+                placeholder={facet.placeholder}
+              />
+            ))}
+            <AgeRangeFacet value={ageRange} stats={optionsState.age} onApply={handleApplyAgeRange} onReset={handleResetAgeRange} />
+            <ToggleGroup values={toggles} onToggle={handleToggle} />
+          </aside>
+
+          <div style={resultsStyle}>
+            <div style={styles.resultsCard}>
+              <StatsHeader status={status} total={result.total} processingTimeMS={result.processingTimeMS} />
+              <HitsGrid status={status} hits={result.hits} />
+              <PaginationControls status={status} page={page} nbPages={result.nbPages} onPageChange={handlePageChange} />
             </div>
           </div>
-
-          <div className="searchPanel__layout">
-            <aside className="searchPanel__filters">
-              <section className="filterCard">
-                <header>
-                  <h2>Search</h2>
-                  <p>Type a role, sport, nationality or region.</p>
-                </header>
-                <SearchBox
-                  placeholder="Search athletes…"
-                  classNames={{
-                    root: 'searchBox',
-                    form: 'searchBox__form',
-                    input: 'searchBox__input',
-                    submit: 'searchBox__submit',
-                    submitIcon: 'searchBox__submitIcon',
-                    reset: 'searchBox__reset',
-                    resetIcon: 'searchBox__resetIcon',
-                    loadingIndicator: 'searchBox__loading',
-                  }}
-                />
-              </section>
-
-              <section className="filterCard">
-                <header>
-                  <h2>Sports & Roles</h2>
-                </header>
-
-                <RefinementList
-                  attribute="sport"
-                  className="refinementList"
-                  searchable
-                  searchablePlaceholder="Search sport"
-                  transformItems={transformFacetItems}
-                />
-
-                <RefinementList
-                  attribute="role"
-                  className="refinementList"
-                  searchable
-                  searchablePlaceholder="Search role"
-                  transformItems={transformFacetItems}
-                />
-
-                <RefinementList
-                  attribute="secondary_role"
-                  className="refinementList"
-                  searchable
-                  searchablePlaceholder="Search secondary role"
-                  transformItems={transformFacetItems}
-                />
-
-                <RefinementList
-                  attribute="category"
-                  className="refinementList"
-                  transformItems={transformFacetItems}
-                />
-              </section>
-
-              <section className="filterCard">
-                <header>
-                  <h2>Player profile</h2>
-                </header>
-
-                <RefinementList attribute="gender" className="refinementList" transformItems={(items) =>
-                  items.map((it) => ({
-                    ...it,
-                    label: humanizeLabel(formatGender(it.label)),
-                  }))
-                } />
-
-                <RefinementList
-                  attribute="nationality"
-                  className="refinementList"
-                  searchable
-                  searchablePlaceholder="Search nationality"
-                  transformItems={transformFacetItems}
-                />
-
-                <div className="filterCard__group">
-                  <h3>Age range</h3>
-                  <RangeInput attribute="age" className="rangeInput" />
-                </div>
-
-                <div className="filterCard__group">
-                  <h3>Preferred regions</h3>
-                  <RefinementList
-                    attribute="preferred_regions"
-                    className="refinementList"
-                    searchable
-                    searchablePlaceholder="Search region"
-                    transformItems={transformFacetItems}
-                  />
-                </div>
-              </section>
-
-              <section className="filterCard">
-                <header>
-                  <h2>Availability</h2>
-                  <p>Use the toggles to focus on contract status or representation.</p>
-                </header>
-                <div className="toggleList">
-                  <ToggleRefinement attribute="is_verified" label="Verified" />
-                  <ToggleRefinement attribute="seeking_team" label="Seeking team" />
-                  <ToggleRefinement attribute="has_active_contract" label="Has active contract" />
-                  <ToggleRefinement attribute="is_represented" label="Agent" />
-                </div>
-              </section>
-            </aside>
-
-            <main className="searchPanel__results">
-              <header className="resultsHeader">
-                <div className="resultsHeader__copy">
-                  <h2>Athletes</h2>
-                  <p>Profiles update in real time as you adjust filters.</p>
-                </div>
-                <div className="resultsHeader__meta">
-                  <Stats translations={{ stats: (nbHits) => `${nbHits} athletes` }} />
-                  {!isSearchConfigured && (
-                    <p className="resultsHeader__notice">Search is disabled in this demo environment.</p>
-                  )}
-                </div>
-              </header>
-
-              <NoResultsBoundary>
-                <Hits
-                  hitComponent={Hit}
-                  classNames={{
-                    root: 'hits',
-                    list: 'hits__list',
-                    item: 'hits__item',
-                  }}
-                />
-                <Pagination classNames={{ root: 'pagination' }} />
-              </NoResultsBoundary>
-            </main>
-          </div>
-        </InstantSearch>
+        </div>
       </div>
-
-      <style jsx>{`
-        .searchPanel {
-          min-height: 100vh;
-          padding: clamp(2rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem);
-          background: radial-gradient(circle at top left, rgba(39, 227, 218, 0.35), transparent 55%),
-            radial-gradient(circle at bottom right, rgba(247, 184, 78, 0.3), transparent 50%), #f8fafc;
-          color: #0f172a;
-        }
-
-        .searchPanel__hero {
-          display: grid;
-          gap: clamp(1.5rem, 4vw, 3rem);
-          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-          align-items: stretch;
-          max-width: 1180px;
-          margin: 0 auto clamp(2rem, 4vw, 3rem);
-          padding: clamp(1.75rem, 4vw, 2.5rem);
-          border-radius: 28px;
-          background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(39, 227, 218, 0.12));
-          border: 1px solid rgba(39, 227, 218, 0.22);
-          box-shadow: 0 35px 90px -60px rgba(15, 23, 42, 0.45);
-        }
-
-        .searchPanel__heroText h1 {
-          font-size: clamp(2rem, 4vw, 2.65rem);
-          margin: 0 0 0.5rem 0;
-          line-height: 1.1;
-          letter-spacing: -0.02em;
-          color: #0f172a;
-        }
-
-        .searchPanel__heroText {
-          display: grid;
-          gap: 1rem;
-        }
-
-        .searchPanel__eyebrow {
-          letter-spacing: 0.22em;
-          text-transform: uppercase;
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: #0f172a;
-          margin: 0;
-          opacity: 0.8;
-        }
-
-        .searchPanel__description {
-          margin: 0;
-          color: #0f172a;
-          font-weight: 500;
-          font-size: 1rem;
-          max-width: 360px;
-        }
-
-        .searchPanel__heroActions {
-          display: grid;
-          gap: 0.75rem;
-          align-content: start;
-        }
-
-        .searchPanel__heroCard {
-          background: linear-gradient(160deg, rgba(15, 23, 42, 0.92), rgba(8, 145, 178, 0.75));
-          color: #f8fafc;
-          border-radius: 22px;
-          padding: clamp(1.25rem, 3vw, 1.75rem);
-          display: grid;
-          gap: 0.75rem;
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 40px 70px -45px rgba(15, 23, 42, 0.8);
-        }
-
-        .searchPanel__heroCard h2 {
-          margin: 0;
-          font-size: 1.35rem;
-          font-weight: 600;
-        }
-
-        .searchPanel__heroCard p {
-          margin: 0;
-          font-size: 0.95rem;
-          line-height: 1.5;
-          color: rgba(241, 245, 249, 0.92);
-        }
-
-        .searchPanel__heroCard ul {
-          margin: 0;
-          padding: 0;
-          list-style: none;
-          display: grid;
-          gap: 0.45rem;
-        }
-
-        .searchPanel__heroCard li {
-          display: flex;
-          align-items: center;
-          gap: 0.55rem;
-          font-size: 0.9rem;
-        }
-
-        .searchPanel__heroCard li::before {
-          content: '';
-          width: 0.5rem;
-          height: 0.5rem;
-          border-radius: 999px;
-          background: rgba(248, 250, 252, 0.85);
-          box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
-        }
-
-        .searchPanel__layout {
-          display: grid;
-          gap: clamp(1.5rem, 4vw, 2.75rem);
-          grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-          max-width: 1180px;
-          margin: 0 auto;
-        }
-
-        .searchPanel__filters {
-          display: grid;
-          gap: 1.25rem;
-          position: sticky;
-          top: clamp(1rem, 3vw, 2rem);
-          align-self: start;
-        }
-
-        .filterCard {
-          background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(39, 227, 218, 0.12));
-          border: 1px solid rgba(148, 163, 184, 0.25);
-          border-radius: 20px;
-          padding: 1.35rem;
-          box-shadow: 0 28px 60px -44px rgba(15, 23, 42, 0.35);
-          display: grid;
-          gap: 1rem;
-          backdrop-filter: blur(18px);
-        }
-
-        .filterCard header h2 {
-          margin: 0;
-          font-size: 1.05rem;
-          font-weight: 600;
-          color: #0f172a;
-        }
-
-        .filterCard header p {
-          margin: 0.25rem 0 0;
-          font-size: 0.88rem;
-          color: #0f172a;
-          font-weight: 500;
-        }
-
-        .filterCard__group {
-          display: grid;
-          gap: 0.6rem;
-        }
-
-        .filterCard__group h3 {
-          margin: 0;
-          font-size: 0.95rem;
-          color: #475569;
-        }
-
-        .toggleList {
-          display: grid;
-          gap: 0.8rem;
-        }
-
-        .searchPanel__results {
-          display: grid;
-          gap: 1.5rem;
-          min-width: 0;
-        }
-
-        .resultsHeader {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: space-between;
-          gap: 1rem;
-          align-items: flex-start;
-        }
-
-        .resultsHeader__copy {
-          display: grid;
-          gap: 0.35rem;
-        }
-
-        .resultsHeader h2 {
-          margin: 0;
-          font-size: 1.6rem;
-          font-weight: 600;
-          color: #0f172a;
-        }
-
-        .resultsHeader__copy p {
-          margin: 0.35rem 0 0;
-          color: #334155;
-          font-weight: 500;
-        }
-
-        .resultsHeader__meta {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-          align-items: flex-end;
-          font-weight: 600;
-          color: #0f172a;
-        }
-
-        .resultsHeader__meta :global(.ais-Stats-text) {
-          font-size: 0.95rem;
-          color: #0f172a;
-        }
-
-        .resultsHeader__notice {
-          display: inline-flex;
-          align-items: center;
-          margin-top: 0.6rem;
-          padding: 0.35rem 0.8rem;
-          border-radius: 999px;
-          background: linear-gradient(120deg, rgba(39, 227, 218, 0.25), rgba(247, 184, 78, 0.3));
-          color: #0f172a;
-          font-size: 0.78rem;
-          font-weight: 700;
-          letter-spacing: 0.01em;
-        }
-
-        .hitCard {
-          background: rgba(255, 255, 255, 0.95);
-          border-radius: 20px;
-          border: 1px solid rgba(15, 23, 42, 0.08);
-          padding: 1.6rem;
-          display: grid;
-          gap: 1.35rem;
-          box-shadow: 0 20px 54px -32px rgba(15, 23, 42, 0.25);
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .hitCard:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 28px 60px -28px rgba(15, 23, 42, 0.28);
-        }
-
-        .hitCard__header {
-          display: flex;
-          justify-content: space-between;
-          gap: 1rem;
-          align-items: flex-start;
-        }
-
-        .hitCard__title {
-          margin: 0;
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: #0f172a;
-        }
-
-        .hitCard__headline {
-          display: grid;
-          gap: 0.4rem;
-        }
-
-        .hitCard__subtitle {
-          margin: 0;
-          font-size: 0.95rem;
-          color: #475569;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.35rem;
-          align-items: center;
-        }
-
-        .hitCard__titleGroup {
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-        }
-
-        .hitCard__id {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.3rem 0.7rem;
-          border-radius: 999px;
-          background: rgba(148, 163, 184, 0.16);
-          border: 1px solid rgba(148, 163, 184, 0.35);
-          font-size: 0.72rem;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          font-weight: 600;
-          color: #1e293b;
-        }
-
-        .hitCard__category {
-          font-size: 0.75rem;
-          padding: 0.25rem 0.6rem;
-          border-radius: 999px;
-          background: rgba(59, 130, 246, 0.12);
-          color: #2563eb;
-          border: 1px solid rgba(37, 99, 235, 0.2);
-        }
-
-        .hitCard__dot {
-          opacity: 0.4;
-        }
-
-        .hitCard__body {
-          display: grid;
-          gap: 1.35rem;
-        }
-
-        .hitCard__factGrid {
-          display: grid;
-          gap: 0.85rem;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        }
-
-        .hitCard__fact {
-          display: grid;
-          gap: 0.35rem;
-          padding: 0.85rem 1rem;
-          border-radius: 16px;
-          background: linear-gradient(135deg, rgba(241, 245, 249, 0.72), rgba(224, 242, 254, 0.48));
-          border: 1px solid rgba(148, 163, 184, 0.35);
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
-        }
-
-        .hitCard__fact dt {
-          font-size: 0.72rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: #64748b;
-        }
-
-        .hitCard__fact dd {
-          margin: 0;
-          font-size: 0.98rem;
-          font-weight: 600;
-          color: #0f172a;
-        }
-
-        .hitCard__footer {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-          justify-content: flex-start;
-        }
-
-        .hitCard__tag {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.35rem 0.7rem;
-          border-radius: 999px;
-          font-size: 0.78rem;
-          font-weight: 600;
-          letter-spacing: 0.02em;
-          background: rgba(15, 23, 42, 0.06);
-          color: #0f172a;
-        }
-
-        .hitCard__tag--success {
-          background: rgba(34, 197, 94, 0.16);
-          color: #15803d;
-        }
-
-        .hitCard__tag--accent {
-          background: rgba(59, 130, 246, 0.16);
-          color: #1d4ed8;
-        }
-
-        .hitCard__tag--warning {
-          background: rgba(250, 204, 21, 0.18);
-          color: #b45309;
-        }
-
-        .hitCard__tag--neutral {
-          background: rgba(148, 163, 184, 0.2);
-          color: #475569;
-        }
-
-        @media (max-width: 1080px) {
-          .searchPanel__hero {
-            grid-template-columns: 1fr;
-            padding: clamp(1.5rem, 5vw, 2rem);
-          }
-
-          .searchPanel__layout {
-            grid-template-columns: 1fr;
-          }
-
-          .searchPanel__filters {
-            position: relative;
-            top: 0;
-          }
-
-          .searchPanel__heroActions {
-            justify-items: start;
-          }
-        }
-
-        @media (max-width: 720px) {
-          .searchPanel {
-            padding: 1.75rem 1.25rem 2.5rem;
-          }
-
-          .searchPanel__heroText h1 {
-            font-size: 2.1rem;
-          }
-
-          .searchPanel__hero {
-            padding: 1.5rem;
-          }
-
-          .searchPanel__heroActions {
-            gap: 0.75rem;
-          }
-        }
-      `}</style>
-
-      <style jsx global>{`
-        .clearButton {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0.65rem 1.2rem;
-          border-radius: 999px;
-          border: none;
-          background: linear-gradient(90deg, #27e3da, #f7b84e);
-          color: #0f172a;
-          font-weight: 700;
-          font-size: 0.9rem;
-          letter-spacing: 0.01em;
-          transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
-          cursor: pointer;
-          box-shadow: 0 18px 38px -24px rgba(247, 184, 78, 0.7);
-        }
-
-        .clearButton:hover {
-          transform: translateY(-1px);
-          filter: brightness(1.05);
-          box-shadow: 0 24px 50px -26px rgba(247, 184, 78, 0.75);
-        }
-
-        .clearButton--inline {
-          background: rgba(14, 165, 233, 0.12);
-          color: #0369a1;
-          box-shadow: none;
-          border: 1px solid rgba(14, 165, 233, 0.35);
-          padding: 0.55rem 1.15rem;
-        }
-
-        .clearButton--inline:hover {
-          transform: none;
-          filter: none;
-          box-shadow: none;
-          background: rgba(14, 165, 233, 0.18);
-        }
-
-        .currentRefinements {
-          background: rgba(255, 255, 255, 0.96);
-          border-radius: 16px;
-          padding: 0.85rem 1.1rem;
-          border: 1px solid rgba(39, 227, 218, 0.22);
-          max-width: 340px;
-          box-shadow: inset 0 0 0 1px rgba(39, 227, 218, 0.16);
-        }
-
-        .currentRefinements ul {
-          margin: 0;
-          padding: 0;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-          list-style: none;
-        }
-
-        .currentRefinements li {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.25rem;
-          padding: 0.3rem 0.7rem;
-          border-radius: 999px;
-          background: linear-gradient(120deg, rgba(39, 227, 218, 0.28), rgba(247, 184, 78, 0.28));
-          font-size: 0.8rem;
-          color: #0f172a;
-          font-weight: 600;
-        }
-
-        .searchBox {
-          width: 100%;
-        }
-
-        .searchBox__form {
-          display: grid;
-          grid-template-columns: 1fr auto;
-          align-items: center;
-          background: rgba(248, 250, 252, 0.96);
-          border-radius: 999px;
-          padding: 0.35rem 0.5rem;
-          border: 1px solid rgba(39, 227, 218, 0.24);
-          transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-        }
-
-        .searchBox__form:focus-within {
-          border-color: rgba(247, 184, 78, 0.55);
-          box-shadow: 0 0 0 4px rgba(39, 227, 218, 0.25);
-          transform: translateY(-1px);
-        }
-
-        .searchBox__input {
-          background: transparent;
-          border: none;
-          color: #0f172a;
-          padding: 0.6rem 0.9rem;
-          font-size: 1rem;
-        }
-
-        .searchBox__input::placeholder {
-          color: #94a3b8;
-        }
-
-        .searchBox__input:focus {
-          outline: none;
-        }
-
-        .searchBox__submit,
-        .searchBox__reset {
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          color: #0f172a;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0.3rem 0.6rem;
-        }
-
-        .searchBox__submitIcon svg,
-        .searchBox__resetIcon svg {
-          width: 1rem;
-          height: 1rem;
-        }
-
-        .searchBox__loading {
-          display: none;
-        }
-
-        /*  HIDE facet counts + compat */
-        .refinementList :global(.ais-RefinementList-count) {
-          display: none !important;
-        }
-
-        .refinementList ul {
-          margin: 0;
-          padding: 0;
-          list-style: none;
-          display: grid;
-          gap: 0.45rem;
-        }
-
-        .refinementList li {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: 0.92rem;
-          color: #334155;
-        }
-
-        .refinementList input[type='checkbox'] {
-          accent-color: #2563eb;
-          width: 16px;
-          height: 16px;
-        }
-
-        .refinementList .ais-SearchBox-form {
-          border-radius: 12px;
-          background: rgba(248, 250, 252, 0.95);
-          padding: 0.4rem 0.6rem;
-          border: 1px solid rgba(226, 232, 240, 0.9);
-        }
-
-        .refinementList .ais-SearchBox-input {
-          padding: 0.45rem 0.4rem;
-          font-size: 0.85rem;
-          color: #0f172a;
-        }
-
-        .rangeInput {
-          display: flex;
-          gap: 0.6rem;
-          align-items: center;
-        }
-
-        .rangeInput input[type='number'] {
-          width: 100%;
-          padding: 0.5rem 0.7rem;
-          border-radius: 10px;
-          border: 1px solid rgba(148, 163, 184, 0.4);
-          background: rgba(248, 250, 252, 0.95);
-          color: #0f172a;
-        }
-
-        .rangeInput button {
-          padding: 0.5rem 0.85rem;
-          border-radius: 10px;
-          border: 1px solid rgba(37, 99, 235, 0.25);
-          background: rgba(59, 130, 246, 0.12);
-          color: #1d4ed8;
-          cursor: pointer;
-          transition: background 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .rangeInput button:hover {
-          background: rgba(59, 130, 246, 0.2);
-          box-shadow: 0 12px 25px -18px rgba(37, 99, 235, 0.45);
-        }
-
-        .toggleList .ais-ToggleRefinement {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 1rem;
-          padding: 0.65rem 0.85rem;
-          border-radius: 14px;
-          background: rgba(248, 250, 252, 0.95);
-          border: 1px solid rgba(203, 213, 225, 0.9);
-          color: #0f172a;
-          transition: background 0.2s ease, border 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .toggleList .ais-ToggleRefinement--checked {
-          background: rgba(59, 130, 246, 0.15);
-          border-color: rgba(37, 99, 235, 0.35);
-          color: #1d4ed8;
-          box-shadow: 0 12px 24px -18px rgba(37, 99, 235, 0.35);
-        }
-
-        .toggleList input[type='checkbox'] {
-          accent-color: #2563eb;
-          width: 18px;
-          height: 18px;
-        }
-
-        .hits {
-          width: 100%;
-        }
-
-        .hits__list {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: 1.35rem;
-          padding: 0;
-          margin: 0;
-          list-style: none;
-        }
-
-        .hits__item {
-          list-style: none;
-        }
-
-        .pagination {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.45rem;
-          justify-content: center;
-          padding: 1rem 0 0;
-        }
-
-        .pagination ul {
-          display: contents;
-        }
-
-        .pagination li {
-          list-style: none;
-        }
-
-        .pagination a,
-        .pagination span {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 2.25rem;
-          height: 2.25rem;
-          border-radius: 999px;
-          padding: 0 0.75rem;
-          color: #475569;
-          text-decoration: none;
-          border: 1px solid rgba(148, 163, 184, 0.35);
-          background: rgba(248, 250, 252, 0.95);
-          transition: background 0.2s ease, border 0.2s ease, color 0.2s ease;
-        }
-
-        .pagination a:hover {
-          background: rgba(59, 130, 246, 0.12);
-          color: #1d4ed8;
-          border-color: rgba(37, 99, 235, 0.3);
-        }
-
-        .pagination .ais-Pagination-link--selected {
-          background: rgba(59, 130, 246, 0.18);
-          color: #1d4ed8;
-          border-color: rgba(37, 99, 235, 0.35);
-        }
-
-        .searchPanel__placeholder {
-          border-radius: 24px;
-          border: 1px dashed rgba(148, 163, 184, 0.4);
-          background: rgba(255, 255, 255, 0.85);
-          padding: clamp(2.5rem, 6vw, 3.5rem);
-          text-align: center;
-          display: grid;
-          gap: 1rem;
-          justify-items: center;
-          color: #0f172a;
-        }
-
-        .searchPanel__placeholder h3 {
-          margin: 0;
-          font-size: 1.3rem;
-          font-weight: 600;
-        }
-
-        .searchPanel__placeholder p {
-          margin: 0;
-          max-width: 340px;
-          color: #64748b;
-        }
-
-        .searchPanel__placeholderBadge {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0.4rem 0.9rem;
-          border-radius: 999px;
-          background: rgba(59, 130, 246, 0.14);
-          color: #1d4ed8;
-          font-size: 0.78rem;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-        }
-
-        .searchPanel__loader {
-          width: 3rem;
-          height: 3rem;
-          border-radius: 50%;
-          border: 4px solid rgba(148, 163, 184, 0.35);
-          border-top-color: #0ea5e9;
-          animation: searchPanelSpinner 0.8s linear infinite;
-        }
-
-        @keyframes searchPanelSpinner {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
     </>
   );
 }
+
+const styles = {
+  wrapper: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 24,
+  },
+  headerCard: {
+    background: '#0B3D91',
+    color: '#FFFFFF',
+    borderRadius: 18,
+    padding: 28,
+    boxShadow: '0 18px 36px rgba(11,61,145,0.26)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 18,
+  },
+  headerTitle: {
+    margin: 0,
+    fontSize: 24,
+    fontWeight: 700,
+  },
+  headerSubtitle: {
+    margin: 0,
+    fontSize: 15,
+    lineHeight: 1.6,
+    maxWidth: 640,
+  },
+  toolbar: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  searchInputWrap: {
+    position: 'relative',
+  },
+  searchInput: {
+    width: '100%',
+    borderRadius: 14,
+    border: 'none',
+    padding: '14px 44px 14px 18px',
+    fontSize: 16,
+    outline: 'none',
+    boxShadow: '0 10px 20px rgba(0,0,0,0.15)',
+  },
+  searchClearBtn: {
+    position: 'absolute',
+    top: '50%',
+    right: 12,
+    transform: 'translateY(-50%)',
+    border: 'none',
+    background: '#0B3D91',
+    color: '#FFFFFF',
+    borderRadius: 999,
+    padding: '4px 10px',
+    cursor: 'pointer',
+    fontWeight: 600,
+  },
+  clearFiltersBtn: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    border: '1px solid rgba(255,255,255,0.7)',
+    color: '#0B3D91',
+    background: '#FFFFFF',
+    padding: '6px 16px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  clearFiltersBtnDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  },
+  layout: {
+    display: 'grid',
+    gridTemplateColumns: '320px 1fr',
+    gap: 24,
+    alignItems: 'flex-start',
+  },
+  layoutMobile: {
+    gridTemplateColumns: '1fr',
+  },
+  filters: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+  },
+  filtersMobile: {
+    order: 2,
+  },
+  filterNotice: {
+    fontSize: 13,
+    color: '#0B3D91',
+    background: '#EBF2FF',
+    borderRadius: 12,
+    padding: '10px 12px',
+  },
+  filterError: {
+    fontSize: 13,
+    color: '#B91C1C',
+    background: '#FEE2E2',
+    borderRadius: 12,
+    padding: '10px 12px',
+  },
+  results: {
+    display: 'flex',
+  },
+  resultsMobile: {
+    order: 1,
+  },
+  resultsCard: {
+    background: '#F8FAFC',
+    borderRadius: 24,
+    padding: 24,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 20,
+    boxShadow: '0 12px 30px rgba(11,61,145,0.12)',
+  },
+  facetGroup: {
+    background: '#FFFFFF',
+    borderRadius: 18,
+    padding: 18,
+    boxShadow: '0 10px 24px rgba(15,23,42,0.1)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  facetHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  facetTitle: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: '#0F172A',
+  },
+  showMoreBtn: {
+    border: 'none',
+    background: 'transparent',
+    color: '#0B3D91',
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  facetSearchInput: {
+    width: '100%',
+    borderRadius: 12,
+    border: '1px solid #CBD5F5',
+    padding: '8px 12px',
+    fontSize: 13,
+  },
+  facetList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  facetItem: {
+    display: 'grid',
+    gridTemplateColumns: 'auto 1fr',
+    alignItems: 'center',
+    gap: 10,
+    background: '#F8FAFF',
+    borderRadius: 12,
+    padding: '8px 12px',
+    border: '1px solid transparent',
+  },
+  facetItemActive: {
+    borderColor: '#0B3D91',
+    background: 'rgba(11,61,145,0.1)',
+  },
+  facetCheckbox: {
+    width: 16,
+    height: 16,
+  },
+  facetLabel: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#0F172A',
+  },
+  emptyFacet: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  ageForm: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  ageInputs: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 12,
+  },
+  ageInputLabel: {
+    display: 'flex',
+    flexDirection: 'column',
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: 600,
+    gap: 6,
+  },
+  ageInput: {
+    borderRadius: 10,
+    border: '1px solid #CBD5F5',
+    padding: '8px 10px',
+    fontSize: 13,
+  },
+  ageActions: {
+    display: 'flex',
+    gap: 8,
+  },
+  ageApplyBtn: {
+    flex: 1,
+    border: 'none',
+    borderRadius: 999,
+    background: '#0B3D91',
+    color: '#FFFFFF',
+    padding: '8px 12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  ageResetBtn: {
+    flex: 1,
+    borderRadius: 999,
+    border: '1px solid #CBD5F5',
+    background: '#FFFFFF',
+    color: '#0B3D91',
+    padding: '8px 12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  toggleGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    background: '#FFFFFF',
+    borderRadius: 18,
+    padding: 18,
+    boxShadow: '0 10px 24px rgba(15,23,42,0.1)',
+  },
+  toggleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#0F172A',
+  },
+  toggleRowInactive: {
+    color: '#64748B',
+  },
+  toggleInput: {
+    width: 16,
+    height: 16,
+  },
+  toggleLabel: {
+    flex: 1,
+  },
+  statsBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statsText: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: '#0F172A',
+  },
+  statsMeta: {
+    fontSize: 13,
+    color: '#475569',
+  },
+  hitsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+    gap: 18,
+  },
+  hitCard: {
+    background: '#FFFFFF',
+    borderRadius: 18,
+    padding: 18,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+    boxShadow: '0 12px 24px rgba(15,23,42,0.12)',
+  },
+  hitHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+  },
+  hitRole: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: '#0F172A',
+  },
+  hitBadge: {
+    background: '#EBF2FF',
+    color: '#0B3D91',
+    borderRadius: 999,
+    padding: '4px 10px',
+    fontSize: 12,
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+  },
+  hitTags: {
+    display: 'flex',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  hitTag: {
+    background: '#0B3D91',
+    color: '#FFFFFF',
+    borderRadius: 12,
+    padding: '4px 10px',
+    fontSize: 12,
+    fontWeight: 600,
+  },
+  hitMeta: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    fontSize: 13,
+    color: '#475569',
+  },
+  metaItem: {
+    display: 'inline-flex',
+    gap: 4,
+  },
+  hitRegions: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    fontSize: 13,
+    color: '#475569',
+  },
+  hitRegionList: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  regionBadge: {
+    background: '#E2E8F0',
+    color: '#0F172A',
+    borderRadius: 999,
+    padding: '4px 10px',
+    fontSize: 12,
+    fontWeight: 600,
+  },
+  hitFlags: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  flagBadge: {
+    borderRadius: 999,
+    padding: '4px 10px',
+    fontSize: 12,
+    fontWeight: 600,
+    border: '1px solid transparent',
+  },
+  flagBadgeActive: {
+    background: '#0B3D91',
+    color: '#FFFFFF',
+  },
+  flagBadgeInactive: {
+    background: '#E2E8F0',
+    color: '#475569',
+  },
+  pagination: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  pageBtn: {
+    borderRadius: 999,
+    border: '1px solid #CBD5F5',
+    background: '#FFFFFF',
+    color: '#0B3D91',
+    padding: '8px 14px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  pageBtnDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  },
+  pageList: {
+    display: 'flex',
+    gap: 6,
+  },
+  pageNumber: {
+    borderRadius: 10,
+    border: '1px solid transparent',
+    background: '#FFFFFF',
+    color: '#0B3D91',
+    padding: '8px 12px',
+    cursor: 'pointer',
+    fontWeight: 600,
+  },
+  pageNumberActive: {
+    background: '#0B3D91',
+    color: '#FFFFFF',
+  },
+  emptyResults: {
+    padding: 24,
+    textAlign: 'center',
+    background: '#FFFFFF',
+    borderRadius: 18,
+    color: '#475569',
+    fontSize: 14,
+    boxShadow: '0 8px 16px rgba(15,23,42,0.08)',
+  },
+  hitCardSkeleton: {
+    background: '#FFFFFF',
+    borderRadius: 18,
+    padding: 18,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+    boxShadow: '0 12px 24px rgba(15,23,42,0.12)',
+  },
+  hitSkeletonLine: {
+    height: 12,
+    background: 'linear-gradient(90deg, #f1f5f9, #e2e8f0, #f1f5f9)',
+    borderRadius: 999,
+  },
+  stateBox: {
+    padding: 16,
+    borderRadius: 12,
+    background: '#EBF2FF',
+    color: '#0B3D91',
+    fontWeight: 600,
+  },
+  stateBoxError: {
+    background: '#FEE2E2',
+    color: '#B91C1C',
+  },
+};
