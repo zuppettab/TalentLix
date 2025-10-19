@@ -233,26 +233,27 @@ export default function SearchPanel() {
       <style jsx>{`
         .searchPanel {
           min-height: 100vh;
-          padding: clamp(2rem, 5vw, 4rem) clamp(1.5rem, 4vw, 3rem);
-          background: radial-gradient(circle at top left, rgba(66, 133, 244, 0.12), transparent 45%),
-            radial-gradient(circle at bottom right, rgba(30, 150, 155, 0.14), transparent 50%),
-            #0b0c10;
-          color: #f7f8fa;
+          padding: clamp(2rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem);
+          background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 45%),
+            radial-gradient(circle at bottom left, rgba(8, 145, 178, 0.1), transparent 55%),
+            #f8fafc;
+          color: #0f172a;
         }
 
         .searchPanel__hero {
           display: grid;
-          gap: clamp(1.5rem, 4vw, 3rem);
+          gap: clamp(1.25rem, 4vw, 2.5rem);
           grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
           align-items: start;
-          max-width: 1200px;
+          max-width: 1180px;
           margin: 0 auto clamp(2rem, 4vw, 3rem);
         }
 
         .searchPanel__heroText h1 {
-          font-size: clamp(2rem, 4vw, 2.8rem);
+          font-size: clamp(2rem, 4vw, 2.75rem);
           margin: 0 0 0.75rem 0;
           line-height: 1.1;
+          letter-spacing: -0.02em;
         }
 
         .searchPanel__heroText {
@@ -265,14 +266,14 @@ export default function SearchPanel() {
           text-transform: uppercase;
           font-size: 0.75rem;
           font-weight: 600;
-          color: rgba(247, 248, 250, 0.7);
+          color: #64748b;
           margin: 0;
         }
 
         .searchPanel__description {
           margin: 0;
-          color: rgba(247, 248, 250, 0.75);
-          font-size: 1rem;
+          color: #475569;
+          font-size: 1.05rem;
           max-width: 520px;
         }
 
@@ -284,9 +285,9 @@ export default function SearchPanel() {
 
         .searchPanel__layout {
           display: grid;
-          gap: clamp(1.5rem, 4vw, 2.5rem);
+          gap: clamp(1.5rem, 4vw, 2.75rem);
           grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-          max-width: 1200px;
+          max-width: 1180px;
           margin: 0 auto;
         }
 
@@ -299,41 +300,43 @@ export default function SearchPanel() {
         }
 
         .filterCard {
-          background: rgba(11, 12, 16, 0.8);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 18px;
-          padding: 1.25rem;
-          backdrop-filter: blur(18px);
-          box-shadow: 0 18px 45px -30px rgba(9, 12, 24, 0.85);
+          background: rgba(255, 255, 255, 0.86);
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          border-radius: 20px;
+          padding: 1.35rem;
+          box-shadow: 0 18px 45px -28px rgba(15, 23, 42, 0.18);
           display: grid;
           gap: 1rem;
+          backdrop-filter: blur(20px);
         }
 
         .filterCard header h2 {
           margin: 0;
-          font-size: 1.1rem;
+          font-size: 1.05rem;
+          font-weight: 600;
+          color: #0f172a;
         }
 
         .filterCard header p {
           margin: 0.35rem 0 0;
           font-size: 0.9rem;
-          color: rgba(247, 248, 250, 0.65);
+          color: #64748b;
         }
 
         .filterCard__group {
           display: grid;
-          gap: 0.5rem;
+          gap: 0.6rem;
         }
 
         .filterCard__group h3 {
           margin: 0;
           font-size: 0.95rem;
-          color: rgba(247, 248, 250, 0.7);
+          color: #475569;
         }
 
         .toggleList {
           display: grid;
-          gap: 0.75rem;
+          gap: 0.8rem;
         }
 
         .searchPanel__results {
@@ -345,38 +348,41 @@ export default function SearchPanel() {
         .resultsHeader h2 {
           margin: 0;
           font-size: 1.6rem;
+          font-weight: 600;
+          color: #0f172a;
         }
 
         .resultsHeader p {
           margin: 0.25rem 0 0;
-          color: rgba(247, 248, 250, 0.65);
+          color: #64748b;
         }
 
         .hitCard {
-          background: rgba(11, 12, 16, 0.75);
+          background: rgba(255, 255, 255, 0.92);
           border-radius: 20px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          padding: 1.25rem;
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          padding: 1.35rem;
           display: grid;
-          gap: 1.25rem;
-          box-shadow: 0 20px 45px -28px rgba(8, 10, 22, 0.9);
+          gap: 1.15rem;
+          box-shadow: 0 18px 48px -28px rgba(15, 23, 42, 0.22);
         }
 
         .hitCard__header {
           display: grid;
-          gap: 0.35rem;
+          gap: 0.4rem;
         }
 
         .hitCard__title {
           margin: 0;
-          font-size: 1.2rem;
+          font-size: 1.25rem;
           font-weight: 700;
+          color: #0f172a;
         }
 
         .hitCard__subtitle {
           margin: 0;
           font-size: 0.95rem;
-          color: rgba(247, 248, 250, 0.7);
+          color: #475569;
           display: flex;
           flex-wrap: wrap;
           gap: 0.35rem;
@@ -384,13 +390,13 @@ export default function SearchPanel() {
         }
 
         .hitCard__sport :global(mark) {
-          background: rgba(30, 136, 229, 0.25);
-          color: #fff;
+          background: rgba(59, 130, 246, 0.18);
+          color: #0f172a;
         }
 
         .hitCard__title :global(mark) {
-          background: rgba(250, 128, 114, 0.25);
-          color: #fff;
+          background: rgba(20, 184, 166, 0.18);
+          color: #0f172a;
         }
 
         .hitCard__titleGroup {
@@ -401,18 +407,18 @@ export default function SearchPanel() {
 
         .hitCard__id {
           font-size: 0.75rem;
-          letter-spacing: 0.1em;
+          letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: rgba(247, 248, 250, 0.5);
+          color: #94a3b8;
         }
 
         .hitCard__category {
           font-size: 0.75rem;
-          padding: 0.2rem 0.6rem;
+          padding: 0.25rem 0.6rem;
           border-radius: 999px;
-          background: rgba(30, 150, 155, 0.2);
-          color: #7ef0ff;
-          border: 1px solid rgba(126, 240, 255, 0.35);
+          background: rgba(59, 130, 246, 0.12);
+          color: #2563eb;
+          border: 1px solid rgba(37, 99, 235, 0.2);
         }
 
         .hitCard__dot {
@@ -430,15 +436,16 @@ export default function SearchPanel() {
         }
 
         .hitCard__listItem dt {
-          font-size: 0.8rem;
+          font-size: 0.75rem;
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          color: rgba(247, 248, 250, 0.5);
+          color: #94a3b8;
         }
 
         .hitCard__listItem dd {
           margin: 0;
           font-size: 0.95rem;
+          color: #0f172a;
         }
 
         .hitCard__footer {
@@ -451,33 +458,33 @@ export default function SearchPanel() {
           display: inline-flex;
           align-items: center;
           gap: 0.35rem;
-          padding: 0.35rem 0.75rem;
+          padding: 0.35rem 0.7rem;
           border-radius: 999px;
-          font-size: 0.8rem;
+          font-size: 0.78rem;
           font-weight: 600;
           letter-spacing: 0.02em;
-          background: rgba(255, 255, 255, 0.08);
-          color: #f7f8fa;
+          background: rgba(15, 23, 42, 0.06);
+          color: #0f172a;
         }
 
         .hitCard__tag--success {
-          background: rgba(76, 175, 80, 0.25);
-          color: #9effa4;
+          background: rgba(34, 197, 94, 0.16);
+          color: #15803d;
         }
 
         .hitCard__tag--accent {
-          background: rgba(63, 81, 181, 0.25);
-          color: #aeb8ff;
+          background: rgba(59, 130, 246, 0.16);
+          color: #1d4ed8;
         }
 
         .hitCard__tag--warning {
-          background: rgba(255, 193, 7, 0.2);
-          color: #ffe6a2;
+          background: rgba(250, 204, 21, 0.18);
+          color: #b45309;
         }
 
         .hitCard__tag--neutral {
-          background: rgba(158, 158, 158, 0.2);
-          color: #e0e0e0;
+          background: rgba(148, 163, 184, 0.2);
+          color: #475569;
         }
 
         @media (max-width: 1080px) {
@@ -505,7 +512,11 @@ export default function SearchPanel() {
           }
 
           .searchPanel__heroText h1 {
-            font-size: 1.9rem;
+            font-size: 2.1rem;
+          }
+
+          .searchPanel__quickActions {
+            gap: 0.75rem;
           }
         }
       `}</style>
@@ -515,28 +526,30 @@ export default function SearchPanel() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 0.65rem 1.1rem;
+          padding: 0.65rem 1.15rem;
           border-radius: 999px;
-          border: 1px solid rgba(126, 240, 255, 0.3);
-          background: rgba(126, 240, 255, 0.12);
-          color: #7ef0ff;
+          border: 1px solid rgba(37, 99, 235, 0.2);
+          background: rgba(59, 130, 246, 0.12);
+          color: #1d4ed8;
           font-weight: 600;
           font-size: 0.9rem;
-          transition: background 0.2s ease, transform 0.2s ease;
+          transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
           cursor: pointer;
         }
 
         .clearButton:hover {
-          background: rgba(126, 240, 255, 0.2);
+          background: rgba(59, 130, 246, 0.2);
           transform: translateY(-1px);
+          box-shadow: 0 10px 25px -15px rgba(37, 99, 235, 0.45);
         }
 
         .currentRefinements {
-          background: rgba(255, 255, 255, 0.05);
-          border-radius: 14px;
-          padding: 0.8rem 1rem;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          max-width: 320px;
+          background: rgba(255, 255, 255, 0.95);
+          border-radius: 16px;
+          padding: 0.85rem 1.1rem;
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          max-width: 340px;
+          box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08);
         }
 
         .currentRefinements ul {
@@ -553,9 +566,10 @@ export default function SearchPanel() {
           align-items: center;
           gap: 0.25rem;
           padding: 0.3rem 0.6rem;
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.08);
+          border-radius: 999px;
+          background: rgba(37, 99, 235, 0.12);
           font-size: 0.8rem;
+          color: #1d4ed8;
         }
 
         .searchBox {
@@ -566,28 +580,28 @@ export default function SearchPanel() {
           display: grid;
           grid-template-columns: 1fr auto;
           align-items: center;
-          background: rgba(255, 255, 255, 0.08);
+          background: rgba(248, 250, 252, 0.95);
           border-radius: 999px;
           padding: 0.35rem 0.5rem;
-          border: 1px solid transparent;
+          border: 1px solid rgba(148, 163, 184, 0.35);
           transition: border 0.2s ease, box-shadow 0.2s ease;
         }
 
         .searchBox__form:focus-within {
-          border-color: rgba(126, 240, 255, 0.35);
-          box-shadow: 0 0 0 3px rgba(126, 240, 255, 0.18);
+          border-color: rgba(37, 99, 235, 0.45);
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
         }
 
         .searchBox__input {
           background: transparent;
           border: none;
-          color: #f7f8fa;
+          color: #0f172a;
           padding: 0.6rem 0.9rem;
           font-size: 1rem;
         }
 
         .searchBox__input::placeholder {
-          color: rgba(247, 248, 250, 0.5);
+          color: #94a3b8;
         }
 
         .searchBox__input:focus {
@@ -599,7 +613,7 @@ export default function SearchPanel() {
           border: none;
           background: transparent;
           cursor: pointer;
-          color: rgba(247, 248, 250, 0.8);
+          color: #475569;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -628,76 +642,81 @@ export default function SearchPanel() {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          font-size: 0.9rem;
-          color: rgba(247, 248, 250, 0.8);
+          font-size: 0.92rem;
+          color: #334155;
         }
 
         .refinementList input[type='checkbox'] {
-          accent-color: #7ef0ff;
+          accent-color: #2563eb;
           width: 16px;
           height: 16px;
         }
 
         .refinementList .ais-SearchBox-form {
           border-radius: 12px;
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(248, 250, 252, 0.95);
           padding: 0.4rem 0.6rem;
+          border: 1px solid rgba(226, 232, 240, 0.9);
         }
 
         .refinementList .ais-SearchBox-input {
           padding: 0.45rem 0.4rem;
           font-size: 0.85rem;
+          color: #0f172a;
         }
 
         .rangeInput {
           display: flex;
-          gap: 0.5rem;
+          gap: 0.6rem;
           align-items: center;
         }
 
         .rangeInput input[type='number'] {
           width: 100%;
-          padding: 0.45rem 0.6rem;
+          padding: 0.5rem 0.7rem;
           border-radius: 10px;
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          background: rgba(255, 255, 255, 0.05);
-          color: #f7f8fa;
+          border: 1px solid rgba(148, 163, 184, 0.4);
+          background: rgba(248, 250, 252, 0.95);
+          color: #0f172a;
         }
 
         .rangeInput button {
-          padding: 0.45rem 0.75rem;
+          padding: 0.5rem 0.85rem;
           border-radius: 10px;
-          border: 1px solid rgba(126, 240, 255, 0.3);
-          background: rgba(126, 240, 255, 0.12);
-          color: #7ef0ff;
+          border: 1px solid rgba(37, 99, 235, 0.25);
+          background: rgba(59, 130, 246, 0.12);
+          color: #1d4ed8;
           cursor: pointer;
-          transition: background 0.2s ease;
+          transition: background 0.2s ease, box-shadow 0.2s ease;
         }
 
         .rangeInput button:hover {
-          background: rgba(126, 240, 255, 0.2);
+          background: rgba(59, 130, 246, 0.2);
+          box-shadow: 0 12px 25px -18px rgba(37, 99, 235, 0.45);
         }
 
         .toggleList .ais-ToggleRefinement {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 0.6rem 0.8rem;
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          color: rgba(247, 248, 250, 0.85);
-          transition: background 0.2s ease, border 0.2s ease;
+          gap: 1rem;
+          padding: 0.65rem 0.85rem;
+          border-radius: 14px;
+          background: rgba(248, 250, 252, 0.95);
+          border: 1px solid rgba(203, 213, 225, 0.9);
+          color: #0f172a;
+          transition: background 0.2s ease, border 0.2s ease, box-shadow 0.2s ease;
         }
 
         .toggleList .ais-ToggleRefinement--checked {
-          background: rgba(126, 240, 255, 0.16);
-          border-color: rgba(126, 240, 255, 0.35);
-          color: #7ef0ff;
+          background: rgba(59, 130, 246, 0.15);
+          border-color: rgba(37, 99, 235, 0.35);
+          color: #1d4ed8;
+          box-shadow: 0 12px 24px -18px rgba(37, 99, 235, 0.35);
         }
 
         .toggleList input[type='checkbox'] {
-          accent-color: #7ef0ff;
+          accent-color: #2563eb;
           width: 18px;
           height: 18px;
         }
@@ -709,7 +728,7 @@ export default function SearchPanel() {
         .hits__list {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: 1.25rem;
+          gap: 1.35rem;
           padding: 0;
           margin: 0;
           list-style: none;
@@ -722,7 +741,7 @@ export default function SearchPanel() {
         .pagination {
           display: flex;
           flex-wrap: wrap;
-          gap: 0.35rem;
+          gap: 0.45rem;
           justify-content: center;
           padding: 1rem 0 0;
         }
@@ -744,20 +763,23 @@ export default function SearchPanel() {
           height: 2.25rem;
           border-radius: 999px;
           padding: 0 0.75rem;
-          color: rgba(247, 248, 250, 0.75);
+          color: #475569;
           text-decoration: none;
-          border: 1px solid transparent;
+          border: 1px solid rgba(148, 163, 184, 0.35);
+          background: rgba(248, 250, 252, 0.95);
           transition: background 0.2s ease, border 0.2s ease, color 0.2s ease;
         }
 
         .pagination a:hover {
-          background: rgba(255, 255, 255, 0.1);
+          background: rgba(59, 130, 246, 0.12);
+          color: #1d4ed8;
+          border-color: rgba(37, 99, 235, 0.3);
         }
 
         .pagination .ais-Pagination-link--selected {
-          background: rgba(126, 240, 255, 0.2);
-          color: #7ef0ff;
-          border-color: rgba(126, 240, 255, 0.35);
+          background: rgba(59, 130, 246, 0.18);
+          color: #1d4ed8;
+          border-color: rgba(37, 99, 235, 0.35);
         }
       `}</style>
     </>
