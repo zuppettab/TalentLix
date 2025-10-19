@@ -75,6 +75,28 @@ function Hit({ hit }) {
     ? hit.preferred_regions.filter(Boolean)
     : [];
 
+  const quickFacts = [];
+
+  if (hit.nationality) {
+    quickFacts.push({ key: 'nationality', label: 'Nationality', value: hit.nationality });
+  }
+
+  if (preferredRegions.length > 0) {
+    quickFacts.push({
+      key: 'preferred_regions',
+      label: 'Preferred regions',
+      value: preferredRegions.join(', '),
+    });
+  }
+
+  if (secondaryRoles.length > 0) {
+    quickFacts.push({
+      key: 'secondary_roles',
+      label: 'Secondary roles',
+      value: secondaryRoles.join(', '),
+    });
+  }
+
   return (
     <article className="hitCard">
       <header className="hitCard__header">
@@ -103,26 +125,16 @@ function Hit({ hit }) {
       </header>
 
       <div className="hitCard__body">
-        <dl className="hitCard__list">
-          {hit.nationality && (
-            <div className="hitCard__listItem">
-              <dt>Nationality</dt>
-              <dd>{hit.nationality}</dd>
-            </div>
-          )}
-          {preferredRegions.length > 0 && (
-            <div className="hitCard__listItem">
-              <dt>Preferred regions</dt>
-              <dd>{preferredRegions.join(', ')}</dd>
-            </div>
-          )}
-          {secondaryRoles.length > 0 && (
-            <div className="hitCard__listItem">
-              <dt>Secondary roles</dt>
-              <dd>{secondaryRoles.join(', ')}</dd>
-            </div>
-          )}
-        </dl>
+        {quickFacts.length > 0 && (
+          <dl className="hitCard__factGrid">
+            {quickFacts.map((fact) => (
+              <div key={fact.key} className="hitCard__fact">
+                <dt>{fact.label}</dt>
+                <dd>{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
         {tags.length > 0 && (
           <footer className="hitCard__footer">
             {tags.map((tag) => (
@@ -489,7 +501,12 @@ export default function SearchPanel() {
           flex-wrap: wrap;
           justify-content: space-between;
           gap: 1rem;
-          align-items: center;
+          align-items: flex-start;
+        }
+
+        .resultsHeader__copy {
+          display: grid;
+          gap: 0.35rem;
         }
 
         .resultsHeader h2 {
@@ -536,9 +553,9 @@ export default function SearchPanel() {
           background: rgba(255, 255, 255, 0.95);
           border-radius: 20px;
           border: 1px solid rgba(15, 23, 42, 0.08);
-          padding: 1.5rem;
+          padding: 1.6rem;
           display: grid;
-          gap: 1.25rem;
+          gap: 1.35rem;
           box-shadow: 0 20px 54px -32px rgba(15, 23, 42, 0.25);
           transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
@@ -590,14 +607,21 @@ export default function SearchPanel() {
         .hitCard__titleGroup {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.6rem;
         }
 
         .hitCard__id {
-          font-size: 0.75rem;
+          display: inline-flex;
+          align-items: center;
+          padding: 0.3rem 0.7rem;
+          border-radius: 999px;
+          background: rgba(148, 163, 184, 0.16);
+          border: 1px solid rgba(148, 163, 184, 0.35);
+          font-size: 0.72rem;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: #94a3b8;
+          font-weight: 600;
+          color: #1e293b;
         }
 
         .hitCard__category {
@@ -613,31 +637,38 @@ export default function SearchPanel() {
           opacity: 0.4;
         }
 
-        .hitCard__list {
-          display: grid;
-          gap: 0.75rem;
-        }
-
         .hitCard__body {
           display: grid;
-          gap: 1.15rem;
+          gap: 1.35rem;
         }
 
-        .hitCard__listItem {
+        .hitCard__factGrid {
           display: grid;
-          gap: 0.3rem;
+          gap: 0.85rem;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         }
 
-        .hitCard__listItem dt {
-          font-size: 0.75rem;
+        .hitCard__fact {
+          display: grid;
+          gap: 0.35rem;
+          padding: 0.85rem 1rem;
+          border-radius: 16px;
+          background: linear-gradient(135deg, rgba(241, 245, 249, 0.72), rgba(224, 242, 254, 0.48));
+          border: 1px solid rgba(148, 163, 184, 0.35);
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+        }
+
+        .hitCard__fact dt {
+          font-size: 0.72rem;
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          color: #94a3b8;
+          color: #64748b;
         }
 
-        .hitCard__listItem dd {
+        .hitCard__fact dd {
           margin: 0;
-          font-size: 0.95rem;
+          font-size: 0.98rem;
+          font-weight: 600;
           color: #0f172a;
         }
 
