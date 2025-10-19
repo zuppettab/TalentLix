@@ -22,8 +22,37 @@ const APP_ID = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID;
 const SEARCH_KEY = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY;
 const INDEX_NAME = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_ATHLETE_SEARCH;
 
-// Client Algolia (lite per il browser)
-const searchClient = algoliasearch(APP_ID, SEARCH_KEY);
+const fallbackSearchClient = {
+  search(requests = []) {
+    return Promise.resolve({
+      results: requests.map((request) => {
+        const params = request?.params || {};
+        const hitsPerPage = Number(params?.hitsPerPage) || 24;
+        const page = Number(params?.page) || 0;
+        const query = typeof params?.query === 'string' ? params.query : '';
+        const serializedParams =
+          typeof params === 'string'
+            ? params
+            : new URLSearchParams(Object.entries(params || {}).filter(([, value]) => value != null)).toString();
+
+        return {
+          hits: [],
+          nbHits: 0,
+          processingTimeMS: 0,
+          hitsPerPage,
+          page,
+          exhaustiveNbHits: false,
+          query,
+          params: serializedParams,
+          facets: {},
+        };
+      }),
+    });
+  },
+  searchForFacetValues() {
+    return Promise.resolve({ facetHits: [] });
+  },
+};
 
 const tagConfig = [
   { key: 'is_verified', label: 'Verified', tone: 'success' },
@@ -106,6 +135,15 @@ function Hit({ hit }) {
 }
 
 export default function SearchPanel() {
+  const isSearchConfigured = Boolean(APP_ID && SEARCH_KEY && INDEX_NAME);
+  const searchClient = useMemo(() => {
+    if (isSearchConfigured) {
+      return algoliasearch(APP_ID, SEARCH_KEY);
+    }
+    return fallbackSearchClient;
+  }, [isSearchConfigured]);
+  const indexName = isSearchConfigured ? INDEX_NAME : 'placeholder-index';
+
   return (
     <>
       <Head>
@@ -114,17 +152,14 @@ export default function SearchPanel() {
       </Head>
 
       <div className="searchPanel">
-        <InstantSearch searchClient={searchClient} indexName={INDEX_NAME} insights>
+        <InstantSearch searchClient={searchClient} indexName={indexName} insights>
           <Configure hitsPerPage={24} />
 
           <div className="searchPanel__hero">
             <div className="searchPanel__heroText">
               <p className="searchPanel__eyebrow">Talent directory</p>
-              <h1>Find the right athlete for your next opportunity</h1>
-              <p className="searchPanel__description">
-                Explore profiles, filter by role, sport and availability, and keep track of your selections with
-                instant refinements.
-              </p>
+              <h1>Find athletes fast</h1>
+              <p className="searchPanel__description">Search by sport, role or region and tune filters in real time.</p>
             </div>
             <div className="searchPanel__quickActions">
               <ClearRefinements className="clearButton" translations={{ resetButtonText: 'Reset all filters' }} />
@@ -198,7 +233,7 @@ export default function SearchPanel() {
               <section className="filterCard">
                 <header>
                   <h2>Availability</h2>
-                  <p>Toggle flags to refine by contract status and representation.</p>
+                  <p>Use the toggles to focus on contract status or representation.</p>
                 </header>
                 <div className="toggleList">
                   <ToggleRefinement attribute="is_verified" label="Verified" />
@@ -214,6 +249,9 @@ export default function SearchPanel() {
                 <div>
                   <h2>Athletes</h2>
                   <p>Profiles update in real time as you adjust filters.</p>
+                  {!isSearchConfigured && (
+                    <p className="resultsHeader__notice">Search is disabled in this demo environment.</p>
+                  )}
                 </div>
               </header>
               <Hits
@@ -234,9 +272,7 @@ export default function SearchPanel() {
         .searchPanel {
           min-height: 100vh;
           padding: clamp(2rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem);
-          background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 45%),
-            radial-gradient(circle at bottom left, rgba(8, 145, 178, 0.1), transparent 55%),
-            #f8fafc;
+          background: linear-gradient(150deg, rgba(39, 227, 218, 0.18), rgba(247, 184, 78, 0.18) 42%, #f8fafc 90%);
           color: #0f172a;
         }
 
@@ -247,13 +283,19 @@ export default function SearchPanel() {
           align-items: start;
           max-width: 1180px;
           margin: 0 auto clamp(2rem, 4vw, 3rem);
+          padding: clamp(1.75rem, 4vw, 2.5rem);
+          border-radius: 28px;
+          background: linear-gradient(135deg, rgba(39, 227, 218, 0.18), rgba(247, 184, 78, 0.22));
+          border: 1px solid rgba(39, 227, 218, 0.22);
+          box-shadow: 0 35px 90px -60px rgba(15, 23, 42, 0.45);
         }
 
         .searchPanel__heroText h1 {
-          font-size: clamp(2rem, 4vw, 2.75rem);
-          margin: 0 0 0.75rem 0;
+          font-size: clamp(2rem, 4vw, 2.65rem);
+          margin: 0 0 0.5rem 0;
           line-height: 1.1;
           letter-spacing: -0.02em;
+          color: #0f172a;
         }
 
         .searchPanel__heroText {
@@ -266,15 +308,17 @@ export default function SearchPanel() {
           text-transform: uppercase;
           font-size: 0.75rem;
           font-weight: 600;
-          color: #64748b;
+          color: #0f172a;
           margin: 0;
+          opacity: 0.8;
         }
 
         .searchPanel__description {
           margin: 0;
-          color: #475569;
-          font-size: 1.05rem;
-          max-width: 520px;
+          color: #0f172a;
+          font-weight: 500;
+          font-size: 1rem;
+          max-width: 360px;
         }
 
         .searchPanel__quickActions {
@@ -300,14 +344,14 @@ export default function SearchPanel() {
         }
 
         .filterCard {
-          background: rgba(255, 255, 255, 0.86);
-          border: 1px solid rgba(15, 23, 42, 0.08);
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(39, 227, 218, 0.08));
+          border: 1px solid rgba(39, 227, 218, 0.18);
           border-radius: 20px;
           padding: 1.35rem;
-          box-shadow: 0 18px 45px -28px rgba(15, 23, 42, 0.18);
+          box-shadow: 0 28px 60px -40px rgba(15, 23, 42, 0.35);
           display: grid;
           gap: 1rem;
-          backdrop-filter: blur(20px);
+          backdrop-filter: blur(22px);
         }
 
         .filterCard header h2 {
@@ -318,9 +362,10 @@ export default function SearchPanel() {
         }
 
         .filterCard header p {
-          margin: 0.35rem 0 0;
-          font-size: 0.9rem;
-          color: #64748b;
+          margin: 0.25rem 0 0;
+          font-size: 0.88rem;
+          color: #0f172a;
+          font-weight: 500;
         }
 
         .filterCard__group {
@@ -354,7 +399,21 @@ export default function SearchPanel() {
 
         .resultsHeader p {
           margin: 0.25rem 0 0;
-          color: #64748b;
+          color: #334155;
+          font-weight: 500;
+        }
+
+        .resultsHeader__notice {
+          display: inline-flex;
+          align-items: center;
+          margin-top: 0.6rem;
+          padding: 0.35rem 0.8rem;
+          border-radius: 999px;
+          background: linear-gradient(120deg, rgba(39, 227, 218, 0.25), rgba(247, 184, 78, 0.3));
+          color: #0f172a;
+          font-size: 0.78rem;
+          font-weight: 600;
+          letter-spacing: 0.01em;
         }
 
         .hitCard {
@@ -490,6 +549,7 @@ export default function SearchPanel() {
         @media (max-width: 1080px) {
           .searchPanel__hero {
             grid-template-columns: 1fr;
+            padding: clamp(1.5rem, 5vw, 2rem);
           }
 
           .searchPanel__layout {
@@ -515,6 +575,10 @@ export default function SearchPanel() {
             font-size: 2.1rem;
           }
 
+          .searchPanel__hero {
+            padding: 1.5rem;
+          }
+
           .searchPanel__quickActions {
             gap: 0.75rem;
           }
@@ -526,30 +590,32 @@ export default function SearchPanel() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 0.65rem 1.15rem;
+          padding: 0.65rem 1.2rem;
           border-radius: 999px;
-          border: 1px solid rgba(37, 99, 235, 0.2);
-          background: rgba(59, 130, 246, 0.12);
-          color: #1d4ed8;
-          font-weight: 600;
+          border: none;
+          background: linear-gradient(90deg, #27e3da, #f7b84e);
+          color: #0f172a;
+          font-weight: 700;
           font-size: 0.9rem;
-          transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+          letter-spacing: 0.01em;
+          transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
           cursor: pointer;
+          box-shadow: 0 18px 38px -24px rgba(247, 184, 78, 0.7);
         }
 
         .clearButton:hover {
-          background: rgba(59, 130, 246, 0.2);
           transform: translateY(-1px);
-          box-shadow: 0 10px 25px -15px rgba(37, 99, 235, 0.45);
+          filter: brightness(1.05);
+          box-shadow: 0 24px 50px -26px rgba(247, 184, 78, 0.75);
         }
 
         .currentRefinements {
-          background: rgba(255, 255, 255, 0.95);
+          background: rgba(255, 255, 255, 0.96);
           border-radius: 16px;
           padding: 0.85rem 1.1rem;
-          border: 1px solid rgba(15, 23, 42, 0.08);
+          border: 1px solid rgba(39, 227, 218, 0.22);
           max-width: 340px;
-          box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08);
+          box-shadow: inset 0 0 0 1px rgba(39, 227, 218, 0.16);
         }
 
         .currentRefinements ul {
@@ -565,11 +631,12 @@ export default function SearchPanel() {
           display: inline-flex;
           align-items: center;
           gap: 0.25rem;
-          padding: 0.3rem 0.6rem;
+          padding: 0.3rem 0.7rem;
           border-radius: 999px;
-          background: rgba(37, 99, 235, 0.12);
+          background: linear-gradient(120deg, rgba(39, 227, 218, 0.28), rgba(247, 184, 78, 0.28));
           font-size: 0.8rem;
-          color: #1d4ed8;
+          color: #0f172a;
+          font-weight: 600;
         }
 
         .searchBox {
@@ -580,16 +647,17 @@ export default function SearchPanel() {
           display: grid;
           grid-template-columns: 1fr auto;
           align-items: center;
-          background: rgba(248, 250, 252, 0.95);
+          background: rgba(248, 250, 252, 0.96);
           border-radius: 999px;
           padding: 0.35rem 0.5rem;
-          border: 1px solid rgba(148, 163, 184, 0.35);
-          transition: border 0.2s ease, box-shadow 0.2s ease;
+          border: 1px solid rgba(39, 227, 218, 0.24);
+          transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
         }
 
         .searchBox__form:focus-within {
-          border-color: rgba(37, 99, 235, 0.45);
-          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+          border-color: rgba(247, 184, 78, 0.55);
+          box-shadow: 0 0 0 4px rgba(39, 227, 218, 0.25);
+          transform: translateY(-1px);
         }
 
         .searchBox__input {
@@ -613,7 +681,7 @@ export default function SearchPanel() {
           border: none;
           background: transparent;
           cursor: pointer;
-          color: #475569;
+          color: #0f172a;
           display: inline-flex;
           align-items: center;
           justify-content: center;
