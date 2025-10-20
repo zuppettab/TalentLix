@@ -1,7 +1,3 @@
-'use client';
-
-import Head from 'next/head';
-
 const styles = {
   container: {
     padding: '48px 24px',
@@ -32,18 +28,13 @@ const styles = {
 
 export default function SearchPanel() {
   return (
-    <>
-      <Head>
-        <title>TalentLix Operator — Search</title>
-      </Head>
-      <section style={styles.container}>
-        <div style={styles.panel}>
-          <h1 style={styles.title}>Search is being revamped</h1>
-          <p style={styles.subtitle}>
-            We&apos;re working on a brand new experience. Please check back soon to discover the updated search tools.
-          </p>
-        </div>
-      </section>
-    </>
+    <section style={styles.container}>
+      <div style={styles.panel}>
+        <h1 style={styles.title}>Search is being revamped</h1>
+        <p style={styles.subtitle}>
+          We&apos;re working on a brand new experience. Please check back soon to discover the updated search tools.
+        </p>
+      </div>
+    </section>
   );
 }
