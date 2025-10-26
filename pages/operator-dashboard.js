@@ -26,6 +26,8 @@ const SECTION_COMPONENTS = {
   privacy: PrivacyConsentPanel,
 };
 
+const FUNCTIONAL_SECTIONS = new Set(['wallet', 'search', 'messages']);
+
 function useIsMobile(breakpointPx = 720) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -562,6 +564,7 @@ export default function OperatorDashboard() {
                     ...styles.navBtn,
                     ...(status === 'complete' ? styles.navBtnComplete : null),
                     ...(status === 'incomplete' ? styles.navBtnIncomplete : null),
+                    ...(FUNCTIONAL_SECTIONS.has(section.id) ? styles.navBtnFunctional : null),
                     ...(current === section.id ? styles.navBtnActive : null),
                   }}
                 >
@@ -659,6 +662,7 @@ function MobileOperatorTabs({ sections, current, onSelect, statusMap }) {
                 ...styles.mobileTabBtn,
                 ...(status === 'complete' ? styles.mobileTabBtnComplete : null),
                 ...(status === 'incomplete' ? styles.mobileTabBtnIncomplete : null),
+                ...(FUNCTIONAL_SECTIONS.has(section.id) ? styles.mobileTabBtnFunctional : null),
                 ...(current === section.id ? styles.mobileTabBtnActive : null),
               }}
             >
@@ -732,6 +736,7 @@ const styles = {
   },
   navBtnComplete: { borderColor: '#1E88E5', background: '#E3F2FD', color: '#0B3D91' },
   navBtnIncomplete: { borderColor: '#FB8C00', background: '#FFF4E5', color: '#7C3A00' },
+  navBtnFunctional: { borderColor: '#8E24AA', background: '#F3E5F5', color: '#4A148C' },
   navBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.25)', color: '#027373' },
   panel: {
     background: '#FFFFFF',
@@ -797,6 +802,7 @@ const styles = {
   },
   mobileTabBtnComplete: { borderColor: '#1E88E5', background: '#E3F2FD', color: '#0B3D91' },
   mobileTabBtnIncomplete: { borderColor: '#FB8C00', background: '#FFF4E5', color: '#7C3A00' },
+  mobileTabBtnFunctional: { borderColor: '#8E24AA', background: '#F3E5F5', color: '#4A148C' },
   mobileTabBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.2)', color: '#027373' },
   nudgeBtn: {
     position: 'absolute',
