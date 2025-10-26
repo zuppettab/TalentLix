@@ -8,57 +8,39 @@ import { supabase } from '../../utils/supabaseClient';
 import countries from '../../utils/countries';
 import sports from '../../utils/sports';
 
-// --- Contract status: allineati a SportInfoPanel ---
+/* -------------------- Costanti -------------------- */
 const CONTRACT_STATUS = [
   { value: 'free_agent',     label: 'Free agent' },
   { value: 'under_contract', label: 'Under contract' },
   { value: 'on_loan',        label: 'On loan' },
 ];
 
-// --- Helpers: date/age ---
-const toISO = (d) => d.toISOString().slice(0, 10);
-const addYears = (date, years) => {
-  const d = new Date(date);
-  d.setFullYear(d.getFullYear() + years);
-  return d;
-};
-const dobBoundsForAgeEq = (age) => {
-  const today = new Date();
-  const maxDOB = addYears(today, -age);
-  const minDOB = new Date(addYears(today, -age - 1));
-  minDOB.setDate(minDOB.getDate() + 1);
-  return { min: toISO(minDOB), max: toISO(maxDOB) };
-};
-const dobBoundForAgeGte = (age) => toISO(addYears(new Date(), -age)); // DOB <= this
-const dobBoundForAgeLte = (age) => { const min = addYears(new Date(), -age - 1); min.setDate(min.getDate() + 1); return toISO(min); };
+const pageSize = 12;
 
+/* -------------------- Helper date/età -------------------- */
+const toISO = (d) => d.toISOString().slice(0, 10);
+const addYears = (date, years) => { const d = new Date(date); d.setFullYear(d.getFullYear() + years); return d; };
+const dobBoundsForAgeEq  = (age) => { const today = new Date(); const maxDOB = addYears(today, -age); const minDOB = new Date(addYears(today, -age - 1)); minDOB.setDate(minDOB.getDate() + 1); return { min: toISO(minDOB), max: toISO(maxDOB) }; };
+const dobBoundForAgeGte  = (age) => toISO(addYears(new Date(), -age));           // DOB <= this
+const dobBoundForAgeLte  = (age) => { const min = addYears(new Date(), -age - 1); min.setDate(min.getDate() + 1); return toISO(min); }; // DOB >= this
+
+/* -------------------- Helper pattern sport -------------------- */
 const buildSportPattern = (value) => {
   const normalized = String(value || '').trim();
   if (!normalized) return '';
   const escaped = normalized.replace(/[%_]/g, '\\$&');
-  return `%${escaped}%`;
+  return `%${escaped}%`; // ILIKE + wildcard
 };
 
-// --- Debounce ---
+/* -------------------- Debounce -------------------- */
 function useDebouncedEffect(fn, deps, delay = 250) {
-  useEffect(() => {
-    const id = setTimeout(() => fn?.(), delay);
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  useEffect(() => { const id = setTimeout(() => fn?.(), delay); return () => clearTimeout(id); /* eslint-disable-next-line */ }, deps);
 }
 
-// --- Styles coerenti (minimal/sobrio) ---
+/* -------------------- Stili (come i tuoi) -------------------- */
 const styles = {
   page: { minHeight: '100vh', padding: 'clamp(2rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem)', background: 'radial-gradient(circle at top left, rgba(39, 227, 218, 0.35), transparent 55%), radial-gradient(circle at bottom right, rgba(247, 184, 78, 0.3), transparent 50%), #f8fafc', color: '#0f172a' },
-  stageCard: {
-    background: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(39,227,218,0.12))',
-    border: '1px solid rgba(39,227,218,0.22)',
-    borderRadius: 28,
-    padding: 'clamp(1.75rem, 4vw, 2.5rem)',
-    boxShadow: '0 35px 90px -60px rgba(15,23,42,0.45)',
-    maxWidth: 1180, margin: '0 auto',
-  },
+  stageCard: { background: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(39,227,218,0.12))', border: '1px solid rgba(39,227,218,0.22)', borderRadius: 28, padding: 'clamp(1.75rem, 4vw, 2.5rem)', boxShadow: '0 35px 90px -60px rgba(15,23,42,0.45)', maxWidth: 1180, margin: '0 auto' },
   bigLabel: { fontSize: 'clamp(2rem, 4vw, 2.65rem)', fontWeight: 700, margin: 0, lineHeight: 1.1, letterSpacing: '-0.02em', color: '#0f172a' },
   sub: { margin: '.5rem 0 1rem', color: '#0f172a', fontWeight: 500, fontSize: '1rem', maxWidth: 360 },
   row: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
@@ -87,31 +69,31 @@ const styles = {
   '@media (max-width: 1080px)': { layout: { gridTemplateColumns: '1fr' }, filters: { position: 'relative', top: 0 } },
 };
 
+/* ========================================================= */
+
 export default function SearchPanel() {
-  // ---------------- Stage ----------------
+  /* -------- Stage -------- */
   const [stage, setStage] = useState('select'); // 'select' | 'search'
   const [sport, setSport] = useState(null);     // { value, label }
   const [checking, setChecking] = useState(false);
   const [noData, setNoData] = useState('');
 
-  // ---------------- Filters ----------------
-  const [gender, setGender] = useState(null);       // 'M' | 'F' | null
-  const [roles, setRoles] = useState([]);           // array di {value,label}
-  const [nats, setNats] = useState([]);             // array di {value,label}
-  const [ageMode, setAgeMode] = useState(null);     // 'eq' | 'gte' | 'lte' | null
+  /* -------- Filtri -------- */
+  const [gender, setGender] = useState(null);
+  const [roles, setRoles] = useState([]);     // array di {value,label}
+  const [nats, setNats] = useState([]);       // array di {value,label}
+  const [ageMode, setAgeMode] = useState(null);  // 'eq' | 'gte' | 'lte' | null
   const [ageValue, setAgeValue] = useState('');
   const [seeking, setSeeking] = useState(false);
   const [represented, setRepresented] = useState(false);
   const [contractStatuses, setContractStatuses] = useState([]); // array di string
 
-  // ---------------- Results / pagination ----------------
+  /* -------- Risultati/paginazione -------- */
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const pageSize = 12;
 
-  // Reset filtri
   const resetFilters = () => {
     setGender(null); setRoles([]); setNats([]);
     setAgeMode(null); setAgeValue('');
@@ -119,26 +101,26 @@ export default function SearchPanel() {
     setContractStatuses([]); setPage(1);
   };
 
-  const backToSport = () => {
-    resetFilters();
-    setNoData('');
-    setStage('select');
-  };
+  const backToSport = () => { resetFilters(); setNoData(''); setStage('select'); };
 
-  // ---------------- Stage 1: check esistenza atleti pubblicati per sport (case-insensitive) ----------------
+  /* -------- Stage 1: pre-check esistenza --------
+     Regola: interrogo sports_experiences e faccio join su athlete!inner,
+     filtro exp.sport e athlete.profile_published; prendo 1 riga. */
   const onContinue = async () => {
     setNoData('');
     if (!sport?.value) return;
     const pattern = buildSportPattern(sport.value);
     if (!pattern) return;
+
     try {
       setChecking(true);
       const { data, error } = await supabase
-        .from('athlete')
-        .select('id, sports_experiences!inner(id)')
-        .eq('profile_published', true)                      // SOLO profili pubblicati
-        .filter('sports_experiences.sport', 'ilike', pattern)        // case-insensitive + partial match to absorb minor variations
+        .from('sports_experiences')
+        .select('id, athlete!inner(id, profile_published)')
+        .eq('athlete.profile_published', true)
+        .ilike('sport', pattern)
         .limit(1);
+
       if (error) throw error;
       if (!data || data.length === 0) {
         setNoData(`No published athletes found for ${sport.label}.`);
@@ -152,12 +134,12 @@ export default function SearchPanel() {
     }
   };
 
-  // ---------------- Role suggestions (solo per sport selezionato + profilo pubblicato) ----------------
+  /* -------- Suggerimenti "Role" dinamici -------- */
   const loadRoleOptions = async (inputValue) => {
     if (!sport?.value) return [];
     const pattern = buildSportPattern(sport.value);
-    if (!pattern) return [];
     const like = (inputValue || '').trim();
+
     try {
       let q = supabase
         .from('sports_experiences')
@@ -166,9 +148,11 @@ export default function SearchPanel() {
         .ilike('sport', pattern)
         .order('role', { ascending: true })
         .limit(200);
-      if (like) q = q.ilike('role', `%${like}%`);
+
+      if (like) q = q.ilike('role', `%${like.replace(/[%_]/g, '\\$&')}%`);
       const { data, error } = await q;
       if (error) return [];
+
       const uniq = Array.from(new Set((data || []).map(r => (r?.role || '').trim()).filter(Boolean)));
       return uniq.map(r => ({ value: r, label: r }));
     } catch {
@@ -176,55 +160,48 @@ export default function SearchPanel() {
     }
   };
 
-  // ---------------- Query risultati (Stage 2) ----------------
+  /* -------- Stage 2: query risultati --------
+     Base: athlete; join: exp:sports_experiences!inner
+     IMPORTANTISSIMO: filtri annidati SEMPRE sull'alias `exp`      */
   const fetchPage = async () => {
     if (!sport?.value) return;
     const pattern = buildSportPattern(sport.value);
     if (!pattern) return;
+
     setLoading(true);
     setNoData('');
+
     try {
       let q = supabase
         .from('athlete')
         .select(`
           id, first_name, last_name, gender, nationality, date_of_birth, profile_picture_url, profile_published,
-          experiences:sports_experiences!inner(
+          exp:sports_experiences!inner(
             sport, role, category, seeking_team, is_represented, contract_status, preferred_regions
           )
         `, { count: 'exact' })
         .eq('profile_published', true)
-        .filter('sports_experiences.sport', 'ilike', pattern); // case-insensitive sullo sport
+        .filter('exp.sport', 'ilike', pattern);   // filtro sempre sull'alias
 
-      // Gender
+      // filtri su ATLETA
       if (gender) q = q.eq('gender', gender);
-
-      // Nationality (OR)
       if (nats.length > 0) q = q.in('nationality', nats.map(n => n.value));
 
-      // Role (OR)
-      if (roles.length > 0) q = q.in('sports_experiences.role', roles.map(o => o.value || o));
+      // filtri su sports_experiences (alias exp)
+      if (roles.length > 0) q = q.in('exp.role', roles.map(o => o.value || o));
+      if (seeking) q = q.eq('exp.seeking_team', true);
+      if (represented) q = q.eq('exp.is_represented', true);
+      if (contractStatuses.length > 0) q = q.in('exp.contract_status', contractStatuses);
 
-      // Seeking / Represented
-      if (seeking) q = q.eq('sports_experiences.seeking_team', true);
-      if (represented) q = q.eq('sports_experiences.is_represented', true);
-
-      // Contract status (OR)
-      if (contractStatuses.length > 0) q = q.in('sports_experiences.contract_status', contractStatuses);
-
-      // Age
+      // filtro età -> su athlete.date_of_birth
       const n = parseInt(String(ageValue || '').trim(), 10);
       if (!Number.isNaN(n) && n >= 0 && ageMode) {
-        if (ageMode === 'eq') {
-          const { min, max } = dobBoundsForAgeEq(n);
-          q = q.gte('date_of_birth', min).lte('date_of_birth', max);
-        } else if (ageMode === 'gte') {
-          q = q.lte('date_of_birth', dobBoundForAgeGte(n));
-        } else if (ageMode === 'lte') {
-          q = q.gte('date_of_birth', dobBoundForAgeLte(n));
-        }
+        if (ageMode === 'eq') { const { min, max } = dobBoundsForAgeEq(n); q = q.gte('date_of_birth', min).lte('date_of_birth', max); }
+        else if (ageMode === 'gte') { q = q.lte('date_of_birth', dobBoundForAgeGte(n)); }
+        else if (ageMode === 'lte') { q = q.gte('date_of_birth', dobBoundForAgeLte(n)); }
       }
 
-      // Ordine + paginazione
+      // ordinamento + paginazione
       q = q.order('last_name', { ascending: true });
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -235,30 +212,24 @@ export default function SearchPanel() {
 
       setRows(data || []);
       setTotal(count || 0);
-      if ((count || 0) === 0) {
-        setNoData('No matches for the selected filters.');
-      }
+      if ((count || 0) === 0) setNoData('No matches for the selected filters.');
     } catch (e) {
-      setRows([]);
-      setTotal(0);
+      setRows([]); setTotal(0);
       setNoData(`Search error: ${e.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Re-query su filtri (debounced)
-  useDebouncedEffect(() => {
-    if (stage === 'search') {
-      setPage(1);
-      fetchPage();
-    }
-  }, [stage, sport?.value, gender, JSON.stringify(roles), JSON.stringify(nats), ageMode, ageValue, seeking, represented, JSON.stringify(contractStatuses)]);
+  // Debounced refetch: quando cambiano filtri e sport, riparti da pagina 1
+  useDebouncedEffect(() => { if (stage === 'search') { setPage(1); fetchPage(); } },
+    [stage, sport?.value, gender, JSON.stringify(roles), JSON.stringify(nats), ageMode, ageValue, seeking, represented, JSON.stringify(contractStatuses)]
+  );
 
-  // Fetch su cambio pagina (no debounce)
+  // Cambio pagina
   useEffect(() => { if (stage === 'search') fetchPage(); /* eslint-disable-next-line */ }, [page]);
 
-  // ---------------- Render ----------------
+  /* -------------------- Render -------------------- */
   if (stage === 'select') {
     return (
       <>
@@ -299,7 +270,7 @@ export default function SearchPanel() {
     );
   }
 
-  // Stage 2: motore di ricerca
+  // Stage 2
   return (
     <>
       <Head>
@@ -338,10 +309,7 @@ export default function SearchPanel() {
                   value={roles}
                   onChange={(opts) => setRoles(Array.isArray(opts) ? opts : [])}
                   placeholder="Type to search roles"
-                  styles={{
-                    control: (b, s) => ({ ...b, minHeight: 42, borderRadius: 10, boxShadow: 'none', borderColor: s.isFocused ? '#BDBDBD' : '#E0E0E0' }),
-                    menu: (b) => ({ ...b, zIndex: 20 })
-                  }}
+                  styles={{ control: (b, s) => ({ ...b, minHeight: 42, borderRadius: 10, boxShadow: 'none', borderColor: s.isFocused ? '#BDBDBD' : '#E0E0E0' }), menu: (b) => ({ ...b, zIndex: 20 }) }}
                 />
               </div>
 
@@ -353,10 +321,7 @@ export default function SearchPanel() {
                   value={nats}
                   onChange={(opts) => setNats(Array.isArray(opts) ? opts : [])}
                   placeholder="Start typing a country"
-                  styles={{
-                    control: (b, s) => ({ ...b, minHeight: 42, borderRadius: 10, boxShadow: 'none', borderColor: s.isFocused ? '#BDBDBD' : '#E0E0E0' }),
-                    menu: (b) => ({ ...b, zIndex: 20 })
-                  }}
+                  styles={{ control: (b, s) => ({ ...b, minHeight: 42, borderRadius: 10, boxShadow: 'none', borderColor: s.isFocused ? '#BDBDBD' : '#E0E0E0' }), menu: (b) => ({ ...b, zIndex: 20 }) }}
                 />
               </div>
 
@@ -387,9 +352,9 @@ export default function SearchPanel() {
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={(e) => {
-                            setContractStatuses(prev => e.target.checked ? [...prev, cs.value] : prev.filter(v => v !== cs.value));
-                          }}
+                          onChange={(e) =>
+                            setContractStatuses(prev => e.target.checked ? [...prev, cs.value] : prev.filter(v => v !== cs.value))
+                          }
                         /> {cs.label}
                       </label>
                     );
@@ -414,7 +379,7 @@ export default function SearchPanel() {
 
             <section style={styles.grid}>
               {rows.map((ath) => {
-                const exp = Array.isArray(ath.experiences) ? ath.experiences[0] : null;
+                const exp = Array.isArray(ath.exp) ? ath.exp[0] : null;
                 const age = (() => {
                   if (!ath.date_of_birth) return null;
                   const dob = new Date(ath.date_of_birth); const now = new Date();
@@ -423,6 +388,7 @@ export default function SearchPanel() {
                   if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) a--;
                   return a;
                 })();
+
                 return (
                   <article key={ath.id} style={styles.card}>
                     <header>
@@ -444,14 +410,17 @@ export default function SearchPanel() {
                     <footer style={styles.tagRow}>
                       {exp?.seeking_team && <span style={styles.tag}>Seeking team</span>}
                       {exp?.is_represented && <span style={styles.tag}>Agent</span>}
-                      {exp?.contract_status && <span style={styles.tag}>{CONTRACT_STATUS.find(x => x.value === exp.contract_status)?.label || exp.contract_status}</span>}
+                      {exp?.contract_status && (
+                        <span style={styles.tag}>
+                          {CONTRACT_STATUS.find(x => x.value === exp.contract_status)?.label || exp.contract_status}
+                        </span>
+                      )}
                     </footer>
                   </article>
                 );
               })}
             </section>
 
-            {/* Paginazione */}
             {total > pageSize && (
               <nav style={styles.pager} aria-label="Pagination">
                 <button type="button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
