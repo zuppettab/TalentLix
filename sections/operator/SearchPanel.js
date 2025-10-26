@@ -133,13 +133,14 @@ export default function SearchPanel() {
     if (!pattern) return;
     try {
       setChecking(true);
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from('athlete')
-        .select('id, sports_experiences!inner(id)', { count: 'exact', head: true })
+        .select('id, sports_experiences!inner(id)')
         .eq('profile_published', true)                      // SOLO profili pubblicati
-        .ilike('sports_experiences.sport', pattern);        // case-insensitive + partial match to absorb minor variations
+        .filter('sports_experiences.sport', 'ilike', pattern)        // case-insensitive + partial match to absorb minor variations
+        .limit(1);
       if (error) throw error;
-      if ((count || 0) < 1) {
+      if (!data || data.length === 0) {
         setNoData(`No published athletes found for ${sport.label}.`);
         return;
       }
