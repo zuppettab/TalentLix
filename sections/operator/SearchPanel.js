@@ -7,6 +7,7 @@ import AsyncSelect from 'react-select/async';
 import { supabase } from '../../utils/supabaseClient';
 import countries from '../../utils/countries';
 import sports from '../../utils/sports';
+import { flagFromCountry } from '../../utils/flags';
 
 /* -------------------- Costanti -------------------- */
 const CONTRACT_STATUS = [
@@ -39,8 +40,8 @@ function useDebouncedEffect(fn, deps, delay = 250) {
 
 /* -------------------- Stili (come i tuoi) -------------------- */
 const styles = {
-  page: { minHeight: '100vh', padding: 'clamp(2rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem)', background: 'radial-gradient(circle at top left, rgba(39, 227, 218, 0.35), transparent 55%), radial-gradient(circle at bottom right, rgba(247, 184, 78, 0.3), transparent 50%), #f8fafc', color: '#0f172a' },
-  stageCard: { background: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(39,227,218,0.12))', border: '1px solid rgba(39,227,218,0.22)', borderRadius: 28, padding: 'clamp(1.75rem, 4vw, 2.5rem)', boxShadow: '0 35px 90px -60px rgba(15,23,42,0.45)', maxWidth: 1180, margin: '0 auto' },
+  page: { minHeight: '100vh', padding: 'clamp(2rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem)', background: 'radial-gradient(circle at top left, rgba(39, 227, 218, 0.35), transparent 55%), radial-gradient(circle at bottom right, rgba(247, 184, 78, 0.35), transparent 50%), #f8fafc', color: '#0f172a' },
+  stageCard: { background: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(39,227,218,0.18))', border: '1px solid rgba(39,227,218,0.25)', borderRadius: 28, padding: 'clamp(1.75rem, 4vw, 2.5rem)', boxShadow: '0 35px 90px -60px rgba(15,23,42,0.45)', maxWidth: 1180, margin: '0 auto' },
   bigLabel: { fontSize: 'clamp(2rem, 4vw, 2.65rem)', fontWeight: 700, margin: 0, lineHeight: 1.1, letterSpacing: '-0.02em', color: '#0f172a' },
   sub: { margin: '.5rem 0 1rem', color: '#0f172a', fontWeight: 500, fontSize: '1rem', maxWidth: 360 },
   row: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
@@ -49,20 +50,37 @@ const styles = {
   warn: { color: '#b45309', background: 'rgba(250,204,21,0.15)', border: '1px solid rgba(250,204,21,0.35)', padding: 10, borderRadius: 10 },
   layout: { display: 'grid', gap: 'clamp(1.5rem, 4vw, 2.75rem)', gridTemplateColumns: 'minmax(260px, 320px) minmax(0, 1fr)', maxWidth: 1180, margin: '0 auto' },
   filters: { display: 'grid', gap: 16, position: 'sticky', top: 16, alignSelf: 'start' },
-  filterCard: { background: 'linear-gradient(135deg, rgba(255,255,255,0.98), rgba(39,227,218,0.12))', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 20, padding: '1.35rem', boxShadow: '0 28px 60px -44px rgba(15,23,42,0.35)', display: 'grid', gap: 12, backdropFilter: 'blur(18px)' },
+  filterCard: { background: 'linear-gradient(135deg, rgba(255,255,255,0.98), rgba(39,227,218,0.16))', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 20, padding: '1.35rem', boxShadow: '0 28px 60px -44px rgba(15,23,42,0.35)', display: 'grid', gap: 12, backdropFilter: 'blur(18px)' },
   h2: { margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' },
   h3: { margin: 0, fontSize: '.95rem', color: '#475569', fontWeight: 600 },
   radioRow: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
   results: { display: 'grid', gap: 16, minWidth: 0 },
   resultsHeader: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' },
   meta: { fontWeight: 600, color: '#0f172a' },
-  grid: { display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))' },
-  card: { background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 16, padding: 14, display: 'grid', gap: 10, boxShadow: '0 20px 54px -32px rgba(15,23,42,0.25)' },
-  name: { margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' },
-  small: { margin: 0, color: '#475569', fontSize: '.92rem' },
-  factGrid: { display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' },
-  tagRow: { display: 'flex', flexWrap: 'wrap', gap: 6 },
-  tag: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderRadius: 999, background: 'rgba(148,163,184,.18)', color: '#0f172a', fontWeight: 700, fontSize: '.78rem' },
+  grid: { display: 'grid', gap: 18, gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))' },
+  card: { position: 'relative', borderRadius: 22, padding: 2, background: 'linear-gradient(140deg, rgba(39,227,218,0.35), rgba(247,184,78,0.35))', boxShadow: '0 24px 60px -30px rgba(15,23,42,0.35)' },
+  cardInner: { background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: '1.25rem', display: 'grid', gap: 14, minHeight: '100%' },
+  cardHeader: { display: 'flex', alignItems: 'center', gap: 14 },
+  flagBubble: { width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(39,227,218,0.2), rgba(15,23,42,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, boxShadow: '0 12px 24px -18px rgba(15,23,42,0.6)' },
+  nameWrap: { display: 'grid', gap: 4, flex: 1, minWidth: 0 },
+  nameRow: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
+  name: { margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em' },
+  categoryBadge: { marginLeft: 'auto', background: 'rgba(15,23,42,0.08)', color: '#0f172a', borderRadius: 999, padding: '4px 10px', fontSize: '.75rem', fontWeight: 700 },
+  small: { margin: 0, color: '#475569', fontSize: '.9rem' },
+  badgeRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  badge: { padding: '4px 10px', borderRadius: 999, fontSize: '.78rem', fontWeight: 700, background: 'rgba(39,227,218,0.15)', color: '#0f172a' },
+  badgeSecondary: { background: 'rgba(15,23,42,0.06)' },
+  metaGrid: { display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' },
+  metaItem: { background: 'rgba(15,23,42,0.04)', borderRadius: 12, padding: '10px 12px', fontSize: '.85rem', color: '#0f172a', display: 'grid', gap: 4 },
+  metaLabel: { fontSize: '.72rem', letterSpacing: '.08em', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 },
+  section: { display: 'grid', gap: 8 },
+  chipRow: { display: 'flex', flexWrap: 'wrap', gap: 6 },
+  chip: { padding: '4px 9px', borderRadius: 999, fontSize: '.75rem', fontWeight: 600, background: 'rgba(247,184,78,0.2)', color: '#0f172a' },
+  tagRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  tag: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, fontSize: '.75rem', fontWeight: 700, letterSpacing: '.02em', background: 'linear-gradient(120deg, rgba(39,227,218,0.25), rgba(247,184,78,0.25))', color: '#0f172a' },
+  tagSeeking: { background: 'linear-gradient(120deg, rgba(39,227,218,0.35), rgba(56,189,248,0.35))' },
+  tagAgent: { background: 'linear-gradient(120deg, rgba(109,40,217,0.25), rgba(14,165,233,0.25))', color: '#1e293b' },
+  tagContract: { background: 'linear-gradient(120deg, rgba(247,184,78,0.35), rgba(244,114,182,0.2))' },
   pager: { display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', marginTop: 8, flexWrap: 'wrap' },
   pageBtn: { border: '1px solid #CBD5E1', background: '#fff', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
   disabled: { opacity: .4, cursor: 'not-allowed' },
@@ -388,34 +406,81 @@ export default function SearchPanel() {
                   if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) a--;
                   return a;
                 })();
+                const natFlag = flagFromCountry(ath.nationality) || '🌍';
+                const regions = Array.isArray(exp?.preferred_regions) ? exp.preferred_regions.filter(Boolean) : [];
 
                 return (
                   <article key={ath.id} style={styles.card}>
-                    <header>
-                      <h3 style={styles.name}>{ath.first_name} {ath.last_name}</h3>
-                      <p style={styles.small}>
-                        {exp?.role ? `${exp.role}` : '-'} • {sport?.label}
-                        {ath.gender ? ` • ${ath.gender === 'M' ? 'Male' : 'Female'}` : ''}
-                        {typeof age === 'number' ? ` • ${age} y` : ''}
-                      </p>
-                    </header>
-                    <div style={styles.factGrid}>
-                      <div><strong>Nationality:</strong><br />{ath.nationality || '-'}</div>
-                      <div><strong>Category:</strong><br />{exp?.category || '-'}</div>
-                      <div style={{ gridColumn: '1 / -1' }}>
-                        <strong>Preferred regions:</strong><br />
-                        {Array.isArray(exp?.preferred_regions) && exp.preferred_regions.length > 0 ? exp.preferred_regions.join(', ') : '-'}
+                    <div style={styles.cardInner}>
+                      <header style={styles.cardHeader}>
+                        <div style={styles.flagBubble} aria-hidden="true">{natFlag}</div>
+                        <div style={styles.nameWrap}>
+                          <div style={styles.nameRow}>
+                            <h3 style={styles.name}>{ath.first_name} {ath.last_name}</h3>
+                            {(exp?.category || '').trim() && (
+                              <span style={styles.categoryBadge}>{exp.category}</span>
+                            )}
+                          </div>
+                          <p style={styles.small}>
+                            {exp?.role ? `${exp.role}` : 'Role —'} • {sport?.label}
+                            {ath.gender ? ` • ${ath.gender === 'M' ? 'Male' : 'Female'}` : ''}
+                            {typeof age === 'number' ? ` • ${age} y` : ''}
+                          </p>
+                        </div>
+                      </header>
+
+                      <div style={styles.badgeRow}>
+                        <span style={styles.badge}>{ath.nationality || 'Nationality —'}</span>
+                        {exp?.preferred_regions?.length ? <span style={{ ...styles.badge, ...styles.badgeSecondary }}>Preferred regions</span> : null}
+                        {exp?.contract_status && (
+                          <span style={{ ...styles.badge, ...styles.badgeSecondary }}>
+                            {CONTRACT_STATUS.find(x => x.value === exp.contract_status)?.label || exp.contract_status}
+                          </span>
+                        )}
                       </div>
+
+                      <div style={styles.metaGrid}>
+                        <div style={styles.metaItem}>
+                          <span style={styles.metaLabel}>Nationality</span>
+                          <span>{ath.nationality || '—'}</span>
+                        </div>
+                        <div style={styles.metaItem}>
+                          <span style={styles.metaLabel}>Category</span>
+                          <span>{exp?.category || '—'}</span>
+                        </div>
+                        <div style={styles.metaItem}>
+                          <span style={styles.metaLabel}>Seeking</span>
+                          <span>{exp ? (exp.seeking_team ? 'Actively looking for a team' : 'Not seeking') : '—'}</span>
+                        </div>
+                        <div style={styles.metaItem}>
+                          <span style={styles.metaLabel}>Representation</span>
+                          <span>{exp ? (exp.is_represented ? 'Represented by an agent' : 'No agent listed') : '—'}</span>
+                        </div>
+                      </div>
+
+                      <div style={styles.section}>
+                        <span style={styles.metaLabel}>Preferred regions</span>
+                        {regions.length > 0 ? (
+                          <div style={styles.chipRow}>
+                            {regions.map((region) => (
+                              <span key={region} style={styles.chip}>{region}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={styles.small}>—</span>
+                        )}
+                      </div>
+
+                      <footer style={styles.tagRow}>
+                        {exp?.seeking_team && <span style={{ ...styles.tag, ...styles.tagSeeking }}>Seeking team</span>}
+                        {exp?.is_represented && <span style={{ ...styles.tag, ...styles.tagAgent }}>Agent</span>}
+                        {exp?.contract_status && (
+                          <span style={{ ...styles.tag, ...styles.tagContract }}>
+                            {CONTRACT_STATUS.find(x => x.value === exp.contract_status)?.label || exp.contract_status}
+                          </span>
+                        )}
+                      </footer>
                     </div>
-                    <footer style={styles.tagRow}>
-                      {exp?.seeking_team && <span style={styles.tag}>Seeking team</span>}
-                      {exp?.is_represented && <span style={styles.tag}>Agent</span>}
-                      {exp?.contract_status && (
-                        <span style={styles.tag}>
-                          {CONTRACT_STATUS.find(x => x.value === exp.contract_status)?.label || exp.contract_status}
-                        </span>
-                      )}
-                    </footer>
                   </article>
                 );
               })}

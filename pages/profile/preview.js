@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { supabase as sb } from '../../utils/supabaseClient';
+import { flagFromCountry } from '../../utils/flags';
 import {
   Play, Film, ChevronRight, ChevronDown, ExternalLink,
   Calendar, Award as AwardIcon, Medal, Phone, Mail, Globe, User,
@@ -53,7 +54,6 @@ const fmtDate = (iso) => { if (!iso) return '—'; try { return new Date(iso).to
 const fmtSeason = (start, end) => { const s=String(start||''); const e=String(end||''); return s && e ? `${s}/${(e.length===4?e.slice(2):e)}` : (s || '—'); }; // consistent with SeasonAccordionItem  :contentReference[oaicite:4]{index=4}
 const calcAge = (dob) => { if(!dob) return null; const [y,m,d]=String(dob).split('-').map(Number); const b=new Date(y,(m||1)-1,d||1); if(Number.isNaN(b)) return null; const n=new Date(); let a=n.getFullYear()-b.getFullYear(); const mo=n.getMonth()-b.getMonth(); if(mo<0||(mo===0&&n.getDate()<b.getDate())) a--; return a; };
 const initials = (name='') => (name.trim().split(/\s+/).map(s=>s[0]).slice(0,2).join('')||'A').toUpperCase();
-const flagFromCountry = (name='') => { const s=String(name).trim().toLowerCase(); const map={italy:'IT', italia:'IT', france:'FR', spain:'ES', germany:'DE', usa:'US', uk:'GB', romania:'RO', portugal:'PT', poland:'PL', greece:'GR'}; const code=/^[a-z]{2}$/.test(s)?s.toUpperCase():map[s]||''; if(!code) return ''; const A=0x1F1E6, base='A'.charCodeAt(0); return [...code].map(c=>String.fromCodePoint(A+(c.charCodeAt(0)-base))).join(''); };
 const ytId=(url)=>{try{const u=new URL(String(url)); if(u.hostname.includes('youtu.be')) return u.pathname.slice(1); if(u.hostname.includes('youtube.com')){ if(u.pathname==='/watch') return u.searchParams.get('v'); if(u.pathname.startsWith('/shorts/')) return u.pathname.split('/')[2]; }}catch{} return null;};
 const vmId=(url)=>{const m=String(url||'').match(/vimeo\.com\/(\d+)/i); return m?m[1]:null;};
 const embedUrl=(url)=> ytId(url)?`https://www.youtube.com/embed/${ytId(url)}?rel=0` : (vmId(url)?`https://player.vimeo.com/video/${vmId(url)}`:url);
