@@ -60,19 +60,20 @@ const styles = {
   grid: { display: 'grid', gap: 'clamp(2rem, 4vw, 3rem)', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))' },
   card: { position: 'relative', borderRadius: 22, padding: 2, background: 'linear-gradient(150deg, rgba(39,227,218,0.32), rgba(249,115,22,0.4))', boxShadow: '0 24px 60px -30px rgba(249,115,22,0.32)' },
   cardInner: { background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: '1.25rem', display: 'grid', gap: 14, minHeight: '100%' },
-  cardHeader: { display: 'flex', alignItems: 'center', gap: 14 },
-  flagBubble: { width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(39,227,218,0.2), rgba(15,23,42,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, boxShadow: '0 12px 24px -18px rgba(15,23,42,0.6)' },
+  cardHeader: { display: 'flex', alignItems: 'center', gap: 16 },
+  avatarWrap: { position: 'relative', width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', boxShadow: '0 12px 24px -18px rgba(15,23,42,0.6)', background: 'linear-gradient(135deg, rgba(39,227,218,0.25), rgba(15,23,42,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
+  avatarInitials: { fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' },
+  avatarFlag: { position: 'absolute', bottom: -2, right: -2, transform: 'translate(0, 0)', fontSize: 18, lineHeight: 1, filter: 'drop-shadow(0 4px 8px rgba(15,23,42,0.35))' },
   nameWrap: { display: 'grid', gap: 4, flex: 1, minWidth: 0 },
   nameRow: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
   name: { margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em' },
+  verifiedBadge: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 999, background: 'linear-gradient(120deg, rgba(34,197,94,0.2), rgba(22,163,74,0.32))', color: '#166534', fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em' },
   categoryBadge: { marginLeft: 'auto', background: 'rgba(15,23,42,0.08)', color: '#0f172a', borderRadius: 999, padding: '4px 10px', fontSize: '.75rem', fontWeight: 700 },
   small: { margin: 0, color: '#475569', fontSize: '.9rem' },
-  badgeRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  badge: { padding: '4px 10px', borderRadius: 999, fontSize: '.78rem', fontWeight: 700, background: 'linear-gradient(120deg, rgba(39,227,218,0.18), rgba(249,115,22,0.22))', color: '#0f172a' },
-  badgeSecondary: { background: 'rgba(15,23,42,0.06)' },
-  metaGrid: { display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' },
-  metaItem: { background: 'rgba(15,23,42,0.04)', borderRadius: 12, padding: '10px 12px', fontSize: '.85rem', color: '#0f172a', display: 'grid', gap: 4 },
-  metaLabel: { fontSize: '.72rem', letterSpacing: '.08em', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 },
+  metaGrid: { display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' },
+  metaItem: { background: 'linear-gradient(135deg, rgba(39,227,218,0.24), rgba(56,189,248,0.24))', borderRadius: 14, padding: '12px 14px', fontSize: '.9rem', color: '#0f172a', display: 'grid', gap: 6, boxShadow: '0 18px 32px -28px rgba(14,116,144,0.65)' },
+  metaLabel: { fontSize: '.72rem', letterSpacing: '.08em', textTransform: 'uppercase', color: '#0f172a', fontWeight: 700, opacity: 0.7 },
   section: { display: 'grid', gap: 8 },
   chipRow: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   chip: { padding: '4px 9px', borderRadius: 999, fontSize: '.75rem', fontWeight: 600, background: 'linear-gradient(120deg, rgba(247,184,78,0.24), rgba(249,115,22,0.24))', color: '#0f172a' },
@@ -80,7 +81,6 @@ const styles = {
   tag: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, fontSize: '.75rem', fontWeight: 700, letterSpacing: '.02em', background: 'linear-gradient(120deg, rgba(39,227,218,0.25), rgba(247,184,78,0.25))', color: '#0f172a' },
   tagSeeking: { background: 'linear-gradient(120deg, rgba(39,227,218,0.35), rgba(56,189,248,0.35))' },
   tagAgent: { background: 'linear-gradient(120deg, rgba(109,40,217,0.25), rgba(14,165,233,0.25))', color: '#1e293b' },
-  tagContract: { background: 'linear-gradient(120deg, rgba(247,184,78,0.35), rgba(244,114,182,0.2))' },
   pager: { display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', marginTop: 'clamp(2.25rem, 5vw, 3.5rem)', flexWrap: 'wrap' },
   pageBtn: { border: '1px solid #CBD5E1', background: '#fff', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
   disabled: { opacity: .4, cursor: 'not-allowed' },
@@ -194,8 +194,9 @@ export default function SearchPanel() {
         .from('athlete')
         .select(`
           id, first_name, last_name, gender, nationality, date_of_birth, profile_picture_url, profile_published,
+          contacts:contacts_verification(id_verified, residence_city, residence_country),
           exp:sports_experiences!inner(
-            sport, role, category, seeking_team, is_represented, contract_status, preferred_regions
+            sport, role, team, category, seeking_team, is_represented, contract_status, preferred_regions
           )
         `, { count: 'exact' })
         .eq('profile_published', true)
@@ -400,6 +401,7 @@ export default function SearchPanel() {
             <section style={styles.grid}>
               {rows.map((ath) => {
                 const exp = Array.isArray(ath.exp) ? ath.exp[0] : null;
+                const contact = Array.isArray(ath.contacts) ? (ath.contacts[0] || null) : (ath.contacts || null);
                 const age = (() => {
                   if (!ath.date_of_birth) return null;
                   const dob = new Date(ath.date_of_birth); const now = new Date();
@@ -410,15 +412,51 @@ export default function SearchPanel() {
                 })();
                 const natFlag = flagFromCountry(ath.nationality) || '🌍';
                 const regions = Array.isArray(exp?.preferred_regions) ? exp.preferred_regions.filter(Boolean) : [];
+                const fullName = [ath.first_name, ath.last_name]
+                  .map((part) => (part ? String(part).trim() : ''))
+                  .filter(Boolean)
+                  .join(' ');
+                const initials = [ath.first_name, ath.last_name]
+                  .map((part) => (part ? String(part).trim()[0] : ''))
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase() || 'TL';
+                const residenceParts = [contact?.residence_city, contact?.residence_country].filter(Boolean);
+                const residence = residenceParts.length > 0 ? residenceParts.join(', ') : '—';
+                const contractLabel = exp?.contract_status
+                  ? (CONTRACT_STATUS.find((x) => x.value === exp.contract_status)?.label || exp.contract_status)
+                  : '—';
+                const metaItems = [
+                  { label: 'Nationality', value: ath.nationality || '—' },
+                  { label: 'Current team', value: exp?.team || '—' },
+                  { label: 'Residence', value: residence },
+                  { label: 'Contract status', value: contractLabel },
+                ];
+                const showTags = exp?.seeking_team || exp?.is_represented;
 
                 return (
                   <article key={ath.id} style={styles.card}>
                     <div style={styles.cardInner}>
                       <header style={styles.cardHeader}>
-                        <div style={styles.flagBubble} aria-hidden="true">{natFlag}</div>
+                        <div style={styles.avatarWrap}>
+                          {ath.profile_picture_url ? (
+                            <img
+                              src={ath.profile_picture_url}
+                              alt={(fullName || 'Athlete').trim() || 'Athlete avatar'}
+                              style={styles.avatarImg}
+                            />
+                          ) : (
+                            <span style={styles.avatarInitials} aria-hidden="true">{initials}</span>
+                          )}
+                          <span style={styles.avatarFlag} aria-hidden="true">{natFlag}</span>
+                        </div>
                         <div style={styles.nameWrap}>
                           <div style={styles.nameRow}>
-                            <h3 style={styles.name}>{ath.first_name} {ath.last_name}</h3>
+                            <h3 style={styles.name}>{fullName || `${ath.first_name || ''} ${ath.last_name || ''}`.trim() || '—'}</h3>
+                            {contact?.id_verified && (
+                              <span style={styles.verifiedBadge}>Verified</span>
+                            )}
                             {(exp?.category || '').trim() && (
                               <span style={styles.categoryBadge}>{exp.category}</span>
                             )}
@@ -431,33 +469,13 @@ export default function SearchPanel() {
                         </div>
                       </header>
 
-                      <div style={styles.badgeRow}>
-                        <span style={styles.badge}>{ath.nationality || 'Nationality —'}</span>
-                        {exp?.preferred_regions?.length ? <span style={{ ...styles.badge, ...styles.badgeSecondary }}>Preferred regions</span> : null}
-                        {exp?.contract_status && (
-                          <span style={{ ...styles.badge, ...styles.badgeSecondary }}>
-                            {CONTRACT_STATUS.find(x => x.value === exp.contract_status)?.label || exp.contract_status}
-                          </span>
-                        )}
-                      </div>
-
                       <div style={styles.metaGrid}>
-                        <div style={styles.metaItem}>
-                          <span style={styles.metaLabel}>Nationality</span>
-                          <span>{ath.nationality || '—'}</span>
-                        </div>
-                        <div style={styles.metaItem}>
-                          <span style={styles.metaLabel}>Category</span>
-                          <span>{exp?.category || '—'}</span>
-                        </div>
-                        <div style={styles.metaItem}>
-                          <span style={styles.metaLabel}>Seeking</span>
-                          <span>{exp ? (exp.seeking_team ? 'Actively looking for a team' : 'Not seeking') : '—'}</span>
-                        </div>
-                        <div style={styles.metaItem}>
-                          <span style={styles.metaLabel}>Representation</span>
-                          <span>{exp ? (exp.is_represented ? 'Represented by an agent' : 'No agent listed') : '—'}</span>
-                        </div>
+                        {metaItems.map((item) => (
+                          <div key={item.label} style={styles.metaItem}>
+                            <span style={styles.metaLabel}>{item.label}</span>
+                            <span>{item.value}</span>
+                          </div>
+                        ))}
                       </div>
 
                       <div style={styles.section}>
@@ -473,15 +491,12 @@ export default function SearchPanel() {
                         )}
                       </div>
 
-                      <footer style={styles.tagRow}>
-                        {exp?.seeking_team && <span style={{ ...styles.tag, ...styles.tagSeeking }}>Seeking team</span>}
-                        {exp?.is_represented && <span style={{ ...styles.tag, ...styles.tagAgent }}>Agent</span>}
-                        {exp?.contract_status && (
-                          <span style={{ ...styles.tag, ...styles.tagContract }}>
-                            {CONTRACT_STATUS.find(x => x.value === exp.contract_status)?.label || exp.contract_status}
-                          </span>
-                        )}
-                      </footer>
+                      {showTags && (
+                        <footer style={styles.tagRow}>
+                          {exp?.seeking_team && <span style={{ ...styles.tag, ...styles.tagSeeking }}>Seeking team</span>}
+                          {exp?.is_represented && <span style={{ ...styles.tag, ...styles.tagAgent }}>Agent</span>}
+                        </footer>
+                      )}
                     </div>
                   </article>
                 );
