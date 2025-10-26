@@ -170,12 +170,16 @@ export default function SupabaseAthleteSearchCard() {
   const onContinue = async () => {
     setNoData('');
     if (!sport?.value) return;
+    if (!supabase) {
+      setNoData('Supabase client not configured.');
+      return;
+    }
     try {
       setChecking(true);
       const { count, error } = await supabase
         .from('sports_experiences')
         .select('athlete_id', { count: 'exact', head: true })
-        .eq('sport', sport.value)
+        .ilike('sport', sport.value)
         .limit(1);
       if (error) throw error;
       if ((count || 0) < 1) {
@@ -209,7 +213,7 @@ export default function SupabaseAthleteSearchCard() {
 
   // --- Query (Stage 2) ---
   const fetchPage = async () => {
-    if (!sport?.value) return;
+    if (!sport?.value || !supabase) return;
     setLoading(true);
     setNoData('');
     try {
@@ -221,7 +225,7 @@ export default function SupabaseAthleteSearchCard() {
             sport, role, category, seeking_team, is_represented, contract_status, preferred_regions
           )
         `, { count: 'exact' })
-        .eq('sports_experiences.sport', sport.value);
+        .ilike('sports_experiences.sport', sport.value);
 
       // Gender
       if (gender) q = q.eq('gender', gender);
