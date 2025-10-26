@@ -495,6 +495,7 @@ export default function SearchPanel() {
                 })();
                 const natFlag = flagFromCountry(ath.nationality) || '🌍';
                 const regions = Array.isArray(exp?.preferred_regions) ? exp.preferred_regions.filter(Boolean) : [];
+                const formattedRegions = regions.slice(0, 3).join(', ');
                 const fullName = [ath.first_name, ath.last_name]
                   .map((part) => (part ? String(part).trim() : ''))
                   .filter(Boolean)
@@ -562,9 +563,12 @@ export default function SearchPanel() {
                       </div>
 
                       <div style={styles.section}>
-                        <span style={styles.metaLabel}>Preferred regions</span>
-                        <span style={styles.small}>
-                          {regions.length > 0 ? regions.join(', ') : '—'}
+                        <span style={styles.metaLabel}>
+                          Preferred regions:
+                          {' '}
+                          <span style={{ fontWeight: 700, letterSpacing: 'normal', textTransform: 'none' }}>
+                            {regions.length > 0 ? formattedRegions : '—'}
+                          </span>
                         </span>
                       </div>
 
