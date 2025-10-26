@@ -286,7 +286,8 @@ export default function SearchPanel() {
         .from('athlete')
         .select(`
           id, first_name, last_name, gender, nationality, date_of_birth, profile_picture_url, profile_published,
-          contacts_verification(id_verified, residence_city, residence_country),
+          residence_city, residence_country,
+          contacts_verification!left(id_verified, residence_city, residence_country),
           exp:sports_experiences!inner(
             sport, role, team, category, seeking_team, is_represented, contract_status, preferred_regions
           )
@@ -502,8 +503,8 @@ export default function SearchPanel() {
                 const contactsRecord = Array.isArray(ath.contacts_verification)
                   ? (ath.contacts_verification[0] || null)
                   : (ath.contacts_verification || null);
-                const residenceCity = contactsRecord?.residence_city || '';
-                const residenceCountry = contactsRecord?.residence_country || '';
+                const residenceCity = contactsRecord?.residence_city || ath.residence_city || '';
+                const residenceCountry = contactsRecord?.residence_country || ath.residence_country || '';
                 const age = (() => {
                   if (!ath.date_of_birth) return null;
                   const dob = new Date(ath.date_of_birth); const now = new Date();
