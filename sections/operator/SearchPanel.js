@@ -60,7 +60,12 @@ const styles = {
   h3: { margin: 0, fontSize: '.95rem', color: '#475569', fontWeight: 600 },
   radioRow: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
   results: { display: 'grid', gap: 16, minWidth: 0 },
-  grid: { display: 'grid', gap: 'clamp(2rem, 4vw, 3rem)', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))' },
+  grid: {
+    display: 'grid',
+    gap: 'clamp(2rem, 4vw, 3rem)',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))',
+    justifyItems: 'center',
+  },
   card: {
     position: 'relative',
     borderRadius: 22,
@@ -68,6 +73,8 @@ const styles = {
     border: '1px solid rgba(15,23,42,0.06)',
     background: '#fff',
     boxShadow: '0 22px 45px -28px rgba(15,23,42,0.32)',
+    width: '100%',
+    maxWidth: 360,
   },
   cardInner: {
     background: '#fff',
