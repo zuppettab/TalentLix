@@ -90,6 +90,76 @@ const styles = {
   '@media (max-width: 1080px)': { layout: { gridTemplateColumns: '1fr' }, filters: { position: 'relative', top: 0 } },
 };
 
+const createSelectStyles = (minHeight, { menuZIndex } = {}) => {
+  const baseStyles = {
+    control: (provided, state) => ({
+      ...provided,
+      minHeight,
+      borderRadius: minHeight >= 56 ? 14 : 12,
+      background: 'rgba(255,255,255,0.95)',
+      borderColor: state.isFocused ? '#27E3DA' : 'rgba(148, 163, 184, 0.45)',
+      boxShadow: state.isFocused ? '0 0 0 3px rgba(39,227,218,0.2)' : 'none',
+      transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+    }),
+    valueContainer: (provided) => ({ ...provided, padding: '0 12px' }),
+    placeholder: (provided) => ({ ...provided, color: '#64748B', fontWeight: 500 }),
+    input: (provided) => ({ ...provided, color: '#0f172a' }),
+    singleValue: (provided) => ({ ...provided, color: '#0f172a', fontWeight: 600 }),
+    multiValue: (provided) => ({
+      ...provided,
+      background: 'linear-gradient(120deg, rgba(39,227,218,0.35), rgba(247,184,78,0.35))',
+      borderRadius: 999,
+      border: '1px solid rgba(39,227,218,0.4)',
+      color: '#0f172a',
+    }),
+    multiValueLabel: (provided) => ({ ...provided, color: '#0f172a', fontWeight: 600 }),
+    multiValueRemove: (provided) => ({
+      ...provided,
+      color: '#0f172a',
+      ':hover': { background: 'rgba(15,23,42,0.08)', color: '#0f172a' },
+    }),
+    dropdownIndicator: (provided, state) => ({
+      ...provided,
+      color: state.isFocused ? '#0f172a' : '#475569',
+      ':hover': { color: '#0f172a' },
+    }),
+    clearIndicator: (provided) => ({
+      ...provided,
+      color: '#475569',
+      ':hover': { color: '#0f172a' },
+    }),
+    indicatorSeparator: () => ({ display: 'none' }),
+    menu: (provided) => ({
+      ...provided,
+      background: '#fff',
+      borderRadius: 16,
+      overflow: 'hidden',
+      boxShadow: '0 20px 45px -30px rgba(15,23,42,0.35)',
+      border: '1px solid rgba(148, 163, 184, 0.18)',
+      marginTop: 6,
+    }),
+    menuList: (provided) => ({ ...provided, padding: 8 }),
+    option: (provided, state) => ({
+      ...provided,
+      borderRadius: 10,
+      color: '#0f172a',
+      fontWeight: state.isSelected ? 700 : 500,
+      background: state.isSelected
+        ? 'linear-gradient(120deg, rgba(39,227,218,0.35), rgba(247,184,78,0.35))'
+        : state.isFocused
+          ? 'rgba(39,227,218,0.12)'
+          : 'transparent',
+    }),
+  };
+
+  if (menuZIndex) {
+    const originalMenu = baseStyles.menu;
+    baseStyles.menu = (provided, state) => ({ ...originalMenu(provided, state), zIndex: menuZIndex });
+  }
+
+  return baseStyles;
+};
+
 /* ========================================================= */
 
 export default function SearchPanel() {
@@ -274,8 +344,8 @@ export default function SearchPanel() {
                 value={sport}
                 onChange={(opt) => setSport(opt)}
                 styles={{
-                  control: (b, s) => ({ ...b, minHeight: 56, borderRadius: 14, boxShadow: 'none', borderColor: s.isFocused ? '#BDBDBD' : '#E0E0E0' }),
-                  container: (b) => ({ ...b, fontSize: '1rem' }),
+                  ...createSelectStyles(56),
+                  container: (provided) => ({ ...provided, fontSize: '1rem' }),
                 }}
               />
 
@@ -345,7 +415,7 @@ export default function SearchPanel() {
                   value={roles}
                   onChange={(opts) => setRoles(Array.isArray(opts) ? opts : [])}
                   placeholder="Type to search roles"
-                  styles={{ control: (b, s) => ({ ...b, minHeight: 42, borderRadius: 10, boxShadow: 'none', borderColor: s.isFocused ? '#BDBDBD' : '#E0E0E0' }), menu: (b) => ({ ...b, zIndex: 20 }) }}
+                  styles={createSelectStyles(42, { menuZIndex: 20 })}
                 />
               </div>
 
@@ -357,7 +427,7 @@ export default function SearchPanel() {
                   value={nats}
                   onChange={(opts) => setNats(Array.isArray(opts) ? opts : [])}
                   placeholder="Start typing a country"
-                  styles={{ control: (b, s) => ({ ...b, minHeight: 42, borderRadius: 10, boxShadow: 'none', borderColor: s.isFocused ? '#BDBDBD' : '#E0E0E0' }), menu: (b) => ({ ...b, zIndex: 20 }) }}
+                  styles={createSelectStyles(42, { menuZIndex: 20 })}
                 />
               </div>
 
