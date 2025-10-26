@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Select from 'react-select';
 import AsyncSelect from 'react-select/async';
@@ -47,6 +47,20 @@ const styles = {
   row: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
   btn: { height: 44, padding: '0 16px', borderRadius: 10, fontWeight: 700, border: 'none', background: 'linear-gradient(100deg, #1dd6cb 0%, #f97316 48%, #facc15 100%)', color: '#0f172a', boxShadow: '0 12px 30px -18px rgba(249,115,22,0.55)', cursor: 'pointer' },
   btnGhost: { height: 36, padding: '0 12px', borderRadius: 8, border: '1px solid #CBD5E1', background: '#fff', color: '#0f172a', fontWeight: 600, cursor: 'pointer' },
+  filterToggle: {
+    display: 'none',
+    alignItems: 'center',
+    gap: 8,
+    height: 38,
+    padding: '0 16px',
+    borderRadius: 999,
+    border: '1px solid rgba(148, 163, 184, 0.6)',
+    background: '#fff',
+    color: '#0f172a',
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 16px 34px -28px rgba(15,23,42,0.45)'
+  },
   warn: { color: '#b45309', background: 'rgba(250,204,21,0.15)', border: '1px solid rgba(250,204,21,0.35)', padding: 10, borderRadius: 10 },
   layout: { display: 'grid', gap: 'clamp(1.5rem, 4vw, 2.75rem)', gridTemplateColumns: 'minmax(260px, 320px) minmax(0, 1fr)', maxWidth: 1180, margin: '0 auto' },
   filters: { display: 'grid', gap: 16, position: 'sticky', top: 16, alignSelf: 'start' },
@@ -124,8 +138,6 @@ const styles = {
   pager: { display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', marginTop: 'clamp(2.25rem, 5vw, 3.5rem)', flexWrap: 'wrap' },
   pageBtn: { border: '1px solid #CBD5E1', background: '#fff', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
   disabled: { opacity: .4, cursor: 'not-allowed' },
-  '@media (max-width: 1080px)': { layout: { gridTemplateColumns: '1fr' }, filters: { position: 'relative', top: 0 } },
-  '@media (max-width: 640px)': { metaGrid: { gridTemplateColumns: '1fr' } },
 };
 
 const createSelectStyles = (minHeight, { menuZIndex } = {}) => {
@@ -206,6 +218,7 @@ export default function SearchPanel() {
   const [sport, setSport] = useState(null);     // { value, label }
   const [checking, setChecking] = useState(false);
   const [noData, setNoData] = useState('');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   /* -------- Filtri -------- */
   const [gender, setGender] = useState(null);
@@ -231,6 +244,10 @@ export default function SearchPanel() {
   };
 
   const backToSport = () => { resetFilters(); setNoData(''); setStage('select'); };
+
+  useEffect(() => {
+    if (stage !== 'search') setMobileFiltersOpen(false);
+  }, [stage]);
 
   /* -------- Stage 1: pre-check esistenza --------
      Regola: interrogo sports_experiences e faccio join su athlete!inner,
@@ -401,6 +418,8 @@ export default function SearchPanel() {
   }
 
   // Stage 2
+  const filtersId = 'search-panel-filters';
+
   return (
     <>
       <Head>
@@ -408,13 +427,13 @@ export default function SearchPanel() {
         <link rel="icon" href="/talentlix_favicon_16x16.ico" sizes="16x16" />
       </Head>
 
-      <div style={styles.page}>
-        <div style={styles.topRow}>
-          <div style={styles.sportRow}>
+      <div style={styles.page} className="search-panel-page">
+        <div style={styles.topRow} className="search-panel-top">
+          <div style={styles.sportRow} className="search-panel-sport">
             <button type="button" onClick={backToSport} style={styles.btnGhost}>← Change sport</button>
             <span><strong>Sport:</strong> {sport?.label}</span>
           </div>
-          <div style={styles.resultsIntro} aria-live="polite">
+          <div style={styles.resultsIntro} className="search-panel-results-intro" aria-live="polite">
             <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap' }}>
               Athletes
               {!loading && (
@@ -428,9 +447,24 @@ export default function SearchPanel() {
           </div>
         </div>
 
-        <div style={styles.layout}>
+        <button
+          type="button"
+          onClick={() => setMobileFiltersOpen((prev) => !prev)}
+          style={styles.filterToggle}
+          className="search-panel-filter-toggle"
+          aria-expanded={mobileFiltersOpen}
+          aria-controls={filtersId}
+        >
+          {mobileFiltersOpen ? 'Hide filters' : 'Show filters'}
+        </button>
+
+        <div style={styles.layout} className="search-panel-layout">
           {/* Filtri */}
-          <aside style={styles.filters}>
+          <aside
+            style={styles.filters}
+            className={`search-panel-filters${mobileFiltersOpen ? ' is-open' : ''}`}
+            id={filtersId}
+          >
             <section className="filterCard" style={styles.filterCard}>
               <h2 style={styles.h2}>Player profile</h2>
 
@@ -510,12 +544,12 @@ export default function SearchPanel() {
           </aside>
 
           {/* Risultati */}
-          <main style={styles.results} aria-live="polite">
+          <main style={styles.results} className="search-panel-results" aria-live="polite">
             {noData && !loading && (
               <div style={{ ...styles.warn, alignSelf: 'start' }}>{noData}</div>
             )}
 
-            <section style={styles.grid}>
+            <section style={styles.grid} className="search-panel-grid">
               {rows.map((ath) => {
                 const exp = Array.isArray(ath.exp) ? ath.exp[0] : null;
                 const contactsRecord = Array.isArray(ath.contacts_verification)
@@ -558,7 +592,7 @@ export default function SearchPanel() {
                 const showTags = exp?.seeking_team || exp?.is_represented;
 
                 return (
-                  <article key={ath.id} style={styles.card}>
+                  <article key={ath.id} style={styles.card} className="search-panel-card">
                     <div style={styles.cardInner}>
                       <header style={styles.cardHeader}>
                         <div style={styles.avatarWrap}>
@@ -591,7 +625,7 @@ export default function SearchPanel() {
                         </div>
                       </header>
 
-                      <div style={styles.metaGrid}>
+                      <div style={styles.metaGrid} className="search-panel-meta-grid">
                         {metaItems.map((item) => (
                           <div key={item.label} style={styles.metaItem}>
                             <span style={styles.metaLabel}>{item.label}</span>
@@ -634,6 +668,109 @@ export default function SearchPanel() {
           </main>
         </div>
       </div>
+      <style jsx>{`
+        .search-panel-filter-toggle {
+          display: none;
+        }
+
+        @media (max-width: 1080px) {
+          .search-panel-layout {
+            grid-template-columns: 1fr !important;
+          }
+
+          .search-panel-filters {
+            position: relative !important;
+            top: 0 !important;
+          }
+        }
+
+        @media (max-width: 820px) {
+          .search-panel-top {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 1.5rem;
+          }
+
+          .search-panel-sport {
+            width: 100%;
+            justify-content: space-between;
+            align-items: center !important;
+            gap: 12px !important;
+          }
+
+          .search-panel-results-intro {
+            width: 100%;
+          }
+
+          .search-panel-filter-toggle {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            margin: 0 0 1.5rem;
+            width: 100%;
+            text-align: center;
+          }
+
+          .search-panel-layout {
+            gap: 1.75rem !important;
+          }
+
+          .search-panel-filters {
+            display: none;
+            width: 100%;
+          }
+
+          .search-panel-filters.is-open {
+            display: grid;
+            animation: searchPanelFade 0.25s ease;
+          }
+
+          .search-panel-filters .filterCard {
+            width: 100%;
+          }
+
+          .search-panel-results {
+            min-width: 0;
+          }
+
+          .search-panel-grid {
+            justify-items: stretch !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .search-panel-meta-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+
+        @media (max-width: 520px) {
+          .search-panel-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
+          .search-panel-card {
+            max-width: none !important;
+          }
+
+          .search-panel-sport {
+            flex-direction: column;
+            align-items: flex-start !important;
+          }
+        }
+
+        @keyframes searchPanelFade {
+          from {
+            opacity: 0;
+            transform: translateY(-6px);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </>
   );
 }
