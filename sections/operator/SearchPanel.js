@@ -267,7 +267,7 @@ export default function SearchPanel() {
         .from('athlete')
         .select(`
           id, first_name, last_name, gender, nationality, date_of_birth, profile_picture_url, profile_published,
-          contacts:contacts_verification(id_verified, residence_city, residence_country),
+          contacts_verification(id_verified, residence_city, residence_country),
           exp:sports_experiences!inner(
             sport, role, team, category, seeking_team, is_represented, contract_status, preferred_regions
           )
@@ -480,9 +480,9 @@ export default function SearchPanel() {
             <section style={styles.grid}>
               {rows.map((ath) => {
                 const exp = Array.isArray(ath.exp) ? ath.exp[0] : null;
-                const contactsRecord = Array.isArray(ath.contacts)
-                  ? (ath.contacts[0] || null)
-                  : (ath.contacts || null);
+                const contactsRecord = Array.isArray(ath.contacts_verification)
+                  ? (ath.contacts_verification[0] || null)
+                  : (ath.contacts_verification || null);
                 const residenceCity = contactsRecord?.residence_city || '';
                 const residenceCountry = contactsRecord?.residence_country || '';
                 const age = (() => {
