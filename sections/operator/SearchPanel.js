@@ -99,7 +99,19 @@ const styles = {
   chipRow: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   chip: { padding: '4px 9px', borderRadius: 999, fontSize: '.75rem', fontWeight: 600, background: 'linear-gradient(120deg, rgba(247,184,78,0.24), rgba(249,115,22,0.24))', color: '#0f172a' },
   tagRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  tag: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, fontSize: '.75rem', fontWeight: 700, letterSpacing: '.02em', background: 'linear-gradient(120deg, rgba(39,227,218,0.25), rgba(247,184,78,0.25))', color: '#0f172a' },
+  tag: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '7px 16px',
+    borderRadius: 999,
+    fontSize: '.75rem',
+    fontWeight: 700,
+    letterSpacing: '.02em',
+    lineHeight: 1,
+    background: 'linear-gradient(120deg, rgba(39,227,218,0.25), rgba(247,184,78,0.25))',
+    color: '#0f172a',
+  },
   tagSeeking: { background: 'linear-gradient(120deg, rgba(39,227,218,0.35), rgba(56,189,248,0.35))' },
   tagAgent: { background: 'linear-gradient(120deg, rgba(109,40,217,0.25), rgba(14,165,233,0.25))', color: '#1e293b' },
   pager: { display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', marginTop: 'clamp(2.25rem, 5vw, 3.5rem)', flexWrap: 'wrap' },
@@ -582,7 +594,7 @@ export default function SearchPanel() {
                         ))}
                       </div>
 
-                      <div style={styles.section}>
+                      <div style={{ ...styles.section, gap: showTags ? 12 : styles.section.gap }}>
                         <span style={styles.metaLabel}>
                           Preferred regions:
                           {' '}
@@ -590,14 +602,14 @@ export default function SearchPanel() {
                             {regions.length > 0 ? formattedRegions : '—'}
                           </span>
                         </span>
-                      </div>
 
-                      {showTags && (
-                        <footer style={styles.tagRow}>
-                          {exp?.seeking_team && <span style={{ ...styles.tag, ...styles.tagSeeking }}>Seeking team</span>}
-                          {exp?.is_represented && <span style={{ ...styles.tag, ...styles.tagAgent }}>Agent</span>}
-                        </footer>
-                      )}
+                        {showTags && (
+                          <div style={styles.tagRow}>
+                            {exp?.seeking_team && <span style={{ ...styles.tag, ...styles.tagSeeking }}>Seeking team</span>}
+                            {exp?.is_represented && <span style={{ ...styles.tag, ...styles.tagAgent }}>Agent</span>}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </article>
                 );
