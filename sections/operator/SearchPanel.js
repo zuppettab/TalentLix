@@ -50,13 +50,16 @@ const styles = {
   warn: { color: '#b45309', background: 'rgba(250,204,21,0.15)', border: '1px solid rgba(250,204,21,0.35)', padding: 10, borderRadius: 10 },
   layout: { display: 'grid', gap: 'clamp(1.5rem, 4vw, 2.75rem)', gridTemplateColumns: 'minmax(260px, 320px) minmax(0, 1fr)', maxWidth: 1180, margin: '0 auto' },
   filters: { display: 'grid', gap: 16, position: 'sticky', top: 16, alignSelf: 'start' },
+  topRow: { display: 'flex', gap: 16, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', margin: '0 auto clamp(1.2rem, 2.4vw, 1.8rem)', maxWidth: 1180 },
+  sportRow: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
+  resultsIntro: { display: 'grid', gap: 4, alignItems: 'start', minWidth: 0 },
+  resultsCount: { marginLeft: 8, fontSize: '1rem', fontWeight: 700, color: '#0f172a' },
+  resultsStatus: { fontWeight: 600, color: '#0f172a' },
   filterCard: { background: 'linear-gradient(140deg, rgba(255,255,255,0.98), rgba(39,227,218,0.12), rgba(249,115,22,0.12))', border: '1px solid rgba(249,115,22,0.18)', borderRadius: 20, padding: '1.35rem', boxShadow: '0 28px 60px -44px rgba(249,115,22,0.32)', display: 'grid', gap: 12, backdropFilter: 'blur(18px)' },
   h2: { margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' },
   h3: { margin: 0, fontSize: '.95rem', color: '#475569', fontWeight: 600 },
   radioRow: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
   results: { display: 'grid', gap: 16, minWidth: 0 },
-  resultsHeader: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' },
-  meta: { fontWeight: 600, color: '#0f172a' },
   grid: { display: 'grid', gap: 'clamp(2rem, 4vw, 3rem)', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))' },
   card: { position: 'relative', borderRadius: 22, padding: 2, background: 'linear-gradient(150deg, rgba(39,227,218,0.32), rgba(249,115,22,0.4))', boxShadow: '0 24px 60px -30px rgba(249,115,22,0.32)' },
   cardInner: { background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: '1.25rem', display: 'grid', gap: 14, minHeight: '100%' },
@@ -298,9 +301,23 @@ export default function SearchPanel() {
       </Head>
 
       <div style={styles.page}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '0 auto clamp(1rem, 2vw, 1.4rem)', maxWidth: 1180 }}>
-          <button type="button" onClick={backToSport} style={styles.btnGhost}>← Change sport</button>
-          <span><strong>Sport:</strong> {sport?.label}</span>
+        <div style={styles.topRow}>
+          <div style={styles.sportRow}>
+            <button type="button" onClick={backToSport} style={styles.btnGhost}>← Change sport</button>
+            <span><strong>Sport:</strong> {sport?.label}</span>
+          </div>
+          <div style={styles.resultsIntro} aria-live="polite">
+            <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap' }}>
+              Athletes
+              {!loading && (
+                <span style={styles.resultsCount}>
+                  ({total} result{total === 1 ? '' : 's'})
+                </span>
+              )}
+            </h2>
+            <p style={{ margin: 0, color: '#334155', fontWeight: 500 }}>Profiles update in real time as you adjust filters.</p>
+            {loading && <span style={styles.resultsStatus}>Loading…</span>}
+          </div>
         </div>
 
         <div style={styles.layout}>
@@ -386,14 +403,6 @@ export default function SearchPanel() {
 
           {/* Risultati */}
           <main style={styles.results} aria-live="polite">
-            <header style={styles.resultsHeader}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 700, color: '#0f172a' }}>Athletes</h2>
-                <p style={{ margin: '.35rem 0 0', color: '#334155', fontWeight: 500 }}>Profiles update in real time as you adjust filters.</p>
-              </div>
-              <div style={styles.meta}>{loading ? 'Loading…' : `${total} result${total === 1 ? '' : 's'}`}</div>
-            </header>
-
             {noData && !loading && (
               <div style={{ ...styles.warn, alignSelf: 'start' }}>{noData}</div>
             )}
