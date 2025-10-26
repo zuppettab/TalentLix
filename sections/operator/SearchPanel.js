@@ -75,7 +75,7 @@ const styles = {
   categoryBadge: { marginLeft: 'auto', background: 'rgba(15,23,42,0.08)', color: '#0f172a', borderRadius: 999, padding: '4px 10px', fontSize: '.75rem', fontWeight: 700 },
   small: { margin: 0, color: '#475569', fontSize: '.9rem' },
   metaGrid: { display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' },
-  metaItem: { background: 'linear-gradient(135deg, rgba(39,227,218,0.24), rgba(56,189,248,0.24))', borderRadius: 14, padding: '12px 14px', fontSize: '.9rem', color: '#0f172a', display: 'grid', gap: 6, boxShadow: '0 18px 32px -28px rgba(14,116,144,0.65)' },
+  metaItem: { background: 'linear-gradient(135deg, rgba(254,215,170,0.7), rgba(253,186,116,0.65))', borderRadius: 14, padding: '12px 14px', fontSize: '.9rem', color: '#0f172a', display: 'grid', gap: 6, boxShadow: '0 18px 32px -28px rgba(249,115,22,0.4)' },
   metaLabel: { fontSize: '.72rem', letterSpacing: '.08em', textTransform: 'uppercase', color: '#0f172a', fontWeight: 700, opacity: 0.7 },
   section: { display: 'grid', gap: 8 },
   chipRow: { display: 'flex', flexWrap: 'wrap', gap: 6 },
