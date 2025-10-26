@@ -736,8 +736,8 @@ const styles = {
   },
   navBtnComplete: { borderColor: '#1E88E5', background: '#E3F2FD', color: '#0B3D91' },
   navBtnIncomplete: { borderColor: '#FB8C00', background: '#FFF4E5', color: '#7C3A00' },
-  navBtnFunctional: { borderColor: '#8E24AA', background: '#F3E5F5', color: '#4A148C' },
-  navBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.25)', color: '#027373' },
+  navBtnFunctional: { borderColor: '#27E3DA', background: '#E6FFFA', color: '#0F172A' },
+  navBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.25)' },
   panel: {
     background: '#FFFFFF',
     border: '1px solid #E5E7EB',
@@ -802,8 +802,8 @@ const styles = {
   },
   mobileTabBtnComplete: { borderColor: '#1E88E5', background: '#E3F2FD', color: '#0B3D91' },
   mobileTabBtnIncomplete: { borderColor: '#FB8C00', background: '#FFF4E5', color: '#7C3A00' },
-  mobileTabBtnFunctional: { borderColor: '#8E24AA', background: '#F3E5F5', color: '#4A148C' },
-  mobileTabBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.2)', color: '#027373' },
+  mobileTabBtnFunctional: { borderColor: '#27E3DA', background: '#E6FFFA', color: '#0F172A' },
+  mobileTabBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.2)' },
   nudgeBtn: {
     position: 'absolute',
     top: '50%',
