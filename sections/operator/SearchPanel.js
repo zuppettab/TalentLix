@@ -57,7 +57,7 @@ const styles = {
   results: { display: 'grid', gap: 16, minWidth: 0 },
   resultsHeader: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' },
   meta: { fontWeight: 600, color: '#0f172a' },
-  grid: { display: 'grid', gap: 18, gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))' },
+  grid: { display: 'grid', gap: 'clamp(1.4rem, 3vw, 2.4rem)', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))' },
   card: { position: 'relative', borderRadius: 22, padding: 2, background: 'linear-gradient(140deg, rgba(39,227,218,0.35), rgba(247,184,78,0.35))', boxShadow: '0 24px 60px -30px rgba(15,23,42,0.35)' },
   cardInner: { background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: '1.25rem', display: 'grid', gap: 14, minHeight: '100%' },
   cardHeader: { display: 'flex', alignItems: 'center', gap: 14 },
@@ -393,7 +393,9 @@ export default function SearchPanel() {
               <div style={styles.meta}>{loading ? 'Loading…' : `${total} result${total === 1 ? '' : 's'}`}</div>
             </header>
 
-            {noData && !loading && <div style={styles.warn}>{noData}</div>}
+            {noData && !loading && (
+              <div style={{ ...styles.warn, alignSelf: 'start' }}>{noData}</div>
+            )}
 
             <section style={styles.grid}>
               {rows.map((ath) => {
