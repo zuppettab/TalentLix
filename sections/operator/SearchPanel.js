@@ -480,7 +480,11 @@ export default function SearchPanel() {
             <section style={styles.grid}>
               {rows.map((ath) => {
                 const exp = Array.isArray(ath.exp) ? ath.exp[0] : null;
-                const contact = Array.isArray(ath.contacts) ? (ath.contacts[0] || null) : (ath.contacts || null);
+                const contactsRecord = Array.isArray(ath.contacts)
+                  ? (ath.contacts[0] || null)
+                  : (ath.contacts || null);
+                const residenceCity = contactsRecord?.residence_city || '';
+                const residenceCountry = contactsRecord?.residence_country || '';
                 const age = (() => {
                   if (!ath.date_of_birth) return null;
                   const dob = new Date(ath.date_of_birth); const now = new Date();
@@ -501,7 +505,7 @@ export default function SearchPanel() {
                   .slice(0, 2)
                   .join('')
                   .toUpperCase() || 'TL';
-                const residenceParts = [contact?.residence_city, contact?.residence_country].filter(Boolean);
+                const residenceParts = [residenceCity, residenceCountry].filter(Boolean);
                 const residence = residenceParts.length > 0 ? residenceParts.join(', ') : '—';
                 const contractLabel = exp?.contract_status
                   ? (CONTRACT_STATUS.find((x) => x.value === exp.contract_status)?.label || exp.contract_status)
@@ -509,7 +513,7 @@ export default function SearchPanel() {
                 const metaItems = [
                   { label: 'Nationality', value: ath.nationality || '—' },
                   { label: 'Current team', value: exp?.team || '—' },
-                  { label: 'Residence', value: residence },
+                  { label: 'Current residence', value: residence },
                   { label: 'Contract status', value: contractLabel },
                 ];
                 const showTags = exp?.seeking_team || exp?.is_represented;
@@ -533,7 +537,7 @@ export default function SearchPanel() {
                         <div style={styles.nameWrap}>
                           <div style={styles.nameRow}>
                             <h3 style={styles.name}>{fullName || `${ath.first_name || ''} ${ath.last_name || ''}`.trim() || '—'}</h3>
-                            {contact?.id_verified && (
+                            {contactsRecord?.id_verified && (
                               <span style={styles.verifiedBadge}>Verified</span>
                             )}
                             {(exp?.category || '').trim() && (
@@ -559,15 +563,9 @@ export default function SearchPanel() {
 
                       <div style={styles.section}>
                         <span style={styles.metaLabel}>Preferred regions</span>
-                        {regions.length > 0 ? (
-                          <div style={styles.chipRow}>
-                            {regions.map((region) => (
-                              <span key={region} style={styles.chip}>{region}</span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span style={styles.small}>—</span>
-                        )}
+                        <span style={styles.small}>
+                          {regions.length > 0 ? regions.join(', ') : '—'}
+                        </span>
                       </div>
 
                       {showTags && (
