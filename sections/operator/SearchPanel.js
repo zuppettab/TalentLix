@@ -32,6 +32,13 @@ const dobBoundsForAgeEq = (age) => {
 const dobBoundForAgeGte = (age) => toISO(addYears(new Date(), -age)); // DOB <= this
 const dobBoundForAgeLte = (age) => { const min = addYears(new Date(), -age - 1); min.setDate(min.getDate() + 1); return toISO(min); };
 
+const buildSportPattern = (value) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  const escaped = normalized.replace(/[%_]/g, '\\$&');
+  return `%${escaped}%`;
+};
+
 // --- Debounce ---
 function useDebouncedEffect(fn, deps, delay = 250) {
   useEffect(() => {
@@ -122,14 +129,15 @@ export default function SearchPanel() {
   const onContinue = async () => {
     setNoData('');
     if (!sport?.value) return;
-    const normalized = String(sport.value || '').trim();
+    const pattern = buildSportPattern(sport.value);
+    if (!pattern) return;
     try {
       setChecking(true);
       const { count, error } = await supabase
         .from('sports_experiences')
         .select('id, athlete!inner(profile_published)', { count: 'exact', head: true })
         .eq('athlete.profile_published', true) // SOLO profili pubblicati
-        .ilike('sport', normalized);           // case-insensitive
+        .ilike('sport', pattern);              // case-insensitive + partial match to absorb minor variations
       if (error) throw error;
       if ((count || 0) < 1) {
         setNoData(`No published athletes found for ${sport.label}.`);
@@ -146,14 +154,15 @@ export default function SearchPanel() {
   // ---------------- Role suggestions (solo per sport selezionato + profilo pubblicato) ----------------
   const loadRoleOptions = async (inputValue) => {
     if (!sport?.value) return [];
-    const normalized = String(sport.value || '').trim();
+    const pattern = buildSportPattern(sport.value);
+    if (!pattern) return [];
     const like = (inputValue || '').trim();
     try {
       let q = supabase
         .from('sports_experiences')
         .select('role, athlete!inner(profile_published)')
         .eq('athlete.profile_published', true)
-        .ilike('sport', normalized)
+        .ilike('sport', pattern)
         .order('role', { ascending: true })
         .limit(200);
       if (like) q = q.ilike('role', `%${like}%`);
@@ -169,9 +178,10 @@ export default function SearchPanel() {
   // ---------------- Query risultati (Stage 2) ----------------
   const fetchPage = async () => {
     if (!sport?.value) return;
+    const pattern = buildSportPattern(sport.value);
+    if (!pattern) return;
     setLoading(true);
     setNoData('');
-    const normalized = String(sport.value || '').trim();
     try {
       let q = supabase
         .from('athlete')
@@ -182,7 +192,7 @@ export default function SearchPanel() {
           )
         `, { count: 'exact' })
         .eq('profile_published', true)
-        .filter('sports_experiences.sport', 'ilike', normalized); // case-insensitive sullo sport
+        .filter('sports_experiences.sport', 'ilike', pattern); // case-insensitive sullo sport
 
       // Gender
       if (gender) q = q.eq('gender', gender);
