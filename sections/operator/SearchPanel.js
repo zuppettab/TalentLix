@@ -134,10 +134,10 @@ export default function SearchPanel() {
     try {
       setChecking(true);
       const { count, error } = await supabase
-        .from('sports_experiences')
-        .select('id, athlete!inner(profile_published)', { count: 'exact', head: true })
-        .eq('athlete.profile_published', true) // SOLO profili pubblicati
-        .ilike('sport', pattern);              // case-insensitive + partial match to absorb minor variations
+        .from('athlete')
+        .select('id, sports_experiences!inner(id)', { count: 'exact', head: true })
+        .eq('profile_published', true)                      // SOLO profili pubblicati
+        .ilike('sports_experiences.sport', pattern);        // case-insensitive + partial match to absorb minor variations
       if (error) throw error;
       if ((count || 0) < 1) {
         setNoData(`No published athletes found for ${sport.label}.`);
