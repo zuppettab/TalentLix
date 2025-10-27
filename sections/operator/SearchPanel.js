@@ -48,7 +48,6 @@ const styles = {
   btn: { height: 44, padding: '0 16px', borderRadius: 10, fontWeight: 700, border: 'none', background: 'linear-gradient(100deg, #1dd6cb 0%, #f97316 48%, #facc15 100%)', color: '#0f172a', boxShadow: '0 12px 30px -18px rgba(249,115,22,0.55)', cursor: 'pointer' },
   btnGhost: { height: 36, padding: '0 12px', borderRadius: 8, border: '1px solid #CBD5E1', background: '#fff', color: '#0f172a', fontWeight: 600, cursor: 'pointer' },
   filterToggle: {
-    display: 'none',
     alignItems: 'center',
     gap: 8,
     height: 38,
@@ -63,7 +62,7 @@ const styles = {
   },
   warn: { color: '#b45309', background: 'rgba(250,204,21,0.15)', border: '1px solid rgba(250,204,21,0.35)', padding: 10, borderRadius: 10 },
   layout: { display: 'grid', gap: 'clamp(1.5rem, 4vw, 2.75rem)', gridTemplateColumns: 'minmax(260px, 320px) minmax(0, 1fr)', maxWidth: 1180, margin: '0 auto' },
-  filters: { display: 'grid', gap: 16, position: 'sticky', top: 16, alignSelf: 'start' },
+  filters: { gap: 16, position: 'sticky', top: 16, alignSelf: 'start' },
   topRow: { display: 'flex', gap: 16, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', margin: '0 auto clamp(1.2rem, 2.4vw, 1.8rem)', maxWidth: 1180 },
   sportRow: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
   resultsIntro: {
@@ -693,6 +692,10 @@ export default function SearchPanel() {
       <style jsx>{`
         .search-panel-filter-toggle {
           display: none;
+        }
+
+        .search-panel-filters {
+          display: grid;
         }
 
         @media (max-width: 1080px) {
