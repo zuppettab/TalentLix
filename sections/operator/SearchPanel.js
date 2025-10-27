@@ -598,7 +598,7 @@ export default function SearchPanel() {
                   .filter(Boolean)
                   .slice(0, 2)
                   .join('')
-                  .toUpperCase() || 'TL';
+                  .toUpperCase();
                 const residenceParts = [residenceCity, residenceCountry].filter(Boolean);
                 const residence = residenceParts.length > 0 ? residenceParts.join(', ') : '—';
                 const contractLabel = exp?.contract_status
