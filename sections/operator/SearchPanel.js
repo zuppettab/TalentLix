@@ -678,13 +678,15 @@ export default function SearchPanel() {
 
                 if (isCompactLayout) {
                   tagsAndActionStyle.flexDirection = 'column';
-                  tagsAndActionStyle.alignItems = 'center';
+                  tagsAndActionStyle.alignItems = 'stretch';
                   tagsAndActionStyle.textAlign = 'center';
                   tagsAndActionStyle.gap = 16;
                   tagsAndActionStyle.rowGap = 12;
                   tagRowStyle.justifyContent = 'center';
+                  profileBtnRowStyle.alignItems = 'center';
                   profileBtnRowStyle.justifyContent = 'center';
                   profileBtnRowStyle.width = '100%';
+                  profileBtnRowStyle.flex = '0 0 auto';
                 }
 
                 return (
@@ -764,7 +766,7 @@ export default function SearchPanel() {
                             </div>
                           )}
 
-                          <div style={profileBtnRowStyle}>
+                          <div style={profileBtnRowStyle} className="search-panel-profile-btn-row">
                             <a
                               href={`/profile/full?id=${ath.id}`}
                               target="_blank"
@@ -937,12 +939,17 @@ export default function SearchPanel() {
             }
 
             .search-panel-tags-action {
+              flex-direction: column !important;
+              align-items: stretch !important;
               flex-wrap: wrap !important;
               gap: 10px !important;
+              row-gap: 14px !important;
+              text-align: center;
             }
 
             .search-panel-tags-action > .search-panel-tag-row {
               margin-right: 10px;
+              justify-content: center !important;
             }
 
             .search-panel-tag-row {
@@ -957,11 +964,19 @@ export default function SearchPanel() {
               flex-shrink: 0;
             }
 
+            .search-panel-profile-btn-row {
+              width: 100%;
+              display: flex;
+              justify-content: center;
+            }
+
             .search-panel-profile-btn {
               font-size: 0.66rem !important;
               padding: 4px 8px !important;
               gap: 3px !important;
               flex-shrink: 0;
+              width: 100%;
+              justify-content: center;
             }
 
             .search-panel-sport {
