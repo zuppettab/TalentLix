@@ -8,6 +8,7 @@ import { supabase } from '../../utils/supabaseClient';
 import countries from '../../utils/countries';
 import sports from '../../utils/sports';
 import { flagFromCountry } from '../../utils/flags';
+import { ExternalLink } from 'lucide-react';
 
 /* -------------------- Costanti -------------------- */
 const CONTRACT_STATUS = [
@@ -156,6 +157,21 @@ const styles = {
   },
   tagSeeking: { background: 'linear-gradient(120deg, rgba(39,227,218,0.35), rgba(56,189,248,0.35))' },
   tagAgent: { background: 'linear-gradient(120deg, rgba(109,40,217,0.25), rgba(14,165,233,0.25))', color: '#1e293b' },
+  profileBtnRow: { display: 'flex', justifyContent: 'flex-end' },
+  profileBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '8px 14px',
+    borderRadius: 10,
+    border: '1px solid rgba(148, 163, 184, 0.35)',
+    background: '#fff',
+    color: '#0f172a',
+    fontWeight: 600,
+    textDecoration: 'none',
+    boxShadow: '0 10px 24px -20px rgba(15,23,42,0.55)',
+    transition: 'background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease',
+  },
   pager: { display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', marginTop: 'clamp(2.25rem, 5vw, 3.5rem)', flexWrap: 'wrap' },
   pageBtn: { border: '1px solid #CBD5E1', background: '#fff', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
   disabled: { opacity: .4, cursor: 'not-allowed' },
@@ -682,6 +698,19 @@ export default function SearchPanel() {
                           </div>
                         )}
                       </div>
+
+                      <div style={styles.profileBtnRow}>
+                        <a
+                          href={`/profile/full?id=${ath.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={styles.profileBtn}
+                          className="search-panel-profile-btn"
+                        >
+                          <span>Profilo completo</span>
+                          <ExternalLink size={16} strokeWidth={2} />
+                        </a>
+                      </div>
                     </div>
                   </article>
                 );
@@ -707,6 +736,17 @@ export default function SearchPanel() {
 
         .search-panel-filters {
           display: grid;
+        }
+
+        .search-panel-profile-btn:hover {
+          background: linear-gradient(120deg, rgba(255,255,255,1), rgba(241,245,249,0.95));
+          box-shadow: 0 14px 32px -20px rgba(15,23,42,0.55);
+          transform: translateY(-1px);
+        }
+
+        .search-panel-profile-btn:active {
+          transform: translateY(0);
+          box-shadow: 0 8px 18px -18px rgba(15,23,42,0.55);
         }
 
         @media (max-width: 1080px) {
