@@ -912,7 +912,7 @@ export default function SearchPanel() {
               max-width: none !important;
               width: 100% !important;
               margin: 0 auto;
-              padding: clamp(0.45rem, 3.5vw, 1.1rem) !important;
+              padding: clamp(0.45rem, 2.75vw, 0.95rem) !important;
               border-radius: 28px !important;
               box-sizing: border-box;
               background: radial-gradient(circle at 0% -10%, rgba(39,227,218,0.35), transparent 55%),
@@ -925,57 +925,57 @@ export default function SearchPanel() {
             .search-panel-card-inner {
               border-radius: 20px !important;
               box-shadow: 0 24px 45px -36px rgba(15,23,42,0.4) !important;
-              padding: clamp(1.05rem, 4vw, 1.35rem) !important;
+              padding: clamp(1.05rem, 3.6vw, 1.3rem) !important;
             }
 
             .search-panel-card-inner {
-              text-align: center;
-              justify-items: center;
+              text-align: left;
+              justify-items: stretch;
               gap: clamp(1.1rem, 5vw, 1.6rem) !important;
             }
 
             .search-panel-card-header {
               flex-direction: column !important;
-              align-items: center !important;
-              text-align: center !important;
+              align-items: stretch !important;
+              text-align: left !important;
               gap: clamp(0.85rem, 4vw, 1.2rem) !important;
             }
 
             .search-panel-name-wrap {
-              justify-items: center !important;
-              text-align: center !important;
+              justify-items: stretch !important;
+              text-align: left !important;
               gap: 6px !important;
             }
 
             .search-panel-name-row {
-              justify-content: center !important;
+              justify-content: flex-start !important;
             }
 
             .search-panel-category-badge {
-              align-self: center !important;
+              align-self: flex-start !important;
             }
 
             .search-panel-card-subtitle {
-              text-align: center !important;
+              text-align: left !important;
             }
 
             .search-panel-meta-grid {
-              justify-items: center !important;
-              text-align: center !important;
+              justify-items: stretch !important;
+              text-align: left !important;
               gap: clamp(0.85rem, 4vw, 1.1rem) !important;
             }
 
             .search-panel-meta-item {
-              place-items: center;
-              width: min(100%, 320px);
+              place-items: stretch;
+              width: 100%;
             }
 
             .search-panel-meta-label {
-              justify-self: center;
+              justify-self: flex-start;
             }
 
             .search-panel-preferences {
-              text-align: center !important;
+              text-align: left !important;
             }
 
             .search-panel-card {
@@ -996,12 +996,12 @@ export default function SearchPanel() {
               flex-wrap: wrap !important;
               gap: 10px !important;
               row-gap: 14px !important;
-              text-align: center;
+              text-align: left;
             }
 
             .search-panel-tags-action > .search-panel-tag-row {
-              margin-right: 10px;
-              justify-content: center !important;
+              margin-right: 0;
+              justify-content: flex-start !important;
             }
 
             .search-panel-tag-row {
@@ -1010,8 +1010,8 @@ export default function SearchPanel() {
             }
 
             .search-panel-tag {
-              font-size: 0.65rem !important;
-              padding: 5px 10px !important;
+              font-size: 0.68rem !important;
+              padding: 5px 12px !important;
               white-space: nowrap;
               flex-shrink: 0;
             }
@@ -1019,15 +1019,15 @@ export default function SearchPanel() {
             .search-panel-profile-btn-row {
               width: 100%;
               display: flex;
-              justify-content: center;
+              justify-content: flex-start;
             }
 
             .search-panel-profile-btn {
-              font-size: 0.66rem !important;
-              padding: 4px 8px !important;
-              gap: 3px !important;
+              font-size: 0.72rem !important;
+              padding: 6px 10px !important;
+              gap: 4px !important;
               flex-shrink: 0;
-              width: 100%;
+              width: auto;
               justify-content: center;
             }
 
