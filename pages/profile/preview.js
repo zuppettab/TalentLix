@@ -213,8 +213,22 @@ function PreviewCard({ athleteId }) {
 
   /* --------------- Inline styles (consistent) --------------- */
   const S = {
-    container:{ maxWidth:1280, margin:'0 auto', padding:16 },
-    card:{ borderRadius:16, boxShadow:'0 8px 24px rgba(0,0,0,0.08)', background:'#fff', overflow:'hidden' },
+    container:{
+      maxWidth:1280,
+      margin:'0 auto',
+      padding:'40px clamp(16px, 5vw, 56px)',
+      boxSizing:'border-box',
+      display:'flex',
+      justifyContent:'center',
+    },
+    card:{
+      width:'100%',
+      maxWidth:1040,
+      borderRadius:16,
+      boxShadow:'0 8px 24px rgba(0,0,0,0.08)',
+      background:'#fff',
+      overflow:'hidden'
+    },
     hero:{ display:'grid', gridTemplateColumns:'auto 1fr', gap:16, padding:16, alignItems:'center', borderBottom:'1px solid #eee' },
     avatar:{ width:96, height:96, borderRadius:'50%', objectFit:'cover', display:'block', border:'2px solid #fff', boxShadow:'0 2px 8px rgba(0,0,0,0.12)' },
     avatarFallback:{ width:96, height:96, borderRadius:'50%', display:'grid', placeItems:'center', background:'linear-gradient(135deg,#27E3DA,#F7B84E)', color:'#111', fontSize:28 },
@@ -523,7 +537,7 @@ function PreviewCard({ athleteId }) {
         .mainGrid {
           display: grid;
           gap: 24px;
-          padding: 16px;
+          padding: clamp(16px, 4vw, 32px);
           grid-template-columns: 2fr 1fr;
         }
         .twoCol {
