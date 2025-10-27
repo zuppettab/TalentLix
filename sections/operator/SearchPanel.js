@@ -452,6 +452,7 @@ export default function SearchPanel() {
     return (
       <>
         <Head>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
           <link rel="icon" href="/talentlix_favicon_32x32.ico" sizes="32x32" />
           <link rel="icon" href="/talentlix_favicon_16x16.ico" sizes="16x16" />
         </Head>
@@ -494,6 +495,7 @@ export default function SearchPanel() {
   return (
     <>
       <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/talentlix_favicon_32x32.ico" sizes="32x32" />
         <link rel="icon" href="/talentlix_favicon_16x16.ico" sizes="16x16" />
       </Head>
@@ -1036,6 +1038,39 @@ export default function SearchPanel() {
               align-items: flex-start !important;
             }
           }
+
+        /* --- Paracadute mobile: card larga e testi non tagliati --- */
+        @media (max-width: 520px) {
+          /* 1 colonna piena e padding laterale leggero */
+          .search-panel-grid {
+            grid-template-columns: 1fr !important;
+            padding-left: max(12px, env(safe-area-inset-left));
+            padding-right: max(12px, env(safe-area-inset-right));
+          }
+
+          /* La card riempie tutta la riga */
+          .search-panel-card {
+            max-width: none !important;
+            width: 100% !important;
+          }
+
+          /* Consenti ai figli di restringersi correttamente (niente overflow) */
+          .search-panel-card-inner,
+          .search-panel-meta-item {
+            min-width: 0 !important;
+          }
+
+          /* Forza la griglia dei meta a una colonna su schermi stretti */
+          .search-panel-meta-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          /* Il valore (secondo span) nei box meta va a capo se lungo */
+          .search-panel-meta-item span:last-child {
+            word-break: break-word;
+            overflow-wrap: anywhere;
+          }
+        }
 
         @keyframes searchPanelFade {
           from {
