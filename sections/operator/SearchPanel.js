@@ -141,13 +141,14 @@ const styles = {
   section: { display: 'grid', gap: 8 },
   chipRow: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   chip: { padding: '4px 9px', borderRadius: 999, fontSize: '.75rem', fontWeight: 600, background: 'linear-gradient(120deg, rgba(247,184,78,0.24), rgba(249,115,22,0.24))', color: '#0f172a' },
-  tagRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  tagRow: { display: 'flex', flexWrap: 'wrap', gap: 8, flexShrink: 0 },
   tagsAndAction: {
     display: 'flex',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 12,
     width: '100%',
+    minWidth: 0,
   },
   tag: {
     display: 'inline-flex',
@@ -649,7 +650,7 @@ export default function SearchPanel() {
 
                 return (
                   <article key={ath.id} style={styles.card} className="search-panel-card">
-                    <div style={styles.cardInner}>
+                    <div style={styles.cardInner} className="search-panel-card-inner">
                       <header style={styles.cardHeader}>
                         <div style={styles.avatarWrap}>
                           {ath.profile_picture_url ? (
@@ -704,11 +705,26 @@ export default function SearchPanel() {
                             ...styles.tagsAndAction,
                             justifyContent: showTags ? 'space-between' : 'flex-end',
                           }}
+                          className="search-panel-tags-action"
                         >
                           {showTags && (
-                            <div style={styles.tagRow}>
-                              {exp?.seeking_team && <span style={{ ...styles.tag, ...styles.tagSeeking }}>Seeking team</span>}
-                              {exp?.is_represented && <span style={{ ...styles.tag, ...styles.tagAgent }}>Agent</span>}
+                            <div style={styles.tagRow} className="search-panel-tag-row">
+                              {exp?.seeking_team && (
+                                <span
+                                  style={{ ...styles.tag, ...styles.tagSeeking }}
+                                  className="search-panel-tag search-panel-tag--seeking"
+                                >
+                                  Seeking team
+                                </span>
+                              )}
+                              {exp?.is_represented && (
+                                <span
+                                  style={{ ...styles.tag, ...styles.tagAgent }}
+                                  className="search-panel-tag search-panel-tag--agent"
+                                >
+                                  Agent
+                                </span>
+                              )}
                             </div>
                           )}
 
@@ -762,6 +778,12 @@ export default function SearchPanel() {
         .search-panel-profile-btn:active {
           transform: translateY(0);
           box-shadow: 0 8px 18px -18px rgba(15,23,42,0.55);
+        }
+
+        @media (max-width: 720px) {
+          .search-panel-meta-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
         }
 
         @media (max-width: 1080px) {
@@ -833,41 +855,67 @@ export default function SearchPanel() {
           }
         }
 
-        @media (max-width: 640px) {
-          .search-panel-meta-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
-
-        @media (max-width: 520px) {
-          .search-panel-grid {
-            grid-template-columns: minmax(0, 1fr) !important;
-            row-gap: clamp(2.75rem, 9vw, 3.75rem) !important;
-            padding-bottom: clamp(1.75rem, 8vw, 3rem);
+          @media (max-width: 640px) {
+            .search-panel-meta-grid {
+              grid-template-columns: 1fr !important;
+            }
           }
 
-          .search-panel-card {
-            max-width: none !important;
-            margin: 0;
-            padding: clamp(0.85rem, 4vw, 1.5rem) !important;
-            border-radius: 28px !important;
-            box-sizing: border-box;
-            background: radial-gradient(circle at 0% -10%, rgba(39,227,218,0.35), transparent 55%),
-                        radial-gradient(circle at 120% 120%, rgba(249,115,22,0.24), transparent 58%),
-                        #f8fafc !important;
-            box-shadow: 0 42px 70px -40px rgba(15,23,42,0.48) !important;
-          }
+          @media (max-width: 520px) {
+            .search-panel-grid {
+              grid-template-columns: minmax(0, 1fr) !important;
+              row-gap: clamp(2.75rem, 9vw, 3.75rem) !important;
+              padding-bottom: clamp(1.75rem, 8vw, 3rem);
+            }
 
-          .search-panel-card > div {
-            border-radius: 20px !important;
-            box-shadow: 0 24px 45px -36px rgba(15,23,42,0.4) !important;
-          }
+            .search-panel-card {
+              max-width: none !important;
+              width: 100% !important;
+              margin: 0;
+              padding: clamp(0.85rem, 4vw, 1.5rem) !important;
+              border-radius: 28px !important;
+              box-sizing: border-box;
+              background: radial-gradient(circle at 0% -10%, rgba(39,227,218,0.35), transparent 55%),
+                          radial-gradient(circle at 120% 120%, rgba(249,115,22,0.24), transparent 58%),
+                          #f8fafc !important;
+              box-shadow: 0 42px 70px -40px rgba(15,23,42,0.48) !important;
+            }
 
-          .search-panel-sport {
-            flex-direction: column;
-            align-items: flex-start !important;
+            .search-panel-card > div,
+            .search-panel-card-inner {
+              border-radius: 20px !important;
+              box-shadow: 0 24px 45px -36px rgba(15,23,42,0.4) !important;
+              padding: 1.25rem !important;
+            }
+
+            .search-panel-tags-action {
+              flex-wrap: nowrap !important;
+              gap: 8px !important;
+            }
+
+            .search-panel-tag-row {
+              gap: 6px;
+            }
+
+            .search-panel-tag {
+              font-size: 0.65rem !important;
+              padding: 5px 10px !important;
+              white-space: nowrap;
+              flex-shrink: 0;
+            }
+
+            .search-panel-profile-btn {
+              font-size: 0.66rem !important;
+              padding: 4px 8px !important;
+              gap: 3px !important;
+              flex-shrink: 0;
+            }
+
+            .search-panel-sport {
+              flex-direction: column;
+              align-items: flex-start !important;
+            }
           }
-        }
 
         @keyframes searchPanelFade {
           from {
@@ -880,6 +928,7 @@ export default function SearchPanel() {
             transform: translateY(0);
           }
         }
+
       `}</style>
     </>
   );
