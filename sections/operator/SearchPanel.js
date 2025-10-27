@@ -904,12 +904,14 @@ export default function SearchPanel() {
               grid-template-columns: minmax(0, 1fr) !important;
               row-gap: clamp(2.75rem, 9vw, 3.75rem) !important;
               padding-bottom: clamp(1.75rem, 8vw, 3rem);
+              padding-left: clamp(1.15rem, 6vw, 1.8rem);
+              padding-right: clamp(1.15rem, 6vw, 1.8rem);
             }
 
             .search-panel-card {
               max-width: none !important;
               width: 100% !important;
-              margin: 0;
+              margin: 0 auto;
               padding: clamp(0.85rem, 4vw, 1.5rem) !important;
               border-radius: 28px !important;
               box-sizing: border-box;
