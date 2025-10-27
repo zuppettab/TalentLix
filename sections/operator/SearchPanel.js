@@ -842,10 +842,12 @@ export default function SearchPanel() {
         @media (max-width: 520px) {
           .search-panel-grid {
             grid-template-columns: minmax(0, 1fr) !important;
+            row-gap: 1.5rem !important;
           }
 
           .search-panel-card {
             max-width: none !important;
+            margin-bottom: 0.5rem;
           }
 
           .search-panel-sport {
