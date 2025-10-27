@@ -901,146 +901,174 @@ export default function SearchPanel() {
             }
           }
 
+          @media (max-width: 520px) {
+            .search-panel-grid {
+              grid-template-columns: minmax(0, 1fr) !important;
+              row-gap: clamp(2.75rem, 9vw, 3.75rem) !important;
+              padding-bottom: clamp(1.5rem, 7vw, 2.5rem);
+              padding-left: clamp(0.4rem, 3vw, 0.85rem);
+              padding-right: clamp(0.4rem, 3vw, 0.85rem);
+            }
+
+            .search-panel-card {
+              max-width: none !important;
+              width: 100% !important;
+              margin: 0 auto;
+              padding: clamp(0.45rem, 2.75vw, 0.95rem) !important;
+              border-radius: 28px !important;
+              box-sizing: border-box;
+              background: radial-gradient(circle at 0% -10%, rgba(39,227,218,0.35), transparent 55%),
+                          radial-gradient(circle at 120% 120%, rgba(249,115,22,0.24), transparent 58%),
+                          #f8fafc !important;
+              box-shadow: 0 42px 70px -40px rgba(15,23,42,0.48) !important;
+            }
+
+            .search-panel-card > div,
+            .search-panel-card-inner {
+              border-radius: 20px !important;
+              box-shadow: 0 24px 45px -36px rgba(15,23,42,0.4) !important;
+              padding: clamp(1.05rem, 3.6vw, 1.3rem) !important;
+            }
+
+            .search-panel-card-inner {
+              text-align: left;
+              justify-items: stretch;
+              gap: clamp(1.1rem, 5vw, 1.6rem) !important;
+            }
+
+            .search-panel-card-header {
+              flex-direction: column !important;
+              align-items: stretch !important;
+              text-align: left !important;
+              gap: clamp(0.85rem, 4vw, 1.2rem) !important;
+            }
+
+            .search-panel-name-wrap {
+              justify-items: stretch !important;
+              text-align: left !important;
+              gap: 6px !important;
+            }
+
+            .search-panel-name-row {
+              justify-content: flex-start !important;
+            }
+
+            .search-panel-category-badge {
+              align-self: flex-start !important;
+            }
+
+            .search-panel-card-subtitle {
+              text-align: left !important;
+            }
+
+            .search-panel-meta-grid {
+              justify-items: stretch !important;
+              text-align: left !important;
+              gap: clamp(0.85rem, 4vw, 1.1rem) !important;
+            }
+
+            .search-panel-meta-item {
+              place-items: stretch;
+              width: 100%;
+            }
+
+            .search-panel-meta-label {
+              justify-self: flex-start;
+            }
+
+            .search-panel-preferences {
+              text-align: left !important;
+            }
+
+            .search-panel-card {
+              display: flex !important;
+              flex-direction: column;
+              overflow: hidden;
+            }
+
+            .search-panel-card > div,
+            .search-panel-card-inner {
+              flex: 1;
+              width: 100%;
+            }
+
+            .search-panel-tags-action {
+              flex-direction: column !important;
+              align-items: stretch !important;
+              flex-wrap: wrap !important;
+              gap: 10px !important;
+              row-gap: 14px !important;
+              text-align: left;
+            }
+
+            .search-panel-tags-action > .search-panel-tag-row {
+              margin-right: 0;
+              justify-content: flex-start !important;
+            }
+
+            .search-panel-tag-row {
+              gap: 6px;
+              flex-wrap: wrap;
+            }
+
+            .search-panel-tag {
+              font-size: 0.68rem !important;
+              padding: 5px 12px !important;
+              white-space: nowrap;
+              flex-shrink: 0;
+            }
+
+            .search-panel-profile-btn-row {
+              width: 100%;
+              display: flex;
+              justify-content: flex-start;
+            }
+
+            .search-panel-profile-btn {
+              font-size: 0.72rem !important;
+              padding: 6px 10px !important;
+              gap: 4px !important;
+              flex-shrink: 0;
+              width: auto;
+              justify-content: center;
+            }
+
+            .search-panel-sport {
+              flex-direction: column;
+              align-items: flex-start !important;
+            }
+          }
+
+        /* --- Paracadute mobile: card larga e testi non tagliati --- */
         @media (max-width: 520px) {
+          /* 1 colonna piena e padding laterale leggero */
           .search-panel-grid {
             grid-template-columns: 1fr !important;
-            justify-items: stretch !important;
-            row-gap: clamp(2.75rem, 9vw, 3.75rem) !important;
-            padding-bottom: clamp(1.5rem, 7vw, 2.5rem);
             padding-left: max(12px, env(safe-area-inset-left));
             padding-right: max(12px, env(safe-area-inset-right));
           }
 
+          /* La card riempie tutta la riga */
           .search-panel-card {
             max-width: none !important;
             width: 100% !important;
-            margin: 0 auto;
-            padding: clamp(0.45rem, 2.75vw, 0.95rem) !important;
-            border-radius: 28px !important;
-            box-sizing: border-box;
-            background: radial-gradient(circle at 0% -10%, rgba(39,227,218,0.35), transparent 55%),
-                        radial-gradient(circle at 120% 120%, rgba(249,115,22,0.24), transparent 58%),
-                        #f8fafc !important;
-            box-shadow: 0 42px 70px -40px rgba(15,23,42,0.48) !important;
           }
 
-          .search-panel-card > div,
-          .search-panel-card-inner {
-            border-radius: 20px !important;
-            box-shadow: 0 24px 45px -36px rgba(15,23,42,0.4) !important;
-            padding: clamp(1.05rem, 3.6vw, 1.3rem) !important;
-            flex: 1;
-            width: 100%;
-          }
-
-          .search-panel-card-inner {
-            text-align: left;
-            justify-items: stretch;
-            gap: clamp(1.1rem, 5vw, 1.6rem) !important;
+          /* Consenti ai figli di restringersi correttamente (niente overflow) */
+          .search-panel-card-inner,
+          .search-panel-meta-item {
             min-width: 0 !important;
           }
 
-          .search-panel-card-header {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            text-align: left !important;
-            gap: clamp(0.85rem, 4vw, 1.2rem) !important;
-          }
-
-          .search-panel-name-wrap {
-            justify-items: stretch !important;
-            text-align: left !important;
-            gap: 6px !important;
-          }
-
-          .search-panel-name-row {
-            justify-content: flex-start !important;
-          }
-
-          .search-panel-category-badge {
-            align-self: flex-start !important;
-          }
-
-          .search-panel-card-subtitle {
-            text-align: left !important;
-          }
-
+          /* Forza la griglia dei meta a una colonna su schermi stretti */
           .search-panel-meta-grid {
-            justify-items: stretch !important;
-            text-align: left !important;
-            gap: clamp(0.85rem, 4vw, 1.1rem) !important;
             grid-template-columns: 1fr !important;
           }
 
-          .search-panel-meta-item {
-            place-items: stretch;
-            width: 100%;
-            min-width: 0 !important;
-          }
-
-          .search-panel-meta-label {
-            justify-self: flex-start;
-          }
-
+          /* Il valore (secondo span) nei box meta va a capo se lungo */
           .search-panel-meta-item span:last-child {
             word-break: break-word;
             overflow-wrap: anywhere;
-          }
-
-          .search-panel-preferences {
-            text-align: left !important;
-          }
-
-          .search-panel-card {
-            display: flex !important;
-            flex-direction: column;
-            overflow: hidden;
-          }
-
-          .search-panel-tags-action {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            flex-wrap: wrap !important;
-            gap: 10px !important;
-            row-gap: 14px !important;
-            text-align: left;
-          }
-
-          .search-panel-tags-action > .search-panel-tag-row {
-            margin-right: 0;
-            justify-content: flex-start !important;
-          }
-
-          .search-panel-tag-row {
-            gap: 6px;
-            flex-wrap: wrap;
-          }
-
-          .search-panel-tag {
-            font-size: 0.68rem !important;
-            padding: 5px 12px !important;
-            white-space: nowrap;
-            flex-shrink: 0;
-          }
-
-          .search-panel-profile-btn-row {
-            width: 100%;
-            display: flex;
-            justify-content: flex-start;
-          }
-
-          .search-panel-profile-btn {
-            font-size: 0.72rem !important;
-            padding: 6px 10px !important;
-            gap: 4px !important;
-            flex-shrink: 0;
-            width: auto;
-            justify-content: center;
-          }
-
-          .search-panel-sport {
-            flex-direction: column;
-            align-items: flex-start !important;
           }
         }
 
