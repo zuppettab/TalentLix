@@ -692,7 +692,7 @@ export default function SearchPanel() {
                 return (
                   <article key={ath.id} style={styles.card} className="search-panel-card">
                     <div style={styles.cardInner} className="search-panel-card-inner">
-                      <header style={styles.cardHeader}>
+                      <header style={styles.cardHeader} className="search-panel-card-header">
                         <div style={styles.avatarWrap}>
                           {ath.profile_picture_url ? (
                             <img
@@ -705,17 +705,17 @@ export default function SearchPanel() {
                           )}
                           <span style={styles.avatarFlag} aria-hidden="true">{natFlag}</span>
                         </div>
-                        <div style={styles.nameWrap}>
-                          <div style={styles.nameRow}>
+                        <div style={styles.nameWrap} className="search-panel-name-wrap">
+                          <div style={styles.nameRow} className="search-panel-name-row">
                             <h3 style={styles.name}>{fullName || `${ath.first_name || ''} ${ath.last_name || ''}`.trim() || '—'}</h3>
                             {contactsRecord?.id_verified && (
                               <span style={styles.verifiedBadge}>Verified</span>
                             )}
                           </div>
                           {(exp?.category || '').trim() && (
-                            <span style={styles.categoryBadge}>{exp.category}</span>
+                            <span style={styles.categoryBadge} className="search-panel-category-badge">{exp.category}</span>
                           )}
-                          <p style={styles.small}>
+                          <p style={styles.small} className="search-panel-card-subtitle">
                             {exp?.role ? `${exp.role}` : 'Role —'} • {sport?.label}
                             {ath.gender ? ` • ${ath.gender === 'M' ? 'Male' : 'Female'}` : ''}
                             {typeof age === 'number' ? ` • ${age} y` : ''}
@@ -725,15 +725,15 @@ export default function SearchPanel() {
 
                       <div style={styles.metaGrid} className="search-panel-meta-grid">
                         {metaItems.map((item) => (
-                          <div key={item.label} style={styles.metaItem}>
-                            <span style={styles.metaLabel}>{item.label}</span>
+                          <div key={item.label} style={styles.metaItem} className="search-panel-meta-item">
+                            <span style={styles.metaLabel} className="search-panel-meta-label">{item.label}</span>
                             <span>{item.value}</span>
                           </div>
                         ))}
                       </div>
 
-                      <div style={{ ...styles.section, gap: showTags ? 12 : styles.section.gap }}>
-                        <span style={styles.metaLabel}>
+                      <div style={{ ...styles.section, gap: showTags ? 12 : styles.section.gap }} className="search-panel-preferences">
+                        <span style={styles.metaLabel} className="search-panel-meta-label">
                           Preferred regions:
                           {' '}
                           <span style={{ fontWeight: 700, letterSpacing: 'normal', textTransform: 'none' }}>
@@ -903,16 +903,16 @@ export default function SearchPanel() {
             .search-panel-grid {
               grid-template-columns: minmax(0, 1fr) !important;
               row-gap: clamp(2.75rem, 9vw, 3.75rem) !important;
-              padding-bottom: clamp(1.75rem, 8vw, 3rem);
-              padding-left: clamp(1.15rem, 6vw, 1.8rem);
-              padding-right: clamp(1.15rem, 6vw, 1.8rem);
+              padding-bottom: clamp(1.5rem, 7vw, 2.5rem);
+              padding-left: clamp(0.4rem, 3vw, 0.85rem);
+              padding-right: clamp(0.4rem, 3vw, 0.85rem);
             }
 
             .search-panel-card {
               max-width: none !important;
               width: 100% !important;
               margin: 0 auto;
-              padding: clamp(0.85rem, 4vw, 1.5rem) !important;
+              padding: clamp(0.45rem, 3.5vw, 1.1rem) !important;
               border-radius: 28px !important;
               box-sizing: border-box;
               background: radial-gradient(circle at 0% -10%, rgba(39,227,218,0.35), transparent 55%),
@@ -925,7 +925,57 @@ export default function SearchPanel() {
             .search-panel-card-inner {
               border-radius: 20px !important;
               box-shadow: 0 24px 45px -36px rgba(15,23,42,0.4) !important;
-              padding: 1.25rem !important;
+              padding: clamp(1.05rem, 4vw, 1.35rem) !important;
+            }
+
+            .search-panel-card-inner {
+              text-align: center;
+              justify-items: center;
+              gap: clamp(1.1rem, 5vw, 1.6rem) !important;
+            }
+
+            .search-panel-card-header {
+              flex-direction: column !important;
+              align-items: center !important;
+              text-align: center !important;
+              gap: clamp(0.85rem, 4vw, 1.2rem) !important;
+            }
+
+            .search-panel-name-wrap {
+              justify-items: center !important;
+              text-align: center !important;
+              gap: 6px !important;
+            }
+
+            .search-panel-name-row {
+              justify-content: center !important;
+            }
+
+            .search-panel-category-badge {
+              align-self: center !important;
+            }
+
+            .search-panel-card-subtitle {
+              text-align: center !important;
+            }
+
+            .search-panel-meta-grid {
+              justify-items: center !important;
+              text-align: center !important;
+              gap: clamp(0.85rem, 4vw, 1.1rem) !important;
+            }
+
+            .search-panel-meta-item {
+              place-items: center;
+              width: min(100%, 320px);
+            }
+
+            .search-panel-meta-label {
+              justify-self: center;
+            }
+
+            .search-panel-preferences {
+              text-align: center !important;
             }
 
             .search-panel-card {
