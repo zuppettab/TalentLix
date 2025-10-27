@@ -165,7 +165,7 @@ const styles = {
   },
   tagSeeking: { background: 'linear-gradient(120deg, rgba(39,227,218,0.35), rgba(56,189,248,0.35))' },
   tagAgent: { background: 'linear-gradient(120deg, rgba(109,40,217,0.25), rgba(14,165,233,0.25))', color: '#1e293b' },
-  profileBtnRow: { display: 'flex', justifyContent: 'flex-end', flex: 1 },
+  profileBtnRow: { display: 'flex', justifyContent: 'flex-end', flex: 1, gap: 8 },
   profileBtn: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -888,13 +888,30 @@ export default function SearchPanel() {
               padding: 1.25rem !important;
             }
 
+            .search-panel-card {
+              display: flex !important;
+              flex-direction: column;
+              overflow: hidden;
+            }
+
+            .search-panel-card > div,
+            .search-panel-card-inner {
+              flex: 1;
+              width: 100%;
+            }
+
             .search-panel-tags-action {
-              flex-wrap: nowrap !important;
-              gap: 8px !important;
+              flex-wrap: wrap !important;
+              gap: 10px !important;
+            }
+
+            .search-panel-tags-action > .search-panel-tag-row {
+              margin-right: 10px;
             }
 
             .search-panel-tag-row {
               gap: 6px;
+              flex-wrap: wrap;
             }
 
             .search-panel-tag {
