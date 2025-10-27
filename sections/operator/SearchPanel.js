@@ -116,7 +116,20 @@ const styles = {
   nameRow: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
   name: { margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em' },
   verifiedBadge: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 999, background: 'linear-gradient(120deg, rgba(34,197,94,0.2), rgba(22,163,74,0.32))', color: '#166534', fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em' },
-  categoryBadge: { marginLeft: 'auto', background: 'rgba(15,23,42,0.08)', color: '#0f172a', borderRadius: 999, padding: '4px 10px', fontSize: '.75rem', fontWeight: 700 },
+  categoryBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+    background: 'rgba(134, 239, 172, 0.45)',
+    color: '#166534',
+    borderRadius: 999,
+    padding: '5px 12px',
+    fontSize: '.75rem',
+    fontWeight: 700,
+    letterSpacing: '.03em',
+    alignSelf: 'flex-start',
+  },
   small: { margin: 0, color: '#475569', fontSize: '.9rem' },
   metaGrid: {
     display: 'grid',
@@ -622,10 +635,10 @@ export default function SearchPanel() {
                             {contactsRecord?.id_verified && (
                               <span style={styles.verifiedBadge}>Verified</span>
                             )}
-                            {(exp?.category || '').trim() && (
-                              <span style={styles.categoryBadge}>{exp.category}</span>
-                            )}
                           </div>
+                          {(exp?.category || '').trim() && (
+                            <span style={styles.categoryBadge}>{exp.category}</span>
+                          )}
                           <p style={styles.small}>
                             {exp?.role ? `${exp.role}` : 'Role —'} • {sport?.label}
                             {ath.gender ? ` • ${ath.gender === 'M' ? 'Male' : 'Female'}` : ''}
