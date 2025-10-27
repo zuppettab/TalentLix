@@ -842,12 +842,25 @@ export default function SearchPanel() {
         @media (max-width: 520px) {
           .search-panel-grid {
             grid-template-columns: minmax(0, 1fr) !important;
-            row-gap: 1.5rem !important;
+            row-gap: clamp(2.75rem, 9vw, 3.75rem) !important;
+            padding-bottom: clamp(1.75rem, 8vw, 3rem);
           }
 
           .search-panel-card {
             max-width: none !important;
-            margin-bottom: 0.5rem;
+            margin: 0;
+            padding: clamp(0.85rem, 4vw, 1.5rem) !important;
+            border-radius: 28px !important;
+            box-sizing: border-box;
+            background: radial-gradient(circle at 0% -10%, rgba(39,227,218,0.35), transparent 55%),
+                        radial-gradient(circle at 120% 120%, rgba(249,115,22,0.24), transparent 58%),
+                        #f8fafc !important;
+            box-shadow: 0 42px 70px -40px rgba(15,23,42,0.48) !important;
+          }
+
+          .search-panel-card > div {
+            border-radius: 20px !important;
+            box-shadow: 0 24px 45px -36px rgba(15,23,42,0.4) !important;
           }
 
           .search-panel-sport {
