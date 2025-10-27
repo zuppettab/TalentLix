@@ -1044,6 +1044,7 @@ export default function SearchPanel() {
           /* 1 colonna piena e padding laterale leggero */
           .search-panel-grid {
             grid-template-columns: 1fr !important;
+            justify-items: stretch !important;
             padding-left: max(12px, env(safe-area-inset-left));
             padding-right: max(12px, env(safe-area-inset-right));
           }
@@ -1069,6 +1070,16 @@ export default function SearchPanel() {
           .search-panel-meta-item span:last-child {
             word-break: break-word;
             overflow-wrap: anywhere;
+          }
+
+          .search-panel-tags-action {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+
+          .search-panel-profile-btn-row {
+            justify-content: flex-start !important;
+            width: 100% !important;
           }
         }
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useOperatorGuard } from '../hooks/useOperatorGuard';
 import { supabase } from '../utils/supabaseClient';
@@ -503,20 +504,29 @@ export default function OperatorDashboard() {
     router.replace('/login-operator');
   };
 
+  const viewportMeta = (
+    <Head>
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+    </Head>
+  );
+
   if (loading || !user) {
     return (
-      <div style={styles.loadingWrap}>
-        <div style={styles.loaderContainer} role="status" aria-live="polite">
-          <div style={styles.spinner} aria-hidden="true" />
-          <span style={styles.srOnly}>Loading operator dashboard…</span>
+      <>
+        {viewportMeta}
+        <div style={styles.loadingWrap}>
+          <div style={styles.loaderContainer} role="status" aria-live="polite">
+            <div style={styles.spinner} aria-hidden="true" />
+            <span style={styles.srOnly}>Loading operator dashboard…</span>
+          </div>
+          <style jsx>{`
+            @keyframes operatorDashboardSpin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
         </div>
-        <style jsx>{`
-          @keyframes operatorDashboardSpin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
+      </>
     );
   }
 
@@ -526,75 +536,78 @@ export default function OperatorDashboard() {
   const mainStyle = { ...styles.main, ...(isMobile ? styles.mainMobile : null) };
 
   return (
-    <div style={styles.page}>
-      <header style={headerStyle}>
-        <div style={headerLeftStyle}>
-          <img src="/logo-talentlix.png" alt="TalentLix" style={styles.logo} />
-          <div>
-            <div style={styles.headerTitle}>Operator dashboard</div>
-            <p style={styles.headerSubtitle}>Manage your organisation and talent activities.</p>
+    <>
+      {viewportMeta}
+      <div style={styles.page}>
+        <header style={headerStyle}>
+          <div style={headerLeftStyle}>
+            <img src="/logo-talentlix.png" alt="TalentLix" style={styles.logo} />
+            <div>
+              <div style={styles.headerTitle}>Operator dashboard</div>
+              <p style={styles.headerSubtitle}>Manage your organisation and talent activities.</p>
+            </div>
+          </div>
+          <div style={headerRightStyle}>
+            <span style={styles.userEmail}>{user?.email}</span>
+            <button type="button" style={styles.signOutBtn} onClick={handleSignOut}>Sign out</button>
           </div>
         </div>
-        <div style={headerRightStyle}>
-          <span style={styles.userEmail}>{user?.email}</span>
-          <button type="button" style={styles.signOutBtn} onClick={handleSignOut}>Sign out</button>
-        </div>
-      </header>
 
-      {isMobile && (
-        <MobileOperatorTabs
-          sections={OPERATOR_SECTIONS}
-          current={current}
-          onSelect={setSection}
-          statusMap={sectionStatusMap}
-        />
-      )}
-
-      <main style={mainStyle}>
-        {!isMobile && (
-          <nav style={styles.leftNav}>
-            {OPERATOR_SECTIONS.map((section) => {
-              const status = sectionStatusMap[section.id] || 'unknown';
-              return (
-                <button
-                  key={section.id}
-                  type="button"
-                  onClick={() => setSection(section.id)}
-                  style={{
-                    ...styles.navBtn,
-                    ...(status === 'complete' ? styles.navBtnComplete : null),
-                    ...(status === 'incomplete' ? styles.navBtnIncomplete : null),
-                    ...(FUNCTIONAL_SECTIONS.has(section.id) ? styles.navBtnFunctional : null),
-                    ...(current === section.id ? styles.navBtnActive : null),
-                  }}
-                >
-                  {section.title}
-                </button>
-              );
-            })}
-          </nav>
+        {isMobile && (
+          <MobileOperatorTabs
+            sections={OPERATOR_SECTIONS}
+            current={current}
+            onSelect={setSection}
+            statusMap={sectionStatusMap}
+          />
         )}
 
-        <section style={styles.panel}>
-          <h2 style={styles.panelTitle}>{sectionObj?.title}</h2>
-          <div style={styles.panelBody}>
-            <SectionComponent
-              operatorData={operatorData}
-              authUser={user}
-              onRefresh={loadOperatorData}
-              isMobile={isMobile}
-            />
-          </div>
-        </section>
-      </main>
+        <main style={mainStyle}>
+          {!isMobile && (
+            <nav style={styles.leftNav}>
+              {OPERATOR_SECTIONS.map((section) => {
+                const status = sectionStatusMap[section.id] || 'unknown';
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => setSection(section.id)}
+                    style={{
+                      ...styles.navBtn,
+                      ...(status === 'complete' ? styles.navBtnComplete : null),
+                      ...(status === 'incomplete' ? styles.navBtnIncomplete : null),
+                      ...(FUNCTIONAL_SECTIONS.has(section.id) ? styles.navBtnFunctional : null),
+                      ...(current === section.id ? styles.navBtnActive : null),
+                    }}
+                  >
+                    {section.title}
+                  </button>
+                );
+              })}
+            </nav>
+          )}
 
-      <style jsx>{`
-        @keyframes operatorDashboardSpin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
+          <section style={styles.panel}>
+            <h2 style={styles.panelTitle}>{sectionObj?.title}</h2>
+            <div style={styles.panelBody}>
+              <SectionComponent
+                operatorData={operatorData}
+                authUser={user}
+                onRefresh={loadOperatorData}
+                isMobile={isMobile}
+              />
+            </div>
+          </section>
+        </main>
+
+        <style jsx>{`
+          @keyframes operatorDashboardSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    </>
   );
 }
 
