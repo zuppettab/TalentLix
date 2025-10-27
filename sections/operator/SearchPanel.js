@@ -173,7 +173,12 @@ const createSelectStyles = (minHeight, { menuZIndex } = {}) => {
       transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
     }),
     valueContainer: (provided) => ({ ...provided, padding: '0 12px' }),
-    placeholder: (provided) => ({ ...provided, color: '#64748B', fontWeight: 500 }),
+    placeholder: (provided) => ({
+      ...provided,
+      color: '#64748B',
+      fontWeight: 500,
+      fontSize: '0.95rem',
+    }),
     input: (provided) => ({ ...provided, color: '#0f172a' }),
     singleValue: (provided) => ({ ...provided, color: '#0f172a', fontWeight: 600 }),
     multiValue: (provided) => ({
@@ -530,8 +535,14 @@ export default function SearchPanel() {
                   <label><input type="radio" name="age" checked={ageMode === 'eq'}  onChange={() => setAgeMode('eq')} /> =</label>
                   <label><input type="radio" name="age" checked={ageMode === 'gte'} onChange={() => setAgeMode('gte')} /> ≥</label>
                   <label><input type="radio" name="age" checked={ageMode === 'lte'} onChange={() => setAgeMode('lte')} /> ≤</label>
-                  <input type="number" min={0} value={ageValue} onChange={(e) => setAgeValue(e.target.value.replace(/[^\d]/g, ''))}
-                         style={{ height: 36, borderRadius: 8, border: '1px solid #E0E0E0', padding: '0 8px', width: 90 }} placeholder="Years" />
+                  <input
+                    type="number"
+                    min={0}
+                    value={ageValue}
+                    onChange={(e) => setAgeValue(e.target.value.replace(/[^\d]/g, ''))}
+                    style={{ height: 36, borderRadius: 8, border: '1px solid #E0E0E0', padding: '0 8px', width: 90, fontSize: '0.95rem' }}
+                    placeholder="Years"
+                  />
                   <button type="button" onClick={() => { setAgeMode(null); setAgeValue(''); }} style={styles.btnGhost}>Clear</button>
                 </div>
               </div>
