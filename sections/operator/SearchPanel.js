@@ -39,7 +39,7 @@ function useDebouncedEffect(fn, deps, delay = 250) {
   useEffect(() => { const id = setTimeout(() => fn?.(), delay); return () => clearTimeout(id); /* eslint-disable-next-line */ }, deps);
 }
 
-/* -------------------- Stili (immutati lato desktop) -------------------- */
+/* -------------------- Stili (come i tuoi) -------------------- */
 const styles = {
   page: { minHeight: '100vh', padding: 'clamp(2rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem)', background: 'radial-gradient(circle at top left, rgba(39, 227, 218, 0.35), transparent 55%), radial-gradient(circle at bottom right, rgba(247, 184, 78, 0.35), transparent 52%), radial-gradient(circle at 20% 80%, rgba(249, 115, 22, 0.22), transparent 62%), #f8fafc', color: '#0f172a' },
   stageCard: { background: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(39,227,218,0.16), rgba(249,115,22,0.18))', border: '1px solid rgba(249,115,22,0.22)', borderRadius: 28, padding: 'clamp(1.75rem, 4vw, 2.5rem)', boxShadow: '0 35px 90px -60px rgba(249,115,22,0.35)', maxWidth: 1180, margin: '0 auto' },
@@ -320,7 +320,9 @@ export default function SearchPanel() {
     return () => mediaQuery.removeListener(updateLayout);
   }, []);
 
-  /* -------- Stage 1: pre-check esistenza -------- */
+  /* -------- Stage 1: pre-check esistenza --------
+     Regola: interrogo sports_experiences e faccio join su athlete!inner,
+     filtro exp.sport e athlete.profile_published; prendo 1 riga. */
   const onContinue = async () => {
     setNoData('');
     if (!sport?.value) return;
@@ -375,7 +377,9 @@ export default function SearchPanel() {
     }
   };
 
-  /* -------- Stage 2: query risultati -------- */
+  /* -------- Stage 2: query risultati --------
+     Base: athlete; join: exp:sports_experiences!inner
+     IMPORTANTISSIMO: filtri annidati SEMPRE sull'alias `exp`      */
   const fetchPage = async () => {
     if (!sport?.value) return;
     const pattern = buildSportPattern(sport.value);
@@ -395,7 +399,7 @@ export default function SearchPanel() {
           )
         `, { count: 'exact' })
         .eq('profile_published', true)
-        .filter('exp.sport', 'ilike', pattern);
+        .filter('exp.sport', 'ilike', pattern);   // filtro sempre sull'alias
 
       // filtri su ATLETA
       if (gender) q = q.eq('gender', gender);
@@ -435,7 +439,7 @@ export default function SearchPanel() {
     }
   };
 
-  // Debounced refetch
+  // Debounced refetch: quando cambiano filtri e sport, riparti da pagina 1
   useDebouncedEffect(() => { if (stage === 'search') { setPage(1); fetchPage(); } },
     [stage, sport?.value, gender, JSON.stringify(roles), JSON.stringify(nats), ageMode, ageValue, seeking, represented, JSON.stringify(contractStatuses)]
   );
@@ -448,7 +452,6 @@ export default function SearchPanel() {
     return (
       <>
         <Head>
-          {/* ✅ FIX MOBILE */}
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <link rel="icon" href="/talentlix_favicon_32x32.ico" sizes="32x32" />
           <link rel="icon" href="/talentlix_favicon_16x16.ico" sizes="16x16" />
@@ -492,7 +495,6 @@ export default function SearchPanel() {
   return (
     <>
       <Head>
-        {/* ✅ FIX MOBILE */}
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/talentlix_favicon_32x32.ico" sizes="32x32" />
         <link rel="icon" href="/talentlix_favicon_16x16.ico" sizes="16x16" />
@@ -707,7 +709,7 @@ export default function SearchPanel() {
                         </div>
                         <div style={styles.nameWrap} className="search-panel-name-wrap">
                           <div style={styles.nameRow} className="search-panel-name-row">
-                            <h3 style={styles.name}>{fullName || `${(ath.first_name || '').trim()} ${(ath.last_name || '').trim()}`.trim() || '—'}</h3>
+                            <h3 style={styles.name}>{fullName || `${ath.first_name || ''} ${ath.last_name || ''}`.trim() || '—'}</h3>
                             {contactsRecord?.id_verified && (
                               <span style={styles.verifiedBadge}>Verified</span>
                             )}
@@ -734,7 +736,8 @@ export default function SearchPanel() {
 
                       <div style={{ ...styles.section, gap: showTags ? 12 : styles.section.gap }} className="search-panel-preferences">
                         <span style={styles.metaLabel} className="search-panel-meta-label">
-                          Preferred regions:{' '}
+                          Preferred regions:
+                          {' '}
                           <span style={{ fontWeight: 700, letterSpacing: 'normal', textTransform: 'none' }}>
                             {regions.length > 0 ? formattedRegions : '—'}
                           </span>
@@ -797,17 +800,21 @@ export default function SearchPanel() {
           </main>
         </div>
       </div>
-
-      {/* --- CSS responsive mobile (paracadute) --- */}
       <style jsx>{`
-        .search-panel-filter-toggle { display: none; }
-        .search-panel-filters { display: grid; }
+        .search-panel-filter-toggle {
+          display: none;
+        }
+
+        .search-panel-filters {
+          display: grid;
+        }
 
         .search-panel-profile-btn:hover {
           background: linear-gradient(120deg, rgba(255,255,255,1), rgba(241,245,249,0.95));
           box-shadow: 0 14px 32px -20px rgba(15,23,42,0.55);
           transform: translateY(-1px);
         }
+
         .search-panel-profile-btn:active {
           transform: translateY(0);
           box-shadow: 0 8px 18px -18px rgba(15,23,42,0.55);
@@ -820,99 +827,263 @@ export default function SearchPanel() {
         }
 
         @media (max-width: 1080px) {
-          .search-panel-layout { grid-template-columns: 1fr !important; }
-          .search-panel-filters { position: relative !important; top: 0 !important; }
+          .search-panel-layout {
+            grid-template-columns: 1fr !important;
+          }
+
+          .search-panel-filters {
+            position: relative !important;
+            top: 0 !important;
+          }
         }
 
         @media (max-width: 820px) {
-          .search-panel-top { flex-direction: column !important; align-items: stretch !important; gap: 1.5rem; }
-          .search-panel-sport { width: 100%; justify-content: space-between; align-items: center !important; gap: 12px !important; }
-          .search-panel-results-intro { width: 100%; }
+          .search-panel-top {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 1.5rem;
+          }
+
+          .search-panel-sport {
+            width: 100%;
+            justify-content: space-between;
+            align-items: center !important;
+            gap: 12px !important;
+          }
+
+          .search-panel-results-intro {
+            width: 100%;
+          }
+
           .search-panel-filter-toggle {
-            display: inline-flex !important; align-items: center; justify-content: center;
-            margin: 0 0 1.5rem; width: 100%; text-align: center;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            margin: 0 0 1.5rem;
+            width: 100%;
+            text-align: center;
           }
-          .search-panel-layout { gap: 1.75rem !important; }
-          .search-panel-filters { display: none; width: min(100%, 520px); margin: 0 auto; justify-items: stretch; }
-          .search-panel-filters.is-open { display: grid; width: min(100%, 520px); margin: 0 auto; animation: searchPanelFade 0.25s ease; }
-          .search-panel-filters .filterCard { width: 100%; }
-          .search-panel-results { min-width: 0; }
-          .search-panel-grid { justify-items: stretch !important; }
-        }
 
-        @media (max-width: 640px) {
-          .search-panel-meta-grid { grid-template-columns: 1fr !important; }
-        }
+          .search-panel-layout {
+            gap: 1.75rem !important;
+          }
 
-        @media (max-width: 520px) {
+          .search-panel-filters {
+            display: none;
+            width: min(100%, 520px);
+            margin: 0 auto;
+            justify-items: stretch;
+          }
+
+          .search-panel-filters.is-open {
+            display: grid;
+            width: min(100%, 520px);
+            margin: 0 auto;
+            animation: searchPanelFade 0.25s ease;
+          }
+
+          .search-panel-filters .filterCard {
+            width: 100%;
+          }
+
+          .search-panel-results {
+            min-width: 0;
+          }
+
           .search-panel-grid {
-            grid-template-columns: minmax(0, 1fr) !important;
-            row-gap: clamp(2.75rem, 9vw, 3.75rem) !important;
-            padding-bottom: clamp(1.5rem, 7vw, 2.5rem);
-            padding-left: max(clamp(0.4rem, 3vw, 0.85rem), env(safe-area-inset-left));
-            padding-right: max(clamp(0.4rem, 3vw, 0.85rem), env(safe-area-inset-right));
+            justify-items: stretch !important;
+          }
+        }
+
+          @media (max-width: 640px) {
+            .search-panel-meta-grid {
+              grid-template-columns: 1fr !important;
+            }
           }
 
+          @media (max-width: 520px) {
+            .search-panel-grid {
+              grid-template-columns: minmax(0, 1fr) !important;
+              row-gap: clamp(2.75rem, 9vw, 3.75rem) !important;
+              padding-bottom: clamp(1.5rem, 7vw, 2.5rem);
+              padding-left: clamp(0.4rem, 3vw, 0.85rem);
+              padding-right: clamp(0.4rem, 3vw, 0.85rem);
+            }
+
+            .search-panel-card {
+              max-width: none !important;
+              width: 100% !important;
+              margin: 0 auto;
+              padding: clamp(0.45rem, 2.75vw, 0.95rem) !important;
+              border-radius: 28px !important;
+              box-sizing: border-box;
+              background: radial-gradient(circle at 0% -10%, rgba(39,227,218,0.35), transparent 55%),
+                          radial-gradient(circle at 120% 120%, rgba(249,115,22,0.24), transparent 58%),
+                          #f8fafc !important;
+              box-shadow: 0 42px 70px -40px rgba(15,23,42,0.48) !important;
+            }
+
+            .search-panel-card > div,
+            .search-panel-card-inner {
+              border-radius: 20px !important;
+              box-shadow: 0 24px 45px -36px rgba(15,23,42,0.4) !important;
+              padding: clamp(1.05rem, 3.6vw, 1.3rem) !important;
+            }
+
+            .search-panel-card-inner {
+              text-align: left;
+              justify-items: stretch;
+              gap: clamp(1.1rem, 5vw, 1.6rem) !important;
+            }
+
+            .search-panel-card-header {
+              flex-direction: column !important;
+              align-items: stretch !important;
+              text-align: left !important;
+              gap: clamp(0.85rem, 4vw, 1.2rem) !important;
+            }
+
+            .search-panel-name-wrap {
+              justify-items: stretch !important;
+              text-align: left !important;
+              gap: 6px !important;
+            }
+
+            .search-panel-name-row {
+              justify-content: flex-start !important;
+            }
+
+            .search-panel-category-badge {
+              align-self: flex-start !important;
+            }
+
+            .search-panel-card-subtitle {
+              text-align: left !important;
+            }
+
+            .search-panel-meta-grid {
+              justify-items: stretch !important;
+              text-align: left !important;
+              gap: clamp(0.85rem, 4vw, 1.1rem) !important;
+            }
+
+            .search-panel-meta-item {
+              place-items: stretch;
+              width: 100%;
+            }
+
+            .search-panel-meta-label {
+              justify-self: flex-start;
+            }
+
+            .search-panel-preferences {
+              text-align: left !important;
+            }
+
+            .search-panel-card {
+              display: flex !important;
+              flex-direction: column;
+              overflow: hidden;
+            }
+
+            .search-panel-card > div,
+            .search-panel-card-inner {
+              flex: 1;
+              width: 100%;
+            }
+
+            .search-panel-tags-action {
+              flex-direction: column !important;
+              align-items: stretch !important;
+              flex-wrap: wrap !important;
+              gap: 10px !important;
+              row-gap: 14px !important;
+              text-align: left;
+            }
+
+            .search-panel-tags-action > .search-panel-tag-row {
+              margin-right: 0;
+              justify-content: flex-start !important;
+            }
+
+            .search-panel-tag-row {
+              gap: 6px;
+              flex-wrap: wrap;
+            }
+
+            .search-panel-tag {
+              font-size: 0.68rem !important;
+              padding: 5px 12px !important;
+              white-space: nowrap;
+              flex-shrink: 0;
+            }
+
+            .search-panel-profile-btn-row {
+              width: 100%;
+              display: flex;
+              justify-content: flex-start;
+            }
+
+            .search-panel-profile-btn {
+              font-size: 0.72rem !important;
+              padding: 6px 10px !important;
+              gap: 4px !important;
+              flex-shrink: 0;
+              width: auto;
+              justify-content: center;
+            }
+
+            .search-panel-sport {
+              flex-direction: column;
+              align-items: flex-start !important;
+            }
+          }
+
+        /* --- Paracadute mobile: card larga e testi non tagliati --- */
+        @media (max-width: 520px) {
+          /* 1 colonna piena e padding laterale leggero */
+          .search-panel-grid {
+            grid-template-columns: 1fr !important;
+            padding-left: max(12px, env(safe-area-inset-left));
+            padding-right: max(12px, env(safe-area-inset-right));
+          }
+
+          /* La card riempie tutta la riga */
           .search-panel-card {
             max-width: none !important;
             width: 100% !important;
-            margin: 0 auto;
-            padding: clamp(0.45rem, 2.75vw, 0.95rem) !important;
-            border-radius: 28px !important;
-            box-sizing: border-box;
-            background: radial-gradient(circle at 0% -10%, rgba(39,227,218,0.35), transparent 55%),
-                        radial-gradient(circle at 120% 120%, rgba(249,115,22,0.24), transparent 58%),
-                        #f8fafc !important;
-            box-shadow: 0 42px 70px -40px rgba(15,23,42,0.48) !important;
           }
 
-          .search-panel-card > div,
-          .search-panel-card-inner {
-            border-radius: 20px !important;
-            box-shadow: 0 24px 45px -36px rgba(15,23,42,0.4) !important;
-            padding: clamp(1.05rem, 3.6vw, 1.3rem) !important;
-            min-width: 0 !important; /* evita overflow orizzontale */
+          /* Consenti ai figli di restringersi correttamente (niente overflow) */
+          .search-panel-card-inner,
+          .search-panel-meta-item {
+            min-width: 0 !important;
           }
 
-          .search-panel-card-inner { text-align: left; justify-items: stretch; gap: clamp(1.1rem, 5vw, 1.6rem) !important; }
-          .search-panel-card-header { flex-direction: column !important; align-items: stretch !important; text-align: left !important; gap: clamp(0.85rem, 4vw, 1.2rem) !important; }
-          .search-panel-name-wrap { justify-items: stretch !important; text-align: left !important; gap: 6px !important; }
-          .search-panel-name-row { justify-content: flex-start !important; }
-          .search-panel-category-badge { align-self: flex-start !important; }
-          .search-panel-card-subtitle { text-align: left !important; }
-
-          .search-panel-meta-grid { justify-items: stretch !important; text-align: left !important; gap: clamp(0.85rem, 4vw, 1.1rem) !important; }
-          .search-panel-meta-item { place-items: stretch; width: 100%; min-width: 0 !important; }
-          .search-panel-meta-item span:last-child { word-break: break-word; overflow-wrap: anywhere; }
-
-          .search-panel-preferences { text-align: left !important; }
-
-          .search-panel-card { display: flex !important; flex-direction: column; overflow: hidden; }
-          .search-panel-card > div,
-          .search-panel-card-inner { flex: 1; width: 100%; }
-
-          .search-panel-tags-action {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            flex-wrap: wrap !important;
-            gap: 10px !important;
-            row-gap: 14px !important;
-            text-align: left;
+          /* Forza la griglia dei meta a una colonna su schermi stretti */
+          .search-panel-meta-grid {
+            grid-template-columns: 1fr !important;
           }
-          .search-panel-tags-action > .search-panel-tag-row { margin-right: 0; justify-content: flex-start !important; }
-          .search-panel-tag-row { gap: 6px; flex-wrap: wrap; }
-          .search-panel-tag { font-size: 0.68rem !important; padding: 5px 12px !important; white-space: nowrap; flex-shrink: 0; }
 
-          .search-panel-profile-btn-row { width: 100%; display: flex; justify-content: flex-start; }
-          .search-panel-profile-btn { font-size: 0.72rem !important; padding: 6px 10px !important; gap: 4px !important; flex-shrink: 0; width: auto; justify-content: center; }
-
-          .search-panel-sport { flex-direction: column; align-items: flex-start !important; }
+          /* Il valore (secondo span) nei box meta va a capo se lungo */
+          .search-panel-meta-item span:last-child {
+            word-break: break-word;
+            overflow-wrap: anywhere;
+          }
         }
 
         @keyframes searchPanelFade {
-          from { opacity: 0; transform: translateY(-6px); }
-          to   { opacity: 1; transform: translateY(0); }
+          from {
+            opacity: 0;
+            transform: translateY(-6px);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
+
       `}</style>
     </>
   );
