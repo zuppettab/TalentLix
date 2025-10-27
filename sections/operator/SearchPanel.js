@@ -142,6 +142,13 @@ const styles = {
   chipRow: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   chip: { padding: '4px 9px', borderRadius: 999, fontSize: '.75rem', fontWeight: 600, background: 'linear-gradient(120deg, rgba(247,184,78,0.24), rgba(249,115,22,0.24))', color: '#0f172a' },
   tagRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  tagsAndAction: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    width: '100%',
+  },
   tag: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -157,7 +164,7 @@ const styles = {
   },
   tagSeeking: { background: 'linear-gradient(120deg, rgba(39,227,218,0.35), rgba(56,189,248,0.35))' },
   tagAgent: { background: 'linear-gradient(120deg, rgba(109,40,217,0.25), rgba(14,165,233,0.25))', color: '#1e293b' },
-  profileBtnRow: { display: 'flex', justifyContent: 'flex-end' },
+  profileBtnRow: { display: 'flex', justifyContent: 'flex-end', flex: 1 },
   profileBtn: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -692,25 +699,32 @@ export default function SearchPanel() {
                           </span>
                         </span>
 
-                        {showTags && (
-                          <div style={styles.tagRow}>
-                            {exp?.seeking_team && <span style={{ ...styles.tag, ...styles.tagSeeking }}>Seeking team</span>}
-                            {exp?.is_represented && <span style={{ ...styles.tag, ...styles.tagAgent }}>Agent</span>}
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={styles.profileBtnRow}>
-                        <a
-                          href={`/profile/full?id=${ath.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={styles.profileBtn}
-                          className="search-panel-profile-btn"
+                        <div
+                          style={{
+                            ...styles.tagsAndAction,
+                            justifyContent: showTags ? 'space-between' : 'flex-end',
+                          }}
                         >
-                          <span>Full profile</span>
-                          <ExternalLink size={14} strokeWidth={2} />
-                        </a>
+                          {showTags && (
+                            <div style={styles.tagRow}>
+                              {exp?.seeking_team && <span style={{ ...styles.tag, ...styles.tagSeeking }}>Seeking team</span>}
+                              {exp?.is_represented && <span style={{ ...styles.tag, ...styles.tagAgent }}>Agent</span>}
+                            </div>
+                          )}
+
+                          <div style={styles.profileBtnRow}>
+                            <a
+                              href={`/profile/full?id=${ath.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={styles.profileBtn}
+                              className="search-panel-profile-btn"
+                            >
+                              <span>Full profile</span>
+                              <ExternalLink size={14} strokeWidth={2} />
+                            </a>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </article>
