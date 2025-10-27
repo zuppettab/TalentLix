@@ -161,12 +161,13 @@ const styles = {
   profileBtn: {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: 6,
-    padding: '8px 14px',
-    borderRadius: 10,
+    gap: 4,
+    padding: '4px 10px',
+    borderRadius: 8,
     border: '1px solid rgba(148, 163, 184, 0.35)',
     background: '#fff',
     color: '#0f172a',
+    fontSize: '.78rem',
     fontWeight: 600,
     textDecoration: 'none',
     boxShadow: '0 10px 24px -20px rgba(15,23,42,0.55)',
@@ -707,8 +708,8 @@ export default function SearchPanel() {
                           style={styles.profileBtn}
                           className="search-panel-profile-btn"
                         >
-                          <span>Profilo completo</span>
-                          <ExternalLink size={16} strokeWidth={2} />
+                          <span>Full profile</span>
+                          <ExternalLink size={14} strokeWidth={2} />
                         </a>
                       </div>
                     </div>
