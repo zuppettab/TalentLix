@@ -270,6 +270,7 @@ export default function SearchPanel() {
   const [checking, setChecking] = useState(false);
   const [noData, setNoData] = useState('');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [isCompactLayout, setIsCompactLayout] = useState(false);
 
   /* -------- Filtri -------- */
   const [gender, setGender] = useState(null);
@@ -299,6 +300,25 @@ export default function SearchPanel() {
   useEffect(() => {
     if (stage !== 'search') setMobileFiltersOpen(false);
   }, [stage]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const mediaQuery = window.matchMedia('(max-width: 520px)');
+    const updateLayout = (event) => {
+      setIsCompactLayout(event.matches);
+    };
+
+    setIsCompactLayout(mediaQuery.matches);
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', updateLayout);
+      return () => mediaQuery.removeEventListener('change', updateLayout);
+    }
+
+    mediaQuery.addListener(updateLayout);
+    return () => mediaQuery.removeListener(updateLayout);
+  }, []);
 
   /* -------- Stage 1: pre-check esistenza --------
      Regola: interrogo sports_experiences e faccio join su athlete!inner,
@@ -647,6 +667,25 @@ export default function SearchPanel() {
                   { label: 'Contract status', value: contractLabel },
                 ];
                 const showTags = exp?.seeking_team || exp?.is_represented;
+                const tagsAndActionStyle = {
+                  ...styles.tagsAndAction,
+                  justifyContent: isCompactLayout
+                    ? 'center'
+                    : (showTags ? 'space-between' : 'flex-end'),
+                };
+                const tagRowStyle = { ...styles.tagRow };
+                const profileBtnRowStyle = { ...styles.profileBtnRow };
+
+                if (isCompactLayout) {
+                  tagsAndActionStyle.flexDirection = 'column';
+                  tagsAndActionStyle.alignItems = 'center';
+                  tagsAndActionStyle.textAlign = 'center';
+                  tagsAndActionStyle.gap = 16;
+                  tagsAndActionStyle.rowGap = 12;
+                  tagRowStyle.justifyContent = 'center';
+                  profileBtnRowStyle.justifyContent = 'center';
+                  profileBtnRowStyle.width = '100%';
+                }
 
                 return (
                   <article key={ath.id} style={styles.card} className="search-panel-card">
@@ -701,14 +740,11 @@ export default function SearchPanel() {
                         </span>
 
                         <div
-                          style={{
-                            ...styles.tagsAndAction,
-                            justifyContent: showTags ? 'space-between' : 'flex-end',
-                          }}
+                          style={tagsAndActionStyle}
                           className="search-panel-tags-action"
                         >
                           {showTags && (
-                            <div style={styles.tagRow} className="search-panel-tag-row">
+                            <div style={tagRowStyle} className="search-panel-tag-row">
                               {exp?.seeking_team && (
                                 <span
                                   style={{ ...styles.tag, ...styles.tagSeeking }}
@@ -728,7 +764,7 @@ export default function SearchPanel() {
                             </div>
                           )}
 
-                          <div style={styles.profileBtnRow}>
+                          <div style={profileBtnRowStyle}>
                             <a
                               href={`/profile/full?id=${ath.id}`}
                               target="_blank"
