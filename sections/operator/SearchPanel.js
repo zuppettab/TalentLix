@@ -76,7 +76,7 @@ const styles = {
   },
   resultsCount: { marginLeft: 8, fontSize: '1rem', fontWeight: 700, color: '#0f172a' },
   resultsStatus: { fontWeight: 600, color: '#0f172a' },
-  filterCard: { background: 'linear-gradient(140deg, rgba(255,255,255,0.98), rgba(39,227,218,0.12), rgba(249,115,22,0.12))', border: '1px solid rgba(249,115,22,0.18)', borderRadius: 20, padding: '1.35rem', boxShadow: '0 28px 60px -44px rgba(249,115,22,0.32)', display: 'grid', gap: 12, backdropFilter: 'blur(18px)' },
+  filterCard: { background: 'linear-gradient(140deg, rgba(255,255,255,0.98), rgba(39,227,218,0.12), rgba(249,115,22,0.12))', border: '1px solid rgba(249,115,22,0.18)', borderRadius: 20, padding: '1.35rem', boxShadow: '0 28px 60px -44px rgba(249,115,22,0.32)', display: 'grid', gap: 12, backdropFilter: 'blur(18px)', boxSizing: 'border-box' },
   h2: { margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' },
   h3: { margin: 0, fontSize: '.95rem', color: '#475569', fontWeight: 600 },
   radioRow: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
@@ -742,11 +742,15 @@ export default function SearchPanel() {
 
           .search-panel-filters {
             display: none;
-            width: 100%;
+            width: min(100%, 520px);
+            margin: 0 auto;
+            justify-items: stretch;
           }
 
           .search-panel-filters.is-open {
             display: grid;
+            width: min(100%, 520px);
+            margin: 0 auto;
             animation: searchPanelFade 0.25s ease;
           }
 
