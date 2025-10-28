@@ -87,7 +87,7 @@ const styles = {
     columnGap: 'clamp(1.25rem, 2.5vw, 2.25rem)',
     rowGap: 'clamp(2.5rem, 5vw, 3.75rem)',
     gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))',
-    justifyItems: 'center',
+    justifyItems: 'stretch',
   },
   card: {
     position: 'relative',
@@ -1045,6 +1045,17 @@ export default function SearchPanel() {
 
         /* --- Paracadute mobile: card larga e testi non tagliati --- */
         @media (max-width: 520px) {
+          .search-panel-page {
+            padding-left: max(8px, env(safe-area-inset-left)) !important;
+            padding-right: max(8px, env(safe-area-inset-right)) !important;
+          }
+
+          .search-panel-layout,
+          .search-panel-top {
+            max-width: none !important;
+            width: 100% !important;
+          }
+
           /* 1 colonna piena e padding laterale leggero */
           .search-panel-grid {
             grid-template-columns: 1fr !important;
