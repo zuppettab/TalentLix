@@ -181,182 +181,6 @@ const styles = {
     boxShadow: '0 10px 24px -20px rgba(15,23,42,0.55)',
     transition: 'background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease',
   },
-  mobileCard: {
-    display: 'grid',
-    gap: 0,
-    borderRadius: 30,
-    overflow: 'hidden',
-    background: 'transparent',
-    border: 'none',
-    boxShadow: 'none',
-    position: 'relative',
-  },
-  mobileCardHero: {
-    position: 'relative',
-    background: 'linear-gradient(135deg, rgba(39,227,218,0.82), rgba(247,184,78,0.65))',
-    padding: 'clamp(1.6rem, 8vw, 2.25rem) clamp(1.6rem, 9vw, 2.5rem)',
-    display: 'grid',
-    gap: 'clamp(1rem, 6vw, 1.4rem)',
-    justifyItems: 'center',
-    alignItems: 'center',
-    textAlign: 'center',
-    boxShadow: 'inset 0 -18px 40px -30px rgba(15,23,42,0.35)',
-  },
-  mobileAvatarWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: '999px',
-    overflow: 'hidden',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'rgba(255,255,255,0.88)',
-    boxShadow: '0 24px 46px -34px rgba(15,23,42,0.66)',
-    border: '3px solid rgba(255,255,255,0.7)',
-    position: 'relative',
-  },
-  mobileAvatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  mobileAvatarInitials: { fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' },
-  mobileAvatarFlag: {
-    position: 'absolute',
-    bottom: -6,
-    right: -6,
-    fontSize: 20,
-    filter: 'drop-shadow(0 6px 10px rgba(15,23,42,0.45))',
-  },
-  mobileHeroContent: {
-    display: 'grid',
-    gap: 'clamp(0.65rem, 4vw, 0.9rem)',
-    justifyItems: 'center',
-    color: '#0f172a',
-  },
-  mobileName: {
-    fontSize: 'clamp(1.35rem, 7vw, 1.75rem)',
-    margin: 0,
-    fontWeight: 800,
-    letterSpacing: '-0.01em',
-  },
-  mobileSubtitle: {
-    margin: 0,
-    fontSize: '0.92rem',
-    color: '#0f172a',
-    opacity: 0.85,
-    fontWeight: 600,
-  },
-  mobileVerifiedBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '5px 12px',
-    borderRadius: 999,
-    background: 'linear-gradient(120deg, rgba(34,197,94,0.28), rgba(22,163,74,0.45))',
-    color: '#14532d',
-    fontSize: '.72rem',
-    fontWeight: 800,
-    textTransform: 'uppercase',
-    letterSpacing: '.08em',
-  },
-  mobileCategoryBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '6px 14px',
-    borderRadius: 999,
-    background: 'rgba(255,255,255,0.72)',
-    color: '#0f172a',
-    fontWeight: 700,
-    fontSize: '.75rem',
-    letterSpacing: '.04em',
-    textTransform: 'uppercase',
-    boxShadow: '0 16px 30px -26px rgba(15,23,42,0.4)',
-  },
-  mobileCardBody: {
-    display: 'grid',
-    gap: 'clamp(1.1rem, 5vw, 1.6rem)',
-    background: 'linear-gradient(140deg, rgba(255,255,255,0.96), rgba(39,227,218,0.12))',
-    borderRadius: 26,
-    margin: 'clamp(0.85rem, 3vw, 1.25rem)',
-    padding: 'clamp(1.4rem, 7vw, 1.8rem)',
-    boxShadow: '0 28px 58px -42px rgba(15,23,42,0.55)',
-  },
-  mobileMetaGrid: {
-    display: 'grid',
-    gap: 'clamp(0.85rem, 4vw, 1.1rem)',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-  },
-  mobileMetaItem: {
-    display: 'grid',
-    gap: 6,
-    padding: '14px 16px',
-    borderRadius: 16,
-    background: 'rgba(255,255,255,0.9)',
-    border: '1px solid rgba(148,163,184,0.24)',
-    color: '#0f172a',
-    boxShadow: '0 18px 36px -30px rgba(15,23,42,0.45)',
-  },
-  mobileMetaLabel: {
-    fontSize: '.72rem',
-    fontWeight: 700,
-    letterSpacing: '.08em',
-    textTransform: 'uppercase',
-    opacity: 0.65,
-  },
-  mobileSection: { display: 'grid', gap: 6, textAlign: 'left' },
-  mobileSectionLabel: {
-    fontSize: '.78rem',
-    fontWeight: 700,
-    letterSpacing: '.06em',
-    textTransform: 'uppercase',
-    color: '#475569',
-  },
-  mobileSectionValue: {
-    fontSize: '.98rem',
-    fontWeight: 700,
-    color: '#0f172a',
-  },
-  mobileDivider: {
-    width: '100%',
-    height: 1,
-    background: 'linear-gradient(90deg, rgba(148,163,184,0), rgba(148,163,184,0.4), rgba(148,163,184,0))',
-  },
-  mobileFooter: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 'clamp(0.9rem, 4vw, 1.2rem)',
-  },
-  mobileTagRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  mobileTag: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '6px 14px',
-    borderRadius: 999,
-    fontSize: '.72rem',
-    fontWeight: 700,
-    letterSpacing: '.02em',
-    lineHeight: 1,
-    background: 'linear-gradient(120deg, rgba(39,227,218,0.35), rgba(247,184,78,0.35))',
-    color: '#0f172a',
-  },
-  mobileTagSeeking: { background: 'linear-gradient(120deg, rgba(39,227,218,0.45), rgba(56,189,248,0.45))' },
-  mobileTagAgent: { background: 'linear-gradient(120deg, rgba(109,40,217,0.35), rgba(14,165,233,0.35))', color: '#1e293b' },
-  mobileProfileBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: '12px 18px',
-    borderRadius: 14,
-    textDecoration: 'none',
-    fontSize: '.88rem',
-    fontWeight: 800,
-    letterSpacing: '.01em',
-    background: 'linear-gradient(115deg, #1dd6cb 0%, #f97316 55%, #facc15 100%)',
-    color: '#0f172a',
-    boxShadow: '0 26px 48px -30px rgba(249,115,22,0.55)',
-  },
-  mobileProfileBtnIcon: { flexShrink: 0 },
   pager: { display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', marginTop: 'clamp(2.25rem, 5vw, 3.5rem)', flexWrap: 'wrap' },
   pageBtn: { border: '1px solid #CBD5E1', background: '#fff', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
   disabled: { opacity: .4, cursor: 'not-allowed' },
@@ -844,203 +668,123 @@ export default function SearchPanel() {
                   { label: 'Current residence', value: residence },
                   { label: 'Contract status', value: contractLabel },
                 ];
-                  const showTags = exp?.seeking_team || exp?.is_represented;
+                const showTags = exp?.seeking_team || exp?.is_represented;
+                const tagsAndActionStyle = {
+                  ...styles.tagsAndAction,
+                  justifyContent: isCompactLayout
+                    ? 'center'
+                    : (showTags ? 'space-between' : 'flex-end'),
+                };
+                const tagRowStyle = { ...styles.tagRow };
+                const profileBtnRowStyle = { ...styles.profileBtnRow };
 
-                  if (isCompactLayout) {
-                    return (
-                      <article
-                        key={ath.id}
-                        style={styles.mobileCard}
-                        className="search-panel-card search-panel-card--mobile"
-                      >
-                        <div style={styles.mobileCardHero} className="search-panel-mobile-card-hero">
-                          <div style={styles.mobileAvatarWrap}>
-                            {ath.profile_picture_url ? (
-                              <img
-                                src={ath.profile_picture_url}
-                                alt={(fullName || 'Athlete').trim() || 'Athlete avatar'}
-                                style={styles.mobileAvatarImg}
-                              />
-                            ) : (
-                              <span style={styles.mobileAvatarInitials} aria-hidden="true">{initials}</span>
-                            )}
-                            <span style={styles.mobileAvatarFlag} aria-hidden="true">{natFlag}</span>
-                          </div>
+                if (isCompactLayout) {
+                  tagsAndActionStyle.flexDirection = 'column';
+                  tagsAndActionStyle.alignItems = 'stretch';
+                  tagsAndActionStyle.textAlign = 'center';
+                  tagsAndActionStyle.gap = 16;
+                  tagsAndActionStyle.rowGap = 12;
+                  tagRowStyle.justifyContent = 'center';
+                  profileBtnRowStyle.alignItems = 'center';
+                  profileBtnRowStyle.justifyContent = 'center';
+                  profileBtnRowStyle.width = '100%';
+                  profileBtnRowStyle.flex = '0 0 auto';
+                }
 
-                          <div style={styles.mobileHeroContent}>
-                            <h3 style={styles.mobileName}>{fullName || `${ath.first_name || ''} ${ath.last_name || ''}`.trim() || '—'}</h3>
-                            {contactsRecord?.id_verified && (
-                              <span style={styles.mobileVerifiedBadge}>Verified</span>
-                            )}
-                            {(exp?.category || '').trim() && (
-                              <span style={styles.mobileCategoryBadge}>{exp.category}</span>
-                            )}
-                            <p style={styles.mobileSubtitle}>
-                              {exp?.role ? `${exp.role}` : 'Role —'} • {sport?.label}
-                              {ath.gender ? ` • ${ath.gender === 'M' ? 'Male' : 'Female'}` : ''}
-                              {typeof age === 'number' ? ` • ${age} y` : ''}
-                            </p>
-                          </div>
+                return (
+                  <article key={ath.id} style={styles.card} className="search-panel-card">
+                    <div style={styles.cardInner} className="search-panel-card-inner">
+                      <header style={styles.cardHeader} className="search-panel-card-header">
+                        <div style={styles.avatarWrap}>
+                          {ath.profile_picture_url ? (
+                            <img
+                              src={ath.profile_picture_url}
+                              alt={(fullName || 'Athlete').trim() || 'Athlete avatar'}
+                              style={styles.avatarImg}
+                            />
+                          ) : (
+                            <span style={styles.avatarInitials} aria-hidden="true">{initials}</span>
+                          )}
+                          <span style={styles.avatarFlag} aria-hidden="true">{natFlag}</span>
                         </div>
-
-                        <div style={styles.mobileCardBody} className="search-panel-mobile-card-body">
-                          <div style={styles.mobileMetaGrid} className="search-panel-mobile-meta-grid">
-                            {metaItems.map((item) => (
-                              <div key={item.label} style={styles.mobileMetaItem} className="search-panel-mobile-meta-item">
-                                <span style={styles.mobileMetaLabel}>{item.label}</span>
-                                <span>{item.value}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div style={styles.mobileDivider} />
-
-                          <div style={styles.mobileSection}>
-                            <span style={styles.mobileSectionLabel}>Preferred regions</span>
-                            <span style={styles.mobileSectionValue}>{regions.length > 0 ? formattedRegions : '—'}</span>
-                          </div>
-
-                          <div style={styles.mobileFooter} className="search-panel-mobile-footer">
-                            {showTags ? (
-                              <div style={styles.mobileTagRow} className="search-panel-mobile-tag-row">
-                                {exp?.seeking_team && (
-                                  <span
-                                    style={{ ...styles.mobileTag, ...styles.mobileTagSeeking }}
-                                    className="search-panel-tag search-panel-tag--seeking"
-                                  >
-                                    Seeking team
-                                  </span>
-                                )}
-                                {exp?.is_represented && (
-                                  <span
-                                    style={{ ...styles.mobileTag, ...styles.mobileTagAgent }}
-                                    className="search-panel-tag search-panel-tag--agent"
-                                  >
-                                    Agent
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <div style={{ flex: '1 1 auto' }} aria-hidden="true" />
+                        <div style={styles.nameWrap} className="search-panel-name-wrap">
+                          <div style={styles.nameRow} className="search-panel-name-row">
+                            <h3 style={styles.name}>{fullName || `${ath.first_name || ''} ${ath.last_name || ''}`.trim() || '—'}</h3>
+                            {contactsRecord?.id_verified && (
+                              <span style={styles.verifiedBadge}>Verified</span>
                             )}
+                          </div>
+                          {(exp?.category || '').trim() && (
+                            <span style={styles.categoryBadge} className="search-panel-category-badge">{exp.category}</span>
+                          )}
+                          <p style={styles.small} className="search-panel-card-subtitle">
+                            {exp?.role ? `${exp.role}` : 'Role —'} • {sport?.label}
+                            {ath.gender ? ` • ${ath.gender === 'M' ? 'Male' : 'Female'}` : ''}
+                            {typeof age === 'number' ? ` • ${age} y` : ''}
+                          </p>
+                        </div>
+                      </header>
 
+                      <div style={styles.metaGrid} className="search-panel-meta-grid">
+                        {metaItems.map((item) => (
+                          <div key={item.label} style={styles.metaItem} className="search-panel-meta-item">
+                            <span style={styles.metaLabel} className="search-panel-meta-label">{item.label}</span>
+                            <span>{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ ...styles.section, gap: showTags ? 12 : styles.section.gap }} className="search-panel-preferences">
+                        <span style={styles.metaLabel} className="search-panel-meta-label">
+                          Preferred regions:
+                          {' '}
+                          <span style={{ fontWeight: 700, letterSpacing: 'normal', textTransform: 'none' }}>
+                            {regions.length > 0 ? formattedRegions : '—'}
+                          </span>
+                        </span>
+
+                        <div
+                          style={tagsAndActionStyle}
+                          className="search-panel-tags-action"
+                        >
+                          {showTags && (
+                            <div style={tagRowStyle} className="search-panel-tag-row">
+                              {exp?.seeking_team && (
+                                <span
+                                  style={{ ...styles.tag, ...styles.tagSeeking }}
+                                  className="search-panel-tag search-panel-tag--seeking"
+                                >
+                                  Seeking team
+                                </span>
+                              )}
+                              {exp?.is_represented && (
+                                <span
+                                  style={{ ...styles.tag, ...styles.tagAgent }}
+                                  className="search-panel-tag search-panel-tag--agent"
+                                >
+                                  Agent
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          <div style={profileBtnRowStyle} className="search-panel-profile-btn-row">
                             <a
                               href={`/profile/full?id=${ath.id}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              style={styles.mobileProfileBtn}
-                              className="search-panel-mobile-profile-btn"
+                              style={styles.profileBtn}
+                              className="search-panel-profile-btn"
                             >
                               <span>Full profile</span>
-                              <ExternalLink size={16} strokeWidth={2} style={styles.mobileProfileBtnIcon} />
+                              <ExternalLink size={14} strokeWidth={2} />
                             </a>
                           </div>
                         </div>
-                      </article>
-                    );
-                  }
-
-                  const tagsAndActionStyle = {
-                    ...styles.tagsAndAction,
-                    justifyContent: showTags ? 'space-between' : 'flex-end',
-                  };
-                  const tagRowStyle = { ...styles.tagRow };
-                  const profileBtnRowStyle = { ...styles.profileBtnRow };
-
-                  return (
-                    <article key={ath.id} style={styles.card} className="search-panel-card">
-                      <div style={styles.cardInner} className="search-panel-card-inner">
-                        <header style={styles.cardHeader} className="search-panel-card-header">
-                          <div style={styles.avatarWrap}>
-                            {ath.profile_picture_url ? (
-                              <img
-                                src={ath.profile_picture_url}
-                                alt={(fullName || 'Athlete').trim() || 'Athlete avatar'}
-                                style={styles.avatarImg}
-                              />
-                            ) : (
-                              <span style={styles.avatarInitials} aria-hidden="true">{initials}</span>
-                            )}
-                            <span style={styles.avatarFlag} aria-hidden="true">{natFlag}</span>
-                          </div>
-                          <div style={styles.nameWrap} className="search-panel-name-wrap">
-                            <div style={styles.nameRow} className="search-panel-name-row">
-                              <h3 style={styles.name}>{fullName || `${ath.first_name || ''} ${ath.last_name || ''}`.trim() || '—'}</h3>
-                              {contactsRecord?.id_verified && (
-                                <span style={styles.verifiedBadge}>Verified</span>
-                              )}
-                            </div>
-                            {(exp?.category || '').trim() && (
-                              <span style={styles.categoryBadge} className="search-panel-category-badge">{exp.category}</span>
-                            )}
-                            <p style={styles.small} className="search-panel-card-subtitle">
-                              {exp?.role ? `${exp.role}` : 'Role —'} • {sport?.label}
-                              {ath.gender ? ` • ${ath.gender === 'M' ? 'Male' : 'Female'}` : ''}
-                              {typeof age === 'number' ? ` • ${age} y` : ''}
-                            </p>
-                          </div>
-                        </header>
-
-                        <div style={styles.metaGrid} className="search-panel-meta-grid">
-                          {metaItems.map((item) => (
-                            <div key={item.label} style={styles.metaItem} className="search-panel-meta-item">
-                              <span style={styles.metaLabel} className="search-panel-meta-label">{item.label}</span>
-                              <span>{item.value}</span>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div style={{ ...styles.section, gap: showTags ? 12 : styles.section.gap }} className="search-panel-preferences">
-                          <span style={styles.metaLabel} className="search-panel-meta-label">
-                            Preferred regions:
-                            {' '}
-                            <span style={{ fontWeight: 700, letterSpacing: 'normal', textTransform: 'none' }}>
-                              {regions.length > 0 ? formattedRegions : '—'}
-                            </span>
-                          </span>
-
-                          <div
-                            style={tagsAndActionStyle}
-                            className="search-panel-tags-action"
-                          >
-                            {showTags && (
-                              <div style={tagRowStyle} className="search-panel-tag-row">
-                                {exp?.seeking_team && (
-                                  <span
-                                    style={{ ...styles.tag, ...styles.tagSeeking }}
-                                    className="search-panel-tag search-panel-tag--seeking"
-                                  >
-                                    Seeking team
-                                  </span>
-                                )}
-                                {exp?.is_represented && (
-                                  <span
-                                    style={{ ...styles.tag, ...styles.tagAgent }}
-                                    className="search-panel-tag search-panel-tag--agent"
-                                  >
-                                    Agent
-                                  </span>
-                                )}
-                              </div>
-                            )}
-
-                            <div style={profileBtnRowStyle} className="search-panel-profile-btn-row">
-                              <a
-                                href={`/profile/full?id=${ath.id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={styles.profileBtn}
-                                className="search-panel-profile-btn"
-                              >
-                                <span>Full profile</span>
-                                <ExternalLink size={14} strokeWidth={2} />
-                              </a>
-                            </div>
-                          </div>
-                        </div>
                       </div>
-                    </article>
-                  );
+                    </div>
+                  </article>
+                );
               })}
             </section>
 
@@ -1160,57 +904,133 @@ export default function SearchPanel() {
           @media (max-width: 520px) {
             .search-panel-grid {
               grid-template-columns: minmax(0, 1fr) !important;
-              row-gap: clamp(2.4rem, 8vw, 3.2rem) !important;
-              padding: 0 clamp(0.75rem, 4vw, 1.35rem) clamp(2.5rem, 8vw, 3.5rem);
+              row-gap: clamp(2.75rem, 9vw, 3.75rem) !important;
+              padding-bottom: clamp(1.5rem, 7vw, 2.5rem);
+              padding-left: clamp(0.4rem, 3vw, 0.85rem);
+              padding-right: clamp(0.4rem, 3vw, 0.85rem);
             }
 
-            .search-panel-card--mobile {
+            .search-panel-card {
+              max-width: none !important;
               width: 100% !important;
-              max-width: 520px !important;
               margin: 0 auto;
-              padding: 0 !important;
-              background: transparent !important;
-              box-shadow: none !important;
+              padding: clamp(0.45rem, 2.75vw, 0.95rem) !important;
+              border-radius: 28px !important;
+              box-sizing: border-box;
+              background: radial-gradient(circle at 0% -10%, rgba(39,227,218,0.35), transparent 55%),
+                          radial-gradient(circle at 120% 120%, rgba(249,115,22,0.24), transparent 58%),
+                          #f8fafc !important;
+              box-shadow: 0 42px 70px -40px rgba(15,23,42,0.48) !important;
             }
 
-            .search-panel-card--mobile .search-panel-card-inner {
-              padding: 0 !important;
-              background: transparent !important;
-              box-shadow: none !important;
+            .search-panel-card > div,
+            .search-panel-card-inner {
+              border-radius: 20px !important;
+              box-shadow: 0 24px 45px -36px rgba(15,23,42,0.4) !important;
+              padding: clamp(1.05rem, 3.6vw, 1.3rem) !important;
             }
 
-            .search-panel-mobile-card-hero {
-              border-bottom-left-radius: 0 !important;
-              border-bottom-right-radius: 0 !important;
+            .search-panel-card-inner {
+              text-align: left;
+              justify-items: stretch;
+              gap: clamp(1.1rem, 5vw, 1.6rem) !important;
             }
 
-            .search-panel-mobile-card-body {
-              background: rgba(255,255,255,0.92);
-              backdrop-filter: blur(16px);
-              border-radius: 26px !important;
+            .search-panel-card-header {
+              flex-direction: column !important;
+              align-items: stretch !important;
+              text-align: left !important;
+              gap: clamp(0.85rem, 4vw, 1.2rem) !important;
             }
 
-            .search-panel-mobile-meta-grid {
-              grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-              gap: clamp(0.85rem, 5vw, 1.2rem);
+            .search-panel-name-wrap {
+              justify-items: stretch !important;
+              text-align: left !important;
+              gap: 6px !important;
             }
 
-            .search-panel-mobile-meta-item span:last-child {
-              word-break: break-word;
+            .search-panel-name-row {
+              justify-content: flex-start !important;
             }
 
-            .search-panel-mobile-footer {
-              flex-direction: column;
-              align-items: stretch;
+            .search-panel-category-badge {
+              align-self: flex-start !important;
             }
 
-            .search-panel-mobile-footer .search-panel-tag {
-              font-size: 0.72rem !important;
-              padding: 6px 12px !important;
+            .search-panel-card-subtitle {
+              text-align: left !important;
             }
 
-            .search-panel-mobile-profile-btn {
+            .search-panel-meta-grid {
+              justify-items: stretch !important;
+              text-align: left !important;
+              gap: clamp(0.85rem, 4vw, 1.1rem) !important;
+            }
+
+            .search-panel-meta-item {
+              place-items: stretch;
               width: 100%;
+            }
+
+            .search-panel-meta-label {
+              justify-self: flex-start;
+            }
+
+            .search-panel-preferences {
+              text-align: left !important;
+            }
+
+            .search-panel-card {
+              display: flex !important;
+              flex-direction: column;
+              overflow: hidden;
+            }
+
+            .search-panel-card > div,
+            .search-panel-card-inner {
+              flex: 1;
+              width: 100%;
+            }
+
+            .search-panel-tags-action {
+              flex-direction: column !important;
+              align-items: stretch !important;
+              flex-wrap: wrap !important;
+              gap: 10px !important;
+              row-gap: 14px !important;
+              text-align: left;
+            }
+
+            .search-panel-tags-action > .search-panel-tag-row {
+              margin-right: 0;
+              justify-content: flex-start !important;
+            }
+
+            .search-panel-tag-row {
+              gap: 6px;
+              flex-wrap: wrap;
+            }
+
+            .search-panel-tag {
+              font-size: 0.68rem !important;
+              padding: 5px 12px !important;
+              white-space: nowrap;
+              flex-shrink: 0;
+            }
+
+            .search-panel-profile-btn-row {
+              width: 100%;
+              display: flex;
+              justify-content: flex-start;
+            }
+
+            .search-panel-profile-btn {
+              font-size: 0.72rem !important;
+              padding: 6px 10px !important;
+              gap: 4px !important;
+              flex-shrink: 0;
+              width: auto;
+              justify-content: center;
             }
 
             .search-panel-sport {
@@ -1221,27 +1041,32 @@ export default function SearchPanel() {
 
         /* --- Paracadute mobile: card larga e testi non tagliati --- */
         @media (max-width: 520px) {
+          /* 1 colonna piena e padding laterale leggero */
           .search-panel-grid {
             grid-template-columns: 1fr !important;
             padding-left: max(12px, env(safe-area-inset-left));
             padding-right: max(12px, env(safe-area-inset-right));
           }
 
-          .search-panel-card--mobile {
+          /* La card riempie tutta la riga */
+          .search-panel-card {
             max-width: none !important;
             width: 100% !important;
           }
 
-          .search-panel-mobile-card-body,
-          .search-panel-mobile-meta-item {
+          /* Consenti ai figli di restringersi correttamente (niente overflow) */
+          .search-panel-card-inner,
+          .search-panel-meta-item {
             min-width: 0 !important;
           }
 
-          .search-panel-mobile-meta-grid {
+          /* Forza la griglia dei meta a una colonna su schermi stretti */
+          .search-panel-meta-grid {
             grid-template-columns: 1fr !important;
           }
 
-          .search-panel-mobile-meta-item span:last-child {
+          /* Il valore (secondo span) nei box meta va a capo se lungo */
+          .search-panel-meta-item span:last-child {
             word-break: break-word;
             overflow-wrap: anywhere;
           }
