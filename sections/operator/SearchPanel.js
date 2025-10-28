@@ -1158,7 +1158,8 @@ export default function SearchPanel() {
               border-radius: 18px !important;
               box-shadow: none !important;
               background: transparent !important;
-              padding: clamp(1rem, 4.6vw, 1.35rem) !important;
+              padding-block: clamp(1rem, 4.6vw, 1.35rem) !important;
+              padding-inline: clamp(1.15rem, 5.4vw, 1.55rem) !important;
             }
 
             .search-panel-card-inner {
