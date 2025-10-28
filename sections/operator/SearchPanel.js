@@ -857,7 +857,7 @@ export default function SearchPanel() {
                 ];
                 const showTags = exp?.seeking_team || exp?.is_represented;
                 const cardInnerStyle = isCompactLayout
-                  ? { ...styles.cardInner, padding: '1.4rem 2.35rem 1.4rem 0.75rem' }
+                  ? { ...styles.cardInner, padding: '1.4rem 1.65rem' }
                   : styles.cardInner;
                 const tagsAndActionStyle = {
                   ...styles.tagsAndAction,
