@@ -856,6 +856,9 @@ export default function SearchPanel() {
                   { label: 'Contract status', value: contractLabel },
                 ];
                 const showTags = exp?.seeking_team || exp?.is_represented;
+                const cardInnerStyle = isCompactLayout
+                  ? { ...styles.cardInner, padding: '1.4rem 1.9rem 1.4rem 1.1rem' }
+                  : styles.cardInner;
                 const tagsAndActionStyle = {
                   ...styles.tagsAndAction,
                   justifyContent: isCompactLayout
@@ -913,7 +916,7 @@ export default function SearchPanel() {
 
                 return (
                   <article key={ath.id} style={styles.card} className="search-panel-card">
-                    <div style={styles.cardInner} className="search-panel-card-inner">
+                    <div style={cardInnerStyle} className="search-panel-card-inner">
                       <header style={styles.cardHeader} className="search-panel-card-header">
                         <div style={avatarWrapStyle}>
                           {ath.profile_picture_url ? (
