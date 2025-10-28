@@ -904,36 +904,36 @@ export default function SearchPanel() {
           @media (max-width: 520px) {
             .search-panel-grid {
               grid-template-columns: minmax(0, 1fr) !important;
-              row-gap: clamp(2.75rem, 9vw, 3.75rem) !important;
-              padding-bottom: clamp(1.5rem, 7vw, 2.5rem);
-              padding-left: clamp(0.4rem, 3vw, 0.85rem);
-              padding-right: clamp(0.4rem, 3vw, 0.85rem);
+              row-gap: clamp(1.75rem, 7vw, 2.25rem) !important;
+              padding-bottom: clamp(1.25rem, 6vw, 2rem);
+              padding-left: clamp(0.75rem, 4vw, 1.25rem);
+              padding-right: clamp(0.75rem, 4vw, 1.25rem);
             }
 
             .search-panel-card {
               max-width: none !important;
               width: 100% !important;
               margin: 0 auto;
-              padding: clamp(0.45rem, 2.75vw, 0.95rem) !important;
-              border-radius: 28px !important;
+              padding: clamp(0.6rem, 3vw, 0.9rem) !important;
+              border-radius: 22px !important;
               box-sizing: border-box;
-              background: radial-gradient(circle at 0% -10%, rgba(39,227,218,0.35), transparent 55%),
-                          radial-gradient(circle at 120% 120%, rgba(249,115,22,0.24), transparent 58%),
-                          #f8fafc !important;
-              box-shadow: 0 42px 70px -40px rgba(15,23,42,0.48) !important;
+              background: #fff !important;
+              border: 1px solid rgba(148, 163, 184, 0.22);
+              box-shadow: 0 18px 38px -28px rgba(15, 23, 42, 0.35) !important;
             }
 
             .search-panel-card > div,
             .search-panel-card-inner {
-              border-radius: 20px !important;
-              box-shadow: 0 24px 45px -36px rgba(15,23,42,0.4) !important;
-              padding: clamp(1.05rem, 3.6vw, 1.3rem) !important;
+              border-radius: 18px !important;
+              box-shadow: none !important;
+              background: transparent !important;
+              padding: clamp(1rem, 4.6vw, 1.35rem) !important;
             }
 
             .search-panel-card-inner {
               text-align: left;
               justify-items: stretch;
-              gap: clamp(1.1rem, 5vw, 1.6rem) !important;
+              gap: clamp(0.95rem, 4.8vw, 1.35rem) !important;
             }
 
             .search-panel-card-header {
@@ -964,12 +964,15 @@ export default function SearchPanel() {
             .search-panel-meta-grid {
               justify-items: stretch !important;
               text-align: left !important;
-              gap: clamp(0.85rem, 4vw, 1.1rem) !important;
+              gap: clamp(0.75rem, 3.6vw, 1rem) !important;
             }
 
             .search-panel-meta-item {
               place-items: stretch;
               width: 100%;
+              padding: 12px 14px !important;
+              border-radius: 14px !important;
+              background: #f8fafc !important;
             }
 
             .search-panel-meta-label {
@@ -1036,6 +1039,7 @@ export default function SearchPanel() {
             .search-panel-sport {
               flex-direction: column;
               align-items: flex-start !important;
+              gap: 10px !important;
             }
           }
 
