@@ -857,7 +857,7 @@ export default function SearchPanel() {
                 ];
                 const showTags = exp?.seeking_team || exp?.is_represented;
                 const cardInnerStyle = isCompactLayout
-                  ? { ...styles.cardInner, padding: '1.4rem 1.65rem' }
+                  ? { ...styles.cardInner, padding: '1.4rem 1.85rem 1.4rem 1.1rem' }
                   : styles.cardInner;
                 const tagsAndActionStyle = {
                   ...styles.tagsAndAction,
@@ -889,7 +889,7 @@ export default function SearchPanel() {
                   ? { ...styles.small, fontSize: '.85rem' }
                   : styles.small;
                 const metaItemStyle = isCompactLayout
-                  ? { ...styles.metaItem, fontSize: '.85rem', padding: '10px 12px' }
+                  ? { ...styles.metaItem, fontSize: '.85rem', padding: '10px 16px 10px 10px' }
                   : styles.metaItem;
                 const metaLabelStyle = isCompactLayout
                   ? { ...styles.metaLabel, fontSize: '.68rem' }
