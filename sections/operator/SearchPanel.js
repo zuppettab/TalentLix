@@ -449,6 +449,74 @@ export default function SearchPanel() {
 
   /* -------------------- Render -------------------- */
   if (stage === 'select') {
+    const pageStyle = isCompactLayout
+      ? {
+          ...styles.page,
+          padding: 'clamp(1.5rem, 8vw, 2.5rem) clamp(1rem, 7vw, 1.75rem)',
+        }
+      : styles.page;
+    const stageCardStyle = isCompactLayout
+      ? {
+          ...styles.stageCard,
+          padding: 'clamp(1.35rem, 7vw, 2rem)',
+          borderRadius: 24,
+          textAlign: 'center',
+        }
+      : styles.stageCard;
+    const stageContentStyle = isCompactLayout
+      ? {
+          display: 'grid',
+          gap: '0.85rem',
+          justifyItems: 'center',
+          textAlign: 'center',
+        }
+      : { display: 'grid', gap: '1rem' };
+    const bigLabelStyle = {
+      ...styles.bigLabel,
+      fontSize: isCompactLayout ? 'clamp(1.75rem, 8vw, 2.2rem)' : styles.bigLabel.fontSize,
+      textAlign: isCompactLayout ? 'center' : styles.bigLabel.textAlign,
+    };
+    const subStyle = {
+      ...styles.sub,
+      fontSize: isCompactLayout ? '0.95rem' : styles.sub.fontSize,
+      maxWidth: isCompactLayout ? '24rem' : styles.sub.maxWidth,
+      textAlign: isCompactLayout ? 'center' : styles.sub.textAlign,
+      margin: isCompactLayout ? '.35rem 0 .75rem' : styles.sub.margin,
+    };
+    const selectStyles = {
+      ...createSelectStyles(isCompactLayout ? 48 : 56),
+      container: (provided) => ({
+        ...provided,
+        fontSize: isCompactLayout ? '0.95rem' : '1rem',
+        width: 'min(100%, 340px)',
+        margin: isCompactLayout ? '0 auto' : provided.margin,
+      }),
+    };
+    const actionRowStyle = {
+      ...styles.row,
+      justifyContent: isCompactLayout ? 'center' : 'flex-start',
+      flexDirection: isCompactLayout ? 'column' : 'row',
+      gap: isCompactLayout ? 12 : styles.row.gap,
+      width: '100%',
+    };
+    const primaryButtonStyle = {
+      ...styles.btn,
+      width: isCompactLayout ? 'min(100%, 320px)' : styles.btn.width,
+      fontSize: isCompactLayout ? '0.95rem' : styles.btn.fontSize,
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    };
+    const warnStyle = isCompactLayout
+      ? {
+          ...styles.warn,
+          fontSize: '0.85rem',
+          textAlign: 'center',
+          width: '100%',
+          maxWidth: 340,
+        }
+      : styles.warn;
+
     return (
       <>
         <Head>
@@ -457,11 +525,11 @@ export default function SearchPanel() {
           <link rel="icon" href="/talentlix_favicon_16x16.ico" sizes="16x16" />
         </Head>
 
-        <div style={styles.page}>
-          <div style={styles.stageCard} aria-live="polite">
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              <h1 style={styles.bigLabel}>Select a sport</h1>
-              <p style={styles.sub}>Pick one sport to search athletes. You can always go back and change it.</p>
+        <div style={pageStyle}>
+          <div style={stageCardStyle} aria-live="polite">
+            <div style={stageContentStyle}>
+              <h1 style={bigLabelStyle}>Select a sport</h1>
+              <p style={subStyle}>Pick one sport to search athletes. You can always go back and change it.</p>
 
               <Select
                 inputId="sport-select"
@@ -470,17 +538,22 @@ export default function SearchPanel() {
                 options={sports}
                 value={sport}
                 onChange={(opt) => setSport(opt)}
-                styles={{
-                  ...createSelectStyles(56),
-                  container: (provided) => ({ ...provided, fontSize: '1rem' }),
-                }}
+                styles={selectStyles}
               />
 
-              <div style={styles.row}>
-                <button type="button" onClick={onContinue} disabled={!sport || checking} style={{ ...styles.btn, opacity: !sport || checking ? .6 : 1 }}>
+              <div style={actionRowStyle}>
+                <button
+                  type="button"
+                  onClick={onContinue}
+                  disabled={!sport || checking}
+                  style={{
+                    ...primaryButtonStyle,
+                    opacity: !sport || checking ? .6 : 1,
+                  }}
+                >
                   {checking ? 'Checking…' : 'Continue'}
                 </button>
-                {noData && <span style={styles.warn}>{noData}</span>}
+                {noData && <span style={warnStyle}>{noData}</span>}
               </div>
             </div>
           </div>
@@ -491,6 +564,120 @@ export default function SearchPanel() {
 
   // Stage 2
   const filtersId = 'search-panel-filters';
+  const pageStyle = isCompactLayout
+    ? {
+        ...styles.page,
+        padding: 'clamp(1.5rem, 7vw, 2.5rem) clamp(0.75rem, 6vw, 1.75rem)',
+      }
+    : styles.page;
+  const topRowStyle = isCompactLayout
+    ? {
+        ...styles.topRow,
+        gap: 'clamp(1rem, 6vw, 1.75rem)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        textAlign: 'center',
+      }
+    : styles.topRow;
+  const sportRowStyle = isCompactLayout
+    ? {
+        ...styles.sportRow,
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        textAlign: 'center',
+        gap: 12,
+        width: '100%',
+      }
+    : styles.sportRow;
+  const resultsIntroStyle = isCompactLayout
+    ? {
+        ...styles.resultsIntro,
+        textAlign: 'center',
+        alignItems: 'center',
+        justifyItems: 'center',
+        gap: 6,
+      }
+    : styles.resultsIntro;
+  const resultsTitleStyle = {
+    margin: 0,
+    fontSize: isCompactLayout ? '1.35rem' : '1.6rem',
+    fontWeight: 700,
+    color: '#0f172a',
+    display: 'flex',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+    justifyContent: isCompactLayout ? 'center' : 'flex-start',
+    gap: isCompactLayout ? 4 : undefined,
+    width: '100%',
+  };
+  const resultsCountStyle = {
+    ...styles.resultsCount,
+    fontSize: isCompactLayout ? '0.92rem' : styles.resultsCount.fontSize,
+    marginLeft: isCompactLayout ? 6 : styles.resultsCount.marginLeft,
+  };
+  const resultsIntroParagraphStyle = {
+    margin: 0,
+    color: '#334155',
+    fontWeight: 500,
+    fontSize: isCompactLayout ? '0.95rem' : '1rem',
+  };
+  const resultsStatusStyle = {
+    ...styles.resultsStatus,
+    fontSize: isCompactLayout ? '0.9rem' : styles.resultsStatus.fontSize,
+  };
+  const filterToggleStyle = {
+    ...styles.filterToggle,
+    justifyContent: 'center',
+    fontSize: isCompactLayout ? '0.95rem' : '1rem',
+    height: isCompactLayout ? 36 : styles.filterToggle.height,
+    padding: isCompactLayout ? '0 14px' : styles.filterToggle.padding,
+    width: isCompactLayout ? 'min(100%, 360px)' : styles.filterToggle.width,
+  };
+  const layoutStyle = isCompactLayout
+    ? { ...styles.layout, justifyItems: 'center' }
+    : styles.layout;
+  const filtersStyle = isCompactLayout
+    ? {
+        ...styles.filters,
+        width: 'min(100%, 520px)',
+        margin: '0 auto',
+        justifyItems: 'stretch',
+        alignSelf: 'center',
+      }
+    : styles.filters;
+  const filterCardStyle = isCompactLayout
+    ? { ...styles.filterCard, padding: '1.1rem', gap: 10 }
+    : styles.filterCard;
+  const filterTitleStyle = isCompactLayout
+    ? { ...styles.h2, fontSize: '1rem', textAlign: 'center' }
+    : styles.h2;
+  const filterSubtitleStyle = isCompactLayout
+    ? { ...styles.h3, fontSize: '0.9rem', textAlign: 'center' }
+    : styles.h3;
+  const radioRowStyle = isCompactLayout
+    ? { ...styles.radioRow, justifyContent: 'center', gap: 8 }
+    : styles.radioRow;
+  const ghostButtonStyle = {
+    ...styles.btnGhost,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: isCompactLayout ? '0.82rem' : styles.btnGhost.fontSize,
+    height: isCompactLayout ? 34 : styles.btnGhost.height,
+    padding: isCompactLayout ? '0 12px' : styles.btnGhost.padding,
+    width: isCompactLayout ? '100%' : styles.btnGhost.width,
+    maxWidth: isCompactLayout ? 360 : styles.btnGhost.maxWidth,
+  };
+  const ageInputStyle = isCompactLayout
+    ? { height: 34, borderRadius: 8, border: '1px solid #E0E0E0', padding: '0 8px', width: 80, fontSize: '0.9rem' }
+    : { height: 36, borderRadius: 8, border: '1px solid #E0E0E0', padding: '0 8px', width: 90, fontSize: '0.95rem' };
+  const resultsStyle = isCompactLayout
+    ? { ...styles.results, alignItems: 'center' }
+    : styles.results;
+  const warnStyle = isCompactLayout
+    ? { ...styles.warn, textAlign: 'center', fontSize: '0.85rem', width: '100%' }
+    : { ...styles.warn, alignSelf: 'start' };
 
   return (
     <>
@@ -500,30 +687,30 @@ export default function SearchPanel() {
         <link rel="icon" href="/talentlix_favicon_16x16.ico" sizes="16x16" />
       </Head>
 
-      <div style={styles.page} className="search-panel-page">
-        <div style={styles.topRow} className="search-panel-top">
-          <div style={styles.sportRow} className="search-panel-sport">
-            <button type="button" onClick={backToSport} style={styles.btnGhost}>← Change sport</button>
+      <div style={pageStyle} className="search-panel-page">
+        <div style={topRowStyle} className="search-panel-top">
+          <div style={sportRowStyle} className="search-panel-sport">
+            <button type="button" onClick={backToSport} style={ghostButtonStyle}>← Change sport</button>
             <span><strong>Sport:</strong> {sport?.label}</span>
           </div>
-          <div style={styles.resultsIntro} className="search-panel-results-intro" aria-live="polite">
-            <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap' }}>
+          <div style={resultsIntroStyle} className="search-panel-results-intro" aria-live="polite">
+            <h2 style={resultsTitleStyle}>
               Athletes
               {!loading && (
-                <span style={styles.resultsCount}>
+                <span style={resultsCountStyle}>
                   ({total} result{total === 1 ? '' : 's'})
                 </span>
               )}
             </h2>
-            <p style={{ margin: 0, color: '#334155', fontWeight: 500 }}>Profiles update in real time as you adjust filters.</p>
-            {loading && <span style={styles.resultsStatus}>Loading…</span>}
+            <p style={resultsIntroParagraphStyle}>Profiles update in real time as you adjust filters.</p>
+            {loading && <span style={resultsStatusStyle}>Loading…</span>}
           </div>
         </div>
 
         <button
           type="button"
           onClick={() => setMobileFiltersOpen((prev) => !prev)}
-          style={styles.filterToggle}
+          style={filterToggleStyle}
           className="search-panel-filter-toggle"
           aria-expanded={mobileFiltersOpen}
           aria-controls={filtersId}
@@ -531,27 +718,27 @@ export default function SearchPanel() {
           {mobileFiltersOpen ? 'Hide filters' : 'Show filters'}
         </button>
 
-        <div style={styles.layout} className="search-panel-layout">
+        <div style={layoutStyle} className="search-panel-layout">
           {/* Filtri */}
           <aside
-            style={styles.filters}
+            style={filtersStyle}
             className={`search-panel-filters${mobileFiltersOpen ? ' is-open' : ''}`}
             id={filtersId}
           >
-            <section className="filterCard" style={styles.filterCard}>
-              <h2 style={styles.h2}>Player profile</h2>
+            <section className="filterCard" style={filterCardStyle}>
+              <h2 style={filterTitleStyle}>Player profile</h2>
 
               <div>
-                <h3 style={styles.h3}>Gender</h3>
-                <div style={styles.radioRow} role="radiogroup" aria-label="Gender">
+                <h3 style={filterSubtitleStyle}>Gender</h3>
+                <div style={radioRowStyle} role="radiogroup" aria-label="Gender">
                   <label><input type="radio" name="g" checked={gender === 'M'} onChange={() => setGender('M')} /> Male</label>
                   <label><input type="radio" name="g" checked={gender === 'F'} onChange={() => setGender('F')} /> Female</label>
-                  <button type="button" onClick={() => setGender(null)} style={styles.btnGhost}>Clear</button>
+                  <button type="button" onClick={() => setGender(null)} style={ghostButtonStyle}>Clear</button>
                 </div>
               </div>
 
               <div>
-                <h3 style={styles.h3}>Role (OR)</h3>
+                <h3 style={filterSubtitleStyle}>Role (OR)</h3>
                 <AsyncSelect
                   isMulti
                   cacheOptions
@@ -560,25 +747,25 @@ export default function SearchPanel() {
                   value={roles}
                   onChange={(opts) => setRoles(Array.isArray(opts) ? opts : [])}
                   placeholder="Type to search roles"
-                  styles={createSelectStyles(42, { menuZIndex: 20 })}
+                  styles={createSelectStyles(isCompactLayout ? 38 : 42, { menuZIndex: 20 })}
                 />
               </div>
 
               <div>
-                <h3 style={styles.h3}>Nationality (OR)</h3>
+                <h3 style={filterSubtitleStyle}>Nationality (OR)</h3>
                 <Select
                   isMulti
                   options={countries}
                   value={nats}
                   onChange={(opts) => setNats(Array.isArray(opts) ? opts : [])}
                   placeholder="Start typing a country"
-                  styles={createSelectStyles(42, { menuZIndex: 20 })}
+                  styles={createSelectStyles(isCompactLayout ? 38 : 42, { menuZIndex: 20 })}
                 />
               </div>
 
               <div>
-                <h3 style={styles.h3}>Age</h3>
-                <div style={styles.radioRow}>
+                <h3 style={filterSubtitleStyle}>Age</h3>
+                <div style={radioRowStyle}>
                   <label><input type="radio" name="age" checked={ageMode === 'eq'}  onChange={() => setAgeMode('eq')} /> =</label>
                   <label><input type="radio" name="age" checked={ageMode === 'gte'} onChange={() => setAgeMode('gte')} /> ≥</label>
                   <label><input type="radio" name="age" checked={ageMode === 'lte'} onChange={() => setAgeMode('lte')} /> ≤</label>
@@ -587,20 +774,20 @@ export default function SearchPanel() {
                     min={0}
                     value={ageValue}
                     onChange={(e) => setAgeValue(e.target.value.replace(/[^\d]/g, ''))}
-                    style={{ height: 36, borderRadius: 8, border: '1px solid #E0E0E0', padding: '0 8px', width: 90, fontSize: '0.95rem' }}
+                    style={ageInputStyle}
                     placeholder="Years"
                   />
-                  <button type="button" onClick={() => { setAgeMode(null); setAgeValue(''); }} style={styles.btnGhost}>Clear</button>
+                  <button type="button" onClick={() => { setAgeMode(null); setAgeValue(''); }} style={ghostButtonStyle}>Clear</button>
                 </div>
               </div>
             </section>
 
-            <section className="filterCard" style={styles.filterCard}>
-              <h2 style={styles.h2}>Availability</h2>
+            <section className="filterCard" style={filterCardStyle}>
+              <h2 style={filterTitleStyle}>Availability</h2>
               <label><input type="checkbox" checked={seeking} onChange={(e) => setSeeking(e.target.checked)} /> Available and seeking a team</label>
               <label><input type="checkbox" checked={represented} onChange={(e) => setRepresented(e.target.checked)} /> Represented by an agent</label>
               <div>
-                <h3 style={styles.h3}>Contract status (OR)</h3>
+                <h3 style={filterSubtitleStyle}>Contract status (OR)</h3>
                 <div style={{ display: 'grid', gap: 6 }}>
                   {CONTRACT_STATUS.map(cs => {
                     const checked = contractStatuses.includes(cs.value);
@@ -618,14 +805,14 @@ export default function SearchPanel() {
                   })}
                 </div>
               </div>
-              <button type="button" onClick={resetFilters} style={styles.btnGhost}>Reset all</button>
+              <button type="button" onClick={resetFilters} style={ghostButtonStyle}>Reset all</button>
             </section>
           </aside>
 
           {/* Risultati */}
-          <main style={styles.results} className="search-panel-results" aria-live="polite">
+          <main style={resultsStyle} className="search-panel-results" aria-live="polite">
             {noData && !loading && (
-              <div style={{ ...styles.warn, alignSelf: 'start' }}>{noData}</div>
+              <div style={warnStyle}>{noData}</div>
             )}
 
             <section style={styles.grid} className="search-panel-grid">
@@ -677,10 +864,43 @@ export default function SearchPanel() {
                 };
                 const tagRowStyle = { ...styles.tagRow };
                 const profileBtnRowStyle = { ...styles.profileBtnRow };
+                const avatarWrapStyle = isCompactLayout
+                  ? { ...styles.avatarWrap, width: 52, height: 52 }
+                  : styles.avatarWrap;
+                const avatarInitialsStyle = isCompactLayout
+                  ? { ...styles.avatarInitials, fontSize: '1rem' }
+                  : styles.avatarInitials;
+                const avatarFlagStyle = isCompactLayout
+                  ? { ...styles.avatarFlag, fontSize: 16 }
+                  : styles.avatarFlag;
+                const nameStyle = isCompactLayout
+                  ? { ...styles.name, fontSize: '1.05rem' }
+                  : styles.name;
+                const verifiedBadgeStyle = isCompactLayout
+                  ? { ...styles.verifiedBadge, fontSize: '.68rem', padding: '3px 7px' }
+                  : styles.verifiedBadge;
+                const categoryBadgeStyle = isCompactLayout
+                  ? { ...styles.categoryBadge, fontSize: '.72rem', padding: '5px 11px' }
+                  : styles.categoryBadge;
+                const smallTextStyle = isCompactLayout
+                  ? { ...styles.small, fontSize: '.85rem' }
+                  : styles.small;
+                const metaItemStyle = isCompactLayout
+                  ? { ...styles.metaItem, fontSize: '.85rem', padding: '10px 12px' }
+                  : styles.metaItem;
+                const metaLabelStyle = isCompactLayout
+                  ? { ...styles.metaLabel, fontSize: '.68rem' }
+                  : styles.metaLabel;
+                const tagStyle = isCompactLayout
+                  ? { ...styles.tag, fontSize: '.7rem', padding: '6px 12px' }
+                  : styles.tag;
+                const profileBtnStyle = isCompactLayout
+                  ? { ...styles.profileBtn, fontSize: '.72rem', padding: '6px 10px' }
+                  : styles.profileBtn;
 
                 if (isCompactLayout) {
                   tagsAndActionStyle.flexDirection = 'column';
-                  tagsAndActionStyle.alignItems = 'stretch';
+                  tagsAndActionStyle.alignItems = 'center';
                   tagsAndActionStyle.textAlign = 'center';
                   tagsAndActionStyle.gap = 16;
                   tagsAndActionStyle.rowGap = 12;
@@ -695,7 +915,7 @@ export default function SearchPanel() {
                   <article key={ath.id} style={styles.card} className="search-panel-card">
                     <div style={styles.cardInner} className="search-panel-card-inner">
                       <header style={styles.cardHeader} className="search-panel-card-header">
-                        <div style={styles.avatarWrap}>
+                        <div style={avatarWrapStyle}>
                           {ath.profile_picture_url ? (
                             <img
                               src={ath.profile_picture_url}
@@ -703,21 +923,21 @@ export default function SearchPanel() {
                               style={styles.avatarImg}
                             />
                           ) : (
-                            <span style={styles.avatarInitials} aria-hidden="true">{initials}</span>
+                            <span style={avatarInitialsStyle} aria-hidden="true">{initials}</span>
                           )}
-                          <span style={styles.avatarFlag} aria-hidden="true">{natFlag}</span>
+                          <span style={avatarFlagStyle} aria-hidden="true">{natFlag}</span>
                         </div>
                         <div style={styles.nameWrap} className="search-panel-name-wrap">
                           <div style={styles.nameRow} className="search-panel-name-row">
-                            <h3 style={styles.name}>{fullName || `${ath.first_name || ''} ${ath.last_name || ''}`.trim() || '—'}</h3>
+                            <h3 style={nameStyle}>{fullName || `${ath.first_name || ''} ${ath.last_name || ''}`.trim() || '—'}</h3>
                             {contactsRecord?.id_verified && (
-                              <span style={styles.verifiedBadge}>Verified</span>
+                              <span style={verifiedBadgeStyle}>Verified</span>
                             )}
                           </div>
                           {(exp?.category || '').trim() && (
-                            <span style={styles.categoryBadge} className="search-panel-category-badge">{exp.category}</span>
+                            <span style={categoryBadgeStyle} className="search-panel-category-badge">{exp.category}</span>
                           )}
-                          <p style={styles.small} className="search-panel-card-subtitle">
+                          <p style={smallTextStyle} className="search-panel-card-subtitle">
                             {exp?.role ? `${exp.role}` : 'Role —'} • {sport?.label}
                             {ath.gender ? ` • ${ath.gender === 'M' ? 'Male' : 'Female'}` : ''}
                             {typeof age === 'number' ? ` • ${age} y` : ''}
@@ -727,15 +947,15 @@ export default function SearchPanel() {
 
                       <div style={styles.metaGrid} className="search-panel-meta-grid">
                         {metaItems.map((item) => (
-                          <div key={item.label} style={styles.metaItem} className="search-panel-meta-item">
-                            <span style={styles.metaLabel} className="search-panel-meta-label">{item.label}</span>
+                          <div key={item.label} style={metaItemStyle} className="search-panel-meta-item">
+                            <span style={metaLabelStyle} className="search-panel-meta-label">{item.label}</span>
                             <span>{item.value}</span>
                           </div>
                         ))}
                       </div>
 
                       <div style={{ ...styles.section, gap: showTags ? 12 : styles.section.gap }} className="search-panel-preferences">
-                        <span style={styles.metaLabel} className="search-panel-meta-label">
+                        <span style={metaLabelStyle} className="search-panel-meta-label">
                           Preferred regions:
                           {' '}
                           <span style={{ fontWeight: 700, letterSpacing: 'normal', textTransform: 'none' }}>
@@ -751,7 +971,7 @@ export default function SearchPanel() {
                             <div style={tagRowStyle} className="search-panel-tag-row">
                               {exp?.seeking_team && (
                                 <span
-                                  style={{ ...styles.tag, ...styles.tagSeeking }}
+                                  style={{ ...tagStyle, ...styles.tagSeeking }}
                                   className="search-panel-tag search-panel-tag--seeking"
                                 >
                                   Seeking team
@@ -759,7 +979,7 @@ export default function SearchPanel() {
                               )}
                               {exp?.is_represented && (
                                 <span
-                                  style={{ ...styles.tag, ...styles.tagAgent }}
+                                  style={{ ...tagStyle, ...styles.tagAgent }}
                                   className="search-panel-tag search-panel-tag--agent"
                                 >
                                   Agent
@@ -773,11 +993,11 @@ export default function SearchPanel() {
                               href={`/profile/full?id=${ath.id}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              style={styles.profileBtn}
+                              style={profileBtnStyle}
                               className="search-panel-profile-btn"
                             >
                               <span>Full profile</span>
-                              <ExternalLink size={14} strokeWidth={2} />
+                              <ExternalLink size={isCompactLayout ? 13 : 14} strokeWidth={2} />
                             </a>
                           </div>
                         </div>
@@ -902,6 +1122,16 @@ export default function SearchPanel() {
           }
 
           @media (max-width: 520px) {
+            .search-panel-top {
+              align-items: center !important;
+              text-align: center;
+            }
+
+            .search-panel-results-intro {
+              align-items: center !important;
+              text-align: center !important;
+            }
+
             .search-panel-grid {
               grid-template-columns: minmax(0, 1fr) !important;
               row-gap: clamp(1.75rem, 7vw, 2.25rem) !important;
@@ -931,44 +1161,44 @@ export default function SearchPanel() {
             }
 
             .search-panel-card-inner {
-              text-align: left;
-              justify-items: stretch;
+              text-align: center;
+              justify-items: center;
               gap: clamp(0.95rem, 4.8vw, 1.35rem) !important;
             }
 
             .search-panel-card-header {
               flex-direction: column !important;
-              align-items: stretch !important;
-              text-align: left !important;
+              align-items: center !important;
+              text-align: center !important;
               gap: clamp(0.85rem, 4vw, 1.2rem) !important;
             }
 
             .search-panel-name-wrap {
-              justify-items: stretch !important;
-              text-align: left !important;
+              justify-items: center !important;
+              text-align: center !important;
               gap: 6px !important;
             }
 
             .search-panel-name-row {
-              justify-content: flex-start !important;
+              justify-content: center !important;
             }
 
             .search-panel-category-badge {
-              align-self: flex-start !important;
+              align-self: center !important;
             }
 
             .search-panel-card-subtitle {
-              text-align: left !important;
+              text-align: center !important;
             }
 
             .search-panel-meta-grid {
-              justify-items: stretch !important;
-              text-align: left !important;
+              justify-items: center !important;
+              text-align: center !important;
               gap: clamp(0.75rem, 3.6vw, 1rem) !important;
             }
 
             .search-panel-meta-item {
-              place-items: stretch;
+              place-items: center;
               width: 100%;
               padding: 12px 14px !important;
               border-radius: 14px !important;
@@ -976,11 +1206,11 @@ export default function SearchPanel() {
             }
 
             .search-panel-meta-label {
-              justify-self: flex-start;
+              justify-self: center;
             }
 
             .search-panel-preferences {
-              text-align: left !important;
+              text-align: center !important;
             }
 
             .search-panel-card {
@@ -997,21 +1227,22 @@ export default function SearchPanel() {
 
             .search-panel-tags-action {
               flex-direction: column !important;
-              align-items: stretch !important;
+              align-items: center !important;
               flex-wrap: wrap !important;
               gap: 10px !important;
               row-gap: 14px !important;
-              text-align: left;
+              text-align: center;
             }
 
             .search-panel-tags-action > .search-panel-tag-row {
               margin-right: 0;
-              justify-content: flex-start !important;
+              justify-content: center !important;
             }
 
             .search-panel-tag-row {
               gap: 6px;
               flex-wrap: wrap;
+              justify-content: center;
             }
 
             .search-panel-tag {
@@ -1024,7 +1255,7 @@ export default function SearchPanel() {
             .search-panel-profile-btn-row {
               width: 100%;
               display: flex;
-              justify-content: flex-start;
+              justify-content: center;
             }
 
             .search-panel-profile-btn {
@@ -1038,8 +1269,10 @@ export default function SearchPanel() {
 
             .search-panel-sport {
               flex-direction: column;
-              align-items: flex-start !important;
-              gap: 10px !important;
+              align-items: center !important;
+              text-align: center;
+              justify-content: center !important;
+              gap: 12px !important;
             }
           }
 
