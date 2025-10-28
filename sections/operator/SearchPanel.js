@@ -1138,6 +1138,7 @@ export default function SearchPanel() {
               padding-bottom: clamp(1.25rem, 6vw, 2rem);
               padding-left: clamp(0.75rem, 4vw, 1.25rem);
               padding-right: clamp(0.75rem, 4vw, 1.25rem);
+              justify-items: center !important;
             }
 
             .search-panel-card {
@@ -1294,6 +1295,7 @@ export default function SearchPanel() {
             grid-template-columns: 1fr !important;
             padding-left: max(12px, env(safe-area-inset-left));
             padding-right: max(12px, env(safe-area-inset-right));
+            justify-items: center !important;
           }
 
           /* La card riempie tutta la riga */
