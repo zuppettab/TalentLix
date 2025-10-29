@@ -1111,6 +1111,11 @@ export default function SearchPanel() {
 
           .search-panel-results {
             min-width: 0;
+            width: min(100%, 520px);
+            margin-left: auto;
+            margin-right: auto;
+            padding-left: max(12px, env(safe-area-inset-left));
+            padding-right: max(12px, env(safe-area-inset-right));
           }
 
           .search-panel-grid {
@@ -1136,18 +1141,17 @@ export default function SearchPanel() {
             }
 
             .search-panel-grid {
-              grid-template-columns: minmax(0, 1fr) !important;
+              grid-template-columns: 1fr !important;
               row-gap: clamp(1.75rem, 7vw, 2.25rem) !important;
-              padding-bottom: clamp(1.25rem, 6vw, 2rem);
-              padding-left: clamp(0.75rem, 4vw, 1.25rem);
-              padding-right: clamp(0.75rem, 4vw, 1.25rem);
-              justify-items: center !important;
+              padding-left: 0 !important;
+              padding-right: 0 !important;
+              justify-items: stretch !important;
             }
 
             .search-panel-card {
               max-width: none !important;
               width: 100% !important;
-              margin: 0 auto;
+              margin: 0;
               padding: clamp(0.6rem, 3vw, 0.9rem) !important;
               border-radius: 22px !important;
               box-sizing: border-box;
@@ -1229,6 +1233,11 @@ export default function SearchPanel() {
               width: 100%;
             }
 
+            .search-panel-card-inner,
+            .search-panel-meta-item {
+              min-width: 0 !important;
+            }
+
             .search-panel-tags-action {
               flex-direction: column !important;
               align-items: center !important;
@@ -1247,6 +1256,11 @@ export default function SearchPanel() {
               gap: 6px;
               flex-wrap: wrap;
               justify-content: center;
+            }
+
+            .search-panel-meta-item span:last-child {
+              word-break: break-word;
+              overflow-wrap: anywhere;
             }
 
             .search-panel-tag {
@@ -1279,51 +1293,6 @@ export default function SearchPanel() {
               gap: 12px !important;
             }
           }
-
-        /* --- Paracadute mobile: card larga e testi non tagliati --- */
-        @media (max-width: 520px) {
-          .search-panel-page {
-            padding-left: max(8px, env(safe-area-inset-left)) !important;
-            padding-right: max(8px, env(safe-area-inset-right)) !important;
-          }
-
-          .search-panel-layout,
-          .search-panel-top {
-            max-width: none !important;
-            width: 100% !important;
-          }
-
-          /* 1 colonna piena e padding laterale leggero */
-          .search-panel-grid {
-            grid-template-columns: 1fr !important;
-            padding-left: max(12px, env(safe-area-inset-left));
-            padding-right: max(12px, env(safe-area-inset-right));
-            justify-items: center !important;
-          }
-
-          /* La card riempie tutta la riga */
-          .search-panel-card {
-            max-width: none !important;
-            width: 100% !important;
-          }
-
-          /* Consenti ai figli di restringersi correttamente (niente overflow) */
-          .search-panel-card-inner,
-          .search-panel-meta-item {
-            min-width: 0 !important;
-          }
-
-          /* Forza la griglia dei meta a una colonna su schermi stretti */
-          .search-panel-meta-grid {
-            grid-template-columns: 1fr !important;
-          }
-
-          /* Il valore (secondo span) nei box meta va a capo se lungo */
-          .search-panel-meta-item span:last-child {
-            word-break: break-word;
-            overflow-wrap: anywhere;
-          }
-        }
 
         @keyframes searchPanelFade {
           from {
