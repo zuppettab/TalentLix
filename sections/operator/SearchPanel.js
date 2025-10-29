@@ -1192,8 +1192,17 @@ export default function SearchPanel() {
 
             .search-panel-card-inner {
               text-align: center;
-              justify-items: center;
+              /* i figli devono riempire la card, non essere centrati */
+              justify-items: stretch !important;
               gap: clamp(0.95rem, 4.8vw, 1.35rem) !important;
+            }
+
+            /* i principali blocchi interni prendono 100% larghezza della card */
+            .search-panel-card-inner > .search-panel-meta-grid,
+            .search-panel-card-inner > .search-panel-preferences,
+            .search-panel-card-inner > .search-panel-tags-action {
+              justify-self: stretch !important;
+              width: 100% !important;
             }
 
             .search-panel-card-header {
