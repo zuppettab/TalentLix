@@ -857,7 +857,7 @@ export default function SearchPanel() {
                 ];
                 const showTags = exp?.seeking_team || exp?.is_represented;
                 const cardInnerStyle = isCompactLayout
-                  ? { ...styles.cardInner, padding: '1.4rem 1.85rem 1.4rem 1.1rem' }
+                  ? { ...styles.cardInner, padding: '1.35rem' }
                   : styles.cardInner;
                 const tagsAndActionStyle = {
                   ...styles.tagsAndAction,
@@ -889,7 +889,7 @@ export default function SearchPanel() {
                   ? { ...styles.small, fontSize: '.85rem' }
                   : styles.small;
                 const metaItemStyle = isCompactLayout
-                  ? { ...styles.metaItem, fontSize: '.85rem', padding: '10px 16px 10px 10px' }
+                  ? { ...styles.metaItem, fontSize: '.85rem', padding: '10px 14px' }
                   : styles.metaItem;
                 const metaLabelStyle = isCompactLayout
                   ? { ...styles.metaLabel, fontSize: '.68rem' }
@@ -1125,6 +1125,17 @@ export default function SearchPanel() {
           }
 
           @media (max-width: 520px) {
+            .search-panel-page {
+              padding-left: max(8px, env(safe-area-inset-left)) !important;
+              padding-right: max(8px, env(safe-area-inset-right)) !important;
+            }
+
+            .search-panel-layout,
+            .search-panel-top {
+              max-width: none !important;
+              width: 100% !important;
+            }
+
             .search-panel-top {
               align-items: center !important;
               text-align: center;
@@ -1135,13 +1146,22 @@ export default function SearchPanel() {
               text-align: center !important;
             }
 
+            .search-panel-results {
+              width: min(100%, 520px);
+              margin-left: auto;
+              margin-right: auto;
+              padding-left: max(12px, env(safe-area-inset-left));
+              padding-right: max(12px, env(safe-area-inset-right));
+              min-width: 0;
+            }
+
             .search-panel-grid {
-              grid-template-columns: minmax(0, 1fr) !important;
+              grid-template-columns: 1fr !important;
               row-gap: clamp(1.75rem, 7vw, 2.25rem) !important;
               padding-bottom: clamp(1.25rem, 6vw, 2rem);
-              padding-left: clamp(0.75rem, 4vw, 1.25rem);
-              padding-right: clamp(0.75rem, 4vw, 1.25rem);
-              justify-items: center !important;
+              padding-left: 0 !important;
+              padding-right: 0 !important;
+              justify-items: stretch !important;
             }
 
             .search-panel-card {
@@ -1154,6 +1174,9 @@ export default function SearchPanel() {
               background: #fff !important;
               border: 1px solid rgba(148, 163, 184, 0.22);
               box-shadow: 0 18px 38px -28px rgba(15, 23, 42, 0.35) !important;
+              display: flex !important;
+              flex-direction: column;
+              overflow: hidden;
             }
 
             .search-panel-card > div,
@@ -1161,7 +1184,10 @@ export default function SearchPanel() {
               border-radius: 18px !important;
               box-shadow: none !important;
               background: transparent !important;
-              padding: clamp(1rem, 4.6vw, 1.35rem) clamp(1.25rem, 5.4vw, 1.85rem) !important;
+              padding: clamp(1rem, 4.6vw, 1.35rem) !important;
+              flex: 1;
+              width: 100%;
+              min-width: 0 !important;
             }
 
             .search-panel-card-inner {
@@ -1196,37 +1222,32 @@ export default function SearchPanel() {
             }
 
             .search-panel-meta-grid {
-              justify-items: center !important;
-              text-align: center !important;
+              grid-template-columns: 1fr !important;
+              justify-items: stretch !important;
+              text-align: left !important;
               gap: clamp(0.75rem, 3.6vw, 1rem) !important;
             }
 
             .search-panel-meta-item {
-              place-items: center;
+              place-items: stretch;
               width: 100%;
               padding: 12px 14px !important;
               border-radius: 14px !important;
               background: #f8fafc !important;
+              min-width: 0 !important;
             }
 
             .search-panel-meta-label {
-              justify-self: center;
+              justify-self: start;
+            }
+
+            .search-panel-meta-item span:last-child {
+              word-break: break-word;
+              overflow-wrap: anywhere;
             }
 
             .search-panel-preferences {
               text-align: center !important;
-            }
-
-            .search-panel-card {
-              display: flex !important;
-              flex-direction: column;
-              overflow: hidden;
-            }
-
-            .search-panel-card > div,
-            .search-panel-card-inner {
-              flex: 1;
-              width: 100%;
             }
 
             .search-panel-tags-action {
@@ -1279,51 +1300,6 @@ export default function SearchPanel() {
               gap: 12px !important;
             }
           }
-
-        /* --- Paracadute mobile: card larga e testi non tagliati --- */
-        @media (max-width: 520px) {
-          .search-panel-page {
-            padding-left: max(8px, env(safe-area-inset-left)) !important;
-            padding-right: max(8px, env(safe-area-inset-right)) !important;
-          }
-
-          .search-panel-layout,
-          .search-panel-top {
-            max-width: none !important;
-            width: 100% !important;
-          }
-
-          /* 1 colonna piena e padding laterale leggero */
-          .search-panel-grid {
-            grid-template-columns: 1fr !important;
-            padding-left: max(12px, env(safe-area-inset-left));
-            padding-right: max(12px, env(safe-area-inset-right));
-            justify-items: center !important;
-          }
-
-          /* La card riempie tutta la riga */
-          .search-panel-card {
-            max-width: none !important;
-            width: 100% !important;
-          }
-
-          /* Consenti ai figli di restringersi correttamente (niente overflow) */
-          .search-panel-card-inner,
-          .search-panel-meta-item {
-            min-width: 0 !important;
-          }
-
-          /* Forza la griglia dei meta a una colonna su schermi stretti */
-          .search-panel-meta-grid {
-            grid-template-columns: 1fr !important;
-          }
-
-          /* Il valore (secondo span) nei box meta va a capo se lungo */
-          .search-panel-meta-item span:last-child {
-            word-break: break-word;
-            overflow-wrap: anywhere;
-          }
-        }
 
         @keyframes searchPanelFade {
           from {
