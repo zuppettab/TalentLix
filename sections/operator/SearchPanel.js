@@ -7,7 +7,6 @@ import AsyncSelect from 'react-select/async';
 import { supabase } from '../../utils/supabaseClient';
 import countries from '../../utils/countries';
 import sports from '../../utils/sports';
-import { flagFromCountry } from '../../utils/flags';
 import { ExternalLink } from 'lucide-react';
 
 /* -------------------- Costanti -------------------- */
@@ -111,7 +110,6 @@ const styles = {
   avatarWrap: { position: 'relative', width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', boxShadow: '0 12px 24px -18px rgba(15,23,42,0.6)', background: 'linear-gradient(135deg, rgba(39,227,218,0.25), rgba(15,23,42,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
   avatarInitials: { fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' },
-  avatarFlag: { position: 'absolute', bottom: -2, right: -2, transform: 'translate(0, 0)', fontSize: 18, lineHeight: 1, filter: 'drop-shadow(0 4px 8px rgba(15,23,42,0.35))' },
   nameWrap: { display: 'grid', gap: 4, flex: 1, minWidth: 0 },
   nameRow: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
   name: { margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em' },
@@ -831,7 +829,6 @@ export default function SearchPanel() {
                   if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) a--;
                   return a;
                 })();
-                const natFlag = flagFromCountry(ath.nationality) || '🌍';
                 const regions = Array.isArray(exp?.preferred_regions) ? exp.preferred_regions.filter(Boolean) : [];
                 const formattedRegions = regions.slice(0, 3).join(', ');
                 const fullName = [ath.first_name, ath.last_name]
@@ -873,9 +870,6 @@ export default function SearchPanel() {
                 const avatarInitialsStyle = isCompactLayout
                   ? { ...styles.avatarInitials, fontSize: '1rem' }
                   : styles.avatarInitials;
-                const avatarFlagStyle = isCompactLayout
-                  ? { ...styles.avatarFlag, fontSize: 16 }
-                  : styles.avatarFlag;
                 const nameStyle = isCompactLayout
                   ? { ...styles.name, fontSize: '1.05rem' }
                   : styles.name;
@@ -929,7 +923,6 @@ export default function SearchPanel() {
                           ) : (
                             <span style={avatarInitialsStyle} aria-hidden="true">{initials}</span>
                           )}
-                          <span style={avatarFlagStyle} aria-hidden="true">{natFlag}</span>
                         </div>
                         <div style={styles.nameWrap} className="search-panel-name-wrap">
                           <div style={styles.nameRow} className="search-panel-name-row">
