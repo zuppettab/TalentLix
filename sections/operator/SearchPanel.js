@@ -903,13 +903,14 @@ export default function SearchPanel() {
 
                 if (isCompactLayout) {
                   tagsAndActionStyle.flexDirection = 'column';
-                  tagsAndActionStyle.alignItems = 'center';
-                  tagsAndActionStyle.textAlign = 'center';
+                  tagsAndActionStyle.alignItems = 'stretch';
+                  tagsAndActionStyle.textAlign = 'left';
                   tagsAndActionStyle.gap = 16;
                   tagsAndActionStyle.rowGap = 12;
-                  tagRowStyle.justifyContent = 'center';
-                  profileBtnRowStyle.alignItems = 'center';
-                  profileBtnRowStyle.justifyContent = 'center';
+                  tagRowStyle.justifyContent = 'flex-start';
+                  tagRowStyle.width = '100%';
+                  profileBtnRowStyle.alignItems = 'stretch';
+                  profileBtnRowStyle.justifyContent = 'flex-start';
                   profileBtnRowStyle.width = '100%';
                   profileBtnRowStyle.flex = '0 0 auto';
                 }
@@ -1191,8 +1192,7 @@ export default function SearchPanel() {
             }
 
             .search-panel-card-inner {
-              text-align: center;
-              /* i figli devono riempire la card, non essere centrati */
+              text-align: left !important;
               justify-items: stretch !important;
               gap: clamp(0.95rem, 4.8vw, 1.35rem) !important;
             }
@@ -1207,27 +1207,27 @@ export default function SearchPanel() {
 
             .search-panel-card-header {
               flex-direction: column !important;
-              align-items: center !important;
-              text-align: center !important;
+              align-items: flex-start !important;
+              text-align: left !important;
               gap: clamp(0.85rem, 4vw, 1.2rem) !important;
             }
 
             .search-panel-name-wrap {
-              justify-items: center !important;
-              text-align: center !important;
+              justify-items: stretch !important;
+              text-align: left !important;
               gap: 6px !important;
             }
 
             .search-panel-name-row {
-              justify-content: center !important;
+              justify-content: flex-start !important;
             }
 
             .search-panel-category-badge {
-              align-self: center !important;
+              align-self: flex-start !important;
             }
 
             .search-panel-card-subtitle {
-              text-align: center !important;
+              text-align: left !important;
             }
 
             .search-panel-meta-grid {
@@ -1256,27 +1256,28 @@ export default function SearchPanel() {
             }
 
             .search-panel-preferences {
-              text-align: center !important;
+              text-align: left !important;
             }
 
             .search-panel-tags-action {
               flex-direction: column !important;
-              align-items: center !important;
+              align-items: stretch !important;
               flex-wrap: wrap !important;
               gap: 10px !important;
               row-gap: 14px !important;
-              text-align: center;
+              text-align: left !important;
             }
 
             .search-panel-tags-action > .search-panel-tag-row {
               margin-right: 0;
-              justify-content: center !important;
+              justify-content: flex-start !important;
+              width: 100%;
             }
 
             .search-panel-tag-row {
               gap: 6px;
               flex-wrap: wrap;
-              justify-content: center;
+              justify-content: flex-start;
             }
 
             .search-panel-tag {
@@ -1289,7 +1290,7 @@ export default function SearchPanel() {
             .search-panel-profile-btn-row {
               width: 100%;
               display: flex;
-              justify-content: center;
+              justify-content: flex-start;
             }
 
             .search-panel-profile-btn {
@@ -1298,7 +1299,7 @@ export default function SearchPanel() {
               gap: 4px !important;
               flex-shrink: 0;
               width: auto;
-              justify-content: center;
+              justify-content: flex-start;
             }
 
             .search-panel-sport {
@@ -1309,6 +1310,50 @@ export default function SearchPanel() {
               gap: 12px !important;
             }
           }
+
+        /* === Canonico mobile per allineare a sinistra e riempire tutta la card === */
+        @media (max-width: 520px) {
+          .search-panel-grid {
+            grid-template-columns: 1fr !important;
+            justify-items: stretch !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+          }
+
+          .search-panel-card {
+            max-width: none !important;
+            width: 100% !important;
+          }
+
+          .search-panel-card-inner {
+            justify-items: stretch !important;
+            text-align: left !important;
+          }
+
+          .search-panel-card-inner > .search-panel-meta-grid,
+          .search-panel-card-inner > .search-panel-preferences,
+          .search-panel-card-inner > .search-panel-tags-action {
+            justify-self: stretch !important;
+            width: 100% !important;
+          }
+
+          .search-panel-meta-grid {
+            grid-template-columns: 1fr !important;
+            justify-items: stretch !important;
+            text-align: left !important;
+          }
+
+          .search-panel-meta-item {
+            place-items: stretch !important;
+            width: 100% !important;
+            padding: 12px 14px !important;
+            min-width: 0 !important;
+          }
+
+          .search-panel-meta-label {
+            justify-self: start !important;
+          }
+        }
 
         @keyframes searchPanelFade {
           from {
