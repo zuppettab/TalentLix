@@ -1128,8 +1128,9 @@ export default function SearchPanel() {
         /* === Mobile canonical per allineare a sinistra e riempire tutta la card === */
         @media (max-width: 520px) {
           .search-panel-page {
-            padding-left: max(8px, env(safe-area-inset-left)) !important;
-            padding-right: max(8px, env(safe-area-inset-right)) !important;
+            overflow-x: hidden;
+            padding-left: max(8px, env(safe-area-inset-left, 0px)) !important;
+            padding-right: max(8px, env(safe-area-inset-right, 0px)) !important;
           }
 
           .search-panel-layout,
@@ -1149,15 +1150,19 @@ export default function SearchPanel() {
           }
 
           .search-panel-results {
-            width: min(100%, 520px);
-            margin-left: auto;
-            margin-right: auto;
-            padding-left: max(12px, env(safe-area-inset-left));
-            padding-right: max(12px, env(safe-area-inset-right));
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 520px;
+            margin-inline: auto;
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-left: max(12px, env(safe-area-inset-left, 0px));
+            padding-right: max(12px, env(safe-area-inset-right, 0px));
             min-width: 0;
           }
 
           .search-panel-grid {
+            width: 100% !important;
             grid-template-columns: 1fr !important;
             row-gap: clamp(1.75rem, 7vw, 2.25rem) !important;
             padding-bottom: clamp(1.25rem, 6vw, 2rem);
@@ -1169,7 +1174,7 @@ export default function SearchPanel() {
           .search-panel-card {
             max-width: none !important;
             width: 100% !important;
-            margin: 0 auto;
+            margin: 0;
             padding: clamp(0.6rem, 3vw, 0.9rem) !important;
             border-radius: 22px !important;
             box-sizing: border-box;
@@ -1194,6 +1199,7 @@ export default function SearchPanel() {
 
           .search-panel-card-inner {
             box-sizing: border-box;
+            width: 100%;
             text-align: left !important;
             justify-items: stretch !important;
             gap: clamp(0.95rem, 4.8vw, 1.35rem) !important;
@@ -1239,9 +1245,12 @@ export default function SearchPanel() {
           }
 
           .search-panel-meta-item {
+            box-sizing: border-box;
             place-items: stretch;
             width: 100%;
             padding: 12px 14px !important;
+            padding-left: 14px !important;
+            padding-right: 14px !important;
             border-radius: 14px !important;
             background: #f8fafc !important;
             min-width: 0 !important;
