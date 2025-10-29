@@ -862,7 +862,7 @@ export default function SearchPanel() {
                 const tagsAndActionStyle = {
                   ...styles.tagsAndAction,
                   justifyContent: isCompactLayout
-                    ? 'center'
+                    ? 'flex-start'
                     : (showTags ? 'space-between' : 'flex-end'),
                 };
                 const tagRowStyle = { ...styles.tagRow };
@@ -889,7 +889,7 @@ export default function SearchPanel() {
                   ? { ...styles.small, fontSize: '.85rem' }
                   : styles.small;
                 const metaItemStyle = isCompactLayout
-                  ? { ...styles.metaItem, fontSize: '.85rem', padding: '10px 14px' }
+                  ? { ...styles.metaItem, fontSize: '.85rem' }
                   : styles.metaItem;
                 const metaLabelStyle = isCompactLayout
                   ? { ...styles.metaLabel, fontSize: '.68rem' }
@@ -903,13 +903,13 @@ export default function SearchPanel() {
 
                 if (isCompactLayout) {
                   tagsAndActionStyle.flexDirection = 'column';
-                  tagsAndActionStyle.alignItems = 'stretch';
+                  tagsAndActionStyle.alignItems = 'flex-start';
                   tagsAndActionStyle.textAlign = 'left';
                   tagsAndActionStyle.gap = 16;
                   tagsAndActionStyle.rowGap = 12;
                   tagRowStyle.justifyContent = 'flex-start';
                   tagRowStyle.width = '100%';
-                  profileBtnRowStyle.alignItems = 'stretch';
+                  profileBtnRowStyle.alignItems = 'flex-start';
                   profileBtnRowStyle.justifyContent = 'flex-start';
                   profileBtnRowStyle.width = '100%';
                   profileBtnRowStyle.flex = '0 0 auto';
@@ -1125,209 +1125,78 @@ export default function SearchPanel() {
             }
           }
 
-          @media (max-width: 520px) {
-            .search-panel-page {
-              padding-left: max(8px, env(safe-area-inset-left)) !important;
-              padding-right: max(8px, env(safe-area-inset-right)) !important;
-            }
-
-            .search-panel-layout,
-            .search-panel-top {
-              max-width: none !important;
-              width: 100% !important;
-            }
-
-            .search-panel-top {
-              align-items: center !important;
-              text-align: center;
-            }
-
-            .search-panel-results-intro {
-              align-items: center !important;
-              text-align: center !important;
-            }
-
-            .search-panel-results {
-              width: min(100%, 520px);
-              margin-left: auto;
-              margin-right: auto;
-              padding-left: max(12px, env(safe-area-inset-left));
-              padding-right: max(12px, env(safe-area-inset-right));
-              min-width: 0;
-            }
-
-            .search-panel-grid {
-              grid-template-columns: 1fr !important;
-              row-gap: clamp(1.75rem, 7vw, 2.25rem) !important;
-              padding-bottom: clamp(1.25rem, 6vw, 2rem);
-              padding-left: 0 !important;
-              padding-right: 0 !important;
-              justify-items: stretch !important;
-            }
-
-            .search-panel-card {
-              max-width: none !important;
-              width: 100% !important;
-              margin: 0 auto;
-              padding: clamp(0.6rem, 3vw, 0.9rem) !important;
-              border-radius: 22px !important;
-              box-sizing: border-box;
-              background: #fff !important;
-              border: 1px solid rgba(148, 163, 184, 0.22);
-              box-shadow: 0 18px 38px -28px rgba(15, 23, 42, 0.35) !important;
-              display: flex !important;
-              flex-direction: column;
-              overflow: hidden;
-            }
-
-            .search-panel-card > div,
-            .search-panel-card-inner {
-              border-radius: 18px !important;
-              box-shadow: none !important;
-              background: transparent !important;
-              padding: clamp(1rem, 4.6vw, 1.35rem) !important;
-              flex: 1;
-              width: 100%;
-              min-width: 0 !important;
-            }
-
-            .search-panel-card-inner {
-              text-align: left !important;
-              justify-items: stretch !important;
-              gap: clamp(0.95rem, 4.8vw, 1.35rem) !important;
-            }
-
-            /* i principali blocchi interni prendono 100% larghezza della card */
-            .search-panel-card-inner > .search-panel-meta-grid,
-            .search-panel-card-inner > .search-panel-preferences,
-            .search-panel-card-inner > .search-panel-tags-action {
-              justify-self: stretch !important;
-              width: 100% !important;
-            }
-
-            .search-panel-card-header {
-              flex-direction: column !important;
-              align-items: flex-start !important;
-              text-align: left !important;
-              gap: clamp(0.85rem, 4vw, 1.2rem) !important;
-            }
-
-            .search-panel-name-wrap {
-              justify-items: stretch !important;
-              text-align: left !important;
-              gap: 6px !important;
-            }
-
-            .search-panel-name-row {
-              justify-content: flex-start !important;
-            }
-
-            .search-panel-category-badge {
-              align-self: flex-start !important;
-            }
-
-            .search-panel-card-subtitle {
-              text-align: left !important;
-            }
-
-            .search-panel-meta-grid {
-              grid-template-columns: 1fr !important;
-              justify-items: stretch !important;
-              text-align: left !important;
-              gap: clamp(0.75rem, 3.6vw, 1rem) !important;
-            }
-
-            .search-panel-meta-item {
-              place-items: stretch;
-              width: 100%;
-              padding: 12px 14px !important;
-              border-radius: 14px !important;
-              background: #f8fafc !important;
-              min-width: 0 !important;
-            }
-
-            .search-panel-meta-label {
-              justify-self: start;
-            }
-
-            .search-panel-meta-item span:last-child {
-              word-break: break-word;
-              overflow-wrap: anywhere;
-            }
-
-            .search-panel-preferences {
-              text-align: left !important;
-            }
-
-            .search-panel-tags-action {
-              flex-direction: column !important;
-              align-items: stretch !important;
-              flex-wrap: wrap !important;
-              gap: 10px !important;
-              row-gap: 14px !important;
-              text-align: left !important;
-            }
-
-            .search-panel-tags-action > .search-panel-tag-row {
-              margin-right: 0;
-              justify-content: flex-start !important;
-              width: 100%;
-            }
-
-            .search-panel-tag-row {
-              gap: 6px;
-              flex-wrap: wrap;
-              justify-content: flex-start;
-            }
-
-            .search-panel-tag {
-              font-size: 0.68rem !important;
-              padding: 5px 12px !important;
-              white-space: nowrap;
-              flex-shrink: 0;
-            }
-
-            .search-panel-profile-btn-row {
-              width: 100%;
-              display: flex;
-              justify-content: flex-start;
-            }
-
-            .search-panel-profile-btn {
-              font-size: 0.72rem !important;
-              padding: 6px 10px !important;
-              gap: 4px !important;
-              flex-shrink: 0;
-              width: auto;
-              justify-content: flex-start;
-            }
-
-            .search-panel-sport {
-              flex-direction: column;
-              align-items: center !important;
-              text-align: center;
-              justify-content: center !important;
-              gap: 12px !important;
-            }
+        /* === Mobile canonical per allineare a sinistra e riempire tutta la card === */
+        @media (max-width: 520px) {
+          .search-panel-page {
+            padding-left: max(8px, env(safe-area-inset-left)) !important;
+            padding-right: max(8px, env(safe-area-inset-right)) !important;
           }
 
-        /* === Canonico mobile per allineare a sinistra e riempire tutta la card === */
-        @media (max-width: 520px) {
+          .search-panel-layout,
+          .search-panel-top {
+            max-width: none !important;
+            width: 100% !important;
+          }
+
+          .search-panel-top {
+            align-items: center !important;
+            text-align: center;
+          }
+
+          .search-panel-results-intro {
+            align-items: center !important;
+            text-align: center !important;
+          }
+
+          .search-panel-results {
+            width: min(100%, 520px);
+            margin-left: auto;
+            margin-right: auto;
+            padding-left: max(12px, env(safe-area-inset-left));
+            padding-right: max(12px, env(safe-area-inset-right));
+            min-width: 0;
+          }
+
           .search-panel-grid {
             grid-template-columns: 1fr !important;
-            justify-items: stretch !important;
+            row-gap: clamp(1.75rem, 7vw, 2.25rem) !important;
+            padding-bottom: clamp(1.25rem, 6vw, 2rem);
             padding-left: 0 !important;
             padding-right: 0 !important;
+            justify-items: stretch !important;
           }
 
           .search-panel-card {
             max-width: none !important;
             width: 100% !important;
+            margin: 0 auto;
+            padding: clamp(0.6rem, 3vw, 0.9rem) !important;
+            border-radius: 22px !important;
+            box-sizing: border-box;
+            background: #fff !important;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            box-shadow: 0 18px 38px -28px rgba(15, 23, 42, 0.35) !important;
+            display: flex !important;
+            flex-direction: column;
+            overflow: hidden;
+          }
+
+          .search-panel-card > div,
+          .search-panel-card-inner {
+            border-radius: 18px !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            padding: clamp(1rem, 4.6vw, 1.35rem) !important;
+            flex: 1;
+            width: 100%;
+            min-width: 0 !important;
           }
 
           .search-panel-card-inner {
-            justify-items: stretch !important;
+            box-sizing: border-box;
             text-align: left !important;
+            justify-items: stretch !important;
+            gap: clamp(0.95rem, 4.8vw, 1.35rem) !important;
           }
 
           .search-panel-card-inner > .search-panel-meta-grid,
@@ -1337,21 +1206,109 @@ export default function SearchPanel() {
             width: 100% !important;
           }
 
+          .search-panel-card-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            text-align: left !important;
+            gap: clamp(0.85rem, 4vw, 1.2rem) !important;
+          }
+
+          .search-panel-name-wrap {
+            justify-items: stretch !important;
+            text-align: left !important;
+            gap: 6px !important;
+          }
+
+          .search-panel-name-row {
+            justify-content: flex-start !important;
+          }
+
+          .search-panel-category-badge {
+            align-self: flex-start !important;
+          }
+
+          .search-panel-card-subtitle {
+            text-align: left !important;
+          }
+
           .search-panel-meta-grid {
             grid-template-columns: 1fr !important;
             justify-items: stretch !important;
             text-align: left !important;
+            gap: clamp(0.75rem, 3.6vw, 1rem) !important;
           }
 
           .search-panel-meta-item {
-            place-items: stretch !important;
-            width: 100% !important;
+            place-items: stretch;
+            width: 100%;
             padding: 12px 14px !important;
+            border-radius: 14px !important;
+            background: #f8fafc !important;
             min-width: 0 !important;
           }
 
           .search-panel-meta-label {
-            justify-self: start !important;
+            justify-self: start;
+          }
+
+          .search-panel-meta-item span:last-child {
+            word-break: break-word;
+            overflow-wrap: anywhere;
+          }
+
+          .search-panel-preferences {
+            text-align: left !important;
+          }
+
+          .search-panel-tags-action {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            flex-wrap: wrap !important;
+            gap: 10px !important;
+            row-gap: 14px !important;
+            text-align: left !important;
+          }
+
+          .search-panel-tags-action > .search-panel-tag-row {
+            margin-right: 0;
+            justify-content: flex-start !important;
+            width: 100%;
+          }
+
+          .search-panel-tag-row {
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+          }
+
+          .search-panel-tag {
+            font-size: 0.68rem !important;
+            padding: 5px 12px !important;
+            white-space: nowrap;
+            flex-shrink: 0;
+          }
+
+          .search-panel-profile-btn-row {
+            width: 100%;
+            display: flex;
+            justify-content: flex-start;
+          }
+
+          .search-panel-profile-btn {
+            font-size: 0.72rem !important;
+            padding: 6px 10px !important;
+            gap: 4px !important;
+            flex-shrink: 0;
+            width: auto;
+            justify-content: flex-start;
+          }
+
+          .search-panel-sport {
+            flex-direction: column;
+            align-items: center !important;
+            text-align: center;
+            justify-content: center !important;
+            gap: 12px !important;
           }
         }
 
