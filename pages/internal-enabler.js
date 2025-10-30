@@ -514,6 +514,28 @@ export default function InternalEnabler() {
         return;
       }
 
+      const operatorRow = opRows.find((row) => String(row.id) === key) || null;
+      const currentBalance = Number(operatorRow?.wallet?.balance_credits ?? 0) || 0;
+      const hasWallet = operatorRow?.wallet && typeof operatorRow.wallet === 'object';
+
+      if (direction === 'debit') {
+        if (!hasWallet) {
+          setOperatorWalletFeedback(key, {
+            tone: 'error',
+            message: 'No wallet is available for this operator. Add credits before deducting.',
+          });
+          return;
+        }
+
+        if (parsed - currentBalance > 0.005) {
+          setOperatorWalletFeedback(key, {
+            tone: 'error',
+            message: `Cannot deduct more than the available balance of ${formatCredits(currentBalance)} credits.`,
+          });
+          return;
+        }
+      }
+
       try {
         setWalletBusy(operatorId);
         setOperatorWalletFeedback(key, {
@@ -565,7 +587,7 @@ export default function InternalEnabler() {
         setWalletBusy(null);
       }
     },
-    [walletInputs, callAdminAction, setOpRows, refreshAll, setOperatorWalletFeedback]
+    [walletInputs, opRows, callAdminAction, setOpRows, refreshAll, setOperatorWalletFeedback]
   );
 
   const viewDoc = async (key) => {
