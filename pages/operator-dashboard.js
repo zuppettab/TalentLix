@@ -332,7 +332,7 @@ export default function OperatorDashboard() {
     try {
       const { data: walletRow, error: walletError } = await supabase
         .from('op_wallet')
-        .select('id, balance_credits, updated_at, created_at')
+        .select('id:op_id, balance_credits, updated_at')
         .eq('op_id', account.id)
         .maybeSingle();
       if (walletError && walletError.code !== 'PGRST116') throw walletError;
@@ -341,10 +341,9 @@ export default function OperatorDashboard() {
         console.warn('Multiple wallet rows found for operator. Using the most recent one.');
         const { data: walletRows, error: walletFallbackError } = await supabase
           .from('op_wallet')
-          .select('id, balance_credits, updated_at, created_at')
+          .select('id:op_id, balance_credits, updated_at')
           .eq('op_id', account.id)
           .order('updated_at', { ascending: false, nullsFirst: false })
-          .order('created_at', { ascending: false, nullsFirst: false })
           .limit(1);
         if (walletFallbackError) throw walletFallbackError;
         const fallback = Array.isArray(walletRows) ? walletRows[0] : walletRows || null;
@@ -353,7 +352,7 @@ export default function OperatorDashboard() {
             ...wallet,
             id: fallback.id,
             balance_credits: fallback.balance_credits ?? 0,
-            updated_at: fallback.updated_at || fallback.created_at || null,
+            updated_at: fallback.updated_at || null,
           };
         } else {
           wallet = { ...wallet, loading: false };
@@ -363,7 +362,7 @@ export default function OperatorDashboard() {
           ...wallet,
           id: walletRow.id,
           balance_credits: walletRow.balance_credits ?? 0,
-          updated_at: walletRow.updated_at || walletRow.created_at || null,
+          updated_at: walletRow.updated_at || null,
         };
       } else {
         wallet = { ...wallet, balance_credits: 0, loading: false };
