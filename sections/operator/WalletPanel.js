@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { supabase, isSupabaseConfigured } from '../../utils/supabaseClient';
+import { supabase } from '../../utils/supabaseClient';
 
 const QUICK_PACKAGES = [
   { amount: 25, code: 'PKG_25', label: '25€' },
@@ -286,7 +286,10 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
   const [retryHover, setRetryHover] = useState(false);
 
   const layoutStyle = { ...styles.summaryGrid, ...(isMobile ? styles.summaryGridMobile : null) };
-  const supabaseReady = Boolean(supabase) && Boolean(isSupabaseConfigured);
+  const supabaseReady =
+    Boolean(supabase) &&
+    Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
   const walletUnavailable = useMemo(() => {
     if (!walletError) return false;
