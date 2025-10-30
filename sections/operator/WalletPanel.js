@@ -400,8 +400,8 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
             .update({
               balance_credits: Number((Number(balance || 0) + creditsToAdd).toFixed(2)),
             })
-            .eq('id', walletData.id)
-            .select('id')
+            .eq('op_id', walletData.id)
+            .select('id:op_id')
             .single();
 
           if (updateError) throw updateError;
@@ -413,7 +413,7 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
               op_id: accountId,
               balance_credits: creditsToAdd,
             })
-            .select('id')
+            .select('id:op_id')
             .single();
 
           if (insertWalletError) throw insertWalletError;
