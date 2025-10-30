@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { supabase } from '../../utils/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../../utils/supabaseClient';
 
 const QUICK_PACKAGES = [
   { amount: 25, code: 'PKG_25', label: '25€' },
@@ -231,6 +231,8 @@ const styles = {
     border: '1px solid rgba(239,68,68,0.35)',
     color: '#991B1B',
     fontWeight: 600,
+    display: 'grid',
+    gap: 12,
   },
   loadingState: {
     display: 'flex',
@@ -239,6 +241,31 @@ const styles = {
     minHeight: 160,
     color: '#475569',
     fontWeight: 600,
+  },
+  infoState: {
+    borderRadius: 16,
+    padding: '18px 20px',
+    background: 'rgba(37,99,235,0.1)',
+    border: '1px solid rgba(37,99,235,0.28)',
+    color: '#1E3A8A',
+    display: 'grid',
+    gap: 10,
+  },
+  infoTitle: { margin: 0, fontSize: 17, fontWeight: 700 },
+  infoDescription: { margin: 0, fontSize: 14, fontWeight: 500 },
+  errorActions: { display: 'flex', gap: 12, flexWrap: 'wrap' },
+  retryButton: {
+    border: '1px solid rgba(15,23,42,0.22)',
+    background: '#FFFFFF',
+    color: '#0F172A',
+    borderRadius: 999,
+    padding: '8px 18px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'background 0.2s ease, color 0.2s ease',
+  },
+  retryButtonHover: {
+    background: 'rgba(15,23,42,0.08)',
   },
 };
 
@@ -256,8 +283,10 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState(null);
   const [messageTone, setMessageTone] = useState('info');
+  const [retryHover, setRetryHover] = useState(false);
 
   const layoutStyle = { ...styles.summaryGrid, ...(isMobile ? styles.summaryGridMobile : null) };
+  const supabaseReady = Boolean(supabase) && Boolean(isSupabaseConfigured);
 
   const parsedAmount = useMemo(() => {
     const parsed = parseAmount(amountInput);
@@ -297,7 +326,7 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
         return;
       }
 
-      if (!supabase) {
+      if (!supabaseReady) {
         setMessageTone('error');
         setMessage('The top-up service is currently unavailable.');
         return;
@@ -411,15 +440,67 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
         setIsProcessing(false);
       }
     },
-    [accountId, amountInput, balance, onRefresh, walletData?.id]
+    [accountId, amountInput, balance, onRefresh, supabaseReady, walletData?.id]
   );
+
+  const handleRetry = useCallback(() => {
+    setMessage(null);
+    setMessageTone('info');
+    onRefresh?.({ silent: true });
+  }, [onRefresh]);
+
+  if (!supabaseReady) {
+    return (
+      <div style={styles.infoState} role="status">
+        <h3 style={styles.infoTitle}>Wallet temporarily unavailable</h3>
+        <p style={styles.infoDescription}>
+          Wallet data requires a valid Supabase configuration. Update the environment variables and refresh the
+          dashboard to enable this section.
+        </p>
+        {typeof onRefresh === 'function' && (
+          <button
+            type="button"
+            onMouseEnter={() => setRetryHover(true)}
+            onMouseLeave={() => setRetryHover(false)}
+            onClick={handleRetry}
+            style={{
+              ...styles.retryButton,
+              ...(retryHover ? styles.retryButtonHover : null),
+            }}
+          >
+            Check again
+          </button>
+        )}
+      </div>
+    );
+  }
 
   if (walletLoading && !transactions.length) {
     return <div style={styles.loadingState}>Loading wallet information…</div>;
   }
 
   if (walletError) {
-    return <div style={styles.errorBox}>Error loading the wallet. Refresh the page and try again.</div>;
+    return (
+      <div style={styles.errorBox} role="alert">
+        <div>Error loading the wallet. Refresh the page and try again.</div>
+        {typeof onRefresh === 'function' && (
+          <div style={styles.errorActions}>
+            <button
+              type="button"
+              onMouseEnter={() => setRetryHover(true)}
+              onMouseLeave={() => setRetryHover(false)}
+              onClick={handleRetry}
+              style={{
+                ...styles.retryButton,
+                ...(retryHover ? styles.retryButtonHover : null),
+              }}
+            >
+              Try again
+            </button>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -507,9 +588,9 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
                   style={{
                     ...styles.providerBtn,
                     ...styles.providerAccent(provider.accent),
-                    ...(isProcessing || parsedAmount <= 0 ? styles.providerBtnDisabled : null),
+                    ...(isProcessing || parsedAmount <= 0 || !supabaseReady ? styles.providerBtnDisabled : null),
                   }}
-                  disabled={isProcessing || parsedAmount <= 0}
+                  disabled={isProcessing || parsedAmount <= 0 || !supabaseReady}
                 >
                   {provider.label}
                 </button>
