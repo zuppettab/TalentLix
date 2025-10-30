@@ -111,22 +111,52 @@ export default async function handler(req, res) {
     const txRef = buildTxReference();
     const txCredits = normalizedDirection === 'credit' ? parsedAmount : -parsedAmount;
 
-    const { error: txError } = await client
-      .from('op_wallet_tx')
-      .insert({
-        op_id: rawId,
-        kind: normalizedDirection === 'credit' ? 'ADMIN_TOPUP' : 'ADMIN_ADJUST',
-        status: 'SETTLED',
-        credits: txCredits,
-        amount_eur: txCredits,
-        package_code: 'ADMIN',
-        provider: 'Internal Enabler',
-        tx_ref: txRef,
-        settled_at: new Date().toISOString(),
-      });
+    const baseTxPayload = {
+      op_id: rawId,
+      status: 'SETTLED',
+      credits: txCredits,
+      amount_eur: txCredits,
+      package_code: 'ADMIN',
+      provider: 'Internal Enabler',
+      tx_ref: txRef,
+      settled_at: new Date().toISOString(),
+    };
 
-    if (txError) {
-      throw normalizeSupabaseError('Operator wallet transaction logging', txError);
+    const preferredKinds =
+      normalizedDirection === 'credit'
+        ? ['ADMIN_TOPUP', 'TOPUP', 'MANUAL_TOPUP', 'CREDIT', 'MANUAL_CREDIT']
+        : ['ADMIN_ADJUST', 'ADJUSTMENT', 'MANUAL_ADJUST', 'ADJUST', 'DEBIT', 'MANUAL_DEBIT'];
+
+    let lastTxError = null;
+    let selectedKind = null;
+
+    for (const kind of preferredKinds) {
+      const { error: txError } = await client
+        .from('op_wallet_tx')
+        .insert({
+          ...baseTxPayload,
+          kind,
+        });
+
+      if (!txError) {
+        selectedKind = kind;
+        if (kind !== preferredKinds[0]) {
+          console.warn(
+            `Falling back to wallet transaction kind "${kind}" due to enum mismatch for operator ${rawId}.`
+          );
+        }
+        break;
+      }
+
+      lastTxError = txError;
+
+      if (txError?.code !== '22P02') {
+        throw normalizeSupabaseError('Operator wallet transaction logging', txError);
+      }
+    }
+
+    if (!selectedKind) {
+      throw normalizeSupabaseError('Operator wallet transaction logging', lastTxError);
     }
 
     return res.status(200).json({ success: true, balance: nextBalance });
