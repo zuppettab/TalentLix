@@ -288,6 +288,24 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
   const layoutStyle = { ...styles.summaryGrid, ...(isMobile ? styles.summaryGridMobile : null) };
   const supabaseReady = Boolean(supabase) && Boolean(isSupabaseConfigured);
 
+  const walletUnavailable = useMemo(() => {
+    if (!walletError) return false;
+    if (typeof walletError === 'object' && walletError !== null) {
+      if (walletError.kind === 'network') return true;
+      if (walletError.code === 'NETWORK_ERROR') return true;
+      if (walletError.status === 0) return true;
+      const details =
+        walletError.message || walletError.hint || walletError.details || walletError.code || walletError.status;
+      if (typeof details === 'string' && /failed to fetch|fetch failed|network/i.test(details)) {
+        return true;
+      }
+    }
+    if (typeof walletError === 'string' && /failed to fetch|fetch failed|network/i.test(walletError)) {
+      return true;
+    }
+    return false;
+  }, [walletError]);
+
   const parsedAmount = useMemo(() => {
     const parsed = parseAmount(amountInput);
     if (Number.isNaN(parsed) || parsed <= 0) return 0;
@@ -449,14 +467,15 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
     onRefresh?.({ silent: true });
   }, [onRefresh]);
 
-  if (!supabaseReady) {
+  if (!supabaseReady || walletUnavailable) {
+    const description = !supabaseReady
+      ? 'Wallet data requires a valid Supabase configuration. Update the environment variables and refresh the dashboard to enable this section.'
+      : 'We could not reach the wallet service. Check your Supabase configuration or network connection, then refresh the dashboard.';
+    const actionLabel = !supabaseReady ? 'Check again' : 'Try again';
     return (
       <div style={styles.infoState} role="status">
         <h3 style={styles.infoTitle}>Wallet temporarily unavailable</h3>
-        <p style={styles.infoDescription}>
-          Wallet data requires a valid Supabase configuration. Update the environment variables and refresh the
-          dashboard to enable this section.
-        </p>
+        <p style={styles.infoDescription}>{description}</p>
         {typeof onRefresh === 'function' && (
           <button
             type="button"
@@ -468,7 +487,7 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
               ...(retryHover ? styles.retryButtonHover : null),
             }}
           >
-            Check again
+            {actionLabel}
           </button>
         )}
       </div>

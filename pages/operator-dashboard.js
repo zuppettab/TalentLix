@@ -400,7 +400,21 @@ export default function OperatorDashboard() {
       wallet = {
         ...wallet,
         loading: false,
-        error: err,
+        error: {
+          code: typeof err?.code === 'string' ? err.code : null,
+          message: err?.message || 'Wallet data is currently unavailable.',
+          status: typeof err?.status === 'number' ? err.status : null,
+          details: err?.details ?? null,
+          hint: err?.hint ?? null,
+          kind:
+            typeof err?.message === 'string' && /fetch failed|failed to fetch|network/i.test(err.message)
+              ? 'network'
+              : err?.code === 'FETCH_ERROR'
+                ? 'network'
+                : err?.name === 'TypeError'
+                  ? 'network'
+                  : 'unknown',
+        },
       };
     }
 
