@@ -57,7 +57,7 @@ const formatCredits = (value) => {
   if (value == null) return '0.00';
   const numeric = Number(value);
   if (Number.isNaN(numeric)) return '0.00';
-  return new Intl.NumberFormat('it-IT', {
+  return new Intl.NumberFormat('en-GB', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(numeric);
@@ -75,7 +75,7 @@ const formatDateTime = (value) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('it-IT', {
+  return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -293,20 +293,20 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
     async (providerId) => {
       if (!accountId) {
         setMessageTone('error');
-        setMessage('Non è stato possibile identificare il tuo account operatore.');
+        setMessage('We could not identify your operator account.');
         return;
       }
 
       if (!supabase) {
         setMessageTone('error');
-        setMessage('Servizio di ricarica non disponibile al momento.');
+        setMessage('The top-up service is currently unavailable.');
         return;
       }
 
       const normalizedAmount = parseAmount(amountInput);
       if (Number.isNaN(normalizedAmount) || normalizedAmount <= 0) {
         setMessageTone('error');
-        setMessage('Inserisci un importo valido per procedere con la ricarica.');
+        setMessage('Enter a valid amount before continuing with the top-up.');
         return;
       }
 
@@ -318,7 +318,7 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
 
       setIsProcessing(true);
       setMessageTone('info');
-      setMessage(`Elaboriamo la ricarica con ${provider?.label || 'provider selezionato'}…`);
+      setMessage(`Processing your top-up with ${provider?.label || 'the selected provider'}…`);
 
       let pendingTxId = null;
 
@@ -384,7 +384,7 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
         if (settleError) throw settleError;
 
         setMessageTone('success');
-        setMessage(`Ricarica completata! +${formatCredits(creditsToAdd)} crediti disponibili.`);
+        setMessage(`Top-up completed! +${formatCredits(creditsToAdd)} credits available.`);
         if (packageCode !== 'CUSTOM') {
           setSelectedPackage(packageCode);
         } else {
@@ -395,7 +395,7 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
       } catch (err) {
         console.error('Failed to settle wallet top-up', err);
         setMessageTone('error');
-        setMessage('Impossibile completare la ricarica. Riprova più tardi.');
+        setMessage('Unable to complete the top-up. Please try again later.');
 
         if (pendingTxId) {
           try {
@@ -415,34 +415,34 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
   );
 
   if (walletLoading && !transactions.length) {
-    return <div style={styles.loadingState}>Caricamento informazioni sul wallet…</div>;
+    return <div style={styles.loadingState}>Loading wallet information…</div>;
   }
 
   if (walletError) {
-    return <div style={styles.errorBox}>Errore durante il caricamento del wallet. Aggiorna la pagina e riprova.</div>;
+    return <div style={styles.errorBox}>Error loading the wallet. Refresh the page and try again.</div>;
   }
 
   return (
     <div style={styles.wrapper}>
       <div style={layoutStyle}>
         <div style={styles.balanceCard}>
-          <div style={styles.balanceLabel}>Saldo disponibile</div>
-          <div style={styles.balanceValue}>{formatCredits(balance)} crediti</div>
+          <div style={styles.balanceLabel}>Available balance</div>
+          <div style={styles.balanceValue}>{formatCredits(balance)} credits</div>
           <div style={styles.balanceHint}>
-            {updatedAt ? `Aggiornato ${formatDateTime(updatedAt)}` : 'Nessuna ricarica ancora registrata.'}
+            {updatedAt ? `Updated ${formatDateTime(updatedAt)}` : 'No top-ups recorded yet.'}
           </div>
           <div style={styles.infoGrid}>
-            <div>Ogni euro ricaricato corrisponde a un credito spendibile immediatamente nella piattaforma.</div>
+            <div>Each euro you add converts into one credit you can spend immediately on the platform.</div>
             {selectedPackageLabel && (
               <div style={styles.hintRow}>
-                Pacchetto selezionato: <strong>{selectedPackageLabel}</strong>
+                Selected package: <strong>{selectedPackageLabel}</strong>
               </div>
             )}
           </div>
         </div>
 
         <div style={styles.topupCard}>
-          <h3 style={styles.topupTitle}>Ricarica il wallet</h3>
+          <h3 style={styles.topupTitle}>Top up your wallet</h3>
 
           {message && (
             <div
@@ -457,7 +457,7 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
 
           <div style={styles.amountRow}>
             <label htmlFor="wallet-amount" style={styles.amountLabel}>
-              Importo ricarica (EUR)
+              Top-up amount (EUR)
             </label>
             <div style={styles.amountInputWrap}>
               <input
@@ -473,7 +473,7 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
                 style={styles.amountInput}
                 disabled={isProcessing}
               />
-              <span>= {formatCredits(parsedAmount)} crediti</span>
+              <span>= {formatCredits(parsedAmount)} credits</span>
             </div>
             <div style={styles.quickRow}>
               {QUICK_PACKAGES.map((pkg) => (
@@ -497,7 +497,7 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
           </div>
 
           <div style={styles.providersWrap}>
-            <div style={styles.amountLabel}>Scegli un provider di pagamento</div>
+            <div style={styles.amountLabel}>Choose a payment provider</div>
             <div style={styles.providersGrid}>
               {PROVIDERS.map((provider) => (
                 <button
@@ -521,26 +521,26 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
 
       <div style={styles.historyCard}>
         <div style={styles.historyTitleRow}>
-          <h3 style={styles.historyTitle}>Storico movimenti</h3>
+          <h3 style={styles.historyTitle}>Transaction history</h3>
           <span style={{ fontSize: 13, color: '#475569' }}>
-            Gli ultimi {transactions.length} movimenti registrati
+            Showing the latest {transactions.length} recorded transactions
           </span>
         </div>
 
         {transactions.length === 0 ? (
-          <div style={styles.emptyHistory}>Nessuna transazione registrata. Effettua la tua prima ricarica!</div>
+          <div style={styles.emptyHistory}>No transactions recorded yet. Make your first top-up!</div>
         ) : (
           <div style={styles.historyList}>
             {transactions.map((tx) => {
               const statusMeta = STATUS_BADGES[String(tx.status || '').toUpperCase()] || {
-                label: tx.status || 'Sconosciuto',
+                label: tx.status || 'Unknown',
                 tone: 'info',
               };
 
               return (
                 <div key={tx.id || tx.tx_ref} style={styles.historyItem}>
                   <div style={styles.historyHeader}>
-                    <span style={styles.providerLabel}>{tx.provider || 'Provider sconosciuto'}</span>
+                    <span style={styles.providerLabel}>{tx.provider || 'Unknown provider'}</span>
                     <span
                       style={{
                         ...styles.badge,
@@ -551,11 +551,11 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
                     </span>
                   </div>
                   <div style={styles.historyMeta}>
-                    <span>+{formatCredits(tx.credits)} crediti</span>
-                    <span>Importo: € {formatCredits(tx.amount_eur ?? tx.credits)}</span>
+                    <span>+{formatCredits(tx.credits)} credits</span>
+                    <span>Amount: € {formatCredits(tx.amount_eur ?? tx.credits)}</span>
                     <span>Ref: {tx.tx_ref || '—'}</span>
                     <span>
-                      Creato: {formatDateTime(tx.created_at) || '—'}
+                      Created: {formatDateTime(tx.created_at) || '—'}
                       {tx.settled_at ? ` · Settled: ${formatDateTime(tx.settled_at)}` : ''}
                     </span>
                   </div>
