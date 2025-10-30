@@ -67,6 +67,7 @@ const normalizeOperatorRow = (row) => {
   const contactArr = asArray(row.op_contact);
   const typeArr = asArray(row.op_type);
   const requestArr = asArray(row.op_verification_request);
+  const walletArr = asArray(row.op_wallet);
 
   const latestRequest = pickLatestRecord(requestArr, ['submitted_at', 'updated_at', 'created_at']);
   const documentsArr = asArray(latestRequest?.op_verification_document);
@@ -90,6 +91,12 @@ const normalizeOperatorRow = (row) => {
       : null,
     documents: documentsArr.map((doc) => ({ doc_type: doc.doc_type, file_key: doc.file_key })),
     review_state: reviewState,
+    wallet: walletArr[0]
+      ? {
+          balance_credits: Number(walletArr[0].balance_credits ?? 0) || 0,
+          updated_at: walletArr[0].updated_at || null,
+        }
+      : null,
   };
 };
 
@@ -132,7 +139,8 @@ export default async function handler(req, res) {
           op_verification_request:op_verification_request(
             id, state, reason, submitted_at, created_at, updated_at,
             op_verification_document:op_verification_document(doc_type, file_key)
-          )
+          ),
+          op_wallet:op_wallet(balance_credits, updated_at)
         `
         ),
     ]);

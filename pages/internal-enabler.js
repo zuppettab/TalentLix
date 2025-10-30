@@ -40,6 +40,44 @@ const formatStatusLabel = (status) => {
     .join(' ');
 };
 
+const formatCredits = (value) => {
+  if (value == null) return '0.00';
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return '0.00';
+  return new Intl.NumberFormat('en-GB', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numeric);
+};
+
+const parseAmount = (value) => {
+  if (value == null) return NaN;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? Math.round(value * 100) / 100 : NaN;
+  }
+  const normalized = String(value).replace(',', '.');
+  const numeric = Number(normalized);
+  if (Number.isNaN(numeric)) return NaN;
+  return Math.round(numeric * 100) / 100;
+};
+
+const walletFeedbackStyle = (tone) => {
+  const base = {
+    fontSize: 12,
+    padding: '6px 10px',
+    borderRadius: 8,
+    border: '1px solid transparent',
+  };
+
+  if (tone === 'success') {
+    return { ...base, color: '#2E7D32', borderColor: '#A5D6A7', background: 'rgba(46, 125, 50, 0.08)' };
+  }
+  if (tone === 'error') {
+    return { ...base, color: '#B00020', borderColor: '#F5C6CB', background: 'rgba(176, 0, 32, 0.08)' };
+  }
+  return { ...base, color: '#0277BD', borderColor: '#90CAF9', background: 'rgba(2, 119, 189, 0.08)' };
+};
+
 const miniBtn = (disabled) => ({
   height: 30,
   padding: '0 10px',
@@ -81,6 +119,9 @@ export default function InternalEnabler() {
   const [opRows, setOpRows] = useState([]);
   const [opLoading, setOpLoading] = useState(false);
   const [opBusy, setOpBusy] = useState(null);
+  const [walletInputs, setWalletInputs] = useState({});
+  const [walletBusy, setWalletBusy] = useState(null);
+  const [walletFeedback, setWalletFeedback] = useState({});
   const [dataError, setDataError] = useState('');
 
   const initializeSession = useCallback(async () => {
@@ -314,6 +355,7 @@ export default function InternalEnabler() {
         ...operator,
         documents: Array.isArray(operator.documents) ? operator.documents : [],
         review_state: String(operator.review_state || 'not_started'),
+        wallet: operator.wallet || null,
       })));
     } catch (error) {
       console.error('Failed to load admin overview', error);
@@ -441,6 +483,90 @@ export default function InternalEnabler() {
 
     return [...athletes, ...operators].sort((a, b) => a.name.localeCompare(b.name));
   }, [ordered, opOrdered]);
+
+  const setOperatorWalletFeedback = useCallback((operatorId, payload) => {
+    const key = String(operatorId);
+    setWalletFeedback((prev) => ({ ...prev, [key]: payload }));
+  }, []);
+
+  const handleWalletInputChange = useCallback((operatorId, value) => {
+    const key = String(operatorId);
+    setWalletInputs((prev) => ({ ...prev, [key]: value }));
+    setWalletFeedback((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  const performWalletAdjustment = useCallback(
+    async (operatorId, direction) => {
+      const key = String(operatorId);
+      const currentValue = walletInputs[key] ?? '50';
+      const parsed = parseAmount(currentValue);
+
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        setOperatorWalletFeedback(key, {
+          tone: 'error',
+          message: 'Enter a valid positive amount before continuing.',
+        });
+        return;
+      }
+
+      try {
+        setWalletBusy(operatorId);
+        setOperatorWalletFeedback(key, {
+          tone: 'info',
+          message: direction === 'credit' ? 'Adding credits…' : 'Deducting credits…',
+        });
+
+        const payload = await callAdminAction('/api/internal-enabler/operator-wallet', {
+          operatorId,
+          amount: parsed,
+          direction,
+        });
+
+        const updatedBalance = Number(payload?.balance ?? NaN);
+        if (Number.isFinite(updatedBalance)) {
+          setOpRows((prev) =>
+            prev.map((row) =>
+              String(row.id) === key
+                ? {
+                    ...row,
+                    wallet: {
+                      ...(row.wallet || {}),
+                      balance_credits: updatedBalance,
+                    },
+                  }
+                : row
+            )
+          );
+        }
+
+        setOperatorWalletFeedback(key, {
+          tone: 'success',
+          message: `Wallet updated. New balance: ${formatCredits(updatedBalance)} credits.`,
+        });
+
+        setWalletInputs((prev) => ({ ...prev, [key]: '50' }));
+
+        await refreshAll();
+      } catch (error) {
+        const message =
+          typeof error?.message === 'string' && error.message
+            ? error.message
+            : 'Unable to update the wallet. Please try again later.';
+        setOperatorWalletFeedback(key, {
+          tone: 'error',
+          message,
+        });
+      } finally {
+        setWalletBusy(null);
+      }
+    },
+    [walletInputs, callAdminAction, setOpRows, refreshAll, setOperatorWalletFeedback]
+  );
 
   const viewDoc = async (key) => {
     const url = await signedUrl(key);
@@ -845,10 +971,11 @@ export default function InternalEnabler() {
           </p>
         </div>
         <div style={{ border: '1px solid #EEE', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 1fr 1fr 1fr', background: '#FAFAFA' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 1fr 1fr 1fr 1fr', background: '#FAFAFA' }}>
             <div style={cellHead}>Operator</div>
             <div style={cellHead}>Status</div>
             <div style={cellHead}>Contacts</div>
+            <div style={cellHead}>Wallet</div>
             <div style={cellHead}>Documents</div>
             <div style={cellHead}>Actions</div>
           </div>
@@ -859,9 +986,16 @@ export default function InternalEnabler() {
             const canFinalize = ['submitted', 'in_review'].includes(review_state);
             const canRequestInfo = ['submitted', 'in_review'].includes(review_state);
             const reason = verification?.reason ? verification.reason : null;
+            const key = String(row.id);
+            const walletInfo = row.wallet || null;
+            const walletBalance = walletInfo?.balance_credits ?? null;
+            const walletValue = walletInputs[key] ?? '50';
+            const walletMessage = walletFeedback[key] || null;
+            const walletTone = walletMessage?.tone || null;
+            const walletBusyRow = walletBusy === row.id;
 
             return (
-              <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '260px 1fr 1fr 1fr 1fr', borderTop: '1px solid #EEE' }}>
+              <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '260px 1fr 1fr 1fr 1fr 1fr', borderTop: '1px solid #EEE' }}>
                 <div style={cell}>
                   <div style={{ fontWeight: 700 }}>{profile?.legal_name || profile?.trade_name || '—'}</div>
                   <div style={{ fontSize: 12, color: '#999' }}>
@@ -887,6 +1021,34 @@ export default function InternalEnabler() {
                   <div style={{ fontSize: 12, color: contact?.phone_verified_at ? '#2E7D32' : '#B00020' }}>
                     {contact?.phone_verified_at ? 'Phone verified ✓' : 'Phone not verified'}
                   </div>
+                </div>
+
+                <div style={{ ...cell, display: 'grid', gap: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>
+                    {walletInfo ? `${formatCredits(walletBalance)} credits` : '—'}
+                  </div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={walletValue}
+                    onChange={(event) => handleWalletInputChange(row.id, event.target.value)}
+                    style={styles.walletInput}
+                  />
+                  <div style={styles.walletButtons}>
+                    <button
+                      onClick={() => performWalletAdjustment(row.id, 'credit')}
+                      disabled={walletBusyRow}
+                      style={actionBtn(walletBusyRow, '#2E7D32')}
+                    >Add</button>
+                    <button
+                      onClick={() => performWalletAdjustment(row.id, 'debit')}
+                      disabled={walletBusyRow}
+                      style={actionBtn(walletBusyRow, '#B00020')}
+                    >Deduct</button>
+                  </div>
+                  {walletMessage?.message ? (
+                    <div style={walletFeedbackStyle(walletTone)}>{walletMessage.message}</div>
+                  ) : null}
                 </div>
 
                 <div style={cell}>
@@ -1091,5 +1253,20 @@ const styles = {
     margin: '6px 0 0',
     fontSize: 14,
     color: '#475569',
+  },
+  walletInput: {
+    width: '100%',
+    maxWidth: 140,
+    height: 36,
+    borderRadius: 8,
+    border: '1px solid #CBD5E1',
+    padding: '0 10px',
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  walletButtons: {
+    display: 'flex',
+    gap: 8,
+    flexWrap: 'wrap',
   },
 };
