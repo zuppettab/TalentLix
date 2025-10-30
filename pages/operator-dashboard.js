@@ -28,6 +28,16 @@ const SECTION_COMPONENTS = {
 
 const FUNCTIONAL_SECTIONS = new Set(['wallet', 'search', 'messages']);
 
+const formatCredits = (value) => {
+  if (value == null) return '0.00';
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return '0.00';
+  return new Intl.NumberFormat('it-IT', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numeric);
+};
+
 function useIsMobile(breakpointPx = 720) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -60,6 +70,14 @@ export default function OperatorDashboard() {
       documents: {},
       rules: [],
     },
+    wallet: {
+      id: null,
+      balance_credits: null,
+      updated_at: null,
+      transactions: [],
+      loading: true,
+      error: null,
+    },
     sectionStatus: {
       entity: { loading: true, error: null },
       contacts: { loading: true, error: null },
@@ -90,6 +108,15 @@ export default function OperatorDashboard() {
       privacy: { loading: false, error: null },
     };
 
+    const emptyWallet = {
+      id: null,
+      balance_credits: null,
+      updated_at: null,
+      transactions: [],
+      loading: false,
+      error: null,
+    };
+
     const empty = {
       account: null,
       profile: null,
@@ -101,6 +128,7 @@ export default function OperatorDashboard() {
         documents: {},
         rules: [],
       },
+      wallet: emptyWallet,
       sectionStatus: baseSectionStatus,
     };
 
@@ -150,6 +178,7 @@ export default function OperatorDashboard() {
       documents: {},
       rules: [],
     };
+    let wallet = { ...emptyWallet, loading: true };
 
     const baseAccountQuery = () =>
       supabase
@@ -188,6 +217,7 @@ export default function OperatorDashboard() {
       finishSectionLoading(['entity', 'contacts', 'privacy']);
       return {
         ...empty,
+        wallet: { ...emptyWallet, loading: false },
         sectionStatus: localSectionStatus,
       };
     }
@@ -300,6 +330,81 @@ export default function OperatorDashboard() {
     }
 
     try {
+      const { data: walletRow, error: walletError } = await supabase
+        .from('op_wallet')
+        .select('id, balance_credits, updated_at, created_at')
+        .eq('op_id', account.id)
+        .maybeSingle();
+      if (walletError && walletError.code !== 'PGRST116') throw walletError;
+
+      if (walletError && walletError.code === 'PGRST116') {
+        console.warn('Multiple wallet rows found for operator. Using the most recent one.');
+        const { data: walletRows, error: walletFallbackError } = await supabase
+          .from('op_wallet')
+          .select('id, balance_credits, updated_at, created_at')
+          .eq('op_id', account.id)
+          .order('updated_at', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false, nullsFirst: false })
+          .limit(1);
+        if (walletFallbackError) throw walletFallbackError;
+        const fallback = Array.isArray(walletRows) ? walletRows[0] : walletRows || null;
+        if (fallback) {
+          wallet = {
+            ...wallet,
+            id: fallback.id,
+            balance_credits: fallback.balance_credits ?? 0,
+            updated_at: fallback.updated_at || fallback.created_at || null,
+          };
+        } else {
+          wallet = { ...wallet, loading: false };
+        }
+      } else if (walletRow) {
+        wallet = {
+          ...wallet,
+          id: walletRow.id,
+          balance_credits: walletRow.balance_credits ?? 0,
+          updated_at: walletRow.updated_at || walletRow.created_at || null,
+        };
+      } else {
+        wallet = { ...wallet, balance_credits: 0, loading: false };
+      }
+
+      const { data: walletTxRows, error: walletTxError } = await supabase
+        .from('op_wallet_tx')
+        .select('id, tx_ref, status, kind, credits, amount_eur, provider, created_at, settled_at')
+        .eq('op_id', account.id)
+        .order('created_at', { ascending: false, nullsFirst: false })
+        .limit(20);
+      if (walletTxError) throw walletTxError;
+
+      wallet = {
+        ...wallet,
+        transactions: Array.isArray(walletTxRows)
+          ? walletTxRows.map((row) => ({
+              id: row.id,
+              tx_ref: row.tx_ref || '',
+              status: row.status || '',
+              kind: row.kind || '',
+              credits: row.credits ?? null,
+              amount_eur: row.amount_eur ?? null,
+              provider: row.provider || '',
+              created_at: row.created_at || null,
+              settled_at: row.settled_at || null,
+            }))
+          : [],
+        loading: false,
+        error: null,
+      };
+    } catch (err) {
+      console.error('Failed to load wallet data', err);
+      wallet = {
+        ...wallet,
+        loading: false,
+        error: err,
+      };
+    }
+
+    try {
       const { data: privacyRows, error: privacyError } = await supabase
         .from('op_privacy_consent')
         .select('*')
@@ -335,6 +440,7 @@ export default function OperatorDashboard() {
       type,
       privacy,
       verification,
+      wallet,
       sectionStatus: localSectionStatus,
     };
   }, [pickLatestRecord, user?.id]);
@@ -346,7 +452,15 @@ export default function OperatorDashboard() {
       try {
         setOperatorData((prev) => {
           if (silent) {
-            return { ...prev, error: null };
+            return {
+              ...prev,
+              error: null,
+              wallet: {
+                ...(prev.wallet || {}),
+                loading: true,
+                error: null,
+              },
+            };
           }
 
           return {
@@ -358,6 +472,11 @@ export default function OperatorDashboard() {
               contacts: { loading: true, error: null },
               identity: { loading: true, error: null },
               privacy: { loading: true, error: null },
+            },
+            wallet: {
+              ...(prev.wallet || {}),
+              loading: true,
+              error: null,
             },
           };
         });
@@ -372,7 +491,16 @@ export default function OperatorDashboard() {
         console.error('Failed to load operator dashboard data', err);
         setOperatorData((prev) => {
           if (silent) {
-            return { ...prev, loading: false, error: err };
+            return {
+              ...prev,
+              loading: false,
+              error: err,
+              wallet: {
+                ...(prev.wallet || {}),
+                loading: false,
+                error: err,
+              },
+            };
           }
 
           return {
@@ -384,6 +512,11 @@ export default function OperatorDashboard() {
               contacts: { loading: false, error: err },
               identity: { loading: false, error: err },
               privacy: { loading: false, error: err },
+            },
+            wallet: {
+              ...(prev.wallet || {}),
+              loading: false,
+              error: err,
             },
           };
         });
@@ -415,6 +548,11 @@ export default function OperatorDashboard() {
         identity: { loading: true, error: null },
         privacy: { loading: true, error: null },
       },
+      wallet: {
+        ...(prev.wallet || {}),
+        loading: true,
+        error: null,
+      },
     }));
 
     fetchOperatorData()
@@ -430,16 +568,21 @@ export default function OperatorDashboard() {
         console.error('Failed to load operator dashboard data', err);
         if (!active) return;
         setOperatorData((prev) => ({
-        ...prev,
-        loading: false,
-        error: err,
-        sectionStatus: {
-          entity: { loading: false, error: err },
-          contacts: { loading: false, error: err },
-          identity: { loading: false, error: err },
-          privacy: { loading: false, error: err },
-        },
-      }));
+          ...prev,
+          loading: false,
+          error: err,
+          sectionStatus: {
+            entity: { loading: false, error: err },
+            contacts: { loading: false, error: err },
+            identity: { loading: false, error: err },
+            privacy: { loading: false, error: err },
+          },
+          wallet: {
+            ...(prev.wallet || {}),
+            loading: false,
+            error: err,
+          },
+        }));
       });
 
     return () => {
@@ -524,6 +667,11 @@ export default function OperatorDashboard() {
   const headerLeftStyle = { ...styles.headerLeft, ...(isMobile ? styles.headerLeftMobile : null) };
   const headerRightStyle = { ...styles.headerRight, ...(isMobile ? styles.headerRightMobile : null) };
   const mainStyle = { ...styles.main, ...(isMobile ? styles.mainMobile : null) };
+  const walletBalance = operatorData?.wallet?.balance_credits;
+  const walletLoading = operatorData?.wallet?.loading;
+  const walletDisplay = walletLoading
+    ? '…'
+    : formatCredits(walletBalance);
 
   return (
     <div style={styles.page}>
@@ -536,6 +684,12 @@ export default function OperatorDashboard() {
           </div>
         </div>
         <div style={headerRightStyle}>
+          <div style={styles.walletBadge}>
+            <span style={styles.walletBadgeLabel}>Wallet credits</span>
+            <span style={styles.walletBadgeValue} aria-live="polite">
+              {walletDisplay}
+            </span>
+          </div>
           <span style={styles.userEmail}>{user?.email}</span>
           <button type="button" style={styles.signOutBtn} onClick={handleSignOut}>Sign out</button>
         </div>
@@ -701,8 +855,21 @@ const styles = {
   logo: { width: 48, height: 48, objectFit: 'contain' },
   headerTitle: { fontSize: 18, fontWeight: 700, margin: 0, color: '#0F172A', lineHeight: 1.2 },
   headerSubtitle: { fontSize: 13, color: '#4B5563', margin: '4px 0 0 0', lineHeight: 1.3 },
-  headerRight: { display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'flex-end' },
+  headerRight: { display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap' },
   headerRightMobile: { flex: '1 1 100%', justifyContent: 'flex-end' },
+  walletBadge: {
+    display: 'grid',
+    gap: 4,
+    padding: '8px 14px',
+    borderRadius: 12,
+    background: 'linear-gradient(120deg, rgba(39,227,218,0.16), rgba(247,184,78,0.18))',
+    border: '1px solid rgba(39,227,218,0.25)',
+    minWidth: 120,
+    textAlign: 'right',
+    boxShadow: '0 12px 30px -18px rgba(39,227,218,0.5)',
+  },
+  walletBadgeLabel: { fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: '#0F172A' },
+  walletBadgeValue: { fontSize: 18, fontWeight: 700, color: '#0F172A' },
   userEmail: { fontSize: 13, color: '#4B5563', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 180 },
   signOutBtn: {
     background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
