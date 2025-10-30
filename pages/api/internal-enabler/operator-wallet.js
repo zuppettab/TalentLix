@@ -66,8 +66,8 @@ export default async function handler(req, res) {
     }
 
     const currentBalance = Number(walletRow?.balance_credits ?? 0) || 0;
-    const delta = normalizedDirection === 'credit' ? parsedAmount : -parsedAmount;
-    const nextBalanceRaw = currentBalance + delta;
+    const signedDelta = normalizedDirection === 'credit' ? parsedAmount : -parsedAmount;
+    const nextBalanceRaw = currentBalance + signedDelta;
 
     if (normalizedDirection === 'debit' && nextBalanceRaw < -0.005) {
       throw createHttpError(400, 'Unable to deduct more credits than the available balance.');
@@ -109,7 +109,8 @@ export default async function handler(req, res) {
     }
 
     const txRef = buildTxReference();
-    const txCredits = normalizedDirection === 'credit' ? parsedAmount : -parsedAmount;
+    // The transaction log enforces a non-negative credit amount; direction is inferred via the kind.
+    const txCredits = parsedAmount;
 
     const baseTxPayload = {
       op_id: rawId,
