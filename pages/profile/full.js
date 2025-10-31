@@ -257,7 +257,8 @@ function PreviewCard({ athleteId }) {
     (async () => {
       try {
         const { data } = await supabase.rpc('get_current_unlock_tariff');
-        if (active) setTariff(data || null);
+        const row = Array.isArray(data) ? data[0] : data;
+        if (active) setTariff(row && typeof row === 'object' ? row : null);
       } catch (err) {
         console.error('Unable to load unlock tariff', err);
         if (active) setTariff(null);
