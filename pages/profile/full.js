@@ -2,7 +2,7 @@
 // Standalone page (read-only) – no sub‑nav, compact hero with avatar,
 // sections: Media · Sport (current) · Career · Profile · Physical · Social · Contacts · Awards.
 // Supabase import: correct path from /pages/profile/*  -> '../../utils/supabaseClient'  ✅
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { supabase as sb } from '../../utils/supabaseClient';
@@ -11,7 +11,7 @@ import {
   Play, Film, ChevronRight, ChevronDown, ExternalLink,
   Calendar, Award as AwardIcon, Medal, Phone, Mail, Globe, User,
   CheckCircle, ShieldCheck, Ruler, Scale, MoveHorizontal, Hand, Footprints, Activity,
-  Image, GalleryVertical, PlayCircle, Clapperboard, Video
+  Image, GalleryVertical, PlayCircle, Clapperboard, Video, ShoppingCart, MessageCircle
 } from 'lucide-react';
 
 const supabase = sb;
@@ -83,14 +83,22 @@ function PreviewCard({ athleteId }) {
   const [loading, setLoading] = useState(true);
 
   const [athlete, setAthlete]   = useState(null);
-  const [email, setEmail]       = useState('');
   const [sports, setSports]     = useState(null);   // current record (sports_experiences)
   const [career, setCareer]     = useState([]);     // athlete_career[]
   const [physical, setPhysical] = useState(null);   // physical_data (latest)
-  const [contacts, setContacts] = useState(null);   // contacts_verification
-  const [social, setSocial]     = useState([]);     // social_profiles[]
+  const [contactMeta, setContactMeta] = useState(null);   // contacts_verification (non-sensitive)
   const [awards, setAwards]     = useState([]);     // awards_recognitions[]
   const [media, setMedia]       = useState({ featured:{}, intro:null, highlights:[], gallery:[], games:[] });
+
+  const [contactsData, setContactsData] = useState(null); // RPC bundle (name + contact info)
+  const [contactsLoading, setContactsLoading] = useState(true);
+  const [operatorId, setOperatorId] = useState(null);
+  const [opLoading, setOpLoading] = useState(true);
+  const [tariff, setTariff] = useState(null);
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState({ message: '', reason: '' });
+
+  const router = useRouter();
 
   const [lightbox, setLightbox] = useState({ open:false, type:'', src:'', title:'' });
 
@@ -101,9 +109,22 @@ function PreviewCard({ athleteId }) {
       try {
         setLoading(true);
 
-        // Athlete + user email
-        const { data: a } = await supabase.from('athlete').select('*').eq('id', athleteId).single();
-        const { data: { user } } = await supabase.auth.getUser();
+        // Athlete core data (no direct contacts)
+        const { data: a } = await supabase
+          .from('athlete')
+          .select(`
+            id,
+            gender,
+            nationality,
+            date_of_birth,
+            profile_picture_url,
+            completion_percentage,
+            birth_city,
+            native_language,
+            additional_language
+          `)
+          .eq('id', athleteId)
+          .maybeSingle();
 
         // Current sport
         const { data: sp } = await supabase
@@ -130,15 +151,10 @@ function PreviewCard({ athleteId }) {
 
         // Contacts/verification
         const { data: cv } = await supabase
-          .from('contacts_verification').select('*')
-          .eq('athlete_id', athleteId).single();
-
-        // Social
-        const { data: so } = await supabase
-          .from('social_profiles').select('*')
+          .from('contacts_verification')
+          .select('residence_city, residence_country, phone_verified, id_verified')
           .eq('athlete_id', athleteId)
-          .order('sort_order', { ascending:true })
-          .order('created_at', { ascending:true });
+          .maybeSingle();
 
         // Awards (pre-sign document if present)
         const { data: aw } = await supabase
@@ -175,12 +191,10 @@ function PreviewCard({ athleteId }) {
 
         if (!alive) return;
         setAthlete(a || null);
-        setEmail(user?.email || '');
         setSports((sp && sp[0]) || null);
         setCareer(car || []);
         setPhysical((pd && pd[0]) || null);
-        setContacts(cv || null);
-        setSocial(so || []);
+        setContactMeta(cv || null);
         setAwards(awSigned || []);
         setMedia({ featured, intro, gallery, highlights, games });
       } finally { if (alive) setLoading(false); }
@@ -188,12 +202,143 @@ function PreviewCard({ athleteId }) {
     return () => { alive = false; };
   }, [athleteId]);
 
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      try {
+        const { data: { user } = {} } = await supabase.auth.getUser();
+        if (!user?.id) {
+          if (active) setOperatorId(null);
+          return;
+        }
+        const { data } = await supabase
+          .from('op_account')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .maybeSingle();
+        if (active) setOperatorId(data?.id || null);
+      } catch (err) {
+        console.error('Unable to load operator account', err);
+        if (active) setOperatorId(null);
+      } finally {
+        if (active) setOpLoading(false);
+      }
+    })();
+
+    (async () => {
+      try {
+        const { data } = await supabase.rpc('get_current_unlock_tariff');
+        if (active) setTariff(data || null);
+      } catch (err) {
+        console.error('Unable to load unlock tariff', err);
+        if (active) setTariff(null);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const fetchContactsAccess = useCallback(async () => {
+    if (!athleteId || !operatorId) {
+      if (!operatorId && !opLoading) {
+        setContactsLoading(false);
+        setContactsData(null);
+      }
+      return;
+    }
+
+    setContactsLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_athlete_contacts_if_unlocked', {
+        p_op_id: operatorId,
+        p_athlete_id: athleteId,
+      });
+      if (error) throw error;
+      setContactsData(data || null);
+    } catch (err) {
+      console.error('Unable to load contact bundle', err);
+      setContactsData(null);
+    } finally {
+      setContactsLoading(false);
+    }
+  }, [athleteId, operatorId, opLoading]);
+
+  useEffect(() => {
+    if (!athleteId) return;
+    if (!operatorId) {
+      if (!opLoading) {
+        setContactsData(null);
+        setContactsLoading(false);
+      }
+      return;
+    }
+    fetchContactsAccess();
+  }, [athleteId, operatorId, opLoading, fetchContactsAccess]);
+
+  const handleUnlock = useCallback(async () => {
+    if (!athleteId || !operatorId || unlocking) return;
+    setUnlockError({ message: '', reason: '' });
+    setUnlocking(true);
+
+    try {
+      const { error } = await supabase.rpc('unlock_athlete_contacts', {
+        p_op_id: operatorId,
+        p_athlete_id: athleteId,
+      });
+
+      if (error) {
+        if (error.message === 'insufficient_credits') {
+          setUnlockError({
+            message: 'Crediti insufficienti. Vai al wallet per ricaricare e riprova.',
+            reason: 'insufficient_credits',
+          });
+          return;
+        }
+        setUnlockError({ message: error.message || 'Errore durante lo sblocco.', reason: 'generic' });
+        return;
+      }
+
+      await fetchContactsAccess();
+    } catch (err) {
+      setUnlockError({ message: err.message || 'Errore durante lo sblocco.', reason: 'generic' });
+    } finally {
+      setUnlocking(false);
+    }
+  }, [athleteId, operatorId, unlocking, fetchContactsAccess]);
+
   /* --------------- Derived data --------------- */
-  const fullName = `${athlete?.first_name||''} ${athlete?.last_name||''}`.trim() || '—';
+  const combinedName = `${contactsData?.first_name || ''} ${contactsData?.last_name || ''}`.trim();
+  const effectiveName = combinedName || '—';
+  const isUnlocked = !!contactsData?.unlocked;
+  const unlockExpiresAt = contactsData?.expires_at || null;
+  const unlockCost = tariff?.credits_cost ?? null;
+  const unlockValidity = tariff?.validity_days ?? null;
+  const avatarLabel = isUnlocked && effectiveName !== '—' ? effectiveName : 'Athlete';
   const age = calcAge(athlete?.date_of_birth);
   const natFlag = flagFromCountry(athlete?.nationality) || '';
   const completion = clamp(athlete?.completion_percentage, 0, 100);
   const currentSeason = (career||[]).find(c => c.is_current) || null;
+  const residenceCity = contactMeta?.residence_city || '';
+  const residenceCountry = contactMeta?.residence_country || '';
+  const residenceDisplay = residenceCity || residenceCountry
+    ? `${residenceCity || '—'}, ${residenceCountry || '—'}`
+    : '—';
+  const phoneVerified = !!contactMeta?.phone_verified;
+  const idVerified = !!contactMeta?.id_verified;
+  const contactEmail = contactsData?.email || '';
+  const contactPhone = contactsData?.phone || '';
+
+  const formatExpiry = useCallback((iso) => {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return String(iso);
+    }
+  }, []);
 
   // Avatar: profile -> featured headshot -> initials
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -203,13 +348,45 @@ function PreviewCard({ athleteId }) {
   })(); }, [athlete?.profile_picture_url, media.featured?.head?.storage_path]);
 
   const socialSorted = useMemo(() => {
-    const rows = (social||[]).filter(r => r?.profile_url);
+    if (!contactsData?.unlocked) return [];
+    const rows = Array.isArray(contactsData?.socials) ? contactsData.socials : [];
     const rank = (u='') => { const s=String(u).toLowerCase();
       if (s.includes('instagram')) return 1; if (s.includes('youtube')) return 2;
       if (s.includes('x.com')||s.includes('twitter')) return 3; if (s.includes('tiktok')) return 4;
       if (s.includes('facebook')) return 5; if (s.includes('linkedin')) return 6; return 99; };
-    return rows.sort((a,b)=>rank(a.profile_url)-rank(b.profile_url));
-  }, [social]);
+    const normalized = rows
+      .map((entry, idx) => {
+        const url = entry?.url || entry?.profile_url || '';
+        return {
+          key: entry?.id || `${entry?.platform || 'social'}-${idx}`,
+          platform: entry?.platform || 'Profile',
+          url,
+          handle: entry?.handle || '',
+        };
+      })
+      .filter((entry) => entry.url);
+    return normalized.sort((a, b) => rank(a.url) - rank(b.url));
+  }, [contactsData]);
+
+  const handleMessageClick = useCallback(() => {
+    if (!isUnlocked) return;
+    router.push({
+      pathname: '/operator-dashboard',
+      query: { section: 'messages', athleteId },
+    });
+  }, [isUnlocked, router, athleteId]);
+
+  const renderProtected = (value, srLabel) => {
+    if (isUnlocked) return value || '—';
+    if (contactsLoading) return 'Caricamento…';
+    const safe = value || '••••••';
+    return (
+      <>
+        <span style={S.blur} aria-hidden="true">{safe}</span>
+        <span style={S.srOnly}>{srLabel}</span>
+      </>
+    );
+  };
 
   /* --------------- Inline styles (consistent) --------------- */
   const S = {
@@ -239,6 +416,16 @@ function PreviewCard({ athleteId }) {
     progressBar:{ height:8, borderRadius:999, background:'#eee', overflow:'hidden' },
     progressFill:{ height:'100%', background:'linear-gradient(90deg,#27E3DA,#F7B84E)' },
     progressPct:{ fontSize:12, color:'#666' },
+
+    unlockRow:{ display:'flex', gap:12, alignItems:'center', flexWrap:'wrap', marginTop:12 },
+    unlockBtn:{ display:'inline-flex', alignItems:'center', gap:8, padding:'8px 16px', borderRadius:10, border:'1px solid #e5e7eb', background:'linear-gradient(120deg, rgba(39,227,218,0.25), rgba(247,184,78,0.25))', fontWeight:700, color:'#0f172a', cursor:'pointer', boxShadow:'0 12px 28px -18px rgba(15,23,42,0.45)' },
+    unlockBtnDisabled:{ opacity:0.6, cursor:'not-allowed', boxShadow:'none' },
+    unlockBadge:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:999, background:'linear-gradient(120deg, rgba(134,239,172,0.45), rgba(22,163,74,0.35))', color:'#166534', fontWeight:700, fontSize:12 },
+    unlockMeta:{ fontSize:12, color:'#475569', fontWeight:600 },
+    unlockError:{ marginTop:8, display:'inline-flex', flexWrap:'wrap', gap:8, alignItems:'center', background:'rgba(250,204,21,0.15)', border:'1px solid rgba(250,204,21,0.35)', color:'#b45309', padding:'8px 12px', borderRadius:12, fontSize:12, fontWeight:600 },
+    walletLink:{ color:'#0f172a', textDecoration:'underline' },
+    messageBtn:{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:10, border:'1px solid #e5e7eb', background:'#fff', fontWeight:700, color:'#0f172a', cursor:'pointer', boxShadow:'0 10px 24px -18px rgba(15,23,42,0.32)' },
+    blur:{ filter:'blur(7px)' },
 
     colA:{ display:'flex', flexDirection:'column', gap:24 },
     colB:{ display:'flex', flexDirection:'column', gap:24 },
@@ -305,14 +492,25 @@ function PreviewCard({ athleteId }) {
     <div style={S.container}>
       <div style={S.card}>
 
-          {/* Compact HERO */}
-          <section style={S.hero} aria-label="Profile header">
+        {/* Compact HERO */}
+        <section style={S.hero} aria-label="Profile header">
           {avatarUrl
-            ? <img src={avatarUrl} alt={`${fullName} avatar`} style={S.avatar}/>
-            : <div style={S.avatarFallback}>{initials(fullName)}</div>
+            ? <img src={avatarUrl} alt={`${avatarLabel} avatar`} style={S.avatar}/>
+            : <div style={S.avatarFallback}>{initials(avatarLabel)}</div>
           }
           <div>
-            <h1 style={S.h1}>{fullName}</h1>
+            <h1 style={S.h1}>
+              {contactsLoading ? (
+                <span>Caricamento…</span>
+              ) : isUnlocked ? (
+                effectiveName
+              ) : (
+                <>
+                  <span style={S.blur} aria-hidden="true">{effectiveName === '—' ? 'Dati riservati' : effectiveName}</span>
+                  <span style={S.srOnly}>Nome nascosto — sblocca il profilo per visualizzarlo</span>
+                </>
+              )}
+            </h1>
             <div style={S.chips}>
               {(sports?.role || currentSeason?.role) && <span style={S.chip}><User size={14}/>{sports?.role || currentSeason?.role}</span>}
               {(athlete?.nationality || natFlag) && <span style={S.chip}>{natFlag || '🏳️'} {athlete?.nationality || ''}</span>}
@@ -323,6 +521,55 @@ function PreviewCard({ athleteId }) {
               <div style={S.progressBar}><div style={{ ...S.progressFill, width: `${completion}%` }}/></div>
               <span style={S.progressPct}>{completion}%</span>
             </div>
+
+            <div style={S.unlockRow}>
+              {isUnlocked ? (
+                <div style={S.unlockBadge} role="status" aria-live="polite">
+                  Unlocked ✓ — scade il {formatExpiry(unlockExpiresAt) || '—'}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  style={{
+                    ...S.unlockBtn,
+                    ...((unlocking || contactsLoading || !operatorId || opLoading) ? S.unlockBtnDisabled : null),
+                  }}
+                  onClick={handleUnlock}
+                  disabled={unlocking || contactsLoading || !operatorId || opLoading}
+                >
+                  <ShoppingCart size={16} />
+                  <span>
+                    Sblocca contatti — {unlockCost != null ? `${unlockCost} crediti` : '—'}
+                  </span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                style={{
+                  ...S.messageBtn,
+                  ...(isUnlocked ? null : S.unlockBtnDisabled),
+                }}
+                onClick={handleMessageClick}
+                disabled={!isUnlocked}
+                aria-disabled={!isUnlocked}
+              >
+                <MessageCircle size={16} />
+                <span>Messaggia</span>
+              </button>
+            </div>
+
+            {!isUnlocked && unlockCost != null && (
+              <div style={S.unlockMeta}>Validità: {unlockValidity ?? '—'} giorni · Nessun rimborso.</div>
+            )}
+            {unlockError.message && (
+              <div style={S.unlockError} role="alert">
+                <span>{unlockError.message}</span>
+                {unlockError.reason === 'insufficient_credits' && (
+                  <a href="/operator-dashboard?section=wallet" style={S.walletLink}>Vai al wallet</a>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
@@ -447,7 +694,7 @@ function PreviewCard({ athleteId }) {
                 <Info label="Date of birth" value={`${athlete?.date_of_birth ? fmtDate(athlete.date_of_birth) : '—'}${typeof age==='number' ? ` · ${age} y/o` : ''}`}/>
                 <Info label="Nationality" value={`${natFlag ? natFlag+' ' : ''}${athlete?.nationality || '—'}`}/>
                 <Info label="Birth city" value={athlete?.birth_city || '—'}/>
-                <Info label="Residence" value={`${contacts?.residence_city || '—'}, ${contacts?.residence_country || '—'}`}/>
+                <Info label="Residence" value={residenceDisplay}/>
                 <Info label="Native language" value={athlete?.native_language || '—'}/>
                 <Info label="Additional language" value={athlete?.additional_language || '—'}/>
               </div>
@@ -482,31 +729,51 @@ function PreviewCard({ athleteId }) {
             </section>
 
             {/* SOCIAL */}
-            {!!socialSorted.length && (
-              <section style={S.section} aria-label="Social">
-                <div style={S.titleRow}><Globe size={18}/><h2 style={S.h2}>Social</h2></div>
-                <div style={{ display:'grid', gap:8 }}>
-                  {socialSorted.map(s => (
-                    <a key={s.id} href={s.profile_url} target="_blank" rel="noreferrer" style={S.socialItem}>
-                      <span style={{ color:'#111', overflow:'hidden', textOverflow:'ellipsis' }}>{s.platform || 'Profile'}</span>
-                      <ExternalLink size={16} style={{ marginLeft:'auto', color:'#1976d2' }}/>
-                    </a>
-                  ))}
+            <section style={S.section} aria-label="Social">
+              <div style={S.titleRow}><Globe size={18}/><h2 style={S.h2}>Social</h2></div>
+              {contactsLoading ? (
+                <div style={S.empty}>Caricamento…</div>
+              ) : isUnlocked ? (
+                socialSorted.length ? (
+                  <div style={{ display:'grid', gap:8 }}>
+                    {socialSorted.map(s => (
+                      <a key={s.key} href={s.url} target="_blank" rel="noreferrer" style={S.socialItem}>
+                        <span style={{ color:'#111', overflow:'hidden', textOverflow:'ellipsis' }}>
+                          {s.platform}
+                          {s.handle ? ` · ${s.handle}` : ''}
+                        </span>
+                        <ExternalLink size={16} style={{ marginLeft:'auto', color:'#1976d2' }}/>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={S.empty}>—</div>
+                )
+              ) : (
+                <div style={S.empty}>
+                  <span style={S.blur} aria-hidden="true">Profili social nascosti</span>
+                  <span style={S.srOnly}>Profili social nascosti — sblocca per visualizzarli</span>
                 </div>
-              </section>
-            )}
+              )}
+            </section>
 
               {/* CONTACTS */}
               <section style={S.section} aria-label="Contacts">
               <div style={S.titleRow}><Phone size={18}/><h2 style={S.h2}>Contacts</h2></div>
               <div style={{ display:'grid', gap:10 }}>
-              <div style={S.row}><Mail size={16}/>{email || '—'}</div>
-              <div style={S.row}><Phone size={16}/>{athlete?.phone || contacts?.phone_number || '—'}</div>
-                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                  <span style={{ ...S.badge, background: contacts?.phone_verified ? '#dcfce7' : '#f3f4f6' }}><CheckCircle size={14}/> Phone {contacts?.phone_verified ? 'verified' : 'not verified'}</span>
-                  <span style={{ ...S.badge, background: contacts?.id_verified ? '#dcfce7' : '#f3f4f6' }}><ShieldCheck size={14}/> ID {contacts?.id_verified ? 'verified' : 'not verified'}</span>
+                <div style={S.row}>
+                  <Mail size={16}/>
+                  {renderProtected(contactEmail, 'Email nascosta — sblocca per visualizzarla')}
                 </div>
-                <div style={S.small}>Residence: {contacts?.residence_city || '—'}, {contacts?.residence_country || '—'}</div>
+                <div style={S.row}>
+                  <Phone size={16}/>
+                  {renderProtected(contactPhone, 'Numero di telefono nascosto — sblocca per visualizzarlo')}
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                  <span style={{ ...S.badge, background: phoneVerified ? '#dcfce7' : '#f3f4f6' }}><CheckCircle size={14}/> Phone {phoneVerified ? 'verified' : 'not verified'}</span>
+                  <span style={{ ...S.badge, background: idVerified ? '#dcfce7' : '#f3f4f6' }}><ShieldCheck size={14}/> ID {idVerified ? 'verified' : 'not verified'}</span>
+                </div>
+                <div style={S.small}>Residence: {residenceDisplay}</div>
               </div>
             </section>
           </div>

@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Head from 'next/head';
 import Select from 'react-select';
 import AsyncSelect from 'react-select/async';
 import { supabase } from '../../utils/supabaseClient';
 import countries from '../../utils/countries';
 import sports from '../../utils/sports';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, ShoppingCart } from 'lucide-react';
 
 /* -------------------- Costanti -------------------- */
 const CONTRACT_STATUS = [
@@ -179,6 +179,72 @@ const styles = {
     boxShadow: '0 10px 24px -20px rgba(15,23,42,0.55)',
     transition: 'background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease',
   },
+  unlockBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: '8px 16px',
+    borderRadius: 12,
+    border: '1px solid rgba(15,23,42,0.08)',
+    background: 'linear-gradient(120deg, rgba(39,227,218,0.28), rgba(247,184,78,0.28))',
+    fontWeight: 700,
+    color: '#0f172a',
+    cursor: 'pointer',
+    minHeight: 40,
+    boxShadow: '0 12px 28px -18px rgba(15,23,42,0.45)',
+  },
+  unlockBtnDisabled: {
+    opacity: 0.6,
+    cursor: 'not-allowed',
+    boxShadow: 'none',
+  },
+  unlockMeta: {
+    fontSize: '.75rem',
+    color: '#475569',
+    fontWeight: 600,
+  },
+  unlockBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '6px 12px',
+    borderRadius: 999,
+    background: 'linear-gradient(120deg, rgba(134,239,172,0.45), rgba(22,163,74,0.35))',
+    color: '#166534',
+    fontWeight: 700,
+    fontSize: '.78rem',
+  },
+  unlockError: {
+    color: '#b45309',
+    background: 'rgba(250,204,21,0.15)',
+    border: '1px solid rgba(250,204,21,0.35)',
+    padding: '8px 10px',
+    borderRadius: 10,
+    fontSize: '.8rem',
+    fontWeight: 600,
+    display: 'inline-flex',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  walletLink: {
+    color: '#0f172a',
+    textDecoration: 'underline',
+  },
+  blurred: {
+    filter: 'blur(8px)',
+  },
+  srOnly: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: 'hidden',
+    clip: 'rect(0, 0, 0, 0)',
+    whiteSpace: 'nowrap',
+    border: 0,
+  },
   pager: { display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', marginTop: 'clamp(2.25rem, 5vw, 3.5rem)', flexWrap: 'wrap' },
   pageBtn: { border: '1px solid #CBD5E1', background: '#fff', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
   disabled: { opacity: .4, cursor: 'not-allowed' },
@@ -286,6 +352,178 @@ export default function SearchPanel() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
 
+  /* -------- Unlock tariff / operator -------- */
+  const [operatorId, setOperatorId] = useState(null);
+  const [opLoading, setOpLoading] = useState(true);
+  const [tariff, setTariff] = useState(null);
+  const [contactsMap, setContactsMap] = useState({});
+  const [unlocking, setUnlocking] = useState({});
+  const [unlockErrors, setUnlockErrors] = useState({});
+  const [contactsLoading, setContactsLoading] = useState(false);
+
+  const unlockCost = tariff?.credits_cost ?? null;
+  const unlockValidity = tariff?.validity_days ?? null;
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data: { user } = {} } = await supabase.auth.getUser();
+        if (!user?.id) {
+          if (active) setOperatorId(null);
+          return;
+        }
+        const { data } = await supabase
+          .from('op_account')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .maybeSingle();
+        if (!active) return;
+        setOperatorId(data?.id || null);
+      } catch {
+        if (active) setOperatorId(null);
+      } finally {
+        if (active) setOpLoading(false);
+      }
+    })();
+
+    (async () => {
+      try {
+        const { data } = await supabase.rpc('get_current_unlock_tariff');
+        if (active) setTariff(data || null);
+      } catch {
+        if (active) setTariff(null);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const refreshContactInfo = useCallback(async (athleteId) => {
+    if (!operatorId || !athleteId) return;
+    try {
+      const { data, error } = await supabase.rpc('get_athlete_contacts_if_unlocked', {
+        p_op_id: operatorId,
+        p_athlete_id: athleteId,
+      });
+      if (error) throw error;
+      setContactsMap((prev) => ({ ...prev, [athleteId]: data || null }));
+    } catch (err) {
+      console.error('Failed to load contacts for athlete', athleteId, err);
+      setContactsMap((prev) => ({ ...prev, [athleteId]: null }));
+    }
+  }, [operatorId]);
+
+  useEffect(() => {
+    if (!operatorId || !rows.length) {
+      if (!rows.length) setContactsMap({});
+      return;
+    }
+
+    const ids = rows.map((row) => row.id).filter(Boolean);
+    if (!ids.length) return;
+
+    let cancelled = false;
+    setContactsLoading(true);
+
+    (async () => {
+      try {
+        const results = await Promise.all(ids.map(async (id) => {
+          try {
+            const { data, error } = await supabase.rpc('get_athlete_contacts_if_unlocked', {
+              p_op_id: operatorId,
+              p_athlete_id: id,
+            });
+            if (error) throw error;
+            return [id, data || null];
+          } catch (err) {
+            console.error('Failed to fetch contacts for list', id, err);
+            return [id, null];
+          }
+        }));
+
+        if (cancelled) return;
+
+        const next = {};
+        results.forEach(([id, data]) => {
+          next[id] = data;
+        });
+        setContactsMap(next);
+        setUnlockErrors((prev) => {
+          const filtered = {};
+          ids.forEach((id) => {
+            if (prev[id]) filtered[id] = prev[id];
+          });
+          return filtered;
+        });
+        setUnlocking((prev) => {
+          const filtered = {};
+          ids.forEach((id) => {
+            if (prev[id]) filtered[id] = prev[id];
+          });
+          return filtered;
+        });
+      } finally {
+        if (!cancelled) setContactsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [operatorId, rows]);
+
+  const handleUnlock = useCallback(async (athleteId) => {
+    if (!athleteId || !operatorId || unlocking[athleteId]) return;
+    setUnlockErrors((prev) => ({ ...prev, [athleteId]: null }));
+    setUnlocking((prev) => ({ ...prev, [athleteId]: true }));
+
+    try {
+      const { error } = await supabase.rpc('unlock_athlete_contacts', {
+        p_op_id: operatorId,
+        p_athlete_id: athleteId,
+      });
+
+      if (error) {
+        if (error.message === 'insufficient_credits') {
+          setUnlockErrors((prev) => ({
+            ...prev,
+            [athleteId]: {
+              message: 'Crediti insufficienti. Ricarica il wallet per procedere.',
+              reason: 'insufficient_credits',
+            },
+          }));
+          return;
+        }
+        setUnlockErrors((prev) => ({
+          ...prev,
+          [athleteId]: { message: error.message || 'Errore durante lo sblocco.', reason: 'generic' },
+        }));
+        return;
+      }
+
+      await refreshContactInfo(athleteId);
+    } catch (err) {
+      setUnlockErrors((prev) => ({
+        ...prev,
+        [athleteId]: { message: err.message || 'Errore durante lo sblocco.', reason: 'generic' },
+      }));
+    } finally {
+      setUnlocking((prev) => ({ ...prev, [athleteId]: false }));
+    }
+  }, [operatorId, refreshContactInfo, unlocking]);
+
+  const formatExpiry = useCallback((iso) => {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return String(iso);
+    }
+  }, []);
+
   const resetFilters = () => {
     setGender(null); setRoles([]); setNats([]);
     setAgeMode(null); setAgeValue('');
@@ -390,7 +628,7 @@ export default function SearchPanel() {
       let q = supabase
         .from('athlete')
         .select(`
-          id, first_name, last_name, gender, nationality, date_of_birth, profile_picture_url, profile_published,
+          id, gender, nationality, date_of_birth, profile_picture_url, profile_published,
           contacts_verification!left(id_verified, residence_city, residence_country),
           exp:sports_experiences!inner(
             sport, role, team, category, seeking_team, is_represented, contract_status, preferred_regions
@@ -831,16 +1069,17 @@ export default function SearchPanel() {
                 })();
                 const regions = Array.isArray(exp?.preferred_regions) ? exp.preferred_regions.filter(Boolean) : [];
                 const formattedRegions = regions.slice(0, 3).join(', ');
-                const fullName = [ath.first_name, ath.last_name]
-                  .map((part) => (part ? String(part).trim() : ''))
-                  .filter(Boolean)
-                  .join(' ');
-                const initials = [ath.first_name, ath.last_name]
-                  .map((part) => (part ? String(part).trim()[0] : ''))
-                  .filter(Boolean)
-                  .slice(0, 2)
-                  .join('')
-                  .toUpperCase();
+                const computeInitials = (value) => {
+                  const trimmed = String(value || '').trim();
+                  if (!trimmed) return 'PR';
+                  return trimmed
+                    .split(/\s+/)
+                    .map((part) => part[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase();
+                };
                 const residenceParts = [residenceCity, residenceCountry].filter(Boolean);
                 const residence = residenceParts.length > 0 ? residenceParts.join(', ') : '—';
                 const contractLabel = exp?.contract_status
@@ -909,6 +1148,22 @@ export default function SearchPanel() {
                   profileBtnRowStyle.flex = '0 0 auto';
                 }
 
+                const contactInfo = Object.prototype.hasOwnProperty.call(contactsMap, ath.id) ? contactsMap[ath.id] : null;
+                const isUnlocked = !!(contactInfo && contactInfo.unlocked);
+                const expiresAt = isUnlocked ? contactInfo?.expires_at : null;
+                const rawName = contactInfo
+                  ? `${contactInfo.first_name || ''} ${contactInfo.last_name || ''}`.trim()
+                  : '';
+                const nameText = rawName || 'Profilo riservato';
+                const nameBlur = !isUnlocked;
+                const initials = computeInitials(rawName);
+
+                const unlockErrorEntry = unlockErrors[ath.id];
+                const unlockErrorMsg = unlockErrorEntry?.message;
+                const unlockErrorReason = unlockErrorEntry?.reason;
+                const isUnlocking = !!unlocking[ath.id];
+                const canUnlock = !isUnlocked && !isUnlocking && !contactsLoading && !opLoading;
+
                 return (
                   <article key={ath.id} style={styles.card} className="search-panel-card">
                     <div style={cardInnerStyle} className="search-panel-card-inner">
@@ -917,7 +1172,7 @@ export default function SearchPanel() {
                           {ath.profile_picture_url ? (
                             <img
                               src={ath.profile_picture_url}
-                              alt={(fullName || 'Athlete').trim() || 'Athlete avatar'}
+                              alt={(nameText || 'Athlete').trim() || 'Athlete avatar'}
                               style={styles.avatarImg}
                             />
                           ) : (
@@ -926,7 +1181,19 @@ export default function SearchPanel() {
                         </div>
                         <div style={styles.nameWrap} className="search-panel-name-wrap">
                           <div style={styles.nameRow} className="search-panel-name-row">
-                            <h3 style={nameStyle}>{fullName || `${ath.first_name || ''} ${ath.last_name || ''}`.trim() || '—'}</h3>
+                            <h3 style={nameStyle}>
+                              <span
+                                style={nameBlur ? { ...styles.blurred } : undefined}
+                                aria-hidden={nameBlur}
+                              >
+                                {nameText}
+                              </span>
+                              {nameBlur && (
+                                <span style={styles.srOnly}>
+                                  Nome nascosto — sblocca per visualizzare
+                                </span>
+                              )}
+                            </h3>
                             {contactsRecord?.id_verified && (
                               <span style={verifiedBadgeStyle}>Verified</span>
                             )}
@@ -986,6 +1253,33 @@ export default function SearchPanel() {
                           )}
 
                           <div style={profileBtnRowStyle} className="search-panel-profile-btn-row">
+                            {isUnlocked ? (
+                              <div
+                                style={styles.unlockBadge}
+                                role="status"
+                                aria-live="polite"
+                              >
+                                Unlocked ✓ — scade il {formatExpiry(expiresAt) || '—'}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                style={{
+                                  ...styles.unlockBtn,
+                                  ...(canUnlock ? null : styles.unlockBtnDisabled),
+                                }}
+                                className="search-panel-unlock-btn"
+                                onClick={() => handleUnlock(ath.id)}
+                                disabled={!canUnlock}
+                              >
+                                <ShoppingCart size={16} />
+                                <span>
+                                  Sblocca contatti —
+                                  {' '}
+                                  {unlockCost != null ? `${unlockCost} crediti` : '—'}
+                                </span>
+                              </button>
+                            )}
                             <a
                               href={`/profile/full?id=${ath.id}`}
                               target="_blank"
@@ -997,6 +1291,24 @@ export default function SearchPanel() {
                               <ExternalLink size={isCompactLayout ? 13 : 14} strokeWidth={2} />
                             </a>
                           </div>
+                          {!isUnlocked && unlockCost != null && (
+                            <span style={styles.unlockMeta}>
+                              Validità: {unlockValidity ?? '—'} giorni · Nessun rimborso
+                            </span>
+                          )}
+                          {unlockErrorMsg && (
+                            <div style={styles.unlockError} role="alert">
+                              <span>{unlockErrorMsg}</span>
+                              {unlockErrorReason === 'insufficient_credits' && (
+                                <a
+                                  href="/operator-dashboard?section=wallet"
+                                  style={styles.walletLink}
+                                >
+                                  Vai al wallet
+                                </a>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
