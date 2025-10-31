@@ -116,7 +116,7 @@ export default async function handler(req, res) {
     const { data: pricingRows, error: pricingError } = await client
       .from('pricing')
       .select('id, credits_cost, validity_days, effective_from, effective_to')
-      .eq('product_code', PRODUCT_CODE)
+      .eq('code', PRODUCT_CODE)
       .lte('effective_from', nowIso)
       .or(`effective_to.is.null,effective_to.gte.${nowIso}`)
       .order('effective_from', { ascending: false, nullsFirst: false })
