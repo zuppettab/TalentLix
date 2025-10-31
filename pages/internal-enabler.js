@@ -122,6 +122,11 @@ export default function InternalEnabler() {
   const [walletInputs, setWalletInputs] = useState({});
   const [walletBusy, setWalletBusy] = useState(null);
   const [walletFeedback, setWalletFeedback] = useState({});
+  const [unlockTariff, setUnlockTariff] = useState(null);
+  const [tariffInputs, setTariffInputs] = useState({ credits: '', validity: '' });
+  const [tariffTouched, setTariffTouched] = useState(false);
+  const [tariffBusy, setTariffBusy] = useState(false);
+  const [tariffMessage, setTariffMessage] = useState(null);
   const [dataError, setDataError] = useState('');
 
   const initializeSession = useCallback(async () => {
@@ -357,6 +362,11 @@ export default function InternalEnabler() {
         review_state: String(operator.review_state || 'not_started'),
         wallet: operator.wallet || null,
       })));
+
+      const unlockTariffPayload = payload.unlockTariff || null;
+      setUnlockTariff(unlockTariffPayload);
+      setTariffTouched(false);
+      setTariffMessage(null);
     } catch (error) {
       console.error('Failed to load admin overview', error);
       setRows([]);
@@ -380,6 +390,19 @@ export default function InternalEnabler() {
     if (!user) return;
     refreshAll();
   }, [user, refreshAll]);
+
+  useEffect(() => {
+    if (tariffTouched) return;
+
+    if (unlockTariff) {
+      setTariffInputs({
+        credits: unlockTariff.creditsCost != null ? String(unlockTariff.creditsCost) : '',
+        validity: unlockTariff.validityDays != null ? String(unlockTariff.validityDays) : '',
+      });
+    } else {
+      setTariffInputs({ credits: '', validity: '' });
+    }
+  }, [unlockTariff, tariffTouched]);
 
   const ordered = useMemo(() => {
     const rank = (s) => ({
@@ -483,6 +506,90 @@ export default function InternalEnabler() {
 
     return [...athletes, ...operators].sort((a, b) => a.name.localeCompare(b.name));
   }, [ordered, opOrdered]);
+
+  const handleTariffInputChange = useCallback((field, value) => {
+    setTariffInputs((prev) => ({ ...prev, [field]: value }));
+    setTariffTouched(true);
+    setTariffMessage(null);
+  }, []);
+
+  const resetTariffForm = useCallback(() => {
+    setTariffMessage(null);
+    setTariffTouched(false);
+    if (unlockTariff) {
+      setTariffInputs({
+        credits: unlockTariff.creditsCost != null ? String(unlockTariff.creditsCost) : '',
+        validity: unlockTariff.validityDays != null ? String(unlockTariff.validityDays) : '',
+      });
+    } else {
+      setTariffInputs({ credits: '', validity: '' });
+    }
+  }, [unlockTariff]);
+
+  const submitTariffUpdate = useCallback(async () => {
+    const creditsRaw = String(tariffInputs.credits ?? '').trim();
+    if (!creditsRaw) {
+      setTariffMessage({
+        tone: 'error',
+        message: 'Enter the number of credits required to unlock contacts.',
+      });
+      return;
+    }
+
+    const creditsValue = parseAmount(creditsRaw);
+    if (!Number.isFinite(creditsValue) || creditsValue < 0) {
+      setTariffMessage({
+        tone: 'error',
+        message: 'Enter a valid non-negative credit amount before saving.',
+      });
+      return;
+    }
+
+    const rawValidity = tariffInputs.validity;
+    let parsedValidity = null;
+    if (rawValidity != null && String(rawValidity).trim() !== '') {
+      const numericValidity = Number(rawValidity);
+      if (!Number.isFinite(numericValidity) || numericValidity < 0) {
+        setTariffMessage({
+          tone: 'error',
+          message: 'Enter a non-negative number of visibility days or leave the field empty.',
+        });
+        return;
+      }
+      parsedValidity = Math.round(numericValidity);
+    }
+
+    setTariffBusy(true);
+    setTariffMessage(null);
+
+    try {
+      const response = await callAdminAction('/api/internal-enabler/unlock-tariff', {
+        creditsCost: creditsValue,
+        validityDays: parsedValidity,
+      });
+
+      const nextTariff = response?.tariff || null;
+
+      if (nextTariff) {
+        setUnlockTariff(nextTariff);
+        setTariffInputs({
+          credits: nextTariff.creditsCost != null ? String(nextTariff.creditsCost) : '',
+          validity: nextTariff.validityDays != null ? String(nextTariff.validityDays) : '',
+        });
+      }
+
+      setTariffTouched(false);
+      setTariffMessage({ tone: 'success', message: 'Unlock tariff updated successfully.' });
+    } catch (error) {
+      console.error('Failed to update unlock tariff', error);
+      setTariffMessage({
+        tone: 'error',
+        message: error?.message || 'Unable to update unlock tariff. Please try again.',
+      });
+    } finally {
+      setTariffBusy(false);
+    }
+  }, [tariffInputs, callAdminAction]);
 
   const setOperatorWalletFeedback = useCallback((operatorId, payload) => {
     const key = String(operatorId);
@@ -798,6 +905,17 @@ export default function InternalEnabler() {
   }
 
   const globalLoading = loading || opLoading;
+  const creditsInputValue = tariffInputs.credits ?? '';
+  const validityInputValue = tariffInputs.validity ?? '';
+  const currentTariffCost = unlockTariff?.creditsCost != null
+    ? `${formatCredits(unlockTariff.creditsCost)} credits`
+    : '—';
+  const currentTariffValidity = unlockTariff?.validityDays != null
+    ? `${unlockTariff.validityDays} day${unlockTariff.validityDays === 1 ? '' : 's'}`
+    : 'Unlimited visibility';
+  const tariffSaveDisabled = tariffBusy || !tariffTouched;
+  const hasAnyTariffInput = String(creditsInputValue).trim() !== '' || String(validityInputValue).trim() !== '';
+  const tariffResetDisabled = tariffBusy || (!tariffTouched && !hasAnyTariffInput && !unlockTariff);
 
   return (
     <div style={styles.page}>
@@ -843,6 +961,67 @@ export default function InternalEnabler() {
           </div>
           <div style={styles.statMeta}>Needs info: {operatorStats.needsInfo} · Rejected: {operatorStats.rejected}</div>
           <div style={styles.statMeta}>Onboarding: {operatorStats.onboarding}</div>
+        </div>
+        <div style={{ ...styles.statCard, ...styles.tariffCard }}>
+          <div style={styles.statTitle}>Unlock settings</div>
+          <div style={styles.tariffSummary}>
+            <div><strong>Current cost:</strong> {currentTariffCost}</div>
+            <div><strong>Visibility window:</strong> {currentTariffValidity}</div>
+          </div>
+          <div style={styles.tariffRow}>
+            <label htmlFor="unlock-tariff-credits" style={styles.tariffLabel}>Credits per unlock</label>
+            <input
+              id="unlock-tariff-credits"
+              type="number"
+              min="0"
+              step="0.01"
+              value={creditsInputValue}
+              onChange={(event) => handleTariffInputChange('credits', event.target.value)}
+              style={styles.tariffInput}
+              placeholder="e.g. 15"
+            />
+          </div>
+          <div style={styles.tariffRow}>
+            <label htmlFor="unlock-tariff-validity" style={styles.tariffLabel}>Visibility days</label>
+            <input
+              id="unlock-tariff-validity"
+              type="number"
+              min="0"
+              step="1"
+              value={validityInputValue}
+              onChange={(event) => handleTariffInputChange('validity', event.target.value)}
+              style={styles.tariffInput}
+              placeholder="Leave empty for unlimited"
+            />
+            <div style={styles.tariffHint}>Leave empty for unlimited visibility after unlocking.</div>
+          </div>
+          <div style={styles.tariffButtons}>
+            <button
+              type="button"
+              onClick={submitTariffUpdate}
+              disabled={tariffSaveDisabled}
+              style={{
+                ...styles.tariffPrimaryButton,
+                ...(tariffSaveDisabled ? styles.tariffPrimaryButtonDisabled : null),
+              }}
+            >
+              {tariffBusy ? 'Saving…' : 'Save changes'}
+            </button>
+            <button
+              type="button"
+              onClick={resetTariffForm}
+              disabled={tariffResetDisabled}
+              style={{
+                ...styles.tariffSecondaryButton,
+                ...(tariffResetDisabled ? styles.tariffSecondaryButtonDisabled : null),
+              }}
+            >
+              Reset
+            </button>
+          </div>
+          {tariffMessage?.message ? (
+            <div style={walletFeedbackStyle(tariffMessage.tone)}>{tariffMessage.message}</div>
+          ) : null}
         </div>
       </section>
 
@@ -1290,5 +1469,76 @@ const styles = {
     display: 'flex',
     gap: 8,
     flexWrap: 'wrap',
+  },
+  tariffCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 14,
+  },
+  tariffSummary: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    fontSize: 13,
+    color: '#1E293B',
+  },
+  tariffRow: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+  },
+  tariffLabel: {
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    color: '#475569',
+    fontWeight: 600,
+  },
+  tariffInput: {
+    height: 38,
+    borderRadius: 10,
+    border: '1px solid #CBD5E1',
+    padding: '0 12px',
+    fontSize: 14,
+    color: '#0F172A',
+    background: '#FFFFFF',
+  },
+  tariffHint: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  tariffButtons: {
+    display: 'flex',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  tariffPrimaryButton: {
+    padding: '10px 16px',
+    borderRadius: 10,
+    border: 'none',
+    background: 'linear-gradient(135deg, #27E3DA 0%, #4E9AF7 100%)',
+    color: '#FFFFFF',
+    fontWeight: 600,
+    cursor: 'pointer',
+    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.18)',
+    transition: 'opacity 0.2s ease',
+  },
+  tariffPrimaryButtonDisabled: {
+    opacity: 0.6,
+    cursor: 'not-allowed',
+    boxShadow: 'none',
+  },
+  tariffSecondaryButton: {
+    padding: '10px 16px',
+    borderRadius: 10,
+    border: '1px solid #CBD5E1',
+    background: '#FFFFFF',
+    color: '#0F172A',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  tariffSecondaryButtonDisabled: {
+    opacity: 0.6,
+    cursor: 'not-allowed',
   },
 };
