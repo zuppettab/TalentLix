@@ -286,15 +286,20 @@ function PreviewCard({ athleteId }) {
     fetchContactsAccess();
   }, [athleteId, operatorId, opLoading, fetchContactsAccess]);
 
+  const unlockCost = useMemo(() => {
+    const value = Number(tariff?.credits_cost);
+    return Number.isFinite(value) ? value : null;
+  }, [tariff]);
+
   const handleUnlock = useCallback(async () => {
     if (!athleteId || !operatorId || unlocking) return;
 
-    const creditsCost = Number(tariff?.credits_cost ?? 0);
-    if (Number.isFinite(creditsCost) && creditsCost > 0) {
-      const confirmationMessage = `Sbloccare i contatti per ${creditsCost} crediti?`;
-      const confirmed = typeof window === 'undefined' ? true : window.confirm(confirmationMessage);
-      if (!confirmed) return;
-    }
+    const confirmationMessage = unlockCost != null
+      ? `Confermi di voler sbloccare i contatti spendendo ${unlockCost} crediti?`
+      : 'Confermi di voler sbloccare i contatti?';
+
+    const confirmed = typeof window === 'undefined' ? true : window.confirm(confirmationMessage);
+    if (!confirmed) return;
 
     setUnlockError({ message: '', reason: '' });
     setUnlocking(true);
@@ -333,14 +338,13 @@ function PreviewCard({ athleteId }) {
     } finally {
       setUnlocking(false);
     }
-  }, [athleteId, operatorId, unlocking, tariff, fetchContactsAccess]);
+  }, [athleteId, operatorId, unlocking, unlockCost, fetchContactsAccess]);
 
   /* --------------- Derived data --------------- */
   const combinedName = `${contactsData?.first_name || ''} ${contactsData?.last_name || ''}`.trim();
   const effectiveName = combinedName || '—';
   const isUnlocked = !!contactsData?.unlocked;
   const unlockExpiresAt = contactsData?.expires_at || null;
-  const unlockCost = tariff?.credits_cost ?? null;
   const unlockValidity = tariff?.validity_days ?? null;
   const avatarLabel = isUnlocked && effectiveName !== '—' ? effectiveName : 'Athlete';
   const age = calcAge(athlete?.date_of_birth);
@@ -565,7 +569,7 @@ function PreviewCard({ athleteId }) {
                 >
                   <ShoppingCart size={16} />
                   <span>
-                    Unlock contacts — {unlockCost != null ? `${unlockCost} credits` : '—'}
+                    Sblocca contatti — {unlockCost != null ? `${unlockCost} crediti` : '—'}
                   </span>
                 </button>
               )}
