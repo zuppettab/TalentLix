@@ -252,12 +252,20 @@ function PreviewCard({ athleteId }) {
 
     setContactsLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_athlete_contacts_if_unlocked', {
-        p_op_id: operatorId,
-        p_athlete_id: athleteId,
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
+      const response = await fetch(`/api/operator/athlete-contacts?athleteId=${encodeURIComponent(athleteId)}`, {
+        headers: {
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
       });
-      if (error) throw error;
-      setContactsData(data || null);
+      const payload = await response.json();
+      if (!response.ok) {
+        const error = new Error(payload?.error || 'Unable to load contact bundle.');
+        if (payload?.code) error.code = payload.code;
+        throw error;
+      }
+      setContactsData(payload || null);
     } catch (err) {
       console.error('Unable to load contact bundle', err);
       setContactsData(null);
@@ -284,20 +292,30 @@ function PreviewCard({ athleteId }) {
     setUnlocking(true);
 
     try {
-      const { error } = await supabase.rpc('unlock_athlete_contacts', {
-        p_op_id: operatorId,
-        p_athlete_id: athleteId,
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
+
+      const response = await fetch('/api/operator/unlock-contacts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ athleteId }),
       });
 
-      if (error) {
-        if (error.message === 'insufficient_credits') {
+      const payload = await response.json();
+
+      if (!response.ok) {
+        if (payload?.code === 'insufficient_credits') {
           setUnlockError({
             message: 'Crediti insufficienti. Vai al wallet per ricaricare e riprova.',
             reason: 'insufficient_credits',
           });
           return;
         }
-        setUnlockError({ message: error.message || 'Errore durante lo sblocco.', reason: 'generic' });
+
+        setUnlockError({ message: payload?.error || 'Errore durante lo sblocco.', reason: 'generic' });
         return;
       }
 
