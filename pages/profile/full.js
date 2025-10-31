@@ -58,6 +58,30 @@ const ytId=(url)=>{try{const u=new URL(String(url)); if(u.hostname.includes('you
 const vmId=(url)=>{const m=String(url||'').match(/vimeo\.com\/(\d+)/i); return m?m[1]:null;};
 const embedUrl=(url)=> ytId(url)?`https://www.youtube.com/embed/${ytId(url)}?rel=0` : (vmId(url)?`https://player.vimeo.com/video/${vmId(url)}`:url);
 const contractText = (v) => v==='free_agent'?'Free agent': v==='under_contract'?'Under contract': v==='on_loan'?'On loan':'—';
+const formatCredits = (value) => {
+  if (value == null) return '0.00';
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return '0.00';
+  return new Intl.NumberFormat('it-IT', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numeric);
+};
+
+function useIsMobile(breakpointPx = 720) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mq = window.matchMedia(`(max-width:${breakpointPx}px)`);
+    const onChange = (event) => setIsMobile(event.matches);
+    onChange(mq);
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, [breakpointPx]);
+
+  return isMobile;
+}
 
 /* ------------------------------ Page ------------------------------ */
 export default function ProfileFullPage() {
@@ -66,7 +90,7 @@ export default function ProfileFullPage() {
   return (
     <>
       <Head><title>Profile preview</title></Head>
-      <div style={{ fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif' }}>
+      <div style={{ fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif' }}>
         {!athleteId ? (
           <div style={{ maxWidth: 960, margin: '40px auto', padding: '0 16px' }}>
             <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Missing athlete id</h1>
@@ -82,6 +106,7 @@ export default function ProfileFullPage() {
 function PreviewCard({ athleteId }) {
   const [loading, setLoading] = useState(true);
 
+  const [authUser, setAuthUser] = useState(null);
   const [athlete, setAthlete]   = useState(null);
   const [sports, setSports]     = useState(null);   // current record (sports_experiences)
   const [career, setCareer]     = useState([]);     // athlete_career[]
@@ -95,10 +120,12 @@ function PreviewCard({ athleteId }) {
   const [operatorId, setOperatorId] = useState(null);
   const [opLoading, setOpLoading] = useState(true);
   const [tariff, setTariff] = useState(null);
+  const [wallet, setWallet] = useState({ balance: null, loading: true });
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState({ message: '', reason: '' });
 
   const router = useRouter();
+  const isMobile = useIsMobile(720);
 
   const [lightbox, setLightbox] = useState({ open:false, type:'', src:'', title:'' });
 
@@ -208,6 +235,7 @@ function PreviewCard({ athleteId }) {
     (async () => {
       try {
         const { data: { user } = {} } = await supabase.auth.getUser();
+        if (active) setAuthUser(user || null);
         if (!user?.id) {
           if (active) setOperatorId(null);
           return;
@@ -285,6 +313,65 @@ function PreviewCard({ athleteId }) {
     }
     fetchContactsAccess();
   }, [athleteId, operatorId, opLoading, fetchContactsAccess]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!operatorId) {
+      setWallet({ balance: null, loading: false });
+      return () => {
+        active = false;
+      };
+    }
+
+    setWallet({ balance: null, loading: true });
+
+    (async () => {
+      try {
+        const { data: walletRow, error: walletError } = await supabase
+          .from('op_wallet')
+          .select('id, balance_credits, updated_at')
+          .eq('operator_id', operatorId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!active) return;
+
+        let resolvedRow = walletRow;
+
+        if (walletError && walletError.code !== 'PGRST116') {
+          throw walletError;
+        }
+
+        if (walletError && walletError.code === 'PGRST116') {
+          const { data: walletRows, error: walletFallbackError } = await supabase
+            .from('op_wallet')
+            .select('id, balance_credits, updated_at')
+            .eq('operator_id', operatorId)
+            .order('updated_at', { ascending: false });
+          if (walletFallbackError) throw walletFallbackError;
+          resolvedRow = Array.isArray(walletRows) ? walletRows[0] : walletRows || null;
+        }
+
+        if (!active) return;
+
+        setWallet({
+          balance: resolvedRow?.balance_credits ?? 0,
+          loading: false,
+        });
+      } catch (err) {
+        console.error('Unable to load wallet balance', err);
+        if (active) {
+          setWallet({ balance: null, loading: false });
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [operatorId]);
 
   const handleUnlock = useCallback(async () => {
     if (!athleteId || !operatorId || unlocking) return;
@@ -414,6 +501,11 @@ function PreviewCard({ athleteId }) {
     });
   }, [isUnlocked, router, athleteId]);
 
+  const handleSignOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    router.replace('/login-operator');
+  }, [router]);
+
   const renderProtected = (value, srLabel) => {
     if (isUnlocked) return value || '—';
     if (contactsLoading) return 'Loading…';
@@ -428,7 +520,58 @@ function PreviewCard({ athleteId }) {
 
   /* --------------- Inline styles (consistent) --------------- */
   const S = {
+    page:{
+      minHeight:'100vh',
+      background:'#F6F7FB',
+      color:'#0F172A',
+      display:'flex',
+      flexDirection:'column',
+    },
+    header:{
+      display:'flex',
+      alignItems:'center',
+      justifyContent:'space-between',
+      padding:'16px 24px',
+      background:'#FFFFFF',
+      borderBottom:'1px solid #E5E7EB',
+      position:'sticky',
+      top:0,
+      zIndex:10,
+      fontFamily:'Inter, sans-serif',
+    },
+    headerMobile:{ flexWrap:'wrap', rowGap:12 },
+    headerLeft:{ display:'flex', alignItems:'center', gap:12, minWidth:0 },
+    headerLeftMobile:{ flex:'1 1 100%' },
+    logo:{ width:48, height:48, objectFit:'contain' },
+    headerTitle:{ fontSize:18, fontWeight:700, margin:0, color:'#0F172A', lineHeight:1.2 },
+    headerSubtitle:{ fontSize:13, color:'#4B5563', margin:'4px 0 0 0', lineHeight:1.3 },
+    headerRight:{ display:'flex', alignItems:'center', gap:12, justifyContent:'flex-end', flexWrap:'wrap' },
+    headerRightMobile:{ flex:'1 1 100%', justifyContent:'flex-end' },
+    walletBadge:{
+      display:'grid',
+      gap:4,
+      padding:'8px 14px',
+      borderRadius:12,
+      background:'linear-gradient(120deg, rgba(39,227,218,0.16), rgba(247,184,78,0.18))',
+      border:'1px solid rgba(39,227,218,0.25)',
+      minWidth:120,
+      textAlign:'right',
+      boxShadow:'0 12px 30px -18px rgba(39,227,218,0.5)',
+    },
+    walletBadgeLabel:{ fontSize:11, fontWeight:600, letterSpacing:'.08em', textTransform:'uppercase', color:'#0F172A' },
+    walletBadgeValue:{ fontSize:18, fontWeight:700, color:'#0F172A' },
+    userEmail:{ fontSize:13, color:'#4B5563', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:180 },
+    signOutBtn:{
+      background:'linear-gradient(90deg, #27E3DA, #F7B84E)',
+      border:'none',
+      color:'#fff',
+      fontWeight:600,
+      padding:'10px 18px',
+      borderRadius:999,
+      cursor:'pointer',
+    },
     container:{
+      flex:'1 1 auto',
       maxWidth:1280,
       margin:'0 auto',
       padding:'40px clamp(16px, 5vw, 56px)',
@@ -507,27 +650,16 @@ function PreviewCard({ athleteId }) {
     btn:{ height:36, padding:'0 14px', borderRadius:8, border:'1px solid #eee', background:'#fff', cursor:'pointer' },
   };
 
-  if (loading) {
-    return (
-      <div style={S.container}>
-        <div style={{ ...S.card, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div style={S.loaderContainer} role="status" aria-live="polite">
-            <div style={S.spinner} aria-hidden="true" />
-            <span style={S.srOnly}>Loading profile…</span>
-          </div>
-          <style jsx>{`
-            @keyframes profilePreviewSpin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-          `}</style>
+  const mainCard = loading
+    ? (
+      <div style={{ ...S.card, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div style={S.loaderContainer} role="status" aria-live="polite">
+          <div style={S.spinner} aria-hidden="true" />
+          <span style={S.srOnly}>Loading profile…</span>
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div style={S.container}>
+    )
+    : (
       <div style={S.card}>
 
         {/* Compact HERO */}
@@ -817,6 +949,37 @@ function PreviewCard({ athleteId }) {
           </div>
         </div>
       </div>
+    );
+
+  const headerStyle = { ...S.header, ...(isMobile ? S.headerMobile : null) };
+  const headerLeftStyle = { ...S.headerLeft, ...(isMobile ? S.headerLeftMobile : null) };
+  const headerRightStyle = { ...S.headerRight, ...(isMobile ? S.headerRightMobile : null) };
+  const walletDisplay = wallet.loading ? '…' : formatCredits(wallet.balance);
+  const authEmail = authUser?.email || '—';
+
+  return (
+    <div style={S.page}>
+      <header style={headerStyle}>
+        <div style={headerLeftStyle}>
+          <img src="/logo-talentlix.png" alt="TalentLix" style={S.logo} />
+          <div>
+            <div style={S.headerTitle}>Operator dashboard</div>
+            <p style={S.headerSubtitle}>Manage your organisation and talent activities.</p>
+          </div>
+        </div>
+        <div style={headerRightStyle}>
+          <div style={S.walletBadge}>
+            <span style={S.walletBadgeLabel}>Wallet credits</span>
+            <span style={S.walletBadgeValue} aria-live="polite">{walletDisplay}</span>
+          </div>
+          <span style={S.userEmail}>{authEmail}</span>
+          <button type="button" style={S.signOutBtn} onClick={handleSignOut}>Sign out</button>
+        </div>
+      </header>
+
+      <div style={S.container}>
+        {mainCard}
+      </div>
 
       {/* LIGHTBOX */}
       {lightbox.open && (
@@ -839,6 +1002,10 @@ function PreviewCard({ athleteId }) {
 
         {/* Minimal responsiveness */}
       <style jsx>{`
+        @keyframes profilePreviewSpin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
         .mainGrid {
           display: grid;
           gap: 24px;
