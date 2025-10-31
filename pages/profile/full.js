@@ -572,38 +572,65 @@ function PreviewCard({ athleteId }) {
     },
     container:{
       flex:'1 1 auto',
-      maxWidth:1280,
+      width:'100%',
       margin:'0 auto',
-      padding:'40px clamp(16px, 5vw, 56px)',
+      padding: isMobile ? '32px clamp(16px, 6vw, 48px)' : '64px clamp(24px, 6vw, 96px)',
       boxSizing:'border-box',
       display:'flex',
       justifyContent:'center',
+      alignItems:'stretch',
     },
     card:{
       width:'100%',
-      maxWidth:1040,
-      borderRadius:16,
-      boxShadow:'0 8px 24px rgba(0,0,0,0.08)',
+      maxWidth:1280,
+      margin:'0 auto',
+      borderRadius:24,
+      boxShadow:'0 14px 40px rgba(15,23,42,0.12)',
       background:'#fff',
       overflow:'hidden'
     },
-    hero:{ display:'grid', gridTemplateColumns:'auto 1fr', gap:16, padding:16, alignItems:'center', borderBottom:'1px solid #eee' },
+    hero:{
+      display:'grid',
+      gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 192px) minmax(0, 1fr)',
+      gap: isMobile ? 20 : 24,
+      padding: isMobile ? '28px clamp(20px, 6vw, 40px)' : '32px clamp(24px, 5vw, 48px)',
+      alignItems:'center',
+      justifyItems: isMobile ? 'center' : 'stretch',
+      textAlign: isMobile ? 'center' : 'left',
+      borderBottom:'1px solid #eee'
+    },
+    heroContent:{
+      display:'flex',
+      flexDirection:'column',
+      gap:12,
+      alignItems: isMobile ? 'center' : 'flex-start',
+      textAlign: isMobile ? 'center' : 'left',
+    },
     avatar:{ width:96, height:96, borderRadius:'50%', objectFit:'cover', display:'block', border:'2px solid #fff', boxShadow:'0 2px 8px rgba(0,0,0,0.12)' },
     avatarFallback:{ width:96, height:96, borderRadius:'50%', display:'grid', placeItems:'center', background:'linear-gradient(135deg,#27E3DA,#F7B84E)', color:'#111', fontSize:28 },
-    h1:{ fontSize:22, lineHeight:1.15, fontWeight:900, margin:0 },
-    chips:{ display:'flex', gap:8, flexWrap:'wrap' },
+    h1:{ fontSize:isMobile ? 20 : 24, lineHeight:1.15, fontWeight:900, margin:0, textAlign: isMobile ? 'center' : 'left' },
+    chips:{ display:'flex', gap:8, flexWrap:'wrap', justifyContent: isMobile ? 'center' : 'flex-start' },
     chip:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', background:'#fff', fontSize:12 },
-    progressRow:{ display:'grid', gridTemplateColumns:'auto 1fr auto', gap:8, alignItems:'center', marginTop:2 },
+    progressRow:{
+      display:'grid',
+      gridTemplateColumns: isMobile ? '1fr' : 'auto 1fr auto',
+      gap:8,
+      rowGap: isMobile ? 8 : 4,
+      alignItems:'center',
+      justifyItems: isMobile ? 'center' : 'stretch',
+      marginTop:2,
+      textAlign: isMobile ? 'center' : 'left'
+    },
     progressBar:{ height:8, borderRadius:999, background:'#eee', overflow:'hidden' },
     progressFill:{ height:'100%', background:'linear-gradient(90deg,#27E3DA,#F7B84E)' },
     progressPct:{ fontSize:12, color:'#666' },
 
-    unlockRow:{ display:'flex', gap:12, alignItems:'center', flexWrap:'wrap', marginTop:12 },
+    unlockRow:{ display:'flex', gap:12, alignItems:'center', flexWrap:'wrap', marginTop:12, justifyContent: isMobile ? 'center' : 'flex-start' },
     unlockBtn:{ display:'inline-flex', alignItems:'center', gap:8, padding:'8px 16px', borderRadius:10, border:'1px solid #e5e7eb', background:'linear-gradient(120deg, rgba(39,227,218,0.25), rgba(247,184,78,0.25))', fontWeight:700, color:'#0f172a', cursor:'pointer', boxShadow:'0 12px 28px -18px rgba(15,23,42,0.45)' },
     unlockBtnDisabled:{ opacity:0.6, cursor:'not-allowed', boxShadow:'none' },
     unlockBadge:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:999, background:'linear-gradient(120deg, rgba(134,239,172,0.45), rgba(22,163,74,0.35))', color:'#166534', fontWeight:700, fontSize:12 },
-    unlockMeta:{ fontSize:12, color:'#475569', fontWeight:600 },
-    unlockError:{ marginTop:8, display:'inline-flex', flexWrap:'wrap', gap:8, alignItems:'center', background:'rgba(250,204,21,0.15)', border:'1px solid rgba(250,204,21,0.35)', color:'#b45309', padding:'8px 12px', borderRadius:12, fontSize:12, fontWeight:600 },
+    unlockMeta:{ fontSize:12, color:'#475569', fontWeight:600, textAlign: isMobile ? 'center' : 'left' },
+    unlockError:{ marginTop:8, display:'inline-flex', flexWrap:'wrap', gap:8, alignItems:'center', justifyContent: isMobile ? 'center' : 'flex-start', background:'rgba(250,204,21,0.15)', border:'1px solid rgba(250,204,21,0.35)', color:'#b45309', padding:'8px 12px', borderRadius:12, fontSize:12, fontWeight:600, textAlign: isMobile ? 'center' : 'left' },
     walletLink:{ color:'#0f172a', textDecoration:'underline' },
     messageBtn:{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:10, border:'1px solid #e5e7eb', background:'#fff', fontWeight:700, color:'#0f172a', cursor:'pointer', boxShadow:'0 10px 24px -18px rgba(15,23,42,0.32)' },
     blur:{ filter:'blur(7px)' },
@@ -615,7 +642,7 @@ function PreviewCard({ athleteId }) {
     spinner:{ width:48, height:48, borderRadius:'50%', border:'4px solid #27E3DA', borderTopColor:'#F7B84E', animation:'profilePreviewSpin 1s linear infinite' },
     srOnly:{ position:'absolute', width:1, height:1, padding:0, margin:-1, overflow:'hidden', clip:'rect(0,0,0,0)', whiteSpace:'nowrap', border:0 },
 
-    section:{ border:'1px solid #eee', borderRadius:16, padding:16, background:'#fff' },
+    section:{ border:'1px solid #eee', borderRadius:16, padding: isMobile ? 18 : 24, background:'#fff' },
     titleRow:{ display:'flex', alignItems:'center', gap:10, marginBottom:8 },
     h2:{ fontSize:18, lineHeight:1.2, margin:0, fontWeight:900 },
     h3:{ fontSize:14, margin:'10px 0 8px', fontWeight:800 },
@@ -668,7 +695,7 @@ function PreviewCard({ athleteId }) {
             ? <img src={avatarUrl} alt={`${avatarLabel} avatar`} style={S.avatar}/>
             : <div style={S.avatarFallback}>{initials(avatarLabel)}</div>
           }
-          <div>
+          <div style={S.heroContent}>
             <h1 style={S.h1}>
               {contactsLoading ? (
                 <span>Loading…</span>
@@ -1008,18 +1035,18 @@ function PreviewCard({ athleteId }) {
         }
         .mainGrid {
           display: grid;
-          gap: 24px;
-          padding: clamp(16px, 4vw, 32px);
-          grid-template-columns: 2fr 1fr;
+          gap: clamp(24px, 3vw, 40px);
+          padding: clamp(24px, 5vw, 64px);
+          grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
         }
         .twoCol {
           display: grid;
-          gap: 12px;
+          gap: clamp(12px, 2vw, 20px);
           grid-template-columns: 1fr 1fr;
         }
         .threeCol {
           display: grid;
-          gap: 12px;
+          gap: clamp(12px, 2vw, 18px);
           grid-template-columns: 1fr 1fr 1fr;
         }
         .photosGrid img { width: 100%; }
@@ -1073,7 +1100,7 @@ function IntroPlayer({ item }) {
   if (!item) return null;
   if (item.external_url) {
     return (
-        <div style={{ maxWidth: 360, margin:'0 auto' }}>
+        <div style={{ width:'100%', maxWidth: 520, margin:'0 auto' }}>
         <div style={{ position:'relative', width:'100%', paddingTop:'56.25%', borderRadius:12, overflow:'hidden', background:'#000', marginBottom: 10 }}>
           <iframe title={item.title||'Intro'} src={embedUrl(item.external_url)} style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen/>
         </div>
@@ -1081,7 +1108,7 @@ function IntroPlayer({ item }) {
     );
   }
   return (
-      <div style={{ maxWidth: 360, margin:'0 auto' }}>
+      <div style={{ width:'100%', maxWidth: 520, margin:'0 auto' }}>
         <video controls preload="metadata" poster={poster||undefined} style={{ width:'100%', borderRadius:12, display:'block', background:'#000', marginBottom: 10 }} src={src||''}/>
       </div>
   );
