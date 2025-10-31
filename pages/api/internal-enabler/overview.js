@@ -5,6 +5,8 @@ import {
   createHttpError,
 } from '../../../utils/internalEnablerApi';
 
+const PRODUCT_CODE = 'UNLOCK_CONTACTS';
+
 const canonicalStatus = (value, fallback = 'unknown') => {
   if (!value) return fallback;
   const normalized = String(value).trim().toLowerCase().replace(/[\s-]+/g, '_');
@@ -100,6 +102,31 @@ const normalizeOperatorRow = (row) => {
   };
 };
 
+const normalizeTariffRow = (row) => {
+  if (!row) return null;
+
+  const parseCredits = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return null;
+    return Math.round(numeric * 100) / 100;
+  };
+
+  const parseDays = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return null;
+    return Math.max(0, Math.round(numeric));
+  };
+
+  return {
+    id: row.id || null,
+    creditsCost: parseCredits(row.credits_cost),
+    validityDays: row.validity_days == null ? null : parseDays(row.validity_days),
+    effectiveFrom: row.effective_from || null,
+    effectiveTo: row.effective_to || null,
+    updatedAt: row.updated_at || null,
+  };
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
@@ -114,7 +141,9 @@ export default async function handler(req, res) {
 
     const { client } = await resolveAdminRequestContext(accessToken, { requireServiceRole: true });
 
-    const [athletesResult, operatorsResult] = await Promise.all([
+    const nowIso = new Date().toISOString();
+
+    const [athletesResult, operatorsResult, pricingResult] = await Promise.all([
       client
         .from('athlete')
         .select(
@@ -143,10 +172,19 @@ export default async function handler(req, res) {
           op_wallet:op_wallet(balance_credits, updated_at)
         `
         ),
+      client
+        .from('pricing')
+        .select('id, credits_cost, validity_days, effective_from, effective_to, updated_at')
+        .eq('code', PRODUCT_CODE)
+        .lte('effective_from', nowIso)
+        .or(`effective_to.is.null,effective_to.gte.${nowIso}`)
+        .order('effective_from', { ascending: false, nullsFirst: false })
+        .limit(1),
     ]);
 
     if (athletesResult.error) throw normalizeSupabaseError('Athlete overview', athletesResult.error);
     if (operatorsResult.error) throw normalizeSupabaseError('Operator overview', operatorsResult.error);
+    if (pricingResult.error) throw normalizeSupabaseError('Unlock tariff lookup', pricingResult.error);
 
     const athleteRows = athletesResult.data || [];
 
@@ -180,8 +218,10 @@ export default async function handler(req, res) {
 
     const athletes = athletesWithEmail.map(normalizeAthleteRow);
     const operators = (operatorsResult.data || []).map(normalizeOperatorRow);
+    const pricingRow = Array.isArray(pricingResult.data) ? pricingResult.data[0] : pricingResult.data;
+    const unlockTariff = normalizeTariffRow(pricingRow);
 
-    return res.status(200).json({ athletes, operators });
+    return res.status(200).json({ athletes, operators, unlockTariff });
   } catch (error) {
     const statusCode = typeof error?.statusCode === 'number' ? error.statusCode : 500;
     const message = typeof error?.message === 'string' && error.message
