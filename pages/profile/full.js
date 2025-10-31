@@ -565,7 +565,7 @@ function PreviewCard({ athleteId }) {
                 >
                   <ShoppingCart size={16} />
                   <span>
-                    Sblocca contatti — {unlockCost != null ? `${unlockCost} crediti` : '—'}
+                    Unlock contacts — {unlockCost != null ? `${unlockCost} credits` : '—'}
                   </span>
                 </button>
               )}
