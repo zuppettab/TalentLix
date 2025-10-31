@@ -1146,7 +1146,7 @@ export default function SearchPanel() {
                                 role="status"
                                 aria-live="polite"
                               >
-                                Unlocked ✓
+                                Unlocked
                               </div>
                             )}
                             <a
