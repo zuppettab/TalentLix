@@ -288,6 +288,14 @@ function PreviewCard({ athleteId }) {
 
   const handleUnlock = useCallback(async () => {
     if (!athleteId || !operatorId || unlocking) return;
+
+    const creditsCost = Number(tariff?.credits_cost ?? 0);
+    if (Number.isFinite(creditsCost) && creditsCost > 0) {
+      const confirmationMessage = `Sbloccare i contatti per ${creditsCost} crediti?`;
+      const confirmed = typeof window === 'undefined' ? true : window.confirm(confirmationMessage);
+      if (!confirmed) return;
+    }
+
     setUnlockError({ message: '', reason: '' });
     setUnlocking(true);
 
@@ -325,7 +333,7 @@ function PreviewCard({ athleteId }) {
     } finally {
       setUnlocking(false);
     }
-  }, [athleteId, operatorId, unlocking, fetchContactsAccess]);
+  }, [athleteId, operatorId, unlocking, tariff, fetchContactsAccess]);
 
   /* --------------- Derived data --------------- */
   const combinedName = `${contactsData?.first_name || ''} ${contactsData?.last_name || ''}`.trim();
