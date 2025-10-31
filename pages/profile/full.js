@@ -292,18 +292,25 @@ function PreviewCard({ athleteId }) {
       if (error) {
         if (error.message === 'insufficient_credits') {
           setUnlockError({
-            message: 'Crediti insufficienti. Vai al wallet per ricaricare e riprova.',
+            message: 'Insufficient credits. Visit the wallet to top up and try again.',
             reason: 'insufficient_credits',
           });
           return;
         }
-        setUnlockError({ message: error.message || 'Errore durante lo sblocco.', reason: 'generic' });
+
+        const normalizedMessage = error.message || '';
+        const friendlyMessage = /expires_at/i.test(normalizedMessage)
+          ? 'Unable to unlock this profile right now. Please try again later or contact support.'
+          : normalizedMessage || 'Unable to unlock the profile.';
+
+        setUnlockError({ message: friendlyMessage, reason: 'generic' });
         return;
       }
 
       await fetchContactsAccess();
     } catch (err) {
-      setUnlockError({ message: err.message || 'Errore durante lo sblocco.', reason: 'generic' });
+      const fallbackMessage = err.message || 'Unable to unlock the profile.';
+      setUnlockError({ message: fallbackMessage, reason: 'generic' });
     } finally {
       setUnlocking(false);
     }
@@ -525,7 +532,7 @@ function PreviewCard({ athleteId }) {
             <div style={S.unlockRow}>
               {isUnlocked ? (
                 <div style={S.unlockBadge} role="status" aria-live="polite">
-                  Unlocked ✓ — scade il {formatExpiry(unlockExpiresAt) || '—'}
+                  Unlocked ✓ — expires {formatExpiry(unlockExpiresAt) || '—'}
                 </div>
               ) : (
                 <button
@@ -539,7 +546,7 @@ function PreviewCard({ athleteId }) {
                 >
                   <ShoppingCart size={16} />
                   <span>
-                    Sblocca contatti — {unlockCost != null ? `${unlockCost} crediti` : '—'}
+                    Unlock contacts — {unlockCost != null ? `${unlockCost} credits` : '—'}
                   </span>
                 </button>
               )}
@@ -555,18 +562,18 @@ function PreviewCard({ athleteId }) {
                 aria-disabled={!isUnlocked}
               >
                 <MessageCircle size={16} />
-                <span>Messaggia</span>
+                <span>Message</span>
               </button>
             </div>
 
             {!isUnlocked && unlockCost != null && (
-              <div style={S.unlockMeta}>Validità: {unlockValidity ?? '—'} giorni · Nessun rimborso.</div>
+              <div style={S.unlockMeta}>Validity: {unlockValidity ?? '—'} days · Non-refundable.</div>
             )}
             {unlockError.message && (
               <div style={S.unlockError} role="alert">
                 <span>{unlockError.message}</span>
                 {unlockError.reason === 'insufficient_credits' && (
-                  <a href="/operator-dashboard?section=wallet" style={S.walletLink}>Vai al wallet</a>
+                  <a href="/operator-dashboard?section=wallet" style={S.walletLink}>Go to wallet</a>
                 )}
               </div>
             )}
