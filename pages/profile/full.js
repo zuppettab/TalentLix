@@ -340,8 +340,20 @@ function PreviewCard({ athleteId }) {
   const effectiveName = combinedName || '—';
   const isUnlocked = !!contactsData?.unlocked;
   const unlockExpiresAt = contactsData?.expires_at || null;
-  const unlockCost = tariff?.credits_cost ?? null;
-  const unlockValidity = tariff?.validity_days ?? null;
+  const parseCredits = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return null;
+    return Number.isInteger(numeric) ? numeric : Math.round(numeric * 100) / 100;
+  };
+  const parseValidity = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return null;
+    return Math.max(0, Math.round(numeric));
+  };
+  const unlockCost = parseCredits(tariff?.credits_cost ?? tariff?.creditsCost ?? tariff?.credits);
+  const unlockValidity = parseValidity(tariff?.validity_days ?? tariff?.validityDays ?? tariff?.validity);
   const avatarLabel = isUnlocked && effectiveName !== '—' ? effectiveName : 'Athlete';
   const age = calcAge(athlete?.date_of_birth);
   const natFlag = flagFromCountry(athlete?.nationality) || '';
@@ -581,7 +593,7 @@ function PreviewCard({ athleteId }) {
                 aria-disabled={!isUnlocked}
               >
                 <MessageCircle size={16} />
-                <span>Messaggia</span>
+                <span>Message</span>
               </button>
             </div>
 
