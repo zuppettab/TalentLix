@@ -575,7 +575,7 @@ function PreviewCard({ athleteId }) {
       flex:'1 1 auto',
       width:'100%',
       margin:'0 auto',
-      padding: isMobile ? '32px clamp(16px, 6vw, 48px)' : '64px clamp(24px, 6vw, 96px)',
+      padding: isMobile ? '32px clamp(16px, 6vw, 48px)' : '64px clamp(24px, 5vw, 80px)',
       boxSizing:'border-box',
       display:'flex',
       justifyContent:'center',
@@ -583,7 +583,7 @@ function PreviewCard({ athleteId }) {
     },
     card:{
       width:'100%',
-      maxWidth:1280,
+      maxWidth:'min(100%, 1440px)',
       margin:'0 auto',
       borderRadius:24,
       boxShadow:'0 14px 40px rgba(15,23,42,0.12)',
@@ -1037,7 +1037,7 @@ function PreviewCard({ athleteId }) {
         .mainGrid {
           display: grid;
           gap: clamp(24px, 3vw, 40px);
-          padding: clamp(24px, 5vw, 64px);
+          padding: clamp(24px, 4vw, 56px);
           grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
         }
         .twoCol {
