@@ -757,9 +757,6 @@ function PreviewCard({ athleteId }) {
               </button>
             </div>
 
-            {!isUnlocked && unlockCost != null && (
-              <div style={S.unlockMeta}>Validità: {unlockValidity ?? '—'} giorni · Nessun rimborso.</div>
-            )}
             {unlockError.message && (
               <div style={S.unlockError} role="alert">
                 <span>{unlockError.message}</span>
