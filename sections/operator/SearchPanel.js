@@ -344,12 +344,20 @@ export default function SearchPanel() {
   const refreshContactInfo = useCallback(async (athleteId) => {
     if (!operatorId || !athleteId) return;
     try {
-      const { data, error } = await supabase.rpc('get_athlete_contacts_if_unlocked', {
-        p_op_id: operatorId,
-        p_athlete_id: athleteId,
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
+      const response = await fetch(`/api/operator/athlete-contacts?athleteId=${encodeURIComponent(athleteId)}`, {
+        headers: {
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
       });
-      if (error) throw error;
-      setContactsMap((prev) => ({ ...prev, [athleteId]: data || null }));
+      const payload = await response.json();
+      if (!response.ok) {
+        const error = new Error(payload?.error || 'Unable to load contact information.');
+        if (payload?.code) error.code = payload.code;
+        throw error;
+      }
+      setContactsMap((prev) => ({ ...prev, [athleteId]: payload || null }));
     } catch (err) {
       console.error('Failed to load contacts for athlete', athleteId, err);
       setContactsMap((prev) => ({ ...prev, [athleteId]: null }));
@@ -368,14 +376,23 @@ export default function SearchPanel() {
     let cancelled = false;
     (async () => {
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token || null;
+
         const results = await Promise.all(ids.map(async (id) => {
           try {
-            const { data, error } = await supabase.rpc('get_athlete_contacts_if_unlocked', {
-              p_op_id: operatorId,
-              p_athlete_id: id,
+            const response = await fetch(`/api/operator/athlete-contacts?athleteId=${encodeURIComponent(id)}`, {
+              headers: {
+                ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+              },
             });
-            if (error) throw error;
-            return [id, data || null];
+            const payload = await response.json();
+            if (!response.ok) {
+              const error = new Error(payload?.error || 'Unable to load contact information.');
+              if (payload?.code) error.code = payload.code;
+              throw error;
+            }
+            return [id, payload || null];
           } catch (err) {
             console.error('Failed to fetch contacts for list', id, err);
             return [id, null];
