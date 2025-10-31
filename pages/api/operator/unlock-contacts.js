@@ -155,11 +155,14 @@ export default async function handler(req, res) {
       throw insufficient;
     }
 
+    // Wallet transactions enforce a non-negative credit value. The
+    // transaction direction is inferred via the kind, therefore we log the
+    // absolute credit amount here and update the balance separately.
     const txPayload = {
       op_id: operatorId,
       kind: TX_KIND,
       status: 'SETTLED',
-      credits: -creditsCost,
+      credits: creditsCost,
       amount_eur: null,
       provider: 'TalentLix',
       package_code: PRODUCT_CODE,
