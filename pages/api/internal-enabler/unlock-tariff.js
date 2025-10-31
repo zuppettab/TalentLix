@@ -4,8 +4,13 @@ import {
   normalizeSupabaseError,
   resolveAdminRequestContext,
 } from '../../../utils/internalEnablerApi';
+import {
+  fetchActiveTariffWithFallback,
+  normalizeTariffRow,
+  UNLOCK_CONTACTS_PRODUCT_CODE,
+} from '../../../utils/pricingAdmin';
 
-const PRODUCT_CODE = 'UNLOCK_CONTACTS';
+const PRODUCT_CODE = UNLOCK_CONTACTS_PRODUCT_CODE;
 
 const parseCredits = (value) => {
   if (value == null) return NaN;
@@ -26,38 +31,21 @@ const parseValidityDays = (value) => {
   return Math.round(numeric);
 };
 
-const normalizeTariffRow = (row) => {
-  if (!row) return null;
-
-  const credits = Number(row.credits_cost);
-  const validity = Number(row.validity_days);
-
-  return {
-    id: row.id || null,
-    creditsCost: Number.isFinite(credits) ? Math.round(credits * 100) / 100 : null,
-    validityDays: Number.isFinite(validity) ? Math.max(0, Math.round(validity)) : null,
-    effectiveFrom: row.effective_from || null,
-    effectiveTo: row.effective_to || null,
-    updatedAt: row.updated_at || null,
-  };
-};
-
-const loadActiveTariff = async (client) => {
-  const nowIso = new Date().toISOString();
-  const { data, error } = await client
-    .from('pricing')
-    .select('id, credits_cost, validity_days, effective_from, effective_to, updated_at')
-    .eq('code', PRODUCT_CODE)
-    .lte('effective_from', nowIso)
-    .or(`effective_to.is.null,effective_to.gte.${nowIso}`)
-    .order('effective_from', { ascending: false, nullsFirst: false })
-    .limit(1);
+const loadActiveTariff = async (client, nowIso = new Date().toISOString()) => {
+  const { data, error } = await fetchActiveTariffWithFallback(client, {
+    productCode: PRODUCT_CODE,
+    nowIso,
+  });
 
   if (error) {
     throw normalizeSupabaseError('Unlock tariff lookup', error);
   }
 
-  return Array.isArray(data) ? data[0] : data;
+  if (Array.isArray(data)) {
+    return data[0] || null;
+  }
+
+  return data || null;
 };
 
 export default async function handler(req, res) {
@@ -86,46 +74,39 @@ export default async function handler(req, res) {
       throw createHttpError(400, 'Enter a valid non-negative number of days or leave empty.');
     }
 
-    const activeTariff = await loadActiveTariff(client);
-
-    let payloadResult = null;
+    const nowIso = new Date().toISOString();
+    const activeTariff = await loadActiveTariff(client, nowIso);
 
     if (activeTariff?.id) {
-      const { data, error } = await client
+      const { error } = await client
         .from('pricing')
         .update({ credits_cost: parsedCredits, validity_days: parsedValidity })
-        .eq('id', activeTariff.id)
-        .select('id, credits_cost, validity_days, effective_from, effective_to, updated_at')
-        .maybeSingle();
+        .eq('id', activeTariff.id);
 
       if (error) {
         throw normalizeSupabaseError('Unlock tariff update', error);
       }
-
-      payloadResult = data;
     } else {
       const insertPayload = {
         code: PRODUCT_CODE,
         credits_cost: parsedCredits,
         validity_days: parsedValidity,
-        effective_from: new Date().toISOString(),
+        effective_from: nowIso,
         effective_to: null,
       };
 
-      const { data, error } = await client
+      const { error } = await client
         .from('pricing')
-        .insert(insertPayload)
-        .select('id, credits_cost, validity_days, effective_from, effective_to, updated_at')
-        .maybeSingle();
+        .insert(insertPayload);
 
       if (error) {
         throw normalizeSupabaseError('Unlock tariff creation', error);
       }
-
-      payloadResult = data;
     }
 
-    return res.status(200).json({ success: true, tariff: normalizeTariffRow(payloadResult) });
+    const refreshedTariff = await loadActiveTariff(client, nowIso);
+
+    return res.status(200).json({ success: true, tariff: normalizeTariffRow(refreshedTariff) });
   } catch (error) {
     const statusCode = typeof error?.statusCode === 'number' ? error.statusCode : 500;
     const message = typeof error?.message === 'string' && error.message

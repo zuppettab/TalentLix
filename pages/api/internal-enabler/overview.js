@@ -4,8 +4,11 @@ import {
   resolveAdminRequestContext,
   createHttpError,
 } from '../../../utils/internalEnablerApi';
-
-const PRODUCT_CODE = 'UNLOCK_CONTACTS';
+import {
+  fetchActiveTariffWithFallback,
+  normalizeTariffRow,
+  UNLOCK_CONTACTS_PRODUCT_CODE,
+} from '../../../utils/pricingAdmin';
 
 const canonicalStatus = (value, fallback = 'unknown') => {
   if (!value) return fallback;
@@ -102,31 +105,6 @@ const normalizeOperatorRow = (row) => {
   };
 };
 
-const normalizeTariffRow = (row) => {
-  if (!row) return null;
-
-  const parseCredits = (value) => {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return null;
-    return Math.round(numeric * 100) / 100;
-  };
-
-  const parseDays = (value) => {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return null;
-    return Math.max(0, Math.round(numeric));
-  };
-
-  return {
-    id: row.id || null,
-    creditsCost: parseCredits(row.credits_cost),
-    validityDays: row.validity_days == null ? null : parseDays(row.validity_days),
-    effectiveFrom: row.effective_from || null,
-    effectiveTo: row.effective_to || null,
-    updatedAt: row.updated_at || null,
-  };
-};
-
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
@@ -172,14 +150,10 @@ export default async function handler(req, res) {
           op_wallet:op_wallet(balance_credits, updated_at)
         `
         ),
-      client
-        .from('pricing')
-        .select('id, credits_cost, validity_days, effective_from, effective_to, updated_at')
-        .eq('code', PRODUCT_CODE)
-        .lte('effective_from', nowIso)
-        .or(`effective_to.is.null,effective_to.gte.${nowIso}`)
-        .order('effective_from', { ascending: false, nullsFirst: false })
-        .limit(1),
+      fetchActiveTariffWithFallback(client, {
+        productCode: UNLOCK_CONTACTS_PRODUCT_CODE,
+        nowIso,
+      }),
     ]);
 
     if (athletesResult.error) throw normalizeSupabaseError('Athlete overview', athletesResult.error);
