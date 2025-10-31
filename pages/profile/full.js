@@ -404,7 +404,7 @@ function PreviewCard({ athleteId }) {
 
   const renderProtected = (value, srLabel) => {
     if (isUnlocked) return value || '—';
-    if (contactsLoading) return 'Caricamento…';
+    if (contactsLoading) return 'Loading…';
     const safe = value || '••••••';
     return (
       <>
@@ -527,13 +527,13 @@ function PreviewCard({ athleteId }) {
           <div>
             <h1 style={S.h1}>
               {contactsLoading ? (
-                <span>Caricamento…</span>
+                <span>Loading…</span>
               ) : isUnlocked ? (
                 effectiveName
               ) : (
                 <>
-                  <span style={S.blur} aria-hidden="true">{effectiveName === '—' ? 'Dati riservati' : effectiveName}</span>
-                  <span style={S.srOnly}>Nome nascosto — sblocca il profilo per visualizzarlo</span>
+                  <span style={S.blur} aria-hidden="true">{effectiveName === '—' ? 'Restricted data' : effectiveName}</span>
+                  <span style={S.srOnly}>Name hidden — unlock the profile to view it</span>
                 </>
               )}
             </h1>
@@ -551,7 +551,7 @@ function PreviewCard({ athleteId }) {
             <div style={S.unlockRow}>
               {isUnlocked ? (
                 <div style={S.unlockBadge} role="status" aria-live="polite">
-                  Unlocked ✓ — scade il {formatExpiry(unlockExpiresAt) || '—'}
+                  Unlocked ✓ — expires on {formatExpiry(unlockExpiresAt) || '—'}
                 </div>
               ) : (
                 <button
@@ -758,7 +758,7 @@ function PreviewCard({ athleteId }) {
             <section style={S.section} aria-label="Social">
               <div style={S.titleRow}><Globe size={18}/><h2 style={S.h2}>Social</h2></div>
               {contactsLoading ? (
-                <div style={S.empty}>Caricamento…</div>
+                <div style={S.empty}>Loading…</div>
               ) : isUnlocked ? (
                 socialSorted.length ? (
                   <div style={{ display:'grid', gap:8 }}>
@@ -777,8 +777,8 @@ function PreviewCard({ athleteId }) {
                 )
               ) : (
                 <div style={S.empty}>
-                  <span style={S.blur} aria-hidden="true">Profili social nascosti</span>
-                  <span style={S.srOnly}>Profili social nascosti — sblocca per visualizzarli</span>
+                  <span style={S.blur} aria-hidden="true">Social profiles hidden</span>
+                  <span style={S.srOnly}>Social profiles hidden — unlock to view them</span>
                 </div>
               )}
             </section>
@@ -789,11 +789,11 @@ function PreviewCard({ athleteId }) {
               <div style={{ display:'grid', gap:10 }}>
                 <div style={S.row}>
                   <Mail size={16}/>
-                  {renderProtected(contactEmail, 'Email nascosta — sblocca per visualizzarla')}
+                  {renderProtected(contactEmail, 'Email hidden — unlock to view it')}
                 </div>
                 <div style={S.row}>
                   <Phone size={16}/>
-                  {renderProtected(contactPhone, 'Numero di telefono nascosto — sblocca per visualizzarlo')}
+                  {renderProtected(contactPhone, 'Phone number hidden — unlock to view it')}
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                   <span style={{ ...S.badge, background: phoneVerified ? '#dcfce7' : '#f3f4f6' }}><CheckCircle size={14}/> Phone {phoneVerified ? 'verified' : 'not verified'}</span>

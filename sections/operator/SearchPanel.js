@@ -418,15 +418,6 @@ export default function SearchPanel() {
     };
   }, [operatorId, rows]);
 
-  const formatExpiry = useCallback((iso) => {
-    if (!iso) return '';
-    try {
-      return new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
-    } catch {
-      return String(iso);
-    }
-  }, []);
-
   const resetFilters = () => {
     setGender(null); setRoles([]); setNats([]);
     setAgeMode(null); setAgeValue('');
@@ -1053,11 +1044,10 @@ export default function SearchPanel() {
 
                 const contactInfo = Object.prototype.hasOwnProperty.call(contactsMap, ath.id) ? contactsMap[ath.id] : null;
                 const isUnlocked = !!(contactInfo && contactInfo.unlocked);
-                const expiresAt = isUnlocked ? contactInfo?.expires_at : null;
                 const rawName = contactInfo
                   ? `${contactInfo.first_name || ''} ${contactInfo.last_name || ''}`.trim()
                   : '';
-                const nameText = rawName || 'Profilo riservato';
+                const nameText = rawName || 'Private profile';
                 const nameBlur = !isUnlocked;
                 const initials = computeInitials(rawName);
 
@@ -1087,7 +1077,7 @@ export default function SearchPanel() {
                               </span>
                               {nameBlur && (
                                 <span style={styles.srOnly}>
-                                  Nome nascosto — sblocca per visualizzare
+                                  Name hidden — unlock to view
                                 </span>
                               )}
                             </h3>
@@ -1156,7 +1146,7 @@ export default function SearchPanel() {
                                 role="status"
                                 aria-live="polite"
                               >
-                                Unlocked ✓ — scade il {formatExpiry(expiresAt) || '—'}
+                                Unlocked ✓
                               </div>
                             )}
                             <a
