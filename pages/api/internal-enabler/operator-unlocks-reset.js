@@ -5,18 +5,37 @@ import {
   resolveAdminRequestContext,
 } from '../../../utils/internalEnablerApi';
 
+const DEFAULT_ID_COLUMNS = ['op_id', 'operator_id', 'op_account_id', 'operator_account_id'];
+const DEFAULT_EXPIRY_COLUMNS = [
+  'expires_at',
+  'expires_on',
+  'valid_until',
+  'valid_to',
+  'visibility_expires_at',
+  'access_expires_at',
+];
+
 const CANDIDATE_TABLES = [
-  { name: 'op_contact_unlock', columns: ['op_id', 'operator_id'] },
-  { name: 'op_contact_unlocks', columns: ['op_id', 'operator_id'] },
-  { name: 'op_unlock', columns: ['op_id', 'operator_id'] },
-  { name: 'op_unlocks', columns: ['op_id', 'operator_id'] },
-  { name: 'operator_contact_unlock', columns: ['op_id', 'operator_id'] },
-  { name: 'operator_contact_unlocks', columns: ['op_id', 'operator_id'] },
+  { name: 'op_contact_unlock' },
+  { name: 'op_contact_unlocks' },
+  { name: 'op_unlock' },
+  { name: 'op_unlocks' },
+  { name: 'operator_contact_unlock' },
+  { name: 'operator_contact_unlocks' },
+  { name: 'op_athlete_unlock' },
+  { name: 'op_athlete_unlocks' },
+  { name: 'op_contact_unlock_history' },
+  { name: 'operator_unlock' },
+  { name: 'operator_unlocks' },
+  { name: 'v_op_unlocks_active', expiryColumns: ['expires_at'] },
+  { name: 'v_op_unlocks', expiryColumns: ['expires_at'] },
 ];
 
 const ERROR_TABLE_MISSING = new Set(['42P01', 'PGRST205']);
 const ERROR_COLUMN_MISSING = new Set(['42703', 'PGRST204']);
 const ERROR_VIEW_READONLY = new Set(['0A000', '42809']);
+
+const RESET_EXPIRY_VALUE = '1970-01-01T00:00:00.000Z';
 
 const normalizeId = (value) => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -31,6 +50,74 @@ const normalizeId = (value) => {
   }
 
   return null;
+};
+
+const normalizeColumns = (source, fallback) => {
+  const base = Array.isArray(source) && source.length ? source : fallback;
+  return Array.from(
+    new Set(
+      (base || [])
+        .map((column) => (typeof column === 'string' ? column.trim() : ''))
+        .filter(Boolean),
+    ),
+  );
+};
+
+const tryExpireUnlocks = async (
+  client,
+  tableName,
+  idColumn,
+  operatorId,
+  expiryColumns,
+  summary,
+  nowIso,
+) => {
+  for (const expiryColumn of expiryColumns) {
+    const orFilter = `${expiryColumn}.is.null,${expiryColumn}.gt.${nowIso}`;
+    const query = client
+      .from(tableName)
+      .update({ [expiryColumn]: RESET_EXPIRY_VALUE })
+      .eq(idColumn, operatorId)
+      .or(orFilter);
+
+    const { data, count, error } = await query.select('id', { count: 'exact' });
+
+    if (!error) {
+      const affected = Number.isFinite(count)
+        ? count
+        : Array.isArray(data)
+          ? data.length
+          : 0;
+
+      if (affected > 0) {
+        summary.expired = (summary.expired || 0) + affected;
+      }
+
+      return affected > 0;
+    }
+
+    const code = typeof error?.code === 'string' ? error.code.trim() : '';
+
+    if (code && ERROR_COLUMN_MISSING.has(code)) {
+      continue;
+    }
+
+    if (code && ERROR_VIEW_READONLY.has(code)) {
+      summary.skipped = true;
+      summary.reason = summary.reason || 'immutable_view';
+      return false;
+    }
+
+    if (code && ERROR_TABLE_MISSING.has(code)) {
+      summary.skipped = true;
+      summary.reason = summary.reason || 'table_missing';
+      return false;
+    }
+
+    throw normalizeSupabaseError(`Operator unlock expiry (${tableName})`, error);
+  }
+
+  return false;
 };
 
 export default async function handler(req, res) {
@@ -58,32 +145,29 @@ export default async function handler(req, res) {
     const tableSummaries = [];
     let anyAttempted = false;
 
+    const nowIso = new Date().toISOString();
+
     for (const candidate of CANDIDATE_TABLES) {
       const tableName = candidate.name;
-      const columns = Array.isArray(candidate.columns) && candidate.columns.length
-        ? candidate.columns
-        : ['op_id'];
+      const idColumns = normalizeColumns(candidate.columns, DEFAULT_ID_COLUMNS);
+      const expiryColumns = normalizeColumns(candidate.expiryColumns, DEFAULT_EXPIRY_COLUMNS);
 
       const summary = {
         table: tableName,
         removed: 0,
+        expired: 0,
         attempted: false,
         skipped: false,
       };
 
       let handled = false;
-      const matchedColumns = [];
+      const matchedColumns = new Set();
 
-      for (const column of columns) {
-        const normalizedColumn = typeof column === 'string' ? column.trim() : '';
-        if (!normalizedColumn) {
-          continue;
-        }
-
+      for (const column of idColumns) {
         const { error: countError, count } = await client
           .from(tableName)
           .select('id', { count: 'exact', head: true })
-          .eq(normalizedColumn, normalizedId);
+          .eq(column, normalizedId);
 
         if (countError) {
           const code = typeof countError.code === 'string' ? countError.code.trim() : '';
@@ -96,7 +180,6 @@ export default async function handler(req, res) {
           }
 
           if (code && ERROR_COLUMN_MISSING.has(code)) {
-            // Try the next candidate column.
             continue;
           }
 
@@ -108,21 +191,33 @@ export default async function handler(req, res) {
         handled = true;
 
         if (existing === 0) {
-          matchedColumns.push(normalizedColumn);
+          matchedColumns.add(column);
           continue;
         }
 
         const { error: deleteError } = await client
           .from(tableName)
           .delete()
-          .eq(normalizedColumn, normalizedId);
+          .eq(column, normalizedId);
 
         if (deleteError) {
           const code = typeof deleteError.code === 'string' ? deleteError.code.trim() : '';
 
-          if (ERROR_VIEW_READONLY.has(code)) {
+          if (code && ERROR_VIEW_READONLY.has(code)) {
             summary.skipped = true;
             summary.reason = 'immutable_view';
+            handled = true;
+            matchedColumns.add(column);
+            break;
+          }
+
+          if (code && ERROR_COLUMN_MISSING.has(code)) {
+            continue;
+          }
+
+          if (code && ERROR_TABLE_MISSING.has(code)) {
+            summary.skipped = true;
+            summary.reason = 'table_missing';
             handled = true;
             break;
           }
@@ -130,15 +225,35 @@ export default async function handler(req, res) {
           throw normalizeSupabaseError(`Operator unlock reset (${tableName})`, deleteError);
         }
 
-        matchedColumns.push(normalizedColumn);
+        matchedColumns.add(column);
         summary.removed += existing;
         totalRemoved += existing;
       }
 
-      if (matchedColumns.length === 1) {
-        summary.column = matchedColumns[0];
-      } else if (matchedColumns.length > 1) {
-        summary.column = matchedColumns;
+      if (matchedColumns.size > 0 && expiryColumns.length > 0) {
+        let expiryHandled = false;
+
+        for (const matchedColumn of matchedColumns) {
+          if (expiryHandled) break;
+          const expired = await tryExpireUnlocks(
+            client,
+            tableName,
+            matchedColumn,
+            normalizedId,
+            expiryColumns,
+            summary,
+            nowIso,
+          );
+          expiryHandled = expiryHandled || expired;
+        }
+
+        handled = handled || expiryHandled;
+      }
+
+      if (matchedColumns.size === 1) {
+        summary.column = Array.from(matchedColumns)[0];
+      } else if (matchedColumns.size > 1) {
+        summary.column = Array.from(matchedColumns);
       }
 
       if (!handled) {
@@ -156,10 +271,38 @@ export default async function handler(req, res) {
       });
     }
 
+    let remainingActiveUnlocks = null;
+    try {
+      const { count: activeCount, error: activeError } = await client
+        .from('v_op_unlocks_active')
+        .select('athlete_id', { count: 'exact', head: true })
+        .eq('op_id', normalizedId);
+
+      if (activeError) {
+        const code = typeof activeError.code === 'string' ? activeError.code.trim() : '';
+        if (code && (ERROR_TABLE_MISSING.has(code) || ERROR_VIEW_READONLY.has(code))) {
+          remainingActiveUnlocks = null;
+        } else {
+          console.warn('Operator unlock reset verification failed', activeError);
+        }
+      } else if (Number.isFinite(activeCount)) {
+        remainingActiveUnlocks = activeCount;
+        if (activeCount > 0) {
+          console.warn('Operator unlock reset incomplete: active unlocks remain', {
+            operatorId: normalizedId,
+            activeUnlocks: activeCount,
+          });
+        }
+      }
+    } catch (verifyError) {
+      console.warn('Operator unlock reset verification failed', verifyError);
+    }
+
     return res.status(200).json({
       success: true,
       clearedUnlocks: totalRemoved,
       tables: tableSummaries,
+      remainingActiveUnlocks,
     });
   } catch (error) {
     const statusCode = typeof error?.statusCode === 'number' ? error.statusCode : 500;
