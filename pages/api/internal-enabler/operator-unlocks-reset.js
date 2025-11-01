@@ -80,13 +80,13 @@ export default async function handler(req, res) {
           continue;
         }
 
-        const { error, count } = await client
+        const { error: countError, count } = await client
           .from(tableName)
-          .delete({ returning: 'minimal', count: 'exact' })
+          .select('id', { count: 'exact', head: true })
           .eq(normalizedColumn, normalizedId);
 
-        if (error) {
-          const code = typeof error.code === 'string' ? error.code.trim() : '';
+        if (countError) {
+          const code = typeof countError.code === 'string' ? countError.code.trim() : '';
 
           if (code && ERROR_TABLE_MISSING.has(code)) {
             summary.skipped = true;
@@ -100,6 +100,26 @@ export default async function handler(req, res) {
             continue;
           }
 
+          throw normalizeSupabaseError(`Operator unlock lookup (${tableName})`, countError);
+        }
+
+        const existing = typeof count === 'number' && Number.isFinite(count) ? count : 0;
+        summary.attempted = true;
+        handled = true;
+
+        if (existing === 0) {
+          matchedColumns.push(normalizedColumn);
+          continue;
+        }
+
+        const { error: deleteError } = await client
+          .from(tableName)
+          .delete()
+          .eq(normalizedColumn, normalizedId);
+
+        if (deleteError) {
+          const code = typeof deleteError.code === 'string' ? deleteError.code.trim() : '';
+
           if (ERROR_VIEW_READONLY.has(code)) {
             summary.skipped = true;
             summary.reason = 'immutable_view';
@@ -107,18 +127,12 @@ export default async function handler(req, res) {
             break;
           }
 
-          throw normalizeSupabaseError(`Operator unlock reset (${tableName})`, error);
+          throw normalizeSupabaseError(`Operator unlock reset (${tableName})`, deleteError);
         }
 
-        summary.attempted = true;
-        handled = true;
-        const removed = typeof count === 'number' && Number.isFinite(count) ? count : 0;
-
-        if (removed > 0) {
-          matchedColumns.push(normalizedColumn);
-          summary.removed += removed;
-          totalRemoved += removed;
-        }
+        matchedColumns.push(normalizedColumn);
+        summary.removed += existing;
+        totalRemoved += existing;
       }
 
       if (matchedColumns.length === 1) {
