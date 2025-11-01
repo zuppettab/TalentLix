@@ -107,8 +107,7 @@ export default async function handler(req, res) {
       };
 
       let handled = false;
-      const matchedColumns = new Set();
-      let abortTableLoop = false;
+      const matchedColumns = [];
 
       for (const column of columns) {
         const normalizedColumn = typeof column === 'string' ? column.trim() : '';
@@ -172,10 +171,21 @@ export default async function handler(req, res) {
         }
       }
 
-      if (matchedColumns.size === 1) {
-        summary.column = [...matchedColumns][0];
-      } else if (matchedColumns.size > 1) {
-        summary.column = [...matchedColumns];
+        summary.attempted = true;
+        handled = true;
+        const removed = typeof count === 'number' && Number.isFinite(count) ? count : 0;
+
+        if (removed > 0) {
+          matchedColumns.push(normalizedColumn);
+          summary.removed += removed;
+          totalRemoved += removed;
+        }
+      }
+
+      if (matchedColumns.length === 1) {
+        summary.column = matchedColumns[0];
+      } else if (matchedColumns.length > 1) {
+        summary.column = matchedColumns;
       }
 
       if (!handled) {
