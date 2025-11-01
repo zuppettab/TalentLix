@@ -120,7 +120,12 @@ function PreviewCard({ athleteId }) {
   const [operatorId, setOperatorId] = useState(null);
   const [opLoading, setOpLoading] = useState(true);
   const [tariff, setTariff] = useState(null);
-  const [wallet, setWallet] = useState({ balance: null, loading: true });
+  const [wallet, setWallet] = useState({
+    id: null,
+    balance_credits: null,
+    updated_at: null,
+    loading: true,
+  });
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState({ message: '', reason: '' });
 
@@ -343,13 +348,13 @@ function PreviewCard({ athleteId }) {
     let active = true;
 
     if (!operatorId) {
-      setWallet({ balance: null, loading: false });
+      setWallet({ id: null, balance_credits: null, updated_at: null, loading: false });
       return () => {
         active = false;
       };
     }
 
-    setWallet({ balance: null, loading: true });
+    setWallet((prev) => ({ ...prev, loading: true }));
 
     (async () => {
       try {
@@ -381,14 +386,21 @@ function PreviewCard({ athleteId }) {
 
         if (!active) return;
 
+        const rawBalance = resolvedRow?.balance_credits;
+        const numericBalance = typeof rawBalance === 'number'
+          ? rawBalance
+          : Number(rawBalance);
+
         setWallet({
-          balance: resolvedRow?.balance_credits ?? 0,
+          id: resolvedRow?.id || null,
+          balance_credits: Number.isFinite(numericBalance) ? numericBalance : 0,
+          updated_at: resolvedRow?.updated_at || null,
           loading: false,
         });
       } catch (err) {
         console.error('Unable to load wallet balance', err);
         if (active) {
-          setWallet({ balance: null, loading: false });
+          setWallet((prev) => ({ ...prev, loading: false }));
         }
       }
     })();
@@ -1003,7 +1015,7 @@ function PreviewCard({ athleteId }) {
   const headerStyle = { ...S.header, ...(isMobile ? S.headerMobile : null) };
   const headerLeftStyle = { ...S.headerLeft, ...(isMobile ? S.headerLeftMobile : null) };
   const headerRightStyle = { ...S.headerRight, ...(isMobile ? S.headerRightMobile : null) };
-  const walletDisplay = wallet.loading ? '…' : formatCredits(wallet.balance);
+  const walletDisplay = wallet.loading ? '…' : formatCredits(wallet.balance_credits);
   const authEmail = authUser?.email || '—';
 
   return (
