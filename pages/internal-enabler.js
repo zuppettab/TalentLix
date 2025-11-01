@@ -122,6 +122,8 @@ export default function InternalEnabler() {
   const [walletInputs, setWalletInputs] = useState({});
   const [walletBusy, setWalletBusy] = useState(null);
   const [walletFeedback, setWalletFeedback] = useState({});
+  const [unlockResetBusy, setUnlockResetBusy] = useState(null);
+  const [unlockResetFeedback, setUnlockResetFeedback] = useState({});
   const [unlockTariff, setUnlockTariff] = useState(null);
   const [tariffInputs, setTariffInputs] = useState({ credits: '', validity: '' });
   const [tariffTouched, setTariffTouched] = useState(false);
@@ -860,6 +862,64 @@ export default function InternalEnabler() {
     }
   };
 
+  const resetOperatorUnlocks = async (operatorId) => {
+    const key = String(operatorId);
+
+    const confirmed =
+      typeof window !== 'undefined'
+      && window.confirm(
+        'Reset all unlocked contacts for this operator? This will force them to unlock athlete contacts again.'
+      );
+
+    if (!confirmed) return;
+
+    try {
+      setUnlockResetBusy(operatorId);
+      setUnlockResetFeedback((prev) => ({
+        ...prev,
+        [key]: {
+          tone: 'info',
+          message: 'Resetting contact unlocks…',
+        },
+      }));
+
+      const payload = await callAdminAction('/api/internal-enabler/operator-unlocks-reset', {
+        operatorId,
+      });
+
+      const clearedCount = Number(payload?.clearedUnlocks);
+      const formattedCount = Number.isFinite(clearedCount)
+        ? `${clearedCount} record${clearedCount === 1 ? '' : 's'}`
+        : null;
+
+      setUnlockResetFeedback((prev) => ({
+        ...prev,
+        [key]: {
+          tone: 'success',
+          message: formattedCount
+            ? `Unlock history cleared — ${formattedCount} removed.`
+            : 'Unlock history cleared.',
+        },
+      }));
+
+      await refreshAll();
+    } catch (error) {
+      const message =
+        typeof error?.message === 'string' && error.message
+          ? error.message
+          : 'Unable to reset contact unlocks. Please try again later.';
+      setUnlockResetFeedback((prev) => ({
+        ...prev,
+        [key]: {
+          tone: 'error',
+          message,
+        },
+      }));
+    } finally {
+      setUnlockResetBusy(null);
+    }
+  };
+
   if (!authChecked) {
     return (
       <div style={styles.fullPage}>
@@ -1194,6 +1254,9 @@ export default function InternalEnabler() {
             const walletMessage = walletFeedback[key] || null;
             const walletTone = walletMessage?.tone || null;
             const walletBusyRow = walletBusy === row.id;
+            const unlockResetMessage = unlockResetFeedback[key] || null;
+            const unlockResetTone = unlockResetMessage?.tone || null;
+            const unlockResetBusyRow = unlockResetBusy === row.id;
 
             return (
               <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '260px 1fr 1fr 1fr 1fr 1fr', borderTop: '1px solid #EEE' }}>
@@ -1273,25 +1336,35 @@ export default function InternalEnabler() {
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button
                       onClick={() => startOperatorReview(row)}
-                      disabled={!canStart || opBusy === row.id}
-                      style={actionBtn(!canStart || opBusy === row.id, '#0277BD')}
+                      disabled={!canStart || opBusy === row.id || unlockResetBusyRow}
+                      style={actionBtn(!canStart || opBusy === row.id || unlockResetBusyRow, '#0277BD')}
                     >Start review</button>
                     <button
                       onClick={() => requestOperatorInfo(row)}
-                      disabled={!canRequestInfo || opBusy === row.id}
-                      style={actionBtn(!canRequestInfo || opBusy === row.id, '#8A6D3B')}
+                      disabled={!canRequestInfo || opBusy === row.id || unlockResetBusyRow}
+                      style={actionBtn(!canRequestInfo || opBusy === row.id || unlockResetBusyRow, '#8A6D3B')}
                     >Need info</button>
                     <button
                       onClick={() => approveOperator(row)}
-                      disabled={!canFinalize || opBusy === row.id}
-                      style={actionBtn(!canFinalize || opBusy === row.id, '#2E7D32')}
+                      disabled={!canFinalize || opBusy === row.id || unlockResetBusyRow}
+                      style={actionBtn(!canFinalize || opBusy === row.id || unlockResetBusyRow, '#2E7D32')}
                     >Approve</button>
                     <button
                       onClick={() => rejectOperator(row)}
-                      disabled={!canFinalize || opBusy === row.id}
-                      style={actionBtn(!canFinalize || opBusy === row.id, '#B00020')}
+                      disabled={!canFinalize || opBusy === row.id || unlockResetBusyRow}
+                      style={actionBtn(!canFinalize || opBusy === row.id || unlockResetBusyRow, '#B00020')}
                     >Reject</button>
+                    <button
+                      onClick={() => resetOperatorUnlocks(row.id)}
+                      disabled={unlockResetBusyRow || opBusy === row.id}
+                      style={actionBtn(unlockResetBusyRow || opBusy === row.id, '#374151')}
+                    >Reset unlocks</button>
                   </div>
+                  {unlockResetMessage?.message ? (
+                    <div style={{ ...walletFeedbackStyle(unlockResetTone), marginTop: 8 }}>
+                      {unlockResetMessage.message}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             );
