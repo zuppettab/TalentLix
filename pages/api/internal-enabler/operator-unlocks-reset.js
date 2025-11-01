@@ -27,8 +27,8 @@ const CANDIDATE_TABLES = [
   { name: 'op_contact_unlock_history' },
   { name: 'operator_unlock' },
   { name: 'operator_unlocks' },
-  { name: 'v_op_unlocks_active', expiryColumns: ['expires_at'] },
-  { name: 'v_op_unlocks', expiryColumns: ['expires_at'] },
+  { name: 'v_op_unlocks_active', expiryColumns: ['expires_at'], optional: true },
+  { name: 'v_op_unlocks', expiryColumns: ['expires_at'], optional: true },
 ];
 
 const ERROR_TABLE_MISSING = new Set(['42P01', 'PGRST205']);
@@ -181,6 +181,14 @@ export default async function handler(req, res) {
 
           if (code && ERROR_COLUMN_MISSING.has(code)) {
             continue;
+          }
+
+          if (candidate.optional) {
+            summary.attempted = true;
+            summary.skipped = true;
+            summary.reason = summary.reason || 'optional_lookup_failed';
+            handled = true;
+            break;
           }
 
           throw normalizeSupabaseError(`Operator unlock lookup (${tableName})`, countError);
