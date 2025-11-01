@@ -72,6 +72,7 @@ export default async function handler(req, res) {
       };
 
       let handled = false;
+      const matchedColumns = [];
 
       for (const column of columns) {
         const normalizedColumn = typeof column === 'string' ? column.trim() : '';
@@ -112,10 +113,18 @@ export default async function handler(req, res) {
         summary.attempted = true;
         handled = true;
         const removed = typeof count === 'number' && Number.isFinite(count) ? count : 0;
-        summary.removed = removed;
-        summary.column = normalizedColumn;
-        totalRemoved += removed;
-        break;
+
+        if (removed > 0) {
+          matchedColumns.push(normalizedColumn);
+          summary.removed += removed;
+          totalRemoved += removed;
+        }
+      }
+
+      if (matchedColumns.length === 1) {
+        summary.column = matchedColumns[0];
+      } else if (matchedColumns.length > 1) {
+        summary.column = matchedColumns;
       }
 
       if (!handled) {
