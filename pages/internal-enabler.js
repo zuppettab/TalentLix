@@ -99,10 +99,68 @@ const actionBtn = (disabled, color) => ({
   cursor: disabled ? 'not-allowed' : 'pointer'
 });
 
+const STORAGE_URL_MATCH = /^https?:\/\/[^/]+\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)$/i;
+const STORAGE_PATH_MATCH = /^\/?storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)$/i;
+
+const sanitizeBucketName = (value) => (value ? value.replace(/^\/+|\/+$/g, '') : '');
+
 async function signedUrl(path, bucket = 'documents') {
   if (!path || !supabase) return '';
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60);
-  return error ? '' : (data?.signedUrl || '');
+
+  const raw = String(path).trim();
+  if (!raw) return '';
+
+  const directUrlMatch = raw.match(STORAGE_URL_MATCH);
+  const storagePathMatch = raw.match(STORAGE_PATH_MATCH);
+
+  if (!directUrlMatch && !storagePathMatch && /^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+
+  let targetBucket = sanitizeBucketName(bucket);
+  let objectPath = raw.replace(/^\/+/, '');
+
+  if (directUrlMatch) {
+    targetBucket = sanitizeBucketName(directUrlMatch[1]);
+    objectPath = (directUrlMatch[2] || '').replace(/^\/+/, '');
+  } else if (storagePathMatch) {
+    targetBucket = sanitizeBucketName(storagePathMatch[1]);
+    objectPath = (storagePathMatch[2] || '').replace(/^\/+/, '');
+  } else if (targetBucket && objectPath.startsWith(`${targetBucket}/`)) {
+    objectPath = objectPath.slice(targetBucket.length + 1);
+  }
+
+  if (!targetBucket) {
+    const dynamicMatch = objectPath.match(/^([^/]+)\/(.+)$/);
+    if (dynamicMatch) {
+      targetBucket = sanitizeBucketName(dynamicMatch[1]);
+      objectPath = (dynamicMatch[2] || '').replace(/^\/+/, '');
+    }
+  }
+
+  if (!targetBucket || !objectPath) {
+    return '';
+  }
+
+  try {
+    const { data, error } = await supabase.storage.from(targetBucket).createSignedUrl(objectPath, 60);
+    if (!error && data?.signedUrl) {
+      return data.signedUrl;
+    }
+  } catch (error) {
+    console.warn('Failed to create signed URL for storage object', { bucket: targetBucket, objectPath, error });
+  }
+
+  try {
+    const { data: publicData } = supabase.storage.from(targetBucket).getPublicUrl(objectPath);
+    if (publicData?.publicUrl) {
+      return publicData.publicUrl;
+    }
+  } catch (error) {
+    console.warn('Failed to resolve public URL for storage object', { bucket: targetBucket, objectPath, error });
+  }
+
+  return '';
 }
 
 export default function InternalEnabler() {
