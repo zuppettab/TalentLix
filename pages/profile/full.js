@@ -234,21 +234,45 @@ function PreviewCard({ athleteId }) {
 
     (async () => {
       try {
-        const { data: { user } = {} } = await supabase.auth.getUser();
-        if (active) setAuthUser(user || null);
+        if (!supabase) {
+          if (active) {
+            setAuthUser(null);
+            setOperatorId(null);
+          }
+          return;
+        }
+
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        const user = userData?.user || null;
+        if (active) setAuthUser(user);
+
+        if (userError) {
+          throw userError;
+        }
+
         if (!user?.id) {
           if (active) setOperatorId(null);
           return;
         }
-        const { data } = await supabase
+
+        const { data: accountRows, error: accountError } = await supabase
           .from('op_account')
-          .select('id')
+          .select('id, created_at')
           .eq('auth_user_id', user.id)
-          .maybeSingle();
-        if (active) setOperatorId(data?.id || null);
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (accountError) {
+          throw accountError;
+        }
+
+        const account = Array.isArray(accountRows) ? accountRows[0] : accountRows;
+        if (active) setOperatorId(account?.id || null);
       } catch (err) {
-        console.error('Unable to load operator account', err);
-        if (active) setOperatorId(null);
+        console.error('Unable to load operator session data', err);
+        if (active) {
+          setOperatorId(null);
+        }
       } finally {
         if (active) setOpLoading(false);
       }
