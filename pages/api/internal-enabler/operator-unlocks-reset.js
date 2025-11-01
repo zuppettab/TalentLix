@@ -14,8 +14,8 @@ const CANDIDATE_TABLES = [
   { name: 'operator_contact_unlocks', columns: ['op_id', 'operator_id'] },
 ];
 
-const ERROR_TABLE_MISSING = '42P01';
-const ERROR_COLUMN_MISSING = '42703';
+const ERROR_TABLE_MISSING = new Set(['42P01', 'PGRST205']);
+const ERROR_COLUMN_MISSING = new Set(['42703', 'PGRST204']);
 const ERROR_VIEW_READONLY = new Set(['0A000', '42809']);
 
 const normalizeId = (value) => {
@@ -87,14 +87,14 @@ export default async function handler(req, res) {
         if (error) {
           const code = typeof error.code === 'string' ? error.code.trim() : '';
 
-          if (code === ERROR_TABLE_MISSING) {
+          if (code && ERROR_TABLE_MISSING.has(code)) {
             summary.skipped = true;
             summary.reason = 'table_missing';
             handled = true;
             break;
           }
 
-          if (code === ERROR_COLUMN_MISSING) {
+          if (code && ERROR_COLUMN_MISSING.has(code)) {
             // Try the next candidate column.
             continue;
           }
