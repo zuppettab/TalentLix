@@ -360,10 +360,8 @@ function PreviewCard({ athleteId }) {
       try {
         const { data: walletRow, error: walletError } = await supabase
           .from('op_wallet')
-          .select('id, balance_credits, updated_at')
-          .eq('operator_id', operatorId)
-          .order('updated_at', { ascending: false })
-          .limit(1)
+          .select('id:op_id, balance_credits, updated_at')
+          .eq('op_id', operatorId)
           .maybeSingle();
 
         if (!active) return;
@@ -377,9 +375,10 @@ function PreviewCard({ athleteId }) {
         if (walletError && walletError.code === 'PGRST116') {
           const { data: walletRows, error: walletFallbackError } = await supabase
             .from('op_wallet')
-            .select('id, balance_credits, updated_at')
-            .eq('operator_id', operatorId)
-            .order('updated_at', { ascending: false });
+            .select('id:op_id, balance_credits, updated_at')
+            .eq('op_id', operatorId)
+            .order('updated_at', { ascending: false, nullsFirst: false })
+            .limit(1);
           if (walletFallbackError) throw walletFallbackError;
           resolvedRow = Array.isArray(walletRows) ? walletRows[0] : walletRows || null;
         }
