@@ -166,7 +166,7 @@ export default async function handler(req, res) {
       for (const column of idColumns) {
         const { error: countError, count } = await client
           .from(tableName)
-          .select('id', { count: 'exact', head: true })
+          .select(column, { count: 'exact', head: true })
           .eq(column, normalizedId);
 
         if (countError) {
