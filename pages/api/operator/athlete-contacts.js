@@ -122,7 +122,7 @@ export default async function handler(req, res) {
     if (unlocked) {
       const { data: athleteRow, error: athleteError } = await client
         .from('athlete')
-        .select('first_name, last_name, phone')
+        .select('first_name, last_name, email, phone')
         .eq('id', resolvedId)
         .maybeSingle();
 
