@@ -4,6 +4,7 @@ import {
   normalizeSupabaseError,
 } from '../../../utils/internalEnablerApi';
 import { resolveOperatorRequestContext } from '../../../utils/operatorApi';
+import { loadOperatorContactBundle } from './athlete-contacts';
 
 const PRODUCT_CODE = 'UNLOCK_CONTACTS';
 const TX_KIND = 'DEBIT_CONTACT_UNLOCK';
@@ -207,13 +208,21 @@ export default async function handler(req, res) {
       throw normalizeSupabaseError('Unlock verification', unlockError);
     }
 
+    let contacts = null;
+    try {
+      contacts = await loadOperatorContactBundle(client, operatorId, resolvedId);
+    } catch (bundleError) {
+      console.error('Unable to refresh operator contact bundle after unlock', bundleError);
+    }
+
     return res.status(200).json({
       success: true,
       unlock: {
-        unlocked_at: unlockRow?.unlocked_at || nowIso,
-        expires_at: unlockRow?.expires_at || null,
+        unlocked_at: contacts?.unlocked_at || unlockRow?.unlocked_at || nowIso,
+        expires_at: contacts?.expires_at || unlockRow?.expires_at || null,
       },
       balance: nextBalanceRaw,
+      contacts,
     });
   } catch (error) {
     return respondWithError(res, error, 'Unable to unlock athlete contacts.');
