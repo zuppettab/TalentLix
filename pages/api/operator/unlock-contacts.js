@@ -33,6 +33,30 @@ const ERROR_TABLE_MISSING = new Set(['42P01', 'PGRST205']);
 const ERROR_COLUMN_MISSING = new Set(['42703', 'PGRST204']);
 const ERROR_VIEW_READONLY = new Set(['0A000', '42809']);
 const ERROR_CONFLICT = new Set(['23505']);
+const ERROR_NOT_NULL = new Set(['23502']);
+
+const extractConstraintColumn = (error) => {
+  if (!error) return null;
+
+  if (typeof error.column === 'string' && error.column.trim()) {
+    return error.column.trim();
+  }
+
+  const fields = [error.message, error.details, error.hint];
+  for (const field of fields) {
+    if (typeof field !== 'string') continue;
+    const columnMatch = field.match(/column\s+"([^"]+)"/i);
+    if (columnMatch && columnMatch[1]) {
+      return columnMatch[1].trim();
+    }
+    const keyMatch = field.match(/\(([^)]+)\)=\(null\)/i);
+    if (keyMatch && keyMatch[1]) {
+      return keyMatch[1].trim();
+    }
+  }
+
+  return null;
+};
 
 const markColumnStatus = (cache, column, result) => {
   if (!column) return result;
@@ -68,6 +92,9 @@ const checkColumnAvailability = async (client, tableName, column, cache) => {
 const recordContactUnlock = async (client, operatorId, athleteId, unlockedAt, expiresAt) => {
   const expiresCandidates = [null, ...EXPIRES_AT_COLUMN_CANDIDATES];
   const unlockedCandidates = [null, ...UNLOCKED_AT_COLUMN_CANDIDATES];
+
+  const isCandidateMatch = (column, candidates) =>
+    typeof column === 'string' && candidates.includes(column);
 
   for (const tableName of CONTACT_UNLOCK_TABLE_CANDIDATES) {
     const columnCache = new Map();
@@ -142,6 +169,18 @@ const recordContactUnlock = async (client, operatorId, athleteId, unlockedAt, ex
 
             const code = typeof error?.code === 'string' ? error.code.trim() : '';
 
+            if (code && ERROR_NOT_NULL.has(code)) {
+              const missingColumn = extractConstraintColumn(error);
+
+              if (
+                (!unlockedColumn && (!missingColumn || isCandidateMatch(missingColumn, UNLOCKED_AT_COLUMN_CANDIDATES))) ||
+                (!expiresColumn && (!missingColumn || isCandidateMatch(missingColumn, EXPIRES_AT_COLUMN_CANDIDATES))) ||
+                (expiresColumn && expiresAt == null && (!missingColumn || missingColumn === expiresColumn))
+              ) {
+                continue;
+              }
+            }
+
             if (code && ERROR_TABLE_MISSING.has(code)) {
               tableUnavailable = true;
               break tableLoop;
@@ -184,6 +223,17 @@ const recordContactUnlock = async (client, operatorId, athleteId, unlockedAt, ex
               }
 
               const updateCode = typeof updateError?.code === 'string' ? updateError.code.trim() : '';
+
+              if (updateCode && ERROR_NOT_NULL.has(updateCode)) {
+                const missingColumn = extractConstraintColumn(updateError);
+
+                if (
+                  (!expiresColumn && (!missingColumn || isCandidateMatch(missingColumn, EXPIRES_AT_COLUMN_CANDIDATES))) ||
+                  (expiresColumn && expiresAt == null && (!missingColumn || missingColumn === expiresColumn))
+                ) {
+                  continue;
+                }
+              }
 
               if (updateCode && ERROR_TABLE_MISSING.has(updateCode)) {
                 tableUnavailable = true;
