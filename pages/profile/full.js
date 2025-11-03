@@ -448,7 +448,13 @@ function PreviewCard({ athleteId }) {
         return;
       }
 
-      await fetchContactsAccess();
+      const contactBundle = payload?.contacts;
+      if (contactBundle && typeof contactBundle === 'object') {
+        setContactsData(contactBundle);
+        setContactsLoading(false);
+      } else {
+        await fetchContactsAccess();
+      }
       await fetchWallet({ skipLoadingState: true });
     } catch (err) {
       setUnlockError({ message: err.message || 'Errore durante lo sblocco.', reason: 'generic' });

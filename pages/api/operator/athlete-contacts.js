@@ -23,6 +23,94 @@ const mapSocialRow = (row) => ({
   is_primary: Boolean(row?.is_primary),
 });
 
+export const loadOperatorContactBundle = async (client, operatorId, athleteId) => {
+  const { data: activeUnlock, error: activeUnlockError } = await client
+    .from('v_op_unlocks_active')
+    .select('unlocked_at, expires_at')
+    .eq('op_id', operatorId)
+    .eq('athlete_id', athleteId)
+    .maybeSingle();
+
+  if (activeUnlockError && activeUnlockError.code !== 'PGRST116') {
+    throw normalizeSupabaseError('Active unlock lookup', activeUnlockError);
+  }
+
+  const unlocked = Boolean(activeUnlock);
+  let unlockedAt = activeUnlock?.unlocked_at || null;
+  let expiresAt = activeUnlock?.expires_at || null;
+
+  if (!unlocked) {
+    const { data: lastUnlock, error: lastUnlockError } = await client
+      .from('v_op_unlocks')
+      .select('unlocked_at, expires_at')
+      .eq('op_id', operatorId)
+      .eq('athlete_id', athleteId)
+      .order('unlocked_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastUnlockError && lastUnlockError.code !== 'PGRST116') {
+      throw normalizeSupabaseError('Unlock history lookup', lastUnlockError);
+    }
+
+    if (lastUnlock) {
+      unlockedAt = unlockedAt || lastUnlock.unlocked_at || null;
+      expiresAt = expiresAt || lastUnlock.expires_at || null;
+    }
+  }
+
+  let firstName = null;
+  let lastName = null;
+  let email = null;
+  let phone = null;
+  let socials = [];
+
+  if (unlocked) {
+    const { data: athleteRow, error: athleteError } = await client
+      .from('athlete')
+      .select('first_name, last_name, email, phone')
+      .eq('id', athleteId)
+      .maybeSingle();
+
+    if (athleteError) {
+      throw normalizeSupabaseError('Athlete contact lookup', athleteError);
+    }
+
+    if (athleteRow) {
+      firstName = athleteRow.first_name || null;
+      lastName = athleteRow.last_name || null;
+      email = athleteRow.email || null;
+      phone = athleteRow.phone || null;
+    }
+
+    const { data: socialRows, error: socialError } = await client
+      .from('social_profiles')
+      .select('id, platform, handle, profile_url, is_public, is_primary')
+      .eq('athlete_id', athleteId)
+      .order('sort_order', { ascending: true, nullsFirst: true })
+      .order('created_at', { ascending: true, nullsFirst: false })
+      .order('id', { ascending: true });
+
+    if (socialError) {
+      throw normalizeSupabaseError('Social profiles lookup', socialError);
+    }
+
+    socials = Array.isArray(socialRows) ? socialRows.map(mapSocialRow) : [];
+  }
+
+  return {
+    athlete_id: athleteId,
+    unlocked,
+    unlocked_at: unlockedAt,
+    expires_at: expiresAt,
+    first_name: firstName,
+    last_name: lastName,
+    email,
+    phone,
+    socials,
+  };
+};
+
 const respondWithError = (res, error, fallbackMessage) => {
   const statusCode = typeof error?.statusCode === 'number' ? error.statusCode : 500;
   const message = typeof error?.message === 'string' && error.message
@@ -78,91 +166,9 @@ export default async function handler(req, res) {
       throw createHttpError(403, 'Operator account not found for the current user.');
     }
 
-    const { data: activeUnlock, error: activeUnlockError } = await client
-      .from('v_op_unlocks_active')
-      .select('unlocked_at, expires_at')
-      .eq('op_id', operatorId)
-      .eq('athlete_id', resolvedId)
-      .maybeSingle();
+    const payload = await loadOperatorContactBundle(client, operatorId, resolvedId);
 
-    if (activeUnlockError && activeUnlockError.code !== 'PGRST116') {
-      throw normalizeSupabaseError('Active unlock lookup', activeUnlockError);
-    }
-
-    const unlocked = Boolean(activeUnlock);
-    let unlockedAt = activeUnlock?.unlocked_at || null;
-    let expiresAt = activeUnlock?.expires_at || null;
-
-    if (!unlocked) {
-      const { data: lastUnlock, error: lastUnlockError } = await client
-        .from('v_op_unlocks')
-        .select('unlocked_at, expires_at')
-        .eq('op_id', operatorId)
-        .eq('athlete_id', resolvedId)
-        .order('unlocked_at', { ascending: false, nullsFirst: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (lastUnlockError && lastUnlockError.code !== 'PGRST116') {
-        throw normalizeSupabaseError('Unlock history lookup', lastUnlockError);
-      }
-
-      if (lastUnlock) {
-        unlockedAt = unlockedAt || lastUnlock.unlocked_at || null;
-        expiresAt = expiresAt || lastUnlock.expires_at || null;
-      }
-    }
-
-    let firstName = null;
-    let lastName = null;
-    let email = null;
-    let phone = null;
-    let socials = [];
-
-    if (unlocked) {
-      const { data: athleteRow, error: athleteError } = await client
-        .from('athlete')
-        .select('first_name, last_name, email, phone')
-        .eq('id', resolvedId)
-        .maybeSingle();
-
-      if (athleteError) {
-        throw normalizeSupabaseError('Athlete contact lookup', athleteError);
-      }
-
-      if (athleteRow) {
-        firstName = athleteRow.first_name || null;
-        lastName = athleteRow.last_name || null;
-        email = athleteRow.email || null;
-        phone = athleteRow.phone || null;
-      }
-
-      const { data: socialRows, error: socialError } = await client
-        .from('social_profiles')
-        .select('id, platform, handle, profile_url, is_public, is_primary')
-        .eq('athlete_id', resolvedId)
-        .order('sort_order', { ascending: true, nullsFirst: true })
-        .order('created_at', { ascending: true, nullsFirst: false })
-        .order('id', { ascending: true });
-
-      if (socialError) {
-        throw normalizeSupabaseError('Social profiles lookup', socialError);
-      }
-
-      socials = Array.isArray(socialRows) ? socialRows.map(mapSocialRow) : [];
-    }
-
-    return res.status(200).json({
-      athlete_id: resolvedId,
-      unlocked,
-      unlocked_at: unlockedAt,
-      expires_at: expiresAt,
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      phone,
-      socials,
-    });
+    return res.status(200).json(payload);
   } catch (error) {
     return respondWithError(res, error, 'Unable to load athlete contact information.');
   }
