@@ -2,7 +2,7 @@
 // Standalone page (read-only) – no sub‑nav, compact hero with avatar,
 // sections: Media · Sport (current) · Career · Profile · Physical · Social · Contacts · Awards.
 // Supabase import: correct path from /pages/profile/*  -> '../../utils/supabaseClient'  ✅
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { supabase as sb } from '../../utils/supabaseClient';
@@ -131,6 +131,14 @@ function PreviewCard({ athleteId }) {
 
   const router = useRouter();
   const isMobile = useIsMobile(720);
+
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const [lightbox, setLightbox] = useState({ open:false, type:'', src:'', title:'' });
 
@@ -344,70 +352,65 @@ function PreviewCard({ athleteId }) {
     fetchContactsAccess();
   }, [athleteId, operatorId, opLoading, fetchContactsAccess]);
 
-  useEffect(() => {
-    let active = true;
+  const fetchWallet = useCallback(async ({ skipLoadingState = false } = {}) => {
+    if (!isMountedRef.current) return;
 
     if (!operatorId) {
       setWallet({ id: null, balance_credits: null, updated_at: null, loading: false });
-      return () => {
-        active = false;
-      };
+      return;
     }
 
-    setWallet((prev) => ({ ...prev, loading: true }));
+    if (!skipLoadingState) {
+      setWallet((prev) => ({ ...prev, loading: true }));
+    }
 
-    (async () => {
-      try {
-        const { data: walletRow, error: walletError } = await supabase
+    try {
+      const { data: walletRow, error: walletError } = await supabase
+        .from('op_wallet')
+        .select('id:op_id, balance_credits, updated_at')
+        .eq('op_id', operatorId)
+        .maybeSingle();
+
+      let resolvedRow = walletRow;
+
+      if (walletError && walletError.code !== 'PGRST116') {
+        throw walletError;
+      }
+
+      if (walletError && walletError.code === 'PGRST116') {
+        const { data: walletRows, error: walletFallbackError } = await supabase
           .from('op_wallet')
           .select('id:op_id, balance_credits, updated_at')
           .eq('op_id', operatorId)
-          .maybeSingle();
-
-        if (!active) return;
-
-        let resolvedRow = walletRow;
-
-        if (walletError && walletError.code !== 'PGRST116') {
-          throw walletError;
-        }
-
-        if (walletError && walletError.code === 'PGRST116') {
-          const { data: walletRows, error: walletFallbackError } = await supabase
-            .from('op_wallet')
-            .select('id:op_id, balance_credits, updated_at')
-            .eq('op_id', operatorId)
-            .order('updated_at', { ascending: false, nullsFirst: false })
-            .limit(1);
-          if (walletFallbackError) throw walletFallbackError;
-          resolvedRow = Array.isArray(walletRows) ? walletRows[0] : walletRows || null;
-        }
-
-        if (!active) return;
-
-        const rawBalance = resolvedRow?.balance_credits;
-        const numericBalance = typeof rawBalance === 'number'
-          ? rawBalance
-          : Number(rawBalance);
-
-        setWallet({
-          id: resolvedRow?.id || null,
-          balance_credits: Number.isFinite(numericBalance) ? numericBalance : 0,
-          updated_at: resolvedRow?.updated_at || null,
-          loading: false,
-        });
-      } catch (err) {
-        console.error('Unable to load wallet balance', err);
-        if (active) {
-          setWallet((prev) => ({ ...prev, loading: false }));
-        }
+          .order('updated_at', { ascending: false, nullsFirst: false })
+          .limit(1);
+        if (walletFallbackError) throw walletFallbackError;
+        resolvedRow = Array.isArray(walletRows) ? walletRows[0] : walletRows || null;
       }
-    })();
 
-    return () => {
-      active = false;
-    };
+      if (!isMountedRef.current) return;
+
+      const rawBalance = resolvedRow?.balance_credits;
+      const numericBalance = typeof rawBalance === 'number'
+        ? rawBalance
+        : Number(rawBalance);
+
+      setWallet({
+        id: resolvedRow?.id || null,
+        balance_credits: Number.isFinite(numericBalance) ? numericBalance : 0,
+        updated_at: resolvedRow?.updated_at || null,
+        loading: false,
+      });
+    } catch (err) {
+      console.error('Unable to load wallet balance', err);
+      if (!isMountedRef.current) return;
+      setWallet((prev) => ({ ...prev, loading: false }));
+    }
   }, [operatorId]);
+
+  useEffect(() => {
+    fetchWallet();
+  }, [fetchWallet]);
 
   const handleUnlock = useCallback(async () => {
     if (!athleteId || !operatorId || unlocking) return;
@@ -451,12 +454,13 @@ function PreviewCard({ athleteId }) {
       }
 
       await fetchContactsAccess();
+      await fetchWallet({ skipLoadingState: true });
     } catch (err) {
       setUnlockError({ message: err.message || 'Errore durante lo sblocco.', reason: 'generic' });
     } finally {
       setUnlocking(false);
     }
-  }, [athleteId, operatorId, unlocking, tariff, fetchContactsAccess]);
+  }, [athleteId, operatorId, unlocking, tariff, fetchContactsAccess, fetchWallet]);
 
   /* --------------- Derived data --------------- */
   const combinedName = `${contactsData?.first_name || ''} ${contactsData?.last_name || ''}`.trim();
