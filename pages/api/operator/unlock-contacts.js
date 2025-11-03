@@ -284,7 +284,8 @@ const recordContactUnlock = async (client, operatorId, athleteId, unlockedAt, ex
     }
   }
 
-  throw createHttpError(500, 'Unable to record contact unlock. Please try again later.');
+  // Nessuna tabella dedicata: lo sblocco è derivato da op_wallet_tx via view.
+  return { table: null, mode: 'wallet_tx_only' };
 };
 
 const PRODUCT_CODE = 'UNLOCK_CONTACTS';

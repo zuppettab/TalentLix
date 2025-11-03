@@ -61,14 +61,13 @@ export const loadOperatorContactBundle = async (client, operatorId, athleteId) =
 
   let firstName = null;
   let lastName = null;
-  let email = null;
   let phone = null;
   let socials = [];
 
   if (unlocked) {
     const { data: athleteRow, error: athleteError } = await client
       .from('athlete')
-      .select('first_name, last_name, email, phone')
+      .select('first_name, last_name, phone')
       .eq('id', athleteId)
       .maybeSingle();
 
@@ -79,7 +78,6 @@ export const loadOperatorContactBundle = async (client, operatorId, athleteId) =
     if (athleteRow) {
       firstName = athleteRow.first_name || null;
       lastName = athleteRow.last_name || null;
-      email = athleteRow.email || null;
       phone = athleteRow.phone || null;
     }
 
@@ -105,7 +103,6 @@ export const loadOperatorContactBundle = async (client, operatorId, athleteId) =
     expires_at: expiresAt,
     first_name: firstName,
     last_name: lastName,
-    email,
     phone,
     socials,
   };
