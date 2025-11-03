@@ -62,14 +62,37 @@ export const loadOperatorContactBundle = async (client, operatorId, athleteId) =
   let firstName = null;
   let lastName = null;
   let phone = null;
+  let email = null;
   let socials = [];
 
   if (unlocked) {
-    const { data: athleteRow, error: athleteError } = await client
+    const athleteQuery = client
       .from('athlete')
-      .select('first_name, last_name, phone')
+      .select('first_name, last_name, phone, email')
       .eq('id', athleteId)
       .maybeSingle();
+
+    let athleteRow = null;
+    let athleteError = null;
+
+    const { data: primaryRow, error: primaryError } = await athleteQuery;
+
+    if (primaryError && primaryError.code === '42703') {
+      const {
+        data: fallbackRow,
+        error: fallbackError,
+      } = await client
+        .from('athlete')
+        .select('first_name, last_name, phone')
+        .eq('id', athleteId)
+        .maybeSingle();
+
+      athleteRow = fallbackRow;
+      athleteError = fallbackError;
+    } else {
+      athleteRow = primaryRow;
+      athleteError = primaryError;
+    }
 
     if (athleteError) {
       throw normalizeSupabaseError('Athlete contact lookup', athleteError);
@@ -79,6 +102,9 @@ export const loadOperatorContactBundle = async (client, operatorId, athleteId) =
       firstName = athleteRow.first_name || null;
       lastName = athleteRow.last_name || null;
       phone = athleteRow.phone || null;
+      if (typeof athleteRow.email === 'string' && athleteRow.email.trim()) {
+        email = athleteRow.email.trim();
+      }
     }
 
     const { data: socialRows, error: socialError } = await client
@@ -96,6 +122,20 @@ export const loadOperatorContactBundle = async (client, operatorId, athleteId) =
     socials = Array.isArray(socialRows) ? socialRows.map(mapSocialRow) : [];
   }
 
+  if (!email) {
+    try {
+      const { data, error } = await client.auth.admin.getUserById(athleteId);
+      if (error) throw error;
+
+      const authEmail = data?.user?.email;
+      if (typeof authEmail === 'string' && authEmail.trim()) {
+        email = authEmail.trim();
+      }
+    } catch (authError) {
+      console.error('Operator contact email lookup failed', authError);
+    }
+  }
+
   return {
     athlete_id: athleteId,
     unlocked,
@@ -104,6 +144,7 @@ export const loadOperatorContactBundle = async (client, operatorId, athleteId) =
     first_name: firstName,
     last_name: lastName,
     phone,
+    email: email || '',
     socials,
   };
 };
