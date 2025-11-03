@@ -11,7 +11,7 @@ import {
   Play, Film, ChevronRight, ChevronDown, ExternalLink,
   Calendar, Award as AwardIcon, Medal, Phone, Mail, Globe, User,
   CheckCircle, ShieldCheck, Ruler, Scale, MoveHorizontal, Hand, Footprints, Activity,
-  Image, GalleryVertical, PlayCircle, Clapperboard, Video, ShoppingCart, MessageCircle
+  Image, GalleryVertical, PlayCircle, Clapperboard, Video, ShoppingCart, MessageCircle, Unlock
 } from 'lucide-react';
 
 const supabase = sb;
@@ -128,6 +128,7 @@ function PreviewCard({ athleteId }) {
   });
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState({ message: '', reason: '' });
+  const [unlockConfirm, setUnlockConfirm] = useState({ open: false, credits: 0 });
 
   const router = useRouter();
   const isMobile = useIsMobile(720);
@@ -412,16 +413,10 @@ function PreviewCard({ athleteId }) {
     fetchWallet();
   }, [fetchWallet]);
 
-  const handleUnlock = useCallback(async () => {
+  const performUnlock = useCallback(async () => {
     if (!athleteId || !operatorId || unlocking) return;
 
-    const creditsCost = Number(tariff?.credits_cost ?? 0);
-    if (Number.isFinite(creditsCost) && creditsCost > 0) {
-      const confirmationMessage = `Sbloccare i contatti per ${creditsCost} crediti?`;
-      const confirmed = typeof window === 'undefined' ? true : window.confirm(confirmationMessage);
-      if (!confirmed) return;
-    }
-
+    setUnlockConfirm({ open: false, credits: 0 });
     setUnlockError({ message: '', reason: '' });
     setUnlocking(true);
 
@@ -460,7 +455,7 @@ function PreviewCard({ athleteId }) {
     } finally {
       setUnlocking(false);
     }
-  }, [athleteId, operatorId, unlocking, tariff, fetchContactsAccess, fetchWallet]);
+  }, [athleteId, operatorId, unlocking, fetchContactsAccess, fetchWallet]);
 
   /* --------------- Derived data --------------- */
   const combinedName = `${contactsData?.first_name || ''} ${contactsData?.last_name || ''}`.trim();
@@ -504,6 +499,25 @@ function PreviewCard({ athleteId }) {
       return String(iso);
     }
   }, []);
+
+  const handleUnlockRequest = useCallback(() => {
+    if (!athleteId || !operatorId || unlocking) return;
+
+    if (typeof unlockCost === 'number' && Number.isFinite(unlockCost) && unlockCost > 0) {
+      setUnlockConfirm({ open: true, credits: unlockCost });
+      return;
+    }
+
+    performUnlock();
+  }, [athleteId, operatorId, unlocking, unlockCost, performUnlock]);
+
+  const handleCancelUnlock = useCallback(() => {
+    setUnlockConfirm({ open: false, credits: 0 });
+  }, []);
+
+  const handleConfirmUnlock = useCallback(() => {
+    performUnlock();
+  }, [performUnlock]);
 
   // Avatar: profile -> featured headshot -> initials
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -712,6 +726,17 @@ function PreviewCard({ athleteId }) {
     lightbox:{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex:50, display:'grid', placeItems:'center', padding:16 },
     lightboxInner:{ width:'min(90vw,400px)', maxHeight:'90vh' },
     btn:{ height:36, padding:'0 14px', borderRadius:8, border:'1px solid #eee', background:'#fff', cursor:'pointer' },
+
+    modalOverlay:{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', zIndex:60, display:'grid', placeItems:'center', padding:24 },
+    modalPanel:{ width:'min(420px, 92vw)', background:'#fff', borderRadius:20, boxShadow:'0 32px 80px -34px rgba(15,23,42,0.65)', padding:28, display:'grid', gap:18, fontFamily:'Inter, sans-serif' },
+    modalIcon:{ width:56, height:56, borderRadius:999, background:'linear-gradient(135deg, rgba(39,227,218,0.18), rgba(247,184,78,0.18))', display:'grid', placeItems:'center', color:'#0F172A' },
+    modalTitle:{ fontSize:18, fontWeight:800, margin:0, color:'#0F172A' },
+    modalBody:{ fontSize:14, lineHeight:1.55, color:'#475569', margin:0 },
+    modalHighlight:{ fontWeight:700, color:'#0F172A' },
+    modalActions:{ display:'flex', justifyContent:'flex-end', gap:12, flexWrap:'wrap', marginTop:4 },
+    modalSecondary:{ padding:'10px 18px', borderRadius:999, border:'1px solid rgba(148,163,184,0.4)', background:'#fff', color:'#0F172A', fontWeight:600, cursor:'pointer' },
+    modalPrimary:{ padding:'10px 20px', borderRadius:999, border:'none', background:'linear-gradient(135deg, #27E3DA, #F7B84E)', color:'#0F172A', fontWeight:700, cursor:'pointer', boxShadow:'0 20px 45px -30px rgba(15,23,42,0.65)' },
+    modalPrimaryDisabled:{ opacity:0.6, cursor:'not-allowed', boxShadow:'none' },
   };
 
   const mainCard = loading
@@ -768,7 +793,7 @@ function PreviewCard({ athleteId }) {
                     ...S.unlockBtn,
                     ...((unlocking || contactsLoading || !operatorId || opLoading) ? S.unlockBtnDisabled : null),
                   }}
-                  onClick={handleUnlock}
+                  onClick={handleUnlockRequest}
                   disabled={unlocking || contactsLoading || !operatorId || opLoading}
                 >
                   <ShoppingCart size={16} />
@@ -1056,6 +1081,47 @@ function PreviewCard({ athleteId }) {
             )}
             <div style={{ marginTop:10, display:'flex', justifyContent:'flex-end' }}>
                 <button type="button" onClick={()=>setLightbox({ open:false })} style={S.btn}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {unlockConfirm.open && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="unlock-confirm-title"
+          aria-describedby="unlock-confirm-desc"
+          style={S.modalOverlay}
+          onClick={handleCancelUnlock}
+        >
+          <div style={S.modalPanel} onClick={(event) => event.stopPropagation()}>
+            <div style={S.modalIcon} aria-hidden="true">
+              <Unlock size={24} />
+            </div>
+            <div>
+              <h2 id="unlock-confirm-title" style={S.modalTitle}>Unlock contacts</h2>
+              <p id="unlock-confirm-desc" style={S.modalBody}>
+                Unlocking this talent&apos;s contacts will deduct
+                {' '}<strong style={S.modalHighlight}>{formatCredits(unlockConfirm.credits)} credits</strong>{' '}
+                from your wallet. Do you want to continue?
+              </p>
+            </div>
+            <div style={S.modalActions}>
+              <button type="button" style={S.modalSecondary} onClick={handleCancelUnlock}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...S.modalPrimary,
+                  ...(unlocking ? S.modalPrimaryDisabled : null),
+                }}
+                onClick={handleConfirmUnlock}
+                disabled={unlocking}
+              >
+                Confirm purchase
+              </button>
             </div>
           </div>
         </div>
