@@ -15,6 +15,9 @@ const CONTACT_UNLOCK_TABLE_CANDIDATES = [
   'operator_contact_unlock',
   'op_athlete_unlocks',
   'op_athlete_unlock',
+  'op_contact_unlock_history',
+  'operator_unlocks',
+  'operator_unlock',
 ];
 
 const OPERATOR_COLUMN_CANDIDATES = ['op_id', 'operator_id', 'op_account_id', 'operator_account_id'];
