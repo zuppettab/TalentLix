@@ -6,6 +6,234 @@ import {
 import { resolveOperatorRequestContext } from '../../../utils/operatorApi';
 import { loadOperatorContactBundle } from './athlete-contacts';
 
+const CONTACT_UNLOCK_TABLE_CANDIDATES = [
+  'op_contact_unlocks',
+  'op_contact_unlock',
+  'op_unlocks',
+  'op_unlock',
+  'operator_contact_unlocks',
+  'operator_contact_unlock',
+  'op_athlete_unlocks',
+  'op_athlete_unlock',
+];
+
+const OPERATOR_COLUMN_CANDIDATES = ['op_id', 'operator_id', 'op_account_id', 'operator_account_id'];
+const ATHLETE_COLUMN_CANDIDATES = ['athlete_id', 'athlete', 'talent_id', 'player_id', 'athlete_uuid'];
+const UNLOCKED_AT_COLUMN_CANDIDATES = ['unlocked_at', 'granted_at', 'created_at', 'access_granted_at'];
+const EXPIRES_AT_COLUMN_CANDIDATES = [
+  'expires_at',
+  'expires_on',
+  'valid_until',
+  'valid_to',
+  'visibility_expires_at',
+  'access_expires_at',
+];
+
+const ERROR_TABLE_MISSING = new Set(['42P01', 'PGRST205']);
+const ERROR_COLUMN_MISSING = new Set(['42703', 'PGRST204']);
+const ERROR_VIEW_READONLY = new Set(['0A000', '42809']);
+const ERROR_CONFLICT = new Set(['23505']);
+
+const markColumnStatus = (cache, column, result) => {
+  if (!column) return result;
+  cache.set(column, result);
+  return result;
+};
+
+const checkColumnAvailability = async (client, tableName, column, cache) => {
+  if (!column) return { ok: true };
+  if (cache.has(column)) {
+    return cache.get(column);
+  }
+
+  const { error } = await client.from(tableName).select(column).limit(1);
+
+  if (!error) {
+    return markColumnStatus(cache, column, { ok: true });
+  }
+
+  const code = typeof error?.code === 'string' ? error.code.trim() : '';
+
+  if (code && ERROR_COLUMN_MISSING.has(code)) {
+    return markColumnStatus(cache, column, { ok: false, reason: 'missing_column' });
+  }
+
+  if (code && ERROR_TABLE_MISSING.has(code)) {
+    return markColumnStatus(cache, column, { ok: false, reason: 'missing_table' });
+  }
+
+  throw normalizeSupabaseError(`Operator contact unlock column check (${tableName}.${column})`, error);
+};
+
+const recordContactUnlock = async (client, operatorId, athleteId, unlockedAt, expiresAt) => {
+  const expiresCandidates = [null, ...EXPIRES_AT_COLUMN_CANDIDATES];
+  const unlockedCandidates = [null, ...UNLOCKED_AT_COLUMN_CANDIDATES];
+
+  for (const tableName of CONTACT_UNLOCK_TABLE_CANDIDATES) {
+    const columnCache = new Map();
+    let tableUnavailable = false;
+    let tableReadOnly = false;
+
+    tableLoop:
+    for (const opColumn of OPERATOR_COLUMN_CANDIDATES) {
+      const opStatus = await checkColumnAvailability(client, tableName, opColumn, columnCache);
+      if (opStatus.reason === 'missing_table') {
+        tableUnavailable = true;
+        break tableLoop;
+      }
+      if (!opStatus.ok) {
+        continue;
+      }
+
+      for (const athleteColumn of ATHLETE_COLUMN_CANDIDATES) {
+        const athleteStatus = await checkColumnAvailability(client, tableName, athleteColumn, columnCache);
+        if (athleteStatus.reason === 'missing_table') {
+          tableUnavailable = true;
+          break tableLoop;
+        }
+        if (!athleteStatus.ok) {
+          continue;
+        }
+
+        for (const unlockedColumn of unlockedCandidates) {
+          if (unlockedColumn) {
+            const unlockedStatus = await checkColumnAvailability(client, tableName, unlockedColumn, columnCache);
+            if (unlockedStatus.reason === 'missing_table') {
+              tableUnavailable = true;
+              break tableLoop;
+            }
+            if (!unlockedStatus.ok) {
+              continue;
+            }
+          }
+
+          for (const expiresColumn of expiresCandidates) {
+            if (expiresColumn) {
+              const expiresStatus = await checkColumnAvailability(client, tableName, expiresColumn, columnCache);
+              if (expiresStatus.reason === 'missing_table') {
+                tableUnavailable = true;
+                break tableLoop;
+              }
+              if (!expiresStatus.ok) {
+                continue;
+              }
+            }
+
+            const payload = {
+              [opColumn]: operatorId,
+              [athleteColumn]: athleteId,
+            };
+
+            if (unlockedColumn) {
+              payload[unlockedColumn] = unlockedAt;
+            }
+
+            if (expiresColumn) {
+              payload[expiresColumn] = expiresAt ?? null;
+            }
+
+            const { error } = await client
+              .from(tableName)
+              .insert(payload, { returning: 'minimal' });
+
+            if (!error) {
+              return { table: tableName, mode: 'insert' };
+            }
+
+            const code = typeof error?.code === 'string' ? error.code.trim() : '';
+
+            if (code && ERROR_TABLE_MISSING.has(code)) {
+              tableUnavailable = true;
+              break tableLoop;
+            }
+
+            if (code && ERROR_VIEW_READONLY.has(code)) {
+              tableReadOnly = true;
+              break tableLoop;
+            }
+
+            if (code && ERROR_COLUMN_MISSING.has(code)) {
+              // Refresh cache so subsequent attempts skip missing columns.
+              for (const columnName of [opColumn, athleteColumn, unlockedColumn, expiresColumn].filter(Boolean)) {
+                await checkColumnAvailability(client, tableName, columnName, columnCache);
+              }
+              continue;
+            }
+
+            if (code && ERROR_CONFLICT.has(code)) {
+              const updatePayload = {};
+              if (unlockedColumn) {
+                updatePayload[unlockedColumn] = unlockedAt;
+              }
+              if (expiresColumn) {
+                updatePayload[expiresColumn] = expiresAt ?? null;
+              }
+
+              if (Object.keys(updatePayload).length === 0) {
+                return { table: tableName, mode: 'noop' };
+              }
+
+              const { error: updateError } = await client
+                .from(tableName)
+                .update(updatePayload, { returning: 'minimal' })
+                .eq(opColumn, operatorId)
+                .eq(athleteColumn, athleteId);
+
+              if (!updateError) {
+                return { table: tableName, mode: 'update' };
+              }
+
+              const updateCode = typeof updateError?.code === 'string' ? updateError.code.trim() : '';
+
+              if (updateCode && ERROR_TABLE_MISSING.has(updateCode)) {
+                tableUnavailable = true;
+                break tableLoop;
+              }
+
+              if (updateCode && ERROR_VIEW_READONLY.has(updateCode)) {
+                tableReadOnly = true;
+                break tableLoop;
+              }
+
+              if (updateCode && ERROR_COLUMN_MISSING.has(updateCode)) {
+                for (const columnName of [opColumn, athleteColumn, unlockedColumn, expiresColumn].filter(Boolean)) {
+                  await checkColumnAvailability(client, tableName, columnName, columnCache);
+                }
+                continue;
+              }
+
+              throw normalizeSupabaseError(`Operator contact unlock update (${tableName})`, updateError);
+            }
+
+            throw normalizeSupabaseError(`Operator contact unlock insert (${tableName})`, error);
+          }
+          if (tableUnavailable || tableReadOnly) {
+            break;
+          }
+        }
+        if (tableUnavailable || tableReadOnly) {
+          break;
+        }
+      }
+      if (tableUnavailable || tableReadOnly) {
+        break;
+      }
+    }
+
+    if (tableReadOnly) {
+      console.warn('Contact unlock table is read-only; skipping to next candidate.', { tableName });
+      continue;
+    }
+
+    if (!tableUnavailable) {
+      // Table exists but no compatible columns were found.
+      continue;
+    }
+  }
+
+  throw createHttpError(500, 'Unable to record contact unlock. Please try again later.');
+};
+
 const PRODUCT_CODE = 'UNLOCK_CONTACTS';
 const TX_KIND = 'DEBIT_CONTACT_UNLOCK';
 const TX_REF_PREFIX = 'unlock:athlete:';
@@ -128,7 +356,7 @@ export default async function handler(req, res) {
     }
 
     const pricingRow = Array.isArray(pricingRows) ? pricingRows[0] : pricingRows;
-    const { creditsCost } = parsePricingRow(pricingRow);
+    const { creditsCost, validityDays } = parsePricingRow(pricingRow);
 
     const { data: walletRow, error: walletError } = await client
       .from('op_wallet')
@@ -195,6 +423,34 @@ export default async function handler(req, res) {
         await client.from('op_wallet_tx').delete().eq('id', txId);
       }
       throw normalizeSupabaseError('Wallet balance update', updateError);
+    }
+
+    const unlockedAt = nowIso;
+    const expiresAt = Number.isFinite(validityDays) && validityDays > 0
+      ? new Date(new Date(nowIso).getTime() + validityDays * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+
+    try {
+      await recordContactUnlock(client, operatorId, resolvedId, unlockedAt, expiresAt);
+    } catch (recordError) {
+      if (txId) {
+        try {
+          await client.from('op_wallet_tx').delete().eq('id', txId);
+        } catch (cleanupTxError) {
+          console.error('Failed to rollback wallet transaction after unlock error', cleanupTxError);
+        }
+      }
+
+      try {
+        await client
+          .from('op_wallet')
+          .update({ balance_credits: currentBalance })
+          .eq('op_id', operatorId);
+      } catch (rollbackError) {
+        console.error('Failed to rollback wallet balance after unlock error', rollbackError);
+      }
+
+      throw recordError;
     }
 
     const { data: unlockRow, error: unlockError } = await client
