@@ -828,7 +828,7 @@ function PreviewCard({ athleteId }) {
             </div>
 
             {unlocking && (
-              <div style={S.unlockMeta} role="status" aria-live="polite">Elaborazione in corso…</div>
+              <div style={S.unlockMeta} role="status" aria-live="polite">Processing…</div>
             )}
 
             {unlockError.message && (
