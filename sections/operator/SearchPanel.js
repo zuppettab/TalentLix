@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import Select from 'react-select';
 import AsyncSelect from 'react-select/async';
@@ -314,6 +314,7 @@ export default function SearchPanel() {
   /* -------- Unlock tariff / operator -------- */
   const [operatorId, setOperatorId] = useState(null);
   const [contactsMap, setContactsMap] = useState({});
+  const CONTACT_PENDING = useMemo(() => Symbol('contact_pending'), []);
 
   useEffect(() => {
     let active = true;
@@ -344,6 +345,7 @@ export default function SearchPanel() {
   const refreshContactInfo = useCallback(async (athleteId) => {
     if (!operatorId || !athleteId) return;
     try {
+      setContactsMap((prev) => ({ ...prev, [athleteId]: CONTACT_PENDING }));
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token || null;
       const response = await fetch(`/api/operator/athlete-contacts?athleteId=${encodeURIComponent(athleteId)}`, {
@@ -362,7 +364,7 @@ export default function SearchPanel() {
       console.error('Failed to load contacts for athlete', athleteId, err);
       setContactsMap((prev) => ({ ...prev, [athleteId]: null }));
     }
-  }, [operatorId]);
+  }, [operatorId, CONTACT_PENDING]);
 
   useEffect(() => {
     if (!operatorId || !rows.length) {
@@ -374,6 +376,17 @@ export default function SearchPanel() {
     if (!ids.length) return;
 
     let cancelled = false;
+    setContactsMap((prev) => {
+      const next = {};
+      ids.forEach((id) => {
+        if (Object.prototype.hasOwnProperty.call(prev, id)) {
+          next[id] = prev[id];
+        } else {
+          next[id] = CONTACT_PENDING;
+        }
+      });
+      return next;
+    });
     (async () => {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
@@ -401,11 +414,13 @@ export default function SearchPanel() {
 
         if (cancelled) return;
 
-        const next = {};
-        results.forEach(([id, data]) => {
-          next[id] = data;
+        setContactsMap((prev) => {
+          const next = { ...prev };
+          results.forEach(([id, data]) => {
+            next[id] = data;
+          });
+          return next;
         });
-        setContactsMap(next);
       } catch (err) {
         if (!cancelled) {
           console.error('Failed to resolve contacts map', err);
@@ -416,7 +431,7 @@ export default function SearchPanel() {
     return () => {
       cancelled = true;
     };
-  }, [operatorId, rows]);
+  }, [operatorId, rows, CONTACT_PENDING]);
 
   const resetFilters = () => {
     setGender(null); setRoles([]); setNats([]);
@@ -1042,17 +1057,67 @@ export default function SearchPanel() {
                   profileBtnRowStyle.flex = '0 0 auto';
                 }
 
-                const contactInfo = Object.prototype.hasOwnProperty.call(contactsMap, ath.id) ? contactsMap[ath.id] : null;
+                const hasContactEntry = Object.prototype.hasOwnProperty.call(contactsMap, ath.id);
+                const contactInfoRaw = hasContactEntry ? contactsMap[ath.id] : CONTACT_PENDING;
+                const isPending = contactInfoRaw === CONTACT_PENDING;
+                const contactInfo = !isPending && contactInfoRaw ? contactInfoRaw : null;
                 const isUnlocked = !!(contactInfo && contactInfo.unlocked);
                 const rawName = contactInfo
                   ? `${contactInfo.first_name || ''} ${contactInfo.last_name || ''}`.trim()
                   : '';
-                const nameText = rawName || 'Private profile';
-                const nameBlur = !isUnlocked;
+                const nameText = isPending ? 'Checking access…' : rawName || 'Private profile';
+                const nameBlur = !isUnlocked && !isPending;
                 const initials = computeInitials(rawName);
+                const pendingSpinnerWrapStyle = isCompactLayout
+                  ? {
+                      position: 'absolute',
+                      top: 12,
+                      right: 12,
+                      width: 28,
+                      height: 28,
+                      borderRadius: '999px',
+                      background: 'rgba(255,255,255,0.92)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 12px 30px -18px rgba(15,23,42,0.35)',
+                      zIndex: 1,
+                    }
+                  : {
+                      position: 'absolute',
+                      top: 14,
+                      right: 14,
+                      width: 30,
+                      height: 30,
+                      borderRadius: '999px',
+                      background: 'rgba(255,255,255,0.92)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 12px 36px -20px rgba(15,23,42,0.4)',
+                      zIndex: 1,
+                    };
+                const pendingSpinnerStyle = isCompactLayout
+                  ? { width: 18, height: 18 }
+                  : { width: 20, height: 20 };
 
                 return (
                   <article key={ath.id} style={styles.card} className="search-panel-card">
+                    {isPending && (
+                      <div
+                        style={pendingSpinnerWrapStyle}
+                        className="search-panel-card-spinner-wrap"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <span
+                          className="search-panel-card-spinner"
+                          style={pendingSpinnerStyle}
+                          aria-hidden="true"
+                        />
+                        <span style={styles.srOnly}>Checking unlock status…</span>
+                      </div>
+                    )}
                     <div style={cardInnerStyle} className="search-panel-card-inner">
                       <header style={styles.cardHeader} className="search-panel-card-header">
                         <div style={avatarWrapStyle}>
@@ -1474,6 +1539,24 @@ export default function SearchPanel() {
             text-align: center;
             justify-content: center !important;
             gap: 12px !important;
+          }
+        }
+
+        .search-panel-card-spinner {
+          display: inline-block;
+          border-radius: 50%;
+          border: 3px solid #27E3DA;
+          border-top-color: #F7B84E;
+          animation: searchPanelSpin 1s linear infinite;
+        }
+
+        @keyframes searchPanelSpin {
+          from {
+            transform: rotate(0deg);
+          }
+
+          to {
+            transform: rotate(360deg);
           }
         }
 
