@@ -697,6 +697,7 @@ function PreviewCard({ athleteId }) {
 
     loaderContainer:{ display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16, padding:48, textAlign:'center', minHeight:'calc(100vh - 32px)', width:'100%' },
     spinner:{ width:48, height:48, borderRadius:'50%', border:'4px solid #27E3DA', borderTopColor:'#F7B84E', animation:'profilePreviewSpin 1s linear infinite' },
+    unlockSpinner:{ width:22, height:22, borderRadius:'50%', border:'3px solid #27E3DA', borderTopColor:'#F7B84E', animation:'profilePreviewSpin 1s linear infinite' },
     srOnly:{ position:'absolute', width:1, height:1, padding:0, margin:-1, overflow:'hidden', clip:'rect(0,0,0,0)', whiteSpace:'nowrap', border:0 },
 
     section:{ border:'1px solid #eee', borderRadius:16, padding:16, background:'#fff' },
@@ -741,7 +742,7 @@ function PreviewCard({ athleteId }) {
     modalHighlight:{ fontWeight:700, color:'#0F172A' },
     modalActions:{ display:'flex', justifyContent:'flex-end', gap:12, flexWrap:'wrap', marginTop:4 },
     modalSecondary:{ padding:'10px 18px', borderRadius:999, border:'1px solid rgba(148,163,184,0.4)', background:'#fff', color:'#0F172A', fontWeight:600, cursor:'pointer' },
-    modalPrimary:{ padding:'10px 20px', borderRadius:999, border:'none', background:'linear-gradient(135deg, #27E3DA, #F7B84E)', color:'#0F172A', fontWeight:700, cursor:'pointer', boxShadow:'0 20px 45px -30px rgba(15,23,42,0.65)' },
+    modalPrimary:{ padding:'10px 20px', borderRadius:999, border:'none', background:'linear-gradient(135deg, #27E3DA, #F7B84E)', color:'#0F172A', fontWeight:700, cursor:'pointer', boxShadow:'0 20px 45px -30px rgba(15,23,42,0.65)', display:'inline-flex', alignItems:'center', gap:10, justifyContent:'center' },
     modalPrimaryDisabled:{ opacity:0.6, cursor:'not-allowed', boxShadow:'none' },
   };
 
@@ -801,10 +802,12 @@ function PreviewCard({ athleteId }) {
                   }}
                   onClick={handleUnlockRequest}
                   disabled={unlocking || contactsLoading || !operatorId || opLoading}
+                  aria-busy={unlocking || undefined}
                 >
                   <ShoppingCart size={16} />
+                  {unlocking && <div style={S.unlockSpinner} aria-hidden="true" />}
                   <span>
-                    Unlock contacts — {unlockCost != null ? `${unlockCost} credits` : '—'}
+                    {unlocking ? 'Processing…' : `Unlock contacts — ${unlockCost != null ? `${unlockCost} credits` : '—'}`}
                   </span>
                 </button>
               )}
@@ -823,6 +826,10 @@ function PreviewCard({ athleteId }) {
                 <span>Message</span>
               </button>
             </div>
+
+            {unlocking && (
+              <div style={S.unlockMeta} role="status" aria-live="polite">Elaborazione in corso…</div>
+            )}
 
             {unlockError.message && (
               <div style={S.unlockError} role="alert">
@@ -1125,8 +1132,10 @@ function PreviewCard({ athleteId }) {
                 }}
                 onClick={handleConfirmUnlock}
                 disabled={unlocking}
+                aria-busy={unlocking || undefined}
               >
-                Confirm purchase
+                {unlocking && <div style={S.unlockSpinner} aria-hidden="true" />}
+                <span>{unlocking ? 'Processing…' : 'Confirm purchase'}</span>
               </button>
             </div>
           </div>
