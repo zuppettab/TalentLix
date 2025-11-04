@@ -98,6 +98,14 @@ export default function OperatorInReview() {
 
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem(`operator_wizard_step:${user.id}`);
+        try {
+          const ackKey = user?.id ? `operator_review_ack:${user.id}` : null;
+          if (ackKey) {
+            window.sessionStorage.setItem(ackKey, String(Date.now()));
+          }
+        } catch (storageErr) {
+          console.warn('Failed to persist operator review acknowledgement', storageErr);
+        }
       }
 
       await router.replace({ pathname: '/operator-wizard', query: { restart: '1' } });
