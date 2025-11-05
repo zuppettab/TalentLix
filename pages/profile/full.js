@@ -712,7 +712,7 @@ function PreviewCard({ athleteId }) {
     h2:{ fontSize:18, lineHeight:1.2, margin:0, fontWeight:900 },
     h3:{ fontSize:14, margin:'10px 0 8px', fontWeight:800 },
 
-    mediaGrid:{ display:'grid', gap: isMobile ? 24 : 32, gridTemplateColumns: '1fr' },
+    mediaGrid:{ display:'grid', gap: isMobile ? 28 : 36, gridTemplateColumns: '1fr' },
     mediaCard:{
       border:'1px solid #eee',
       borderRadius:16,
@@ -723,6 +723,7 @@ function PreviewCard({ athleteId }) {
       flexDirection:'column',
       gap:16,
       overflow:'hidden',
+      marginTop:12,
     },
 
     hlCarousel:{ display:'grid', gridAutoFlow:'column', gridAutoColumns: isMobile ? 'minmax(200px,1fr)' : 'minmax(220px,1fr)', gap:12, scrollSnapType:'x mandatory', overflowX:'auto', paddingBottom:6 },
@@ -1190,10 +1191,7 @@ function PreviewCard({ athleteId }) {
         .photosGrid {
           display: grid;
           gap: 16px;
-          grid-auto-flow: column;
-          grid-auto-columns: minmax(180px, 1fr);
-          overflow-x: auto;
-          padding-bottom: 4px;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
         }
         .photosGrid img {
           width: 100%;
@@ -1208,12 +1206,12 @@ function PreviewCard({ athleteId }) {
             grid-template-columns: 1fr;
           }
           .photosGrid {
-            grid-auto-columns: minmax(160px, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
         @media (max-width: 480px) {
           .photosGrid {
-            grid-auto-columns: minmax(140px, 1fr);
+            grid-template-columns: 1fr;
           }
         }
       `}</style>
