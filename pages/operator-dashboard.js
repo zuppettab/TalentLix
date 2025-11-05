@@ -761,6 +761,18 @@ export default function OperatorDashboard() {
           to { transform: rotate(360deg); }
         }
       `}</style>
+      <style jsx global>{`
+        html, body, #__next {
+          margin: 0;
+          padding: 0;
+          min-height: 100%;
+        }
+
+        html,
+        body {
+          background: #F6F7FB;
+        }
+      `}</style>
     </div>
   );
 }
