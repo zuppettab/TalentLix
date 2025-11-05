@@ -727,19 +727,6 @@ function PreviewCard({ athleteId }) {
     },
 
     hlCarousel:{ display:'grid', gridAutoFlow:'column', gridAutoColumns: isMobile ? 'minmax(200px,1fr)' : 'minmax(220px,1fr)', gap:12, scrollSnapType:'x mandatory', overflowX:'auto', paddingBottom:6 },
-    photoThumb:{
-      width:'100%',
-      aspectRatio:'4/3',
-      objectFit:'contain',
-      borderRadius:12,
-      display:'block',
-      cursor:'zoom-in',
-      maxHeight:180,
-      background:'#f8fafc',
-      border:'1px solid #e2e8f0',
-      padding:8,
-      boxSizing:'border-box',
-    },
     strip:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(120px,150px)', gap:12, paddingBottom:4, overflowX:'auto' },
 
 
@@ -886,11 +873,16 @@ function PreviewCard({ athleteId }) {
                 {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).length ? (
                   <div style={S.mediaCard}>
                     <div style={S.titleRow}><Image size={16}/><h3 style={{ ...S.h3, margin:0 }}>Featured photos</h3></div>
-                    <div className="photosGrid">
+                    <div style={S.strip}>
                       {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).map((ph,i)=>(
-                        <SignedImg key={ph.id} path={ph.storage_path || ph.thumbnail_path} style={S.photoThumb}
-                                   alt={`Featured #${i+1}`} bucket={BUCKET_MEDIA}
-                                   onClick={(src)=>setLightbox({ open:true, type:'image', src, title: ph.title || `Photo #${i+1}`})}/>
+                        <SignedImg
+                          key={ph.id}
+                          path={ph.storage_path || ph.thumbnail_path}
+                          bucket={BUCKET_MEDIA}
+                          style={{ width:'100%', aspectRatio:'1/1', objectFit:'cover', borderRadius:12, display:'block', cursor:'zoom-in' }}
+                          alt={ph.title || `Photo ${i+1}`}
+                          onClick={(src)=>setLightbox({ open:true, type:'image', src, title: ph.title || `Photo ${i+1}` })}
+                        />
                       ))}
                     </div>
                   </div>
@@ -1188,29 +1180,11 @@ function PreviewCard({ athleteId }) {
           gap: 16px 24px;
           grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         }
-        .photosGrid {
-          display: grid;
-          gap: 16px;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-        .photosGrid img {
-          width: 100%;
-          height: auto;
-          box-sizing: border-box;
-        }
         @media (max-width: 768px) {
           .twoCol,
           .threeCol,
           .sportGrid,
           .profileGrid {
-            grid-template-columns: 1fr;
-          }
-          .photosGrid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
-        }
-        @media (max-width: 480px) {
-          .photosGrid {
             grid-template-columns: 1fr;
           }
         }
