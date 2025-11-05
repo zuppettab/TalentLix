@@ -723,6 +723,7 @@ function PreviewCard({ athleteId }) {
       flexDirection:'column',
       gap:16,
       marginTop:12,
+      boxSizing:'border-box',
     },
 
     hlCarousel:{ display:'grid', gridAutoFlow:'column', gridAutoColumns: isMobile ? 'minmax(200px,1fr)' : 'minmax(220px,1fr)', gap:12, scrollSnapType:'x mandatory', overflowX:'auto', paddingBottom:6 },
@@ -1257,49 +1258,115 @@ function HLCard({ it, idx, onOpen }) {
 }
 function GamesBlock({ games }) {
   const bySeason = (games||[]).reduce((acc,g)=>{ const k=g.meta?.season||'—'; (acc[k]=acc[k]||[]).push(g); return acc; },{});
-  const [open, setOpen] = useState(()=> new Set(Object.keys(bySeason).slice(0,1)));
-  const toggle = (s) => setOpen(prev => { const n=new Set(prev); n.has(s)?n.delete(s):n.add(s); return n; });
-  const Item = ({ item, meta }) => (
-    <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:8, padding:'6px 0', borderBottom:'1px dashed #eee' }}>
+  const seasonKeys = useMemo(() => Object.keys(bySeason), [games]);
+  const [open, setOpen] = useState(() => new Set(seasonKeys.slice(0, 1)));
+  useEffect(() => {
+    setOpen(prev => {
+      if (!seasonKeys.length) {
+        return prev.size ? new Set() : prev;
+      }
+      const retainedKeys = seasonKeys.filter(key => prev.has(key));
+      if (retainedKeys.length) {
+        if (retainedKeys.length === prev.size) {
+          // No change in the open set.
+          return prev;
+        }
+        return new Set(retainedKeys);
+      }
+      return new Set(seasonKeys.slice(0, 1));
+    });
+  }, [seasonKeys]);
+  const toggle = (seasonKey) => setOpen(prev => {
+    const next = new Set(prev);
+    if (next.has(seasonKey)) {
+      next.delete(seasonKey);
+    } else {
+      next.add(seasonKey);
+    }
+    return next;
+  });
+
+  if (!seasonKeys.length) {
+    return <div style={{ fontSize:12, color:'#64748b' }}>—</div>;
+  }
+
+  const Item = ({ item, meta, isLast }) => (
+    <div
+      style={{
+        display:'grid',
+        gridTemplateColumns:'minmax(0,1fr) auto',
+        gap:12,
+        padding:'8px 0',
+        borderBottom: isLast ? 'none' : '1px dashed #e2e8f0',
+        alignItems:'center',
+        wordBreak:'break-word'
+      }}
+    >
       <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
         <span>{fmtDate(meta?.match_date)} · vs {meta?.opponent || '—'} · {meta?.competition || '—'}</span>
       </div>
-      <div>
+      <div style={{ justifySelf:'end' }}>
         {item.external_url ? (
-            <a href={item.external_url} target="_blank" rel="noreferrer" style={{ color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6 }}>
-              Watch <ExternalLink size={16}/>
-            </a>
-        ) : <span style={{ color:'#666' }}>—</span>}
+          <a
+            href={item.external_url}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color:'#1976d2', display:'inline-flex', alignItems:'center', gap:6, fontWeight:600 }}
+          >
+            Watch <ExternalLink size={16}/>
+          </a>
+        ) : <span style={{ color:'#94a3b8' }}>—</span>}
       </div>
     </div>
   );
+
   return (
-    <div style={{ display:'grid', gap:12 }}>
-      {Object.keys(bySeason).map(season => {
+    <div style={{ display:'flex', flexDirection:'column', gap:12, width:'100%' }}>
+      {seasonKeys.map((season) => {
         const opened = open.has(season);
+        const entries = bySeason[season] || [];
         return (
-          <div key={season} style={{ border:'1px solid #eee', borderRadius:12, background:'#fff' }}>
+          <div
+            key={season}
+            style={{
+              border:'1px solid #e2e8f0',
+              borderRadius:14,
+              background:'#f8fafc',
+              overflow:'hidden',
+              boxShadow:'0 10px 24px -22px rgba(15,23,42,0.35)',
+              transition:'box-shadow 0.2s ease'
+            }}
+          >
             <button
               type="button"
-              onClick={()=>toggle(season)}
+              onClick={() => toggle(season)}
               style={{
                 width:'100%',
                 display:'flex',
                 alignItems:'center',
                 justifyContent:'space-between',
                 gap:8,
-                padding:'10px 12px',
+                padding:'12px 16px',
                 border:'none',
                 background:'transparent',
                 cursor:'pointer',
+                textAlign:'left',
                 boxSizing:'border-box'
               }}
               aria-expanded={opened}
             >
-              <span style={{ display:'flex', alignItems:'center', gap:8 }}><Calendar size={16}/> {season}</span>
+              <span style={{ display:'flex', alignItems:'center', gap:10, fontWeight:700, color:'#0f172a' }}>
+                <Calendar size={16}/> {season}
+              </span>
               {opened ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
             </button>
-            {opened && <div style={{ padding:12, borderTop:'1px solid #eee' }}>{bySeason[season].map(({item,meta}) => <Item key={item.id} item={item} meta={meta}/>)}</div>}
+            {opened && (
+              <div style={{ padding:'4px 16px 16px', borderTop:'1px solid #e2e8f0', background:'#fff' }}>
+                {entries.map(({ item, meta }, idx) => (
+                  <Item key={item.id || `${season}-${idx}`} item={item} meta={meta} isLast={idx === entries.length - 1} />
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
