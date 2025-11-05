@@ -631,7 +631,7 @@ function PreviewCard({ athleteId }) {
       cursor:'pointer',
     },
     container:{
-      maxWidth:1360,
+      maxWidth:1480,
       margin:'0 auto',
       padding: isMobile ? '32px clamp(16px, 5vw, 56px)' : '40px clamp(16px, 5vw, 56px)',
       boxSizing:'border-box',
@@ -640,7 +640,7 @@ function PreviewCard({ athleteId }) {
     },
     card:{
       width:'100%',
-      maxWidth:1160,
+      maxWidth:1280,
       borderRadius:16,
       boxShadow:'0 8px 24px rgba(0,0,0,0.08)',
       background:'#fff',
