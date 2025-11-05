@@ -936,7 +936,7 @@ function PreviewCard({ athleteId }) {
             {/* SPORT (current) */}
             <section style={S.section} aria-label="Sport">
               <div style={S.titleRow}><Medal size={18}/><h2 style={S.h2}>Sport</h2></div>
-              <div className="sportGrid twoCol">
+              <div className="sportGrid">
                 <Info label="Sport" value={sports?.sport || currentSeason?.sport || '—'}/>
                 <Info label="Role" value={[sports?.role, sports?.secondary_role].filter(Boolean).join(' / ') || currentSeason?.role || '—'}/>
                 <Info label="Team" value={sports?.team || currentSeason?.team_name || '—'}/>
@@ -1174,7 +1174,11 @@ function PreviewCard({ athleteId }) {
           gap: 12px;
           grid-template-columns: 1fr 1fr 1fr;
         }
-        .sportGrid,
+        .sportGrid {
+          display: grid;
+          gap: 14px 32px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
         .profileGrid {
           display: grid;
           gap: 16px 24px;
@@ -1183,8 +1187,10 @@ function PreviewCard({ athleteId }) {
         @media (max-width: 768px) {
           .twoCol,
           .threeCol,
-          .sportGrid,
           .profileGrid {
+            grid-template-columns: 1fr;
+          }
+          .sportGrid {
             grid-template-columns: 1fr;
           }
         }
@@ -1196,9 +1202,9 @@ function PreviewCard({ athleteId }) {
 /* ------------------------------ Subcomponents ------------------------------ */
 function Info({ label, value }) {
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'140px 1fr', gap:8, width:'100%' }}>
-      <div style={{ fontSize:12, color:'#666' }}>{label}</div>
-      <div>{value || '—'}</div>
+    <div style={{ display:'grid', gridTemplateColumns:'132px 1fr', gap:6, width:'100%' }}>
+      <div style={{ fontSize:11, color:'#666' }}>{label}</div>
+      <div style={{ fontSize:13, color:'#1f2933', lineHeight:1.3 }}>{value || '—'}</div>
     </div>
   );
 }
