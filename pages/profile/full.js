@@ -646,6 +646,13 @@ function PreviewCard({ athleteId }) {
       background:'#fff',
       overflow:'hidden'
     },
+    mainGrid:{
+      display:'grid',
+      gap: isMobile ? 24 : 32,
+      gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 2fr) minmax(0, 1fr)',
+      alignItems:'start',
+      padding:'clamp(16px, 4vw, 32px)',
+    },
     hero:{
       display:'grid',
       gridTemplateColumns: isMobile ? '1fr' : 'auto 1fr',
@@ -692,8 +699,8 @@ function PreviewCard({ athleteId }) {
     messageBtn:{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:10, border:'1px solid #e5e7eb', background:'#fff', fontWeight:700, color:'#0f172a', cursor:'pointer', boxShadow:'0 10px 24px -18px rgba(15,23,42,0.32)' },
     blur:{ filter:'blur(7px)' },
 
-    colA:{ display:'flex', flexDirection:'column', gap:24 },
-    colB:{ display:'flex', flexDirection:'column', gap:24 },
+    colA:{ display:'grid', gap:24 },
+    colB:{ display:'grid', gap:24 },
 
     loaderContainer:{ display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16, padding:48, textAlign:'center', minHeight:'calc(100vh - 32px)', width:'100%' },
     spinner:{ width:48, height:48, borderRadius:'50%', border:'4px solid #27E3DA', borderTopColor:'#F7B84E', animation:'profilePreviewSpin 1s linear infinite' },
@@ -705,11 +712,12 @@ function PreviewCard({ athleteId }) {
     h2:{ fontSize:18, lineHeight:1.2, margin:0, fontWeight:900 },
     h3:{ fontSize:14, margin:'10px 0 8px', fontWeight:800 },
 
-    mediaCard:{ border:'1px solid #eee', borderRadius:16, padding:16, background:'#fff', marginTop:12 },
+    mediaGrid:{ display:'grid', gap: isMobile ? 16 : 20, gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))' },
+    mediaCard:{ border:'1px solid #eee', borderRadius:16, padding:16, background:'#fff', height:'100%' },
 
-    hlCarousel:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(260px,1fr)', gap:12, scrollSnapType:'x mandatory', overflowX:'auto', paddingBottom:6 },
-    photoThumb:{ width:'100%', aspectRatio:'3/2', objectFit:'cover', borderRadius:12, display:'block', cursor:'zoom-in' },
-    strip:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(120px,140px)', gap:8, overflowX:'auto' },
+    hlCarousel:{ display:'grid', gridAutoFlow:'column', gridAutoColumns: isMobile ? 'minmax(200px,1fr)' : 'minmax(220px,1fr)', gap:12, scrollSnapType:'x mandatory', overflowX:'auto', paddingBottom:6 },
+    photoThumb:{ width:'100%', aspectRatio:'4/3', objectFit:'cover', borderRadius:12, display:'block', cursor:'zoom-in', maxHeight:220 },
+    strip:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(120px,150px)', gap:8, overflowX:'auto' },
 
 
     seasonCard:{ border:'1px solid #eee', borderRadius:12, padding:12, background:'#fff' },
@@ -843,7 +851,7 @@ function PreviewCard({ athleteId }) {
         </section>
 
         {/* GRID */}
-        <div className="mainGrid">
+        <div style={S.mainGrid}>
           {/* COL A */}
           <div style={S.colA}>
 
@@ -851,13 +859,11 @@ function PreviewCard({ athleteId }) {
             <section style={S.section} aria-label="Media">
               <div style={S.titleRow}><Film size={18}/><h2 style={S.h2}>Media</h2></div>
 
-              {/* Photo sections */}
-
-                {/* Featured photos */}
+              <div style={S.mediaGrid}>
                 {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).length ? (
                   <div style={S.mediaCard}>
                     <div style={S.titleRow}><Image size={16}/><h3 style={{ ...S.h3, margin:0 }}>Featured photos</h3></div>
-                    <div className="photosGrid threeCol">
+                    <div className="photosGrid">
                       {[media.featured?.head, media.featured?.g1, media.featured?.g2].filter(Boolean).map((ph,i)=>(
                         <SignedImg key={ph.id} path={ph.storage_path || ph.thumbnail_path} style={S.photoThumb}
                                    alt={`Featured #${i+1}`} bucket={BUCKET_MEDIA}
@@ -867,7 +873,6 @@ function PreviewCard({ athleteId }) {
                   </div>
                 ) : null}
 
-                {/* Gallery */}
                 {!!(media.gallery||[]).length && (
                   <div style={S.mediaCard}>
                     <div style={S.titleRow}>
@@ -880,15 +885,12 @@ function PreviewCard({ athleteId }) {
                                    bucket={BUCKET_MEDIA}
                                    style={{ width:'100%', aspectRatio:'1/1', objectFit:'cover', borderRadius:12, display:'block',cursor:'zoom-in' }}
                                    alt={g.title || `Photo ${i+1}`}
-                                   onClick={(src)=>setLightbox({ open:true, type:'image', src, title: g.title || `Photo ${i+1}` })}/>
+                                   onClick={(src)=>setLightbox({ open:true, type:'image', src, title: g.title || `Photo ${i+1}`})}/>
                       ))}
                     </div>
                   </div>
                 )}
 
-              {/* Video sections */}
-
-                {/* Intro */}
                 {media.intro && (
                   <div style={S.mediaCard}>
                     <div style={S.titleRow}><PlayCircle size={16}/><h3 style={{ ...S.h3, margin:0 }}>Intro</h3></div>
@@ -896,7 +898,6 @@ function PreviewCard({ athleteId }) {
                   </div>
                 )}
 
-                {/* Highlights */}
                 {!!(media.highlights||[]).length && (
                   <div style={S.mediaCard}>
                     <div style={S.titleRow}><Clapperboard size={16}/><h3 style={{ ...S.h3, margin:0 }}>Highlights</h3></div>
@@ -908,13 +909,13 @@ function PreviewCard({ athleteId }) {
                   </div>
                 )}
 
-                {/* Full games */}
                 {!!(media.games||[]).length && (
                   <div style={S.mediaCard}>
                     <div style={S.titleRow}><Video size={16}/><h3 style={{ ...S.h3, margin:0 }}>Full games</h3></div>
                     <GamesBlock games={media.games}/>
                   </div>
                 )}
+              </div>
             </section>
 
             {/* SPORT (current) */}
@@ -1148,12 +1149,6 @@ function PreviewCard({ athleteId }) {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
-        .mainGrid {
-          display: grid;
-          gap: 24px;
-          padding: clamp(16px, 4vw, 32px);
-          grid-template-columns: 2fr 1fr;
-        }
         .twoCol {
           display: grid;
           gap: 12px;
@@ -1164,9 +1159,16 @@ function PreviewCard({ athleteId }) {
           gap: 12px;
           grid-template-columns: 1fr 1fr 1fr;
         }
-        .photosGrid img { width: 100%; }
+        .photosGrid {
+          display: grid;
+          gap: 12px;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        }
+        .photosGrid img {
+          width: 100%;
+          border-radius: 12px;
+        }
         @media (max-width: 768px) {
-          .mainGrid,
           .twoCol,
           .threeCol {
             grid-template-columns: 1fr;
@@ -1215,7 +1217,7 @@ function IntroPlayer({ item }) {
   if (!item) return null;
   if (item.external_url) {
     return (
-        <div style={{ width:'100%', maxWidth: 520, margin:'0 auto' }}>
+        <div style={{ width:'100%', maxWidth: 420, margin:'0 auto' }}>
         <div style={{ position:'relative', width:'100%', paddingTop:'56.25%', borderRadius:12, overflow:'hidden', background:'#000', marginBottom: 10 }}>
           <iframe title={item.title||'Intro'} src={embedUrl(item.external_url)} style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:0 }} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen/>
         </div>
@@ -1223,7 +1225,7 @@ function IntroPlayer({ item }) {
     );
   }
   return (
-      <div style={{ width:'100%', maxWidth: 520, margin:'0 auto' }}>
+      <div style={{ width:'100%', maxWidth: 420, margin:'0 auto' }}>
         <video controls preload="metadata" poster={poster||undefined} style={{ width:'100%', borderRadius:12, display:'block', background:'#000', marginBottom: 10 }} src={src||''}/>
       </div>
   );
