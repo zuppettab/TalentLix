@@ -1190,7 +1190,10 @@ function PreviewCard({ athleteId }) {
         .photosGrid {
           display: grid;
           gap: 16px;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          grid-auto-flow: column;
+          grid-auto-columns: minmax(180px, 1fr);
+          overflow-x: auto;
+          padding-bottom: 4px;
         }
         .photosGrid img {
           width: 100%;
@@ -1205,12 +1208,12 @@ function PreviewCard({ athleteId }) {
             grid-template-columns: 1fr;
           }
           .photosGrid {
-            grid-template-columns: 1fr 1fr;
+            grid-auto-columns: minmax(160px, 1fr);
           }
         }
         @media (max-width: 480px) {
           .photosGrid {
-            grid-template-columns: 1fr;
+            grid-auto-columns: minmax(140px, 1fr);
           }
         }
       `}</style>
