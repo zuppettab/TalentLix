@@ -98,6 +98,15 @@ export default function ProfileFullPage() {
           </div>
         ) : <PreviewCard athleteId={String(athleteId)} /> }
       </div>
+      <style jsx global>{`
+        html,
+        body,
+        #__next {
+          margin: 0;
+          padding: 0;
+          background: #F6F7FB;
+        }
+      `}</style>
     </>
   );
 }
