@@ -648,7 +648,7 @@ function PreviewCard({ athleteId }) {
     },
     mainGrid:{
       display:'grid',
-      gap: isMobile ? 24 : 32,
+      gap: isMobile ? 28 : 40,
       gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 2fr) minmax(0, 1fr)',
       alignItems:'start',
       padding:'clamp(16px, 4vw, 32px)',
@@ -699,20 +699,20 @@ function PreviewCard({ athleteId }) {
     messageBtn:{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:10, border:'1px solid #e5e7eb', background:'#fff', fontWeight:700, color:'#0f172a', cursor:'pointer', boxShadow:'0 10px 24px -18px rgba(15,23,42,0.32)' },
     blur:{ filter:'blur(7px)' },
 
-    colA:{ display:'grid', gap:24 },
-    colB:{ display:'grid', gap:24 },
+    colA:{ display:'grid', gap: isMobile ? 20 : 28 },
+    colB:{ display:'grid', gap: isMobile ? 20 : 28 },
 
     loaderContainer:{ display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16, padding:48, textAlign:'center', minHeight:'calc(100vh - 32px)', width:'100%' },
     spinner:{ width:48, height:48, borderRadius:'50%', border:'4px solid #27E3DA', borderTopColor:'#F7B84E', animation:'profilePreviewSpin 1s linear infinite' },
     unlockSpinner:{ width:22, height:22, borderRadius:'50%', border:'3px solid #27E3DA', borderTopColor:'#F7B84E', animation:'profilePreviewSpin 1s linear infinite' },
     srOnly:{ position:'absolute', width:1, height:1, padding:0, margin:-1, overflow:'hidden', clip:'rect(0,0,0,0)', whiteSpace:'nowrap', border:0 },
 
-    section:{ border:'1px solid #eee', borderRadius:16, padding:16, background:'#fff' },
+    section:{ border:'1px solid #eee', borderRadius:16, padding:16, background:'#fff', display:'grid', gap: isMobile ? 14 : 18 },
     titleRow:{ display:'flex', alignItems:'center', gap:10, marginBottom:8 },
     h2:{ fontSize:18, lineHeight:1.2, margin:0, fontWeight:900 },
     h3:{ fontSize:14, margin:'10px 0 8px', fontWeight:800 },
 
-    mediaGrid:{ display:'grid', gap: isMobile ? 20 : 24, gridTemplateColumns: '1fr' },
+    mediaGrid:{ display:'grid', gap: isMobile ? 24 : 32, gridTemplateColumns: '1fr' },
     mediaCard:{
       border:'1px solid #eee',
       borderRadius:16,
