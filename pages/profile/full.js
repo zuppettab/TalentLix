@@ -722,7 +722,6 @@ function PreviewCard({ athleteId }) {
       display:'flex',
       flexDirection:'column',
       gap:16,
-      overflow:'hidden',
       marginTop:12,
     },
 
