@@ -712,7 +712,7 @@ function PreviewCard({ athleteId }) {
     h2:{ fontSize:18, lineHeight:1.2, margin:0, fontWeight:900 },
     h3:{ fontSize:14, margin:'10px 0 8px', fontWeight:800 },
 
-    mediaGrid:{ display:'grid', gap: isMobile ? 16 : 20, gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))' },
+    mediaGrid:{ display:'grid', gap: isMobile ? 16 : 20, gridTemplateColumns: '1fr' },
     mediaCard:{ border:'1px solid #eee', borderRadius:16, padding:16, background:'#fff', height:'100%' },
 
     hlCarousel:{ display:'grid', gridAutoFlow:'column', gridAutoColumns: isMobile ? 'minmax(200px,1fr)' : 'minmax(220px,1fr)', gap:12, scrollSnapType:'x mandatory', overflowX:'auto', paddingBottom:6 },
