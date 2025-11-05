@@ -712,12 +712,34 @@ function PreviewCard({ athleteId }) {
     h2:{ fontSize:18, lineHeight:1.2, margin:0, fontWeight:900 },
     h3:{ fontSize:14, margin:'10px 0 8px', fontWeight:800 },
 
-    mediaGrid:{ display:'grid', gap: isMobile ? 16 : 20, gridTemplateColumns: '1fr' },
-    mediaCard:{ border:'1px solid #eee', borderRadius:16, padding:16, background:'#fff', height:'100%' },
+    mediaGrid:{ display:'grid', gap: isMobile ? 20 : 24, gridTemplateColumns: '1fr' },
+    mediaCard:{
+      border:'1px solid #eee',
+      borderRadius:16,
+      padding:16,
+      background:'#fff',
+      height:'100%',
+      display:'flex',
+      flexDirection:'column',
+      gap:16,
+      overflow:'hidden',
+    },
 
     hlCarousel:{ display:'grid', gridAutoFlow:'column', gridAutoColumns: isMobile ? 'minmax(200px,1fr)' : 'minmax(220px,1fr)', gap:12, scrollSnapType:'x mandatory', overflowX:'auto', paddingBottom:6 },
-    photoThumb:{ width:'100%', aspectRatio:'4/3', objectFit:'cover', borderRadius:12, display:'block', cursor:'zoom-in', maxHeight:220 },
-    strip:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(120px,150px)', gap:8, overflowX:'auto' },
+    photoThumb:{
+      width:'100%',
+      aspectRatio:'4/3',
+      objectFit:'contain',
+      borderRadius:12,
+      display:'block',
+      cursor:'zoom-in',
+      maxHeight:180,
+      background:'#f8fafc',
+      border:'1px solid #e2e8f0',
+      padding:8,
+      boxSizing:'border-box',
+    },
+    strip:{ display:'grid', gridAutoFlow:'column', gridAutoColumns:'minmax(120px,150px)', gap:12, paddingBottom:4, overflowX:'auto' },
 
 
     seasonCard:{ border:'1px solid #eee', borderRadius:12, padding:12, background:'#fff' },
@@ -1151,26 +1173,35 @@ function PreviewCard({ athleteId }) {
         }
         .twoCol {
           display: grid;
-          gap: 12px;
-          grid-template-columns: 1fr 1fr;
+          gap: 16px 24px;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         }
         .threeCol {
           display: grid;
           gap: 12px;
           grid-template-columns: 1fr 1fr 1fr;
         }
+        .sportGrid,
+        .profileGrid {
+          display: grid;
+          gap: 16px 24px;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
         .photosGrid {
           display: grid;
-          gap: 12px;
-          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 16px;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         }
         .photosGrid img {
           width: 100%;
-          border-radius: 12px;
+          height: auto;
+          box-sizing: border-box;
         }
         @media (max-width: 768px) {
           .twoCol,
-          .threeCol {
+          .threeCol,
+          .sportGrid,
+          .profileGrid {
             grid-template-columns: 1fr;
           }
           .photosGrid {
@@ -1190,7 +1221,7 @@ function PreviewCard({ athleteId }) {
 /* ------------------------------ Subcomponents ------------------------------ */
 function Info({ label, value }) {
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'140px 1fr', gap:8 }}>
+    <div style={{ display:'grid', gridTemplateColumns:'140px 1fr', gap:8, width:'100%' }}>
       <div style={{ fontSize:12, color:'#666' }}>{label}</div>
       <div>{value || '—'}</div>
     </div>
@@ -1269,11 +1300,11 @@ function GamesBlock({ games }) {
     </div>
   );
   return (
-    <div>
+    <div style={{ display:'grid', gap:12 }}>
       {Object.keys(bySeason).map(season => {
         const opened = open.has(season);
         return (
-          <div key={season} style={{ border:'1px solid #eee', borderRadius:12, marginBottom:8, background:'#fff' }}>
+          <div key={season} style={{ border:'1px solid #eee', borderRadius:12, background:'#fff' }}>
             <button type="button" onClick={()=>toggle(season)} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer' }} aria-expanded={opened}>
               <span style={{ display:'flex', alignItems:'center', gap:8 }}><Calendar size={16}/> {season}</span>
               {opened ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
