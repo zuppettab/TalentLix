@@ -1280,7 +1280,23 @@ function GamesBlock({ games }) {
         const opened = open.has(season);
         return (
           <div key={season} style={{ border:'1px solid #eee', borderRadius:12, background:'#fff' }}>
-            <button type="button" onClick={()=>toggle(season)} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer' }} aria-expanded={opened}>
+            <button
+              type="button"
+              onClick={()=>toggle(season)}
+              style={{
+                width:'100%',
+                display:'flex',
+                alignItems:'center',
+                justifyContent:'space-between',
+                gap:8,
+                padding:'10px 12px',
+                border:'none',
+                background:'transparent',
+                cursor:'pointer',
+                boxSizing:'border-box'
+              }}
+              aria-expanded={opened}
+            >
               <span style={{ display:'flex', alignItems:'center', gap:8 }}><Calendar size={16}/> {season}</span>
               {opened ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
             </button>
