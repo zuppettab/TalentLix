@@ -10,6 +10,7 @@ import SportInfoPanel from '../sections/sports/SportInfoPanel';
 import PhysicalPanel from '../sections/physical/PhysicalPanel';
 import MediaPanel from '../sections/media/MediaPanel';
 import SocialPanel from '../sections/social/SocialPanel';
+import MessagesPanel from '../sections/messages/MessagesPanel';
 import AwardsWidget from '../sections/awards/AwardsWidget';
 import PrivacyPanel from '../sections/privacy/PrivacyPanel';
 
@@ -727,10 +728,13 @@ export default function Dashboard() {
                 {current === 'awards' && (
                   <AwardsWidget athleteId={athlete?.id} isMobile={isMobile} onSaved={handleAwardsSaved} />
                 )}
+                {current === 'messages' && (
+                  <MessagesPanel />
+                )}
                 {current === 'privacy' && (
                   <PrivacyPanel athlete={athlete} />
                 )}
-                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'media' && current !== 'social' && current !== 'physical' && current !== 'awards' && current !== 'privacy' && (
+                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'media' && current !== 'social' && current !== 'physical' && current !== 'awards' && current !== 'messages' && current !== 'privacy' && (
                   <p style={styles.placeholder}>TODO — “{sectionObj?.title}”</p>
                 )}
 
