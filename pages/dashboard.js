@@ -615,6 +615,7 @@ export default function Dashboard() {
                   onClick={() => setSection(s.id)}
                 style={{
                   ...styles.navBtn,
+                  ...(s.id === 'messages' ? styles.navBtnMessages : null),
                   ...(status === 'complete' ? styles.navBtnComplete : null),
                   ...(status === 'incomplete' ? styles.navBtnIncomplete : null),
                   ...(current === s.id ? styles.navBtnActive : null),
@@ -828,6 +829,7 @@ function MobileScrollableTabs({ sections, current, onSelect, statusMap }) {
               onClick={() => onSelect(s.id)}
               style={{
                 ...styles.mobileTabBtn,
+                ...(s.id === 'messages' ? styles.mobileTabBtnMessages : null),
                 ...(status === 'complete' ? styles.mobileTabBtnComplete : null),
                 ...(status === 'incomplete' ? styles.mobileTabBtnIncomplete : null),
                 ...(current === s.id ? styles.mobileTabBtnActive : null)
@@ -969,6 +971,7 @@ const styles = {
     textOverflow: 'ellipsis',
     transition: 'box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease'
   },
+  mobileTabBtnMessages: { borderColor: '#27E3DA', background: '#E8FFFB', color: '#027373' },
   mobileTabBtnComplete: { borderColor: '#1E88E5', background: '#E3F2FD', color: '#0D47A1' },
   mobileTabBtnIncomplete: { borderColor: '#FB8C00', background: '#FFF4E5', color: '#7C3A00' },
   mobileTabBtnActive: {
@@ -1018,6 +1021,7 @@ const styles = {
     minHeight: 44,
     transition: 'box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease'
   },
+  navBtnMessages: { borderColor: '#27E3DA', background: '#E8FFFB', color: '#027373' },
   navBtnComplete: { borderColor: '#1E88E5', background: '#E3F2FD', color: '#0B3D91' },
   navBtnIncomplete: { borderColor: '#FB8C00', background: '#FFF4E5', color: '#7C3A00' },
   navBtnActive: { borderColor: '#27E3DA', boxShadow: '0 0 0 2px rgba(39,227,218,0.25)' },
