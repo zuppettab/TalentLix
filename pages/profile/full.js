@@ -1185,8 +1185,13 @@ function PreviewCard({ athleteId }) {
         }
         .sportGrid {
           display: grid;
-          gap: 14px 32px;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 14px 24px;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        @media (max-width: 1100px) {
+          .sportGrid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
         }
         .profileGrid {
           display: grid;
