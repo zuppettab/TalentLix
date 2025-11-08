@@ -21,6 +21,47 @@ const mapAthlete = (athlete) => {
   };
 };
 
+const mapUnlockRows = (rows) => {
+  const byAthlete = new Map();
+  ensureArray(rows)
+    .map((row) => ({
+      athlete_id: row?.athlete_id ?? row?.athlete?.id ?? null,
+      unlocked_at: row?.unlocked_at ?? null,
+      expires_at: row?.expires_at ?? null,
+      athlete: mapAthlete(row?.athlete),
+    }))
+    .filter((row) => row.athlete_id)
+    .forEach((row) => {
+      const existing = byAthlete.get(row.athlete_id);
+      if (!existing) {
+        byAthlete.set(row.athlete_id, row);
+        return;
+      }
+
+      const existingTs = existing.unlocked_at ? new Date(existing.unlocked_at).getTime() : -Infinity;
+      const candidateTs = row.unlocked_at ? new Date(row.unlocked_at).getTime() : -Infinity;
+      if (candidateTs > existingTs) {
+        byAthlete.set(row.athlete_id, row);
+      }
+    });
+
+  const normalized = Array.from(byAthlete.values());
+  normalized.sort((a, b) => {
+    const expiresA = a.expires_at ? new Date(a.expires_at).getTime() : Infinity;
+    const expiresB = b.expires_at ? new Date(b.expires_at).getTime() : Infinity;
+
+    if (expiresA !== expiresB) {
+      return expiresA - expiresB;
+    }
+
+    const unlockA = a.unlocked_at ? new Date(a.unlocked_at).getTime() : 0;
+    const unlockB = b.unlocked_at ? new Date(b.unlocked_at).getTime() : 0;
+    return unlockB - unlockA;
+  });
+
+  return normalized;
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
@@ -94,23 +135,38 @@ export default async function handler(req, res) {
       throw createHttpError(403, 'Operator account not found for the current user.');
     }
 
-    const { data, error } = await client
-      .from('v_op_unlocks_active')
-      .select('athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)')
-      .eq('op_id', operatorId)
-      .order('expires_at', { ascending: true, nullsFirst: true })
-      .order('unlocked_at', { ascending: false, nullsFirst: true });
+    const loadViewRows = async (viewName) => {
+      const { data, error } = await client
+        .from(viewName)
+        .select(
+          'athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)'
+        )
+        .eq('op_id', operatorId)
+        .order('expires_at', { ascending: true, nullsFirst: true })
+        .order('unlocked_at', { ascending: false, nullsFirst: true });
 
-    if (error) {
-      throw normalizeSupabaseError('Unlocked athletes lookup', error);
+      if (!error) {
+        return ensureArray(data);
+      }
+
+      const code = typeof error.code === 'string' ? error.code.trim() : '';
+      if (code && (code === '42P01' || code === 'PGRST205' || code === 'PGRST204' || code === '42703')) {
+        return [];
+      }
+
+      throw normalizeSupabaseError(`Unlocked athletes lookup (${viewName})`, error);
+    };
+
+    let unlockRows = await loadViewRows('v_op_unlocks_active');
+
+    if (!unlockRows.length) {
+      const fallbackRows = await loadViewRows('v_op_unlocks');
+      if (fallbackRows.length) {
+        unlockRows = fallbackRows;
+      }
     }
 
-    const items = ensureArray(data).map((row) => ({
-      athlete_id: row?.athlete_id ?? null,
-      unlocked_at: row?.unlocked_at ?? null,
-      expires_at: row?.expires_at ?? null,
-      athlete: mapAthlete(row?.athlete),
-    }));
+    const items = mapUnlockRows(unlockRows);
 
     return res.status(200).json({ success: true, items });
   } catch (error) {
