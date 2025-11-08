@@ -35,17 +35,61 @@ export default async function handler(req, res) {
 
     const { client, user } = await resolveOperatorRequestContext(accessToken, { requireServiceRole: true });
 
+    let operatorId = null;
+
     const { data: accountRow, error: accountError } = await client
       .from('op_account')
       .select('id')
       .eq('auth_user_id', user.id)
       .maybeSingle();
 
-    if (accountError) {
+    if (accountError && accountError.code !== 'PGRST116') {
       throw normalizeSupabaseError('Operator account lookup', accountError);
     }
 
-    const operatorId = accountRow?.id;
+    if (!accountError) {
+      operatorId = accountRow?.id ?? null;
+    } else {
+      const {
+        data: fallbackRows,
+        error: fallbackError,
+      } = await client
+        .from('op_account')
+        .select('id, created_at')
+        .eq('auth_user_id', user.id)
+        .order('created_at', { ascending: false, nullsLast: false })
+        .limit(1);
+
+      if (fallbackError) {
+        if (fallbackError.code === '42703') {
+          const {
+            data: minimalRows,
+            error: minimalError,
+          } = await client
+            .from('op_account')
+            .select('id')
+            .eq('auth_user_id', user.id)
+            .limit(1);
+
+          if (minimalError) {
+            throw normalizeSupabaseError('Operator account lookup (minimal fallback)', minimalError);
+          }
+
+          if (Array.isArray(minimalRows) && minimalRows[0]) {
+            operatorId = minimalRows[0].id ?? null;
+          } else if (minimalRows && typeof minimalRows === 'object') {
+            operatorId = minimalRows.id ?? null;
+          }
+        } else {
+          throw normalizeSupabaseError('Operator account lookup (fallback)', fallbackError);
+        }
+      } else if (Array.isArray(fallbackRows) && fallbackRows[0]) {
+        operatorId = fallbackRows[0].id ?? null;
+      } else if (fallbackRows && typeof fallbackRows === 'object') {
+        operatorId = fallbackRows.id ?? null;
+      }
+    }
+
     if (!operatorId) {
       throw createHttpError(403, 'Operator account not found for the current user.');
     }
