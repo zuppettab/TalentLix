@@ -609,6 +609,27 @@ const markThreadRead = async (threadId, role) => {
   }
 };
 
+const mapUnlockedAthleteRow = (row) => {
+  if (!row) return null;
+  const athlete = row.athlete && typeof row.athlete === 'object' ? row.athlete : null;
+  const athleteId = row.athlete_id ?? athlete?.id ?? null;
+  if (!athleteId) return null;
+
+  return {
+    athlete_id: athleteId,
+    unlocked_at: row.unlocked_at ?? null,
+    expires_at: row.expires_at ?? null,
+    athlete: athlete
+      ? {
+          id: athlete.id ?? null,
+          first_name: athlete.first_name ?? null,
+          last_name: athlete.last_name ?? null,
+          profile_picture_url: athlete.profile_picture_url ?? null,
+        }
+      : null,
+  };
+};
+
 const fetchUnlockStatus = async (operatorId, athleteId) => {
   if (!supabase || !operatorId || !athleteId) return { active: false, expires_at: null };
   const { data, error } = await supabase
@@ -626,36 +647,68 @@ const fetchUnlockStatus = async (operatorId, athleteId) => {
 
 const fetchUnlockedAthletes = async (operatorId) => {
   if (!supabase || !operatorId) return [];
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token || null;
-  if (!accessToken) {
-    throw new Error('Session expired. Please sign in again to load unlocked athletes.');
+
+  const mapRows = (rows) => ensureArray(rows).map(mapUnlockedAthleteRow).filter(Boolean);
+
+  let apiResult = [];
+  let apiError = null;
+
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token || null;
+    if (!accessToken) {
+      throw new Error('Session expired. Please sign in again to load unlocked athletes.');
+    }
+
+    const response = await fetch('/api/operator/unlocked-athletes', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: 'no-store',
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const error = new Error(payload?.error || 'Unable to load unlocked athletes.');
+      if (payload?.code) error.code = payload.code;
+      if (payload?.details) error.details = payload.details;
+      throw error;
+    }
+
+    apiResult = mapRows(payload?.items);
+    if (apiResult.length) {
+      return apiResult;
+    }
+  } catch (error) {
+    apiError = error;
+    logSupabaseError('fetchUnlockedAthletesApi', error);
   }
 
-  const response = await fetch('/api/operator/unlocked-athletes', {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  try {
+    const { data, error } = await supabase
+      .from('v_op_unlocks_active')
+      .select(
+        `athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)`
+      )
+      .eq('op_id', operatorId)
+      .order('expires_at', { ascending: true, nullsFirst: true })
+      .order('unlocked_at', { ascending: false, nullsFirst: true });
 
-  const payload = await response.json().catch(() => ({}));
+    if (error) throw error;
 
-  if (!response.ok) {
-    const error = new Error(payload?.error || 'Unable to load unlocked athletes.');
-    if (payload?.code) error.code = payload.code;
-    if (payload?.details) error.details = payload.details;
-    throw error;
+    const fallbackResult = mapRows(data);
+    if (fallbackResult.length || !apiError) {
+      return fallbackResult;
+    }
+    return apiResult;
+  } catch (error) {
+    logSupabaseError('fetchUnlockedAthletesFallback', error);
+    if (!apiError) {
+      return apiResult;
+    }
+    throw apiError || error;
   }
-
-  const rows = ensureArray(payload?.items);
-  return rows
-    .map((row) => ({
-      athlete_id: row?.athlete_id ?? row?.athlete?.id ?? null,
-      unlocked_at: row?.unlocked_at ?? null,
-      expires_at: row?.expires_at ?? null,
-      athlete: row?.athlete ?? null,
-    }))
-    .filter((row) => row.athlete_id);
 };
 
 const upsertBlock = async ({ operatorId, athleteId, action }) => {
@@ -871,6 +924,7 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
   const loadUnlocked = useCallback(async () => {
     if (!operatorId || !supabase) return;
     setRefreshingUnlocks(true);
+    setActionError(null);
     try {
       const rows = await fetchUnlockedAthletes(operatorId);
       setUnlockedAthletes(rows);
