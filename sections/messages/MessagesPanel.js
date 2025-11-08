@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Archive,
+  ArrowLeft,
   Inbox,
   Loader2,
   MessageCircle,
@@ -24,6 +25,11 @@ const styles = {
     width: '100%',
     alignItems: 'stretch',
   },
+  wrapperMobile: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 18,
+  },
   card: {
     background: '#fff',
     borderRadius: 18,
@@ -32,6 +38,13 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     minHeight: 0,
+  },
+  mobileCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  mobileHidden: {
+    display: 'none',
   },
   columnHeader: {
     padding: '18px 20px',
@@ -309,6 +322,10 @@ const styles = {
     gap: 8,
     flexWrap: 'wrap',
   },
+  headerActionsMobile: {
+    width: '100%',
+    justifyContent: 'flex-start',
+  },
   threadHeader: {
     padding: '18px 20px',
     borderBottom: '1px solid rgba(148,163,184,0.18)',
@@ -316,6 +333,11 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12,
+  },
+  threadHeaderMobile: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 16,
   },
   participantTitle: {
     margin: 0,
@@ -342,6 +364,19 @@ const styles = {
     padding: '40px 24px',
     gap: 12,
     color: '#475569',
+  },
+  mobileBackButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '8px 12px',
+    borderRadius: 999,
+    border: '1px solid rgba(148,163,184,0.4)',
+    background: '#fff',
+    color: '#0f172a',
+    fontSize: 13,
+    fontWeight: 600,
+    alignSelf: 'flex-start',
   },
 };
 
@@ -572,6 +607,7 @@ export default function MessagesPanel({ isMobile }) {
   const [blockInfo, setBlockInfo] = useState(null);
   const [actionError, setActionError] = useState(null);
   const [totalUnread, setTotalUnread] = useState(0);
+  const [mobileView, setMobileView] = useState('list');
 
   useEffect(() => {
     if (!supabase) {
@@ -702,6 +738,9 @@ export default function MessagesPanel({ isMobile }) {
     setActionError(null);
     setMessagesError(null);
     setSelectedThreadId(threadId);
+    if (isMobile) {
+      setMobileView('thread');
+    }
   };
 
   const handleSend = async () => {
@@ -807,9 +846,40 @@ export default function MessagesPanel({ isMobile }) {
   const canToggleBlock = !blockInfo || blockOwnedByAthlete;
   const blockButtonLabel = blockOwnedByAthlete ? 'Unblock' : blockOwnedByOperator ? 'Blocked' : 'Block';
 
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileView('list');
+      return;
+    }
+    if (!selectedThread) {
+      setMobileView('list');
+    }
+  }, [isMobile, selectedThread?.id]);
+
+  const handleMobileBack = () => {
+    setMobileView('list');
+  };
+
+  const wrapperStyle = {
+    ...styles.wrapper,
+    ...(isMobile ? styles.wrapperMobile : null),
+  };
+
+  const listCardStyle = {
+    ...styles.card,
+    ...(isMobile ? styles.mobileCard : null),
+    ...(isMobile && mobileView !== 'list' ? styles.mobileHidden : null),
+  };
+
+  const threadCardStyle = {
+    ...styles.card,
+    ...(isMobile ? styles.mobileCard : null),
+    ...(isMobile && mobileView !== 'thread' ? styles.mobileHidden : null),
+  };
+
   return (
-    <div style={{ ...styles.wrapper, ...(isMobile ? { gridTemplateColumns: '1fr' } : null) }}>
-      <div style={styles.card}>
+    <div style={wrapperStyle}>
+      <div style={listCardStyle}>
         <div style={styles.columnHeader}>
           <h3 style={styles.columnTitle}>
             <MessageCircle size={18} /> Inbox
@@ -900,7 +970,7 @@ export default function MessagesPanel({ isMobile }) {
           )}
         </div>
       </div>
-      <div style={styles.card}>
+      <div style={threadCardStyle}>
         {!selectedThread ? (
           <div style={styles.emptyState}>
             <MessageCircle size={42} color="#94a3b8" />
@@ -908,7 +978,17 @@ export default function MessagesPanel({ isMobile }) {
           </div>
         ) : (
           <>
-            <div style={styles.threadHeader}>
+            <div
+              style={{
+                ...styles.threadHeader,
+                ...(isMobile ? styles.threadHeaderMobile : null),
+              }}
+            >
+              {isMobile && (
+                <button type="button" onClick={handleMobileBack} style={styles.mobileBackButton}>
+                  <ArrowLeft size={16} /> Back to conversations
+                </button>
+              )}
               <div style={styles.participantMeta}>
                 <h3 style={styles.participantTitle}>{selectedName}</h3>
                 <p style={styles.participantSubtitle}>
@@ -923,7 +1003,13 @@ export default function MessagesPanel({ isMobile }) {
                   </div>
                 )}
               </div>
-              <div style={{ ...styles.headerActions, justifyContent: 'flex-end' }}>
+              <div
+                style={{
+                  ...styles.headerActions,
+                  justifyContent: isMobile ? 'flex-start' : 'flex-end',
+                  ...(isMobile ? styles.headerActionsMobile : null),
+                }}
+              >
                 <button
                   type="button"
                   style={styles.secondaryBtn}
