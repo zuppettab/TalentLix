@@ -402,14 +402,14 @@ const fetchAthleteProfile = async (authUserId) => {
   const { data, error } = await supabase
     .from('athlete')
     .select('id, first_name, last_name, profile_picture_url')
-    .eq('auth_user_id', authUserId)
+    .eq('id', authUserId)
     .maybeSingle();
   if (error && error.code !== 'PGRST116') throw error;
   if (error && error.code === 'PGRST116') {
     const { data: latest } = await supabase
       .from('athlete')
       .select('id, first_name, last_name, profile_picture_url, created_at')
-      .eq('auth_user_id', authUserId)
+      .eq('id', authUserId)
       .order('created_at', { ascending: false })
       .limit(1);
     if (Array.isArray(latest) && latest[0]) return latest[0];
@@ -424,7 +424,7 @@ const fetchThreadsForAthlete = async (athleteId) => {
     .from('chat_thread')
     .select(
       `id, op_id, athlete_id, created_at, last_message_at, last_message_text, last_message_sender, op_deleted_at, athlete_deleted_at,
-       operator:op_id(id, display_name, profile:op_profile(legal_name, trade_name, logo_url))`
+       operator:op_id(id, profile:op_profile(legal_name, trade_name, logo_url))`
     )
     .eq('athlete_id', athleteId)
     .order('last_message_at', { ascending: false, nullsFirst: false });
