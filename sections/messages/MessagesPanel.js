@@ -386,6 +386,30 @@ const ensureArray = (value) => {
   return [value];
 };
 
+const getErrorMessage = (error, fallback = 'Unexpected error.') => {
+  if (!error) return fallback;
+  if (typeof error === 'string') return error;
+  if (typeof error.message === 'string' && error.message.trim()) return error.message;
+  if (typeof error.error_description === 'string' && error.error_description.trim()) {
+    return error.error_description;
+  }
+  if (typeof error.hint === 'string' && error.hint.trim()) {
+    return error.hint;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch (serializationError) {
+    console.error('MessagesPanel: unable to serialise error', serializationError);
+    return fallback;
+  }
+};
+
+const logSupabaseError = (context, error) => {
+  if (!error) return;
+  const message = getErrorMessage(error);
+  console.error(`[MessagesPanel:${context}]`, message, error);
+};
+
 const formatDateTime = (value) => {
   if (!value) return '—';
   const date = new Date(value);
@@ -455,36 +479,46 @@ const fetchAthleteProfile = async (authUserId) => {
 
 const fetchThreadsForAthlete = async (athleteId) => {
   if (!supabase || !athleteId) return [];
-  const { data, error } = await supabase
-    .from('chat_thread')
-    .select(
-      `id, op_id, athlete_id, created_at, last_message_at, last_message_text, last_message_sender, op_deleted_at, athlete_deleted_at,
+  try {
+    const { data, error } = await supabase
+      .from('chat_thread')
+      .select(
+        `id, op_id, athlete_id, created_at, last_message_at, last_message_text, last_message_sender, op_deleted_at, athlete_deleted_at,
        operator:op_id(id, profile:op_profile(legal_name, trade_name, logo_url))`
-    )
-    .eq('athlete_id', athleteId)
-    .order('last_message_at', { ascending: false, nullsFirst: false });
-  if (error) throw error;
-  const rows = ensureArray(data);
-  rows.sort((a, b) => {
-    const tsA = a?.last_message_at ? new Date(a.last_message_at).getTime() : 0;
-    const tsB = b?.last_message_at ? new Date(b.last_message_at).getTime() : 0;
-    return tsB - tsA;
-  });
-  return rows;
+      )
+      .eq('athlete_id', athleteId)
+      .order('last_message_at', { ascending: false, nullsFirst: false });
+    if (error) throw error;
+    const rows = ensureArray(data);
+    rows.sort((a, b) => {
+      const tsA = a?.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+      const tsB = b?.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+      return tsB - tsA;
+    });
+    return rows;
+  } catch (error) {
+    logSupabaseError('fetchThreadsForAthlete', error);
+    throw error;
+  }
 };
 
 const fetchBlockMapForAthlete = async (athleteId) => {
   if (!supabase || !athleteId) return new Map();
-  const { data, error } = await supabase
-    .from('chat_block')
-    .select('op_id, blocked_by, blocked_at')
-    .eq('athlete_id', athleteId);
-  if (error) throw error;
-  const map = new Map();
-  ensureArray(data).forEach((row) => {
-    map.set(row.op_id, row);
-  });
-  return map;
+  try {
+    const { data, error } = await supabase
+      .from('chat_block')
+      .select('op_id, blocked_by, blocked_at')
+      .eq('athlete_id', athleteId);
+    if (error) throw error;
+    const map = new Map();
+    ensureArray(data).forEach((row) => {
+      map.set(row.op_id, row);
+    });
+    return map;
+  } catch (error) {
+    logSupabaseError('fetchBlockMapForAthlete', error);
+    return new Map();
+  }
 };
 
 const fetchUnreadCount = async (threadId, role) => {
@@ -501,15 +535,20 @@ const fetchUnreadCount = async (threadId, role) => {
 
 const fetchMessagesForThread = async (threadId) => {
   if (!supabase || !threadId) return [];
-  const { data, error } = await supabase
-    .from('chat_message')
-    .select(
-      'id, thread_id, created_at, sender_kind, sender_op_id, sender_athlete_id, body_text, payload, attachments, read_by_op_at, read_by_athlete_at'
-    )
-    .eq('thread_id', threadId)
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-  return ensureArray(data);
+  try {
+    const { data, error } = await supabase
+      .from('chat_message')
+      .select(
+        'id, thread_id, created_at, sender_kind, sender_op_id, sender_athlete_id, body_text, payload, attachments, read_by_op_at, read_by_athlete_at'
+      )
+      .eq('thread_id', threadId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return ensureArray(data);
+  } catch (error) {
+    logSupabaseError('fetchMessagesForThread', error);
+    throw error;
+  }
 };
 
 const markThreadRead = async (threadId) => {
@@ -645,21 +684,46 @@ export default function MessagesPanel({ isMobile }) {
     setThreadsLoading(true);
     setThreadsError(null);
     try {
-      const [threadRows, blockMap] = await Promise.all([
-        fetchThreadsForAthlete(athleteId),
+      const threadsResult = await fetchThreadsForAthlete(athleteId);
+      const [blockMapOutcome, unreadOutcome] = await Promise.allSettled([
         fetchBlockMapForAthlete(athleteId),
+        Promise.allSettled(
+          threadsResult.map(async (thread) => {
+            try {
+              const unread = await fetchUnreadCount(thread.id, 'athlete');
+              return [thread.id, unread];
+            } catch (error) {
+              logSupabaseError('fetchUnreadCount', error);
+              return [thread.id, 0];
+            }
+          })
+        ),
       ]);
-      const unreadPairs = await Promise.all(
-        threadRows.map(async (thread) => ({
-          threadId: thread.id,
-          count: await fetchUnreadCount(thread.id, 'athlete'),
-        }))
-      );
-      const unreadMap = unreadPairs.reduce((acc, entry) => {
-        acc[entry.threadId] = entry.count;
-        return acc;
-      }, {});
-      const prepared = threadRows.map((thread) => ({
+
+      const blockMap =
+        blockMapOutcome.status === 'fulfilled' ? blockMapOutcome.value : new Map();
+      if (blockMapOutcome.status === 'rejected') {
+        logSupabaseError('fetchBlockMapForAthlete', blockMapOutcome.reason);
+      }
+
+      const unreadMap = {};
+      if (unreadOutcome.status === 'fulfilled') {
+        unreadOutcome.value.forEach((result, index) => {
+          const thread = threadsResult[index];
+          if (!thread) return;
+          if (result.status === 'fulfilled') {
+            const [threadId, count] = result.value || [];
+            unreadMap[threadId] = typeof count === 'number' ? count : 0;
+          } else {
+            unreadMap[thread.id] = 0;
+            logSupabaseError('fetchUnreadCount', result.reason);
+          }
+        });
+      } else {
+        logSupabaseError('fetchUnreadCount', unreadOutcome.reason);
+      }
+
+      const prepared = threadsResult.map((thread) => ({
         ...thread,
         unreadCount: unreadMap[thread.id] ?? 0,
         block: blockMap.get(thread.op_id) || null,
@@ -667,7 +731,7 @@ export default function MessagesPanel({ isMobile }) {
       setThreads(prepared);
       setTotalUnread(prepared.reduce((sum, thread) => sum + (thread.unreadCount || 0), 0));
     } catch (err) {
-      setThreadsError(err.message || 'Unable to load conversations.');
+      setThreadsError(getErrorMessage(err, 'Unable to load conversations.'));
     } finally {
       setThreadsLoading(false);
     }
@@ -697,7 +761,7 @@ export default function MessagesPanel({ isMobile }) {
       setMessagesLoading(true);
       setMessagesError(null);
       try {
-        const [fetchedMessages, blockRes] = await Promise.all([
+        const [messagesOutcome, blockOutcome] = await Promise.allSettled([
           fetchMessagesForThread(thread.id),
           supabase
             .from('chat_block')
@@ -706,15 +770,33 @@ export default function MessagesPanel({ isMobile }) {
             .eq('athlete_id', thread.athlete_id)
             .maybeSingle(),
         ]);
-        setMessages(fetchedMessages);
-        setBlockInfo(blockRes?.data ?? null);
+
+        if (messagesOutcome.status === 'fulfilled') {
+          setMessages(messagesOutcome.value);
+        } else {
+          logSupabaseError('fetchMessagesForThread', messagesOutcome.reason);
+          throw messagesOutcome.reason;
+        }
+
+        if (blockOutcome.status === 'fulfilled') {
+          if (blockOutcome.value?.error) {
+            logSupabaseError('fetchBlockStatus', blockOutcome.value.error);
+            setBlockInfo(null);
+          } else {
+            setBlockInfo(blockOutcome.value?.data ?? null);
+          }
+        } else {
+          logSupabaseError('fetchBlockStatus', blockOutcome.reason);
+          setBlockInfo(null);
+        }
+
         await markThreadRead(thread.id);
         setThreads((prev) =>
           prev.map((item) => (item.id === thread.id ? { ...item, unreadCount: 0 } : item))
         );
         setTotalUnread((prev) => Math.max(0, prev - (thread.unreadCount || 0)));
       } catch (err) {
-        setMessagesError(err.message || 'Unable to load messages.');
+        setMessagesError(getErrorMessage(err, 'Unable to load messages.'));
         setMessages([]);
       } finally {
         setMessagesLoading(false);
