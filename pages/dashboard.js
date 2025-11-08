@@ -730,7 +730,7 @@ export default function Dashboard() {
                   <AwardsWidget athleteId={athlete?.id} isMobile={isMobile} onSaved={handleAwardsSaved} />
                 )}
                 {current === 'messages' && (
-                  <MessagesPanel />
+                  <MessagesPanel isMobile={isMobile} />
                 )}
                 {current === 'privacy' && (
                   <PrivacyPanel athlete={athlete} />
