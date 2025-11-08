@@ -630,6 +630,41 @@ const mapUnlockedAthleteRow = (row) => {
   };
 };
 
+const normalizeUnlockedAthletes = (rows) => {
+  const byAthlete = new Map();
+
+  ensureArray(rows)
+    .map(mapUnlockedAthleteRow)
+    .filter(Boolean)
+    .forEach((entry) => {
+      const existing = byAthlete.get(entry.athlete_id);
+      if (!existing) {
+        byAthlete.set(entry.athlete_id, entry);
+        return;
+      }
+
+      const existingTs = existing.unlocked_at ? new Date(existing.unlocked_at).getTime() : -Infinity;
+      const candidateTs = entry.unlocked_at ? new Date(entry.unlocked_at).getTime() : -Infinity;
+      if (candidateTs > existingTs) {
+        byAthlete.set(entry.athlete_id, entry);
+      }
+    });
+
+  const normalized = Array.from(byAthlete.values());
+  normalized.sort((a, b) => {
+    const expiresA = a.expires_at ? new Date(a.expires_at).getTime() : Infinity;
+    const expiresB = b.expires_at ? new Date(b.expires_at).getTime() : Infinity;
+    if (expiresA !== expiresB) {
+      return expiresA - expiresB;
+    }
+    const unlockA = a.unlocked_at ? new Date(a.unlocked_at).getTime() : 0;
+    const unlockB = b.unlocked_at ? new Date(b.unlocked_at).getTime() : 0;
+    return unlockB - unlockA;
+  });
+
+  return normalized;
+};
+
 const fetchUnlockStatus = async (operatorId, athleteId) => {
   if (!supabase || !operatorId || !athleteId) return { active: false, expires_at: null };
   const { data, error } = await supabase
@@ -648,7 +683,7 @@ const fetchUnlockStatus = async (operatorId, athleteId) => {
 const fetchUnlockedAthletes = async (operatorId) => {
   if (!supabase || !operatorId) return [];
 
-  const mapRows = (rows) => ensureArray(rows).map(mapUnlockedAthleteRow).filter(Boolean);
+  const mapRows = (rows) => normalizeUnlockedAthletes(rows);
 
   let apiResult = [];
   let apiError = null;
@@ -697,7 +732,32 @@ const fetchUnlockedAthletes = async (operatorId) => {
 
     if (error) throw error;
 
-    const fallbackResult = mapRows(data);
+    let fallbackResult = mapRows(data);
+
+    if (!fallbackResult.length) {
+      const { data: historyRows, error: historyError } = await supabase
+        .from('v_op_unlocks')
+        .select(
+          `athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)`
+        )
+        .eq('op_id', operatorId)
+        .order('unlocked_at', { ascending: false, nullsFirst: true });
+
+      if (
+        historyError &&
+        historyError.code !== 'PGRST205' &&
+        historyError.code !== '42P01' &&
+        historyError.code !== 'PGRST204' &&
+        historyError.code !== '42703'
+      ) {
+        throw historyError;
+      }
+
+      if (!historyError) {
+        fallbackResult = mapRows(historyRows);
+      }
+    }
+
     if (fallbackResult.length || !apiError) {
       return fallbackResult;
     }
@@ -1207,8 +1267,14 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
             <option value="">Select athlete…</option>
             {unlockedAthletes.map((row) => {
               const name = resolveAthleteName(row.athlete);
-              const label = row.expires_at
-                ? `${name} (unlock until ${new Date(row.expires_at).toLocaleDateString()})`
+              const expires = row.expires_at ? new Date(row.expires_at) : null;
+              const expiresValid = expires && !Number.isNaN(expires.getTime());
+              const expired = expiresValid && expires.getTime() <= Date.now();
+              const expiryLabel = expiresValid
+                ? expires.toLocaleDateString()
+                : null;
+              const label = expiryLabel
+                ? `${name} (unlock ${expired ? 'expired on' : 'until'} ${expiryLabel})`
                 : name;
               return (
                 <option key={row.athlete_id} value={row.athlete_id}>
