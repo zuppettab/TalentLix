@@ -626,13 +626,36 @@ const fetchUnlockStatus = async (operatorId, athleteId) => {
 
 const fetchUnlockedAthletes = async (operatorId) => {
   if (!supabase || !operatorId) return [];
-  const { data, error } = await supabase
-    .from('v_op_unlocks_active')
-    .select('athlete_id, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)')
-    .eq('op_id', operatorId)
-    .order('expires_at', { ascending: true });
-  if (error) throw error;
-  return ensureArray(data);
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token || null;
+  if (!accessToken) {
+    throw new Error('Session expired. Please sign in again to load unlocked athletes.');
+  }
+
+  const response = await fetch('/api/operator/unlocked-athletes', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const error = new Error(payload?.error || 'Unable to load unlocked athletes.');
+    if (payload?.code) error.code = payload.code;
+    if (payload?.details) error.details = payload.details;
+    throw error;
+  }
+
+  const rows = ensureArray(payload?.items);
+  return rows
+    .map((row) => ({
+      athlete_id: row?.athlete_id ?? row?.athlete?.id ?? null,
+      unlocked_at: row?.unlocked_at ?? null,
+      expires_at: row?.expires_at ?? null,
+      athlete: row?.athlete ?? null,
+    }))
+    .filter((row) => row.athlete_id);
 };
 
 const upsertBlock = async ({ operatorId, athleteId, action }) => {
