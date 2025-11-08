@@ -883,6 +883,16 @@ export default function MessagesPanel({ isMobile }) {
     }
   };
 
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileView('list');
+      return;
+    }
+    if (!selectedThread) {
+      setMobileView('list');
+    }
+  }, [isMobile, selectedThread?.id]);
+
   if (!supabase) {
     return (
       <div style={styles.card}>
@@ -927,16 +937,6 @@ export default function MessagesPanel({ isMobile }) {
   const blockOwnedByOperator = blockInfo?.blocked_by === 'OP';
   const canToggleBlock = !blockInfo || blockOwnedByAthlete;
   const blockButtonLabel = blockOwnedByAthlete ? 'Unblock' : blockOwnedByOperator ? 'Blocked' : 'Block';
-
-  useEffect(() => {
-    if (!isMobile) {
-      setMobileView('list');
-      return;
-    }
-    if (!selectedThread) {
-      setMobileView('list');
-    }
-  }, [isMobile, selectedThread?.id]);
 
   const handleMobileBack = () => {
     setMobileView('list');
