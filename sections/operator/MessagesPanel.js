@@ -451,6 +451,31 @@ const ensureArray = (value) => {
   return [value];
 };
 
+const DEBUG_NAMESPACE = 'OperatorMessagesPanel';
+
+const debugLog = (context, payload, ...rest) => {
+  if (typeof console?.debug !== 'function') return;
+  const prefix = `[${DEBUG_NAMESPACE}:${context}]`;
+  if (payload === undefined && rest.length === 0) {
+    console.debug(prefix);
+    return;
+  }
+  if (rest.length === 0) {
+    console.debug(prefix, payload);
+    return;
+  }
+  console.debug(prefix, payload, ...rest);
+};
+
+const summarizeUnlockRows = (rows, limit = 5) =>
+  ensureArray(rows)
+    .slice(0, limit)
+    .map((row) => ({
+      athlete_id: row?.athlete_id ?? row?.athlete?.id ?? null,
+      unlocked_at: row?.unlocked_at ?? null,
+      expires_at: row?.expires_at ?? null,
+    }));
+
 const getErrorMessage = (error, fallback = 'Unexpected error.') => {
   if (!error) return fallback;
   if (typeof error === 'string') return error;
@@ -468,6 +493,9 @@ const getErrorMessage = (error, fallback = 'Unexpected error.') => {
     return fallback;
   }
 };
+
+const UNLOCK_VIEW_SOURCES = ['v_op_unlocks_active', 'v_op_unlocks'];
+const UNLOCK_TABLE_FALLBACKS = ['op_unlocks', 'op_unlock'];
 
 const logSupabaseError = (context, error) => {
   if (!error) return;
@@ -681,12 +709,18 @@ const fetchUnlockStatus = async (operatorId, athleteId) => {
 };
 
 const fetchUnlockedAthletes = async (operatorId) => {
-  if (!supabase || !operatorId) return [];
+  if (!supabase || !operatorId) {
+    debugLog('fetchUnlockedAthletes:skip', { operatorId, supabaseReady: Boolean(supabase) });
+    return [];
+  }
 
   const mapRows = (rows) => normalizeUnlockedAthletes(rows);
+  const summarize = (rows) => summarizeUnlockRows(rows);
 
   let apiResult = [];
   let apiError = null;
+
+  debugLog('fetchUnlockedAthletes:api:begin', { operatorId });
 
   try {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -704,6 +738,14 @@ const fetchUnlockedAthletes = async (operatorId) => {
 
     const payload = await response.json().catch(() => ({}));
 
+    debugLog('fetchUnlockedAthletes:api:response', {
+      operatorId,
+      status: response.status,
+      ok: response.ok,
+      rawCount: ensureArray(payload?.items).length,
+      preview: summarize(payload?.items),
+    });
+
     if (!response.ok) {
       const error = new Error(payload?.error || 'Unable to load unlocked athletes.');
       if (payload?.code) error.code = payload.code;
@@ -713,62 +755,125 @@ const fetchUnlockedAthletes = async (operatorId) => {
 
     apiResult = mapRows(payload?.items);
     if (apiResult.length) {
+      debugLog('fetchUnlockedAthletes:api:resolved', {
+        operatorId,
+        count: apiResult.length,
+        preview: summarize(apiResult),
+      });
       return apiResult;
     }
   } catch (error) {
     apiError = error;
+    debugLog('fetchUnlockedAthletes:api:error', {
+      operatorId,
+      message: error?.message,
+      code: error?.code || null,
+      details: error?.details || null,
+    });
     logSupabaseError('fetchUnlockedAthletesApi', error);
   }
 
-  try {
-    const { data, error } = await supabase
-      .from('v_op_unlocks_active')
-      .select(
-        `athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)`
-      )
-      .eq('op_id', operatorId)
-      .order('expires_at', { ascending: true, nullsFirst: true })
-      .order('unlocked_at', { ascending: false, nullsFirst: true });
+  const runSupabaseUnlockQuery = async (source, options = {}) => {
+    const { includeExpiresOrder = true } = options || {};
+    const baseFields =
+      'athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)';
+    const minimalFields =
+      'athlete_id, unlocked_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)';
 
-    if (error) throw error;
-
-    let fallbackResult = mapRows(data);
-
-    if (!fallbackResult.length) {
-      const { data: historyRows, error: historyError } = await supabase
-        .from('v_op_unlocks')
-        .select(
-          `athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)`
-        )
-        .eq('op_id', operatorId)
-        .order('unlocked_at', { ascending: false, nullsFirst: true });
-
-      if (
-        historyError &&
-        historyError.code !== 'PGRST205' &&
-        historyError.code !== '42P01' &&
-        historyError.code !== 'PGRST204' &&
-        historyError.code !== '42703'
-      ) {
-        throw historyError;
+    const exec = async (fields, { orderExpires } = {}) => {
+      let query = supabase.from(source).select(fields).eq('op_id', operatorId);
+      if (orderExpires) {
+        query = query.order('expires_at', { ascending: true, nullsFirst: true });
       }
+      query = query.order('unlocked_at', { ascending: false, nullsFirst: true });
+      return query;
+    };
 
-      if (!historyError) {
-        fallbackResult = mapRows(historyRows);
+    const { data, error } = await exec(baseFields, { orderExpires: includeExpiresOrder });
+    if (!error) {
+      return { rows: ensureArray(data), meta: { fields: 'full', includeExpiresOrder } };
+    }
+
+    const code = typeof error.code === 'string' ? error.code.trim() : '';
+
+    if (code === '42703') {
+      const { data: minimalData, error: minimalError } = await exec(minimalFields, { orderExpires: false });
+      if (!minimalError) {
+        const patched = ensureArray(minimalData).map((row) => ({ ...row, expires_at: row.expires_at ?? null }));
+        return { rows: patched, meta: { fields: 'minimal', includeExpiresOrder: false, patchedExpires: true } };
+      }
+      throw minimalError;
+    }
+
+    if (code === '42P01' || code === 'PGRST205' || code === 'PGRST204') {
+      return { rows: [], meta: { fields: 'full', includeExpiresOrder, missing: true, code } };
+    }
+
+    throw error;
+  };
+
+  const supabaseSources = [
+    ...UNLOCK_VIEW_SOURCES.map((source, index) => ({
+      source,
+      label: `view.${index === 0 ? 'active' : 'history'}`,
+      includeExpiresOrder: index === 0,
+    })),
+    ...UNLOCK_TABLE_FALLBACKS.map((source) => ({
+      source,
+      label: `table.${source}`,
+      includeExpiresOrder: false,
+    })),
+  ];
+
+  for (const descriptor of supabaseSources) {
+    const { source, label, includeExpiresOrder } = descriptor;
+    try {
+      const outcome = await runSupabaseUnlockQuery(source, { includeExpiresOrder });
+      debugLog('fetchUnlockedAthletes:supabase:probe', {
+        operatorId,
+        source,
+        label,
+        meta: outcome.meta,
+        rawCount: outcome.rows.length,
+        preview: summarize(outcome.rows),
+      });
+      const normalized = mapRows(outcome.rows);
+      if (normalized.length) {
+        debugLog('fetchUnlockedAthletes:supabase:resolved', {
+          operatorId,
+          source,
+          label,
+          count: normalized.length,
+          preview: summarize(normalized),
+        });
+        return normalized;
+      }
+    } catch (error) {
+      debugLog('fetchUnlockedAthletes:supabase:error', {
+        operatorId,
+        source,
+        label,
+        message: error?.message,
+        code: error?.code || null,
+      });
+      logSupabaseError('fetchUnlockedAthletesFallback', error);
+      if (!apiError) {
+        throw error;
       }
     }
-
-    if (fallbackResult.length || !apiError) {
-      return fallbackResult;
-    }
-    return apiResult;
-  } catch (error) {
-    logSupabaseError('fetchUnlockedAthletesFallback', error);
-    if (!apiError) {
-      return apiResult;
-    }
-    throw apiError || error;
   }
+
+  if (apiError) {
+    debugLog('fetchUnlockedAthletes:fallback:apiErrorPropagation', {
+      operatorId,
+      message: apiError?.message,
+      code: apiError?.code || null,
+    });
+    throw apiError;
+  }
+
+  debugLog('fetchUnlockedAthletes:fallback:empty', { operatorId, apiResultCount: apiResult.length });
+  return apiResult;
 };
 
 const upsertBlock = async ({ operatorId, athleteId, action }) => {
@@ -982,15 +1087,30 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
   }, [operatorId, loadThreads]);
 
   const loadUnlocked = useCallback(async () => {
-    if (!operatorId || !supabase) return;
+    if (!operatorId || !supabase) {
+      debugLog('loadUnlocked:skip', { operatorId, supabaseReady: Boolean(supabase) });
+      return;
+    }
+    debugLog('loadUnlocked:start', { operatorId });
     setRefreshingUnlocks(true);
     setActionError(null);
     try {
       const rows = await fetchUnlockedAthletes(operatorId);
+      debugLog('loadUnlocked:success', {
+        operatorId,
+        count: rows.length,
+        preview: summarizeUnlockRows(rows),
+      });
       setUnlockedAthletes(rows);
     } catch (err) {
+      debugLog('loadUnlocked:error', {
+        operatorId,
+        message: err?.message,
+        code: err?.code || null,
+      });
       setActionError(err.message || 'Unable to load unlocked athletes.');
     } finally {
+      debugLog('loadUnlocked:finish', { operatorId });
       setRefreshingUnlocks(false);
     }
   }, [operatorId]);
@@ -1082,7 +1202,11 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
   }, [selectedThread?.id]);
 
   const handleSelectThread = (threadId) => {
-    if (!threadId) return;
+    if (!threadId) {
+      debugLog('selectThread:skip', { reason: 'missing_thread_id' });
+      return;
+    }
+    debugLog('selectThread', { threadId });
     setActionError(null);
     setMessagesError(null);
     setSelectedThreadId(threadId);
@@ -1092,9 +1216,27 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
   };
 
   const handleSend = async () => {
-    if (!selectedThread || !messageDraft.trim()) return;
-    if (!unlockStatus.active) return;
-    if (blockInfo && blockInfo.blocked_by && blockInfo.blocked_by !== 'OP') return;
+    if (!selectedThread || !messageDraft.trim()) {
+      debugLog('sendMessage:skip', {
+        reason: 'missing_thread_or_draft',
+        hasThread: Boolean(selectedThread),
+        draftLength: messageDraft.trim().length,
+      });
+      return;
+    }
+    if (!unlockStatus.active) {
+      debugLog('sendMessage:skip', { reason: 'unlock_inactive', threadId: selectedThread?.id });
+      return;
+    }
+    if (blockInfo && blockInfo.blocked_by && blockInfo.blocked_by !== 'OP') {
+      debugLog('sendMessage:skip', {
+        reason: 'blocked',
+        threadId: selectedThread?.id,
+        blockedBy: blockInfo.blocked_by,
+      });
+      return;
+    }
+    debugLog('sendMessage:start', { threadId: selectedThread.id, length: messageDraft.trim().length });
     setSending(true);
     setActionError(null);
     try {
@@ -1102,7 +1244,13 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
       setMessageDraft('');
       await refreshMessages(selectedThread);
       await loadThreads();
+      debugLog('sendMessage:success', { threadId: selectedThread.id });
     } catch (err) {
+      debugLog('sendMessage:error', {
+        threadId: selectedThread?.id || null,
+        message: err?.message,
+        code: err?.code || null,
+      });
       setActionError(err.message || 'Unable to send message.');
     } finally {
       setSending(false);
@@ -1110,7 +1258,11 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
   };
 
   const handleArchiveToggle = async (thread, archived) => {
-    if (!thread) return;
+    if (!thread) {
+      debugLog('archiveToggle:skip', { reason: 'missing_thread' });
+      return;
+    }
+    debugLog('archiveToggle:start', { threadId: thread.id, archived });
     try {
       await updateArchiveStatus({ threadId: thread.id, role: 'operator', archived });
       await loadThreads();
@@ -1119,42 +1271,84 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
       } else if (selectedThreadId === thread.id) {
         setSelectedThreadId(null);
       }
+      debugLog('archiveToggle:success', { threadId: thread.id, archived });
     } catch (err) {
+      debugLog('archiveToggle:error', {
+        threadId: thread?.id || null,
+        archived,
+        message: err?.message,
+        code: err?.code || null,
+      });
       setActionError(err.message || 'Unable to update archive state.');
     }
   };
 
   const handleBlockToggle = async (thread, blocked) => {
-    if (!thread) return;
+    if (!thread) {
+      debugLog('blockToggle:skip', { reason: 'missing_thread' });
+      return;
+    }
     const canToggle = !blockInfo || blockInfo.blocked_by === 'OP';
-    if (!canToggle) return;
+    if (!canToggle) {
+      debugLog('blockToggle:skip', {
+        reason: 'blocked_by_other',
+        threadId: thread.id,
+        blockedBy: blockInfo?.blocked_by || null,
+      });
+      return;
+    }
+    debugLog('blockToggle:start', { threadId: thread.id, blocked });
     try {
       await upsertBlock({ operatorId, athleteId: thread.athlete_id, action: blocked ? 'block' : 'unblock' });
       await loadThreads();
       if (selectedThreadId === thread.id) {
         await refreshMessages(thread);
       }
+      debugLog('blockToggle:success', { threadId: thread.id, blocked });
     } catch (err) {
+      debugLog('blockToggle:error', {
+        threadId: thread?.id || null,
+        blocked,
+        message: err?.message,
+        code: err?.code || null,
+      });
       setActionError(err.message || 'Unable to update block state.');
     }
   };
 
   const handleDelete = async (thread) => {
-    if (!thread) return;
+    if (!thread) {
+      debugLog('deleteThread:skip', { reason: 'missing_thread' });
+      return;
+    }
     const confirmation = typeof window === 'undefined' ? true : window.confirm('Delete conversation permanently?');
     if (!confirmation) return;
+    debugLog('deleteThread:start', { threadId: thread.id });
     try {
       await deleteConversation(thread.id);
       setSelectedThreadId((prev) => (prev === thread.id ? null : prev));
       await loadThreads();
       setMessages([]);
+      debugLog('deleteThread:success', { threadId: thread.id });
     } catch (err) {
+      debugLog('deleteThread:error', {
+        threadId: thread?.id || null,
+        message: err?.message,
+        code: err?.code || null,
+      });
       setActionError(err.message || 'Unable to delete conversation.');
     }
   };
 
   const handleStartConversation = async () => {
-    if (!selectedUnlockAthleteId) return;
+    if (!selectedUnlockAthleteId) {
+      debugLog('startConversation:skip', { reason: 'missing_athlete_selection' });
+      return;
+    }
+    debugLog('startConversation:start', {
+      operatorId,
+      athleteId: selectedUnlockAthleteId,
+    });
     setActionError(null);
     try {
       const thread = await ensureThread({ operatorId, athleteId: selectedUnlockAthleteId });
@@ -1165,7 +1359,18 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
       if (thread?.id && isMobile) {
         setMobileView('thread');
       }
+      debugLog('startConversation:success', {
+        operatorId,
+        athleteId: selectedUnlockAthleteId,
+        threadId: thread?.id || null,
+      });
     } catch (err) {
+      debugLog('startConversation:error', {
+        operatorId,
+        athleteId: selectedUnlockAthleteId,
+        message: err?.message,
+        code: err?.code || null,
+      });
       setActionError(err.message || 'Unable to start conversation.');
     }
   };

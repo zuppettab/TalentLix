@@ -62,6 +62,24 @@ const mapUnlockRows = (rows) => {
   return normalized;
 };
 
+const DEBUG_PREFIX = '[api/operator/unlocked-athletes]';
+const UNLOCK_VIEW_SOURCES = ['v_op_unlocks_active', 'v_op_unlocks'];
+const UNLOCK_TABLE_SOURCES = ['op_unlocks', 'op_unlock'];
+const SELECT_FIELDS_FULL =
+  'athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)';
+const SELECT_FIELDS_MIN =
+  'athlete_id, unlocked_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)';
+const IGNORABLE_CODES = new Set(['42P01', 'PGRST205', 'PGRST204']);
+
+const summarizeUnlockRows = (rows, limit = 5) =>
+  ensureArray(rows)
+    .slice(0, limit)
+    .map((row) => ({
+      athlete_id: row?.athlete_id ?? row?.athlete?.id ?? null,
+      unlocked_at: row?.unlocked_at ?? null,
+      expires_at: row?.expires_at ?? null,
+    }));
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
@@ -135,36 +153,101 @@ export default async function handler(req, res) {
       throw createHttpError(403, 'Operator account not found for the current user.');
     }
 
-    const loadViewRows = async (viewName) => {
-      const { data, error } = await client
-        .from(viewName)
-        .select(
-          'athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)'
-        )
-        .eq('op_id', operatorId)
-        .order('expires_at', { ascending: true, nullsFirst: true })
-        .order('unlocked_at', { ascending: false, nullsFirst: true });
+    console.debug(`${DEBUG_PREFIX} resolved operator`, { operatorId, userId: user.id });
 
+    const runUnlockSource = async (source, options = {}) => {
+      const { includeExpiresOrder = true } = options || {};
+
+      const buildQuery = (fields, orderExpires) => {
+        let query = client.from(source).select(fields).eq('op_id', operatorId);
+        if (orderExpires) {
+          query = query.order('expires_at', { ascending: true, nullsFirst: true });
+        }
+        query = query.order('unlocked_at', { ascending: false, nullsFirst: true });
+        return query;
+      };
+
+      const { data, error } = await buildQuery(SELECT_FIELDS_FULL, includeExpiresOrder);
       if (!error) {
-        return ensureArray(data);
+        return { rows: ensureArray(data), meta: { fields: 'full', includeExpiresOrder } };
       }
 
       const code = typeof error.code === 'string' ? error.code.trim() : '';
-      if (code && (code === '42P01' || code === 'PGRST205' || code === 'PGRST204' || code === '42703')) {
-        return [];
+
+      if (code === '42703') {
+        const { data: minimalData, error: minimalError } = await buildQuery(SELECT_FIELDS_MIN, false);
+        if (!minimalError) {
+          const patched = ensureArray(minimalData).map((row) => ({ ...row, expires_at: row.expires_at ?? null }));
+          return { rows: patched, meta: { fields: 'minimal', includeExpiresOrder: false, patchedExpires: true } };
+        }
+
+        const minimalCode = typeof minimalError?.code === 'string' ? minimalError.code.trim() : '';
+        if (minimalCode && IGNORABLE_CODES.has(minimalCode)) {
+          return {
+            rows: [],
+            meta: { fields: 'minimal', includeExpiresOrder: false, missing: true, code: minimalCode },
+          };
+        }
+
+        throw normalizeSupabaseError(`Unlocked athletes lookup (${source}, minimal)`, minimalError);
       }
 
-      throw normalizeSupabaseError(`Unlocked athletes lookup (${viewName})`, error);
+      if (code && IGNORABLE_CODES.has(code)) {
+        return { rows: [], meta: { fields: 'full', includeExpiresOrder, missing: true, code } };
+      }
+
+      throw normalizeSupabaseError(`Unlocked athletes lookup (${source})`, error);
     };
 
-    let unlockRows = await loadViewRows('v_op_unlocks_active');
+    const probeSource = async (source, label, options) => {
+      const outcome = await runUnlockSource(source, options);
+      console.debug(`${DEBUG_PREFIX} probe`, {
+        operatorId,
+        source,
+        label,
+        meta: outcome.meta,
+        count: outcome.rows.length,
+        preview: summarizeUnlockRows(outcome.rows),
+      });
+      return outcome;
+    };
 
-    if (!unlockRows.length) {
-      const fallbackRows = await loadViewRows('v_op_unlocks');
-      if (fallbackRows.length) {
-        unlockRows = fallbackRows;
+    let unlockRows = [];
+    let resolvedSource = null;
+    let resolvedMeta = null;
+
+    for (let index = 0; index < UNLOCK_VIEW_SOURCES.length; index += 1) {
+      const source = UNLOCK_VIEW_SOURCES[index];
+      const label = `view.${index === 0 ? 'active' : 'history'}`;
+      const outcome = await probeSource(source, label, { includeExpiresOrder: index === 0 });
+      if (outcome.rows.length) {
+        unlockRows = outcome.rows;
+        resolvedSource = label;
+        resolvedMeta = outcome.meta;
+        break;
       }
     }
+
+    if (!unlockRows.length) {
+      for (const source of UNLOCK_TABLE_SOURCES) {
+        const label = `table.${source}`;
+        const outcome = await probeSource(source, label, { includeExpiresOrder: false });
+        if (outcome.rows.length) {
+          unlockRows = outcome.rows;
+          resolvedSource = label;
+          resolvedMeta = outcome.meta;
+          break;
+        }
+      }
+    }
+
+    console.debug(`${DEBUG_PREFIX} dataset resolved`, {
+      operatorId,
+      source: resolvedSource,
+      meta: resolvedMeta,
+      count: unlockRows.length,
+      preview: summarizeUnlockRows(unlockRows),
+    });
 
     const items = mapUnlockRows(unlockRows);
 
