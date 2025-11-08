@@ -499,15 +499,30 @@ const fetchOperatorAccount = async (authUserId) => {
   return { id: data?.id ?? null };
 };
 
+const THREAD_SELECT_FIELDS = `
+  id,
+  op_id,
+  athlete_id,
+  created_at,
+  last_message_at,
+  last_message_text,
+  last_message_sender,
+  op_deleted_at,
+  athlete_deleted_at,
+  athlete:athlete_id(
+    id,
+    first_name,
+    last_name,
+    profile_picture_url
+  )
+`.trim();
+
 const fetchThreadsForOperator = async (operatorId) => {
   if (!supabase || !operatorId) return [];
   try {
     const { data, error } = await supabase
       .from('chat_thread')
-      .select(
-        `id, op_id, athlete_id, created_at, last_message_at, last_message_text, last_message_sender, op_deleted_at, athlete_deleted_at,
-       athlete:athlete_id(id, first_name, last_name, profile_picture_url)`
-      )
+      .select(THREAD_SELECT_FIELDS)
       .eq('op_id', operatorId)
       .order('last_message_at', { ascending: false, nullsFirst: false });
     if (error) throw error;
