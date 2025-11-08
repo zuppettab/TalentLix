@@ -417,27 +417,27 @@ const ensureArray = (value) => {
 };
 
 const fetchOperatorAccount = async (authUserId) => {
-  if (!supabase || !authUserId) return { id: null, display_name: null };
+  if (!supabase || !authUserId) return { id: null };
   const { data, error } = await supabase
     .from('op_account')
-    .select('id, display_name')
+    .select('id')
     .eq('auth_user_id', authUserId)
     .maybeSingle();
   if (error && error.code !== 'PGRST116') throw error;
   if (error && error.code === 'PGRST116') {
     const { data: latest } = await supabase
       .from('op_account')
-      .select('id, display_name, created_at')
+      .select('id, created_at')
       .eq('auth_user_id', authUserId)
       .order('created_at', { ascending: false })
       .limit(1);
     if (Array.isArray(latest) && latest[0]) {
-      const { id, display_name } = latest[0];
-      return { id, display_name };
+      const { id } = latest[0];
+      return { id };
     }
-    return { id: null, display_name: null };
+    return { id: null };
   }
-  return { id: data?.id ?? null, display_name: data?.display_name ?? null };
+  return { id: data?.id ?? null };
 };
 
 const fetchThreadsForOperator = async (operatorId) => {
@@ -637,7 +637,6 @@ const sendMessage = async ({ threadId, text, operatorId }) => {
 export default function MessagesPanel({ operatorData, authUser, isMobile }) {
   const [operatorAccount, setOperatorAccount] = useState(() => ({
     id: operatorData?.account?.id ?? null,
-    display_name: operatorData?.account?.display_name ?? null,
   }));
   const [loadingAccount, setLoadingAccount] = useState(false);
   const [accountError, setAccountError] = useState(null);
@@ -666,9 +665,8 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
     setOperatorAccount((prev) => ({
       ...prev,
       id: operatorData.account.id,
-      display_name: operatorData.account.display_name ?? prev.display_name ?? null,
     }));
-  }, [operatorData?.account?.id, operatorData?.account?.display_name]);
+  }, [operatorData?.account?.id]);
 
   useEffect(() => {
     if (!supabase || !authUser?.id || operatorAccount?.id) return;
