@@ -447,13 +447,13 @@ function PreviewCard({ athleteId }) {
       if (!response.ok) {
         if (payload?.code === 'insufficient_credits') {
           setUnlockError({
-            message: 'Crediti insufficienti. Vai al wallet per ricaricare e riprova.',
+            message: 'Insufficient credits. Go to the wallet to top up and try again.',
             reason: 'insufficient_credits',
           });
           return;
         }
 
-        setUnlockError({ message: payload?.error || 'Errore durante lo sblocco.', reason: 'generic' });
+        setUnlockError({ message: payload?.error || 'Error while unlocking.', reason: 'generic' });
         return;
       }
 
@@ -466,7 +466,7 @@ function PreviewCard({ athleteId }) {
       }
       await fetchWallet({ skipLoadingState: true });
     } catch (err) {
-      setUnlockError({ message: err.message || 'Errore durante lo sblocco.', reason: 'generic' });
+      setUnlockError({ message: err.message || 'Error while unlocking.', reason: 'generic' });
     } finally {
       setUnlocking(false);
     }
@@ -862,7 +862,7 @@ function PreviewCard({ athleteId }) {
               <div style={S.unlockError} role="alert">
                 <span>{unlockError.message}</span>
                 {unlockError.reason === 'insufficient_credits' && (
-                  <a href="/operator-dashboard?section=wallet" style={S.walletLink}>Vai al wallet</a>
+                  <a href="/operator-dashboard?section=wallet" style={S.walletLink}>Go to wallet</a>
                 )}
               </div>
             )}
