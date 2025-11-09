@@ -107,7 +107,7 @@ const styles = {
     overflowY: 'auto',
     padding: 8,
     display: 'grid',
-    gap: 6,
+    gap: 8,
   },
   listEmpty: {
     padding: '32px 20px',
@@ -121,11 +121,10 @@ const styles = {
     borderRadius: 14,
     background: '#fff',
     textAlign: 'left',
-    padding: '8px 12px',
+    padding: 12,
     display: 'grid',
-    gap: 4,
+    gap: 6,
     cursor: 'pointer',
-    alignItems: 'center',
     transition: 'border 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease',
   },
   conversationBtnActive: {
@@ -139,8 +138,8 @@ const styles = {
     gap: 10,
   },
   avatar: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: '50%',
     background: 'linear-gradient(135deg, rgba(39,227,218,0.32), rgba(15,23,42,0.08))',
     display: 'flex',
@@ -157,7 +156,7 @@ const styles = {
   },
   conversationTitle: {
     margin: 0,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 700,
     color: '#0f172a',
     display: 'flex',
@@ -175,7 +174,7 @@ const styles = {
   },
   conversationMeta: {
     margin: 0,
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748b',
     display: 'flex',
     gap: 6,
@@ -184,13 +183,9 @@ const styles = {
   },
   conversationPreview: {
     margin: 0,
-    fontSize: 12,
+    fontSize: 13,
     color: '#475569',
-    lineHeight: 1.3,
-    display: '-webkit-box',
-    WebkitLineClamp: 1,
-    WebkitBoxOrient: 'vertical',
-    overflow: 'hidden',
+    lineHeight: 1.4,
   },
   threadBody: {
     flex: 1,
@@ -448,39 +443,19 @@ const truncate = (value, max = MAX_PREVIEW) => {
 
 const initials = (name) => {
   if (!name) return '—';
-  const rawParts = String(name)
+  const parts = String(name)
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2);
-  if (rawParts.length === 0) return '—';
-  const parts = rawParts
-    .map((part) => part.replace(/[^a-zA-Z]/g, ''))
-    .filter(Boolean);
-  if (parts.length === 0) {
-    const firstChar = rawParts[0]?.[0];
-    return firstChar ? firstChar.toUpperCase() : '—';
-  }
+  if (parts.length === 0) return '—';
   return parts.map((part) => part[0]?.toUpperCase() || '').join('') || '—';
 };
 
-const resolveOperatorName = (thread) => {
-  if (!thread) return 'Unknown operator';
-  const operator = thread.operator || {};
+const resolveOperatorName = (operator) => {
+  if (!operator) return 'Unknown operator';
   const profile = operator.profile || {};
-  const display =
-    profile.trade_name?.trim() ||
-    profile.legal_name?.trim() ||
-    operator.display_name?.trim() ||
-    thread.operator_display_name?.trim();
-  if (display) return display;
-
-  const identifier = thread.op_id || operator.id;
-  if (identifier) {
-    const readable = String(identifier);
-    return readable.length > 8 ? `Operator ${readable.slice(0, 4)}…${readable.slice(-4)}` : `Operator ${readable}`;
-  }
-
-  return 'Unnamed operator';
+  const display = profile.trade_name?.trim() || profile.legal_name?.trim() || operator.display_name?.trim();
+  return display || 'Unnamed operator';
 };
 
 const fetchAthleteProfile = async (authUserId) => {
@@ -511,7 +486,7 @@ const fetchThreadsForAthlete = async (athleteId) => {
       .from('chat_thread')
       .select(
         `id, op_id, athlete_id, created_at, last_message_at, last_message_text, last_message_sender, op_deleted_at, athlete_deleted_at,
-       operator:op_id(id, display_name, profile:op_profile(legal_name, trade_name, logo_url))`
+       operator:op_id(id, profile:op_profile(legal_name, trade_name, logo_url))`
       )
       .eq('athlete_id', athleteId)
       .order('last_message_at', { ascending: false, nullsFirst: false });
@@ -959,7 +934,7 @@ export default function MessagesPanel({ isMobile }) {
   const composerDisabled =
     !selectedThread || (blockInfo && blockInfo.blocked_by && blockInfo.blocked_by !== 'ATHLETE');
 
-  const selectedName = selectedThread ? resolveOperatorName(selectedThread) : '';
+  const selectedName = selectedThread ? resolveOperatorName(selectedThread.operator) : '';
   const blockOwnedByAthlete = blockInfo?.blocked_by === 'ATHLETE';
   const blockOwnedByOperator = blockInfo?.blocked_by === 'OP';
   const canToggleBlock = !blockInfo || blockOwnedByAthlete;
@@ -1034,7 +1009,7 @@ export default function MessagesPanel({ isMobile }) {
             <div style={styles.listEmpty}>{filteredEmptyMessage}</div>
           ) : (
             filteredThreads.map((thread) => {
-              const name = resolveOperatorName(thread);
+              const name = resolveOperatorName(thread.operator);
               const preview = thread.last_message_text
                 ? `${thread.last_message_sender === 'ATHLETE' ? 'You: ' : ''}${truncate(thread.last_message_text)}`
                 : 'No messages yet';
@@ -1238,4 +1213,3 @@ export default function MessagesPanel({ isMobile }) {
     </div>
   );
 }
-
