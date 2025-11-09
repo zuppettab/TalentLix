@@ -458,6 +458,22 @@ const unwrapSingle = (value) => {
   return value ?? null;
 };
 
+const normalizeOperatorId = (value) => {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || null;
+  }
+  try {
+    const stringified = String(value);
+    const trimmed = stringified.trim();
+    return trimmed || null;
+  } catch (error) {
+    console.error('[MessagesPanel:normalizeOperatorId] Failed to normalize operator id', error, value);
+    return null;
+  }
+};
+
 const normalizeOperator = (operator) => {
   const base = unwrapSingle(operator);
   if (!base) return null;
@@ -588,7 +604,7 @@ const fetchThreadsForAthlete = async (athleteId) => {
     if (error) throw error;
     const rows = ensureArray(data).map((row) => ({
       ...row,
-      op_id: row?.op_id != null ? String(row.op_id) : null,
+      op_id: normalizeOperatorId(row?.op_id),
     }));
     rows.sort((a, b) => {
       const tsA = a?.last_message_at ? new Date(a.last_message_at).getTime() : 0;
@@ -612,7 +628,7 @@ const fetchBlockMapForAthlete = async (athleteId) => {
     if (error) throw error;
     const map = new Map();
     ensureArray(data).forEach((row) => {
-      const opId = row?.op_id != null ? String(row.op_id) : null;
+      const opId = normalizeOperatorId(row?.op_id);
       if (!opId) return;
       map.set(opId, { ...row, op_id: opId });
     });
@@ -791,7 +807,7 @@ export default function MessagesPanel({ isMobile }) {
       const operatorIds = Array.from(
         new Set(
           threadsResult
-            .map((thread) => (thread?.op_id != null ? String(thread.op_id) : null))
+            .map((thread) => normalizeOperatorId(thread?.op_id))
             .filter(Boolean)
         )
       );
