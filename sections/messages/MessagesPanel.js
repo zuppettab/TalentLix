@@ -470,9 +470,20 @@ const resolveOperatorName = (operator) => {
   const normalized = normalizeOperator(operator);
   if (!normalized) return 'Unknown operator';
   const profile = normalized.profile || {};
-  const display =
-    profile.trade_name?.trim() || profile.legal_name?.trim() || normalized.display_name?.trim();
-  return display || 'Unnamed operator';
+  const candidates = [
+    normalized.resolved_name,
+    normalized.name,
+    normalized.label,
+    profile.trade_name,
+    profile.legal_name,
+    normalized.display_name,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue;
+    const trimmed = candidate.trim();
+    if (trimmed) return trimmed;
+  }
+  return 'Unnamed operator';
 };
 
 const fetchAthleteProfile = async (authUserId) => {
@@ -496,21 +507,88 @@ const fetchAthleteProfile = async (authUserId) => {
   return data || null;
 };
 
+const fetchOperatorProfiles = async (operatorIds) => {
+  const unique = Array.from(
+    new Set(
+      ensureArray(operatorIds)
+        .map((value) => {
+          if (typeof value === 'string') {
+            const trimmed = value.trim();
+            return trimmed || null;
+          }
+          if (typeof value === 'number') {
+            return String(value);
+          }
+          return null;
+        })
+        .filter(Boolean)
+    )
+  );
+
+  if (!unique.length) {
+    return new Map();
+  }
+
+  try {
+    const response = await fetch('/api/athlete/operator-profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operatorIds: unique }),
+    });
+
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (parseError) {
+      console.error('[MessagesPanel:fetchOperatorProfiles] Failed to parse response', parseError);
+      payload = null;
+    }
+
+    if (!response.ok) {
+      const message =
+        typeof payload?.error === 'string' && payload.error
+          ? payload.error
+          : `Request failed with status ${response.status}`;
+      throw new Error(message);
+    }
+
+    const map = new Map();
+    ensureArray(payload?.operators).forEach((raw) => {
+      if (!raw || (typeof raw !== 'object' && !Array.isArray(raw))) return;
+      const candidate = normalizeOperator({
+        ...raw,
+        id:
+          typeof raw.id === 'string'
+            ? raw.id
+            : raw.id != null
+              ? String(raw.id)
+              : null,
+      });
+      if (candidate?.id) {
+        map.set(candidate.id, candidate);
+      }
+    });
+    return map;
+  } catch (error) {
+    console.error('[MessagesPanel:fetchOperatorProfiles] Failed to load operator profiles', error);
+    return new Map();
+  }
+};
+
 const fetchThreadsForAthlete = async (athleteId) => {
   if (!supabase || !athleteId) return [];
   try {
     const { data, error } = await supabase
       .from('chat_thread')
       .select(
-        `id, op_id, athlete_id, created_at, last_message_at, last_message_text, last_message_sender, op_deleted_at, athlete_deleted_at,
-       operator:op_id(id, profile:op_profile(legal_name, trade_name, logo_url))`
+        'id, op_id, athlete_id, created_at, last_message_at, last_message_text, last_message_sender, op_deleted_at, athlete_deleted_at'
       )
       .eq('athlete_id', athleteId)
       .order('last_message_at', { ascending: false, nullsFirst: false });
     if (error) throw error;
     const rows = ensureArray(data).map((row) => ({
       ...row,
-      operator: normalizeOperator(row.operator),
+      op_id: row?.op_id != null ? String(row.op_id) : null,
     }));
     rows.sort((a, b) => {
       const tsA = a?.last_message_at ? new Date(a.last_message_at).getTime() : 0;
@@ -534,7 +612,9 @@ const fetchBlockMapForAthlete = async (athleteId) => {
     if (error) throw error;
     const map = new Map();
     ensureArray(data).forEach((row) => {
-      map.set(row.op_id, row);
+      const opId = row?.op_id != null ? String(row.op_id) : null;
+      if (!opId) return;
+      map.set(opId, { ...row, op_id: opId });
     });
     return map;
   } catch (error) {
@@ -669,6 +749,7 @@ export default function MessagesPanel({ isMobile }) {
   const [actionError, setActionError] = useState(null);
   const [totalUnread, setTotalUnread] = useState(0);
   const [mobileView, setMobileView] = useState('list');
+  const operatorCacheRef = useRef(new Map());
 
   useEffect(() => {
     if (!supabase) {
@@ -707,6 +788,33 @@ export default function MessagesPanel({ isMobile }) {
     setThreadsError(null);
     try {
       const threadsResult = await fetchThreadsForAthlete(athleteId);
+      const operatorIds = Array.from(
+        new Set(
+          threadsResult
+            .map((thread) => (thread?.op_id != null ? String(thread.op_id) : null))
+            .filter(Boolean)
+        )
+      );
+
+      const operatorCache = operatorCacheRef.current;
+
+      let operatorMap = new Map();
+      if (operatorIds.length) {
+        const missing = operatorIds.filter((id) => !operatorCache.has(id));
+        if (missing.length) {
+          const fetched = await fetchOperatorProfiles(missing);
+          missing.forEach((id) => {
+            if (!fetched.has(id) && !operatorCache.has(id)) {
+              operatorCache.set(id, null);
+            }
+          });
+          fetched.forEach((value, key) => {
+            operatorCache.set(key, value || null);
+          });
+        }
+        operatorMap = new Map(operatorIds.map((id) => [id, operatorCache.get(id) || null]));
+      }
+
       const [blockMapOutcome, unreadOutcome] = await Promise.allSettled([
         fetchBlockMapForAthlete(athleteId),
         Promise.allSettled(
@@ -747,6 +855,7 @@ export default function MessagesPanel({ isMobile }) {
 
       const prepared = threadsResult.map((thread) => ({
         ...thread,
+        operator: normalizeOperator(operatorMap.get(thread.op_id) || null),
         unreadCount: unreadMap[thread.id] ?? 0,
         block: blockMap.get(thread.op_id) || null,
       }));
