@@ -173,8 +173,26 @@ const SELECT_FIELDS_FULL =
   'athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)';
 const SELECT_FIELDS_MIN =
   'athlete_id, unlocked_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)';
+const SELECT_FIELDS_BASIC = 'athlete_id, unlocked_at, expires_at';
 const SELECT_FIELDS_FALLBACK = '*';
 const IGNORABLE_CODES = new Set(['42P01', 'PGRST205', 'PGRST204']);
+const RELATIONSHIP_ERROR_CODES = new Set(['PGRST201', 'PGRST301']);
+
+const isRelationshipMissingError = (error) => {
+  const code = typeof error?.code === 'string' ? error.code.trim() : '';
+  if (code && RELATIONSHIP_ERROR_CODES.has(code)) {
+    return true;
+  }
+
+  const message = typeof error?.message === 'string' ? error.message.toLowerCase() : '';
+  if (!message) return false;
+
+  return (
+    message.includes('could not find a relationship between') ||
+    message.includes('no relationship found between') ||
+    message.includes('relationship between')
+  );
+};
 
 const summarizeUnlockRows = (rows, limit = 5) =>
   ensureArray(rows)
@@ -272,6 +290,44 @@ export default async function handler(req, res) {
         return query;
       };
 
+      const runBasicFallback = async (reason) => {
+        let query = client
+          .from(source)
+          .select(SELECT_FIELDS_BASIC)
+          .eq('op_id', operatorId)
+          .order('unlocked_at', { ascending: false, nullsFirst: true })
+          .limit(500);
+
+        const { data: basicData, error: basicError } = await query;
+        if (!basicError) {
+          const rows = ensureArray(basicData).map((row) => ({
+            ...row,
+            expires_at: row?.expires_at ?? null,
+          }));
+          return {
+            rows,
+            meta: { fields: 'basic', includeExpiresOrder: false, fallback: reason, missingRelationship: true },
+          };
+        }
+
+        const basicCode = typeof basicError?.code === 'string' ? basicError.code.trim() : '';
+        if (basicCode && IGNORABLE_CODES.has(basicCode)) {
+          return {
+            rows: [],
+            meta: {
+              fields: 'basic',
+              includeExpiresOrder: false,
+              missing: true,
+              code: basicCode,
+              fallback: reason,
+              missingRelationship: true,
+            },
+          };
+        }
+
+        throw normalizeSupabaseError(`Unlocked athletes lookup (${source}, basic)`, basicError);
+      };
+
       if (descriptor?.kind === 'table') {
         const { data, error } = await client
           .from(source)
@@ -306,6 +362,9 @@ export default async function handler(req, res) {
         }
 
         const minimalCode = typeof minimalError?.code === 'string' ? minimalError.code.trim() : '';
+        if (isRelationshipMissingError(minimalError)) {
+          return runBasicFallback('minimal');
+        }
         if (minimalCode && IGNORABLE_CODES.has(minimalCode)) {
           return {
             rows: [],
@@ -314,6 +373,10 @@ export default async function handler(req, res) {
         }
 
         throw normalizeSupabaseError(`Unlocked athletes lookup (${source}, minimal)`, minimalError);
+      }
+
+      if (isRelationshipMissingError(error)) {
+        return runBasicFallback('full');
       }
 
       if (code && IGNORABLE_CODES.has(code)) {
