@@ -81,6 +81,7 @@ const styles = {
   },
   tabBtn: {
     flex: 1,
+    minWidth: 110,
     border: '1px solid rgba(148,163,184,0.4)',
     background: '#fff',
     color: '#0f172a',
@@ -93,6 +94,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    whiteSpace: 'nowrap',
   },
   tabBtnActive: {
     borderColor: '#27E3DA',
