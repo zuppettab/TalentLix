@@ -4,32 +4,11 @@ import {
   normalizeSupabaseError,
   resolveAdminRequestContext,
 } from '../../../utils/internalEnablerApi';
-
-const DEFAULT_ID_COLUMNS = ['op_id', 'operator_id', 'op_account_id', 'operator_account_id'];
-const DEFAULT_EXPIRY_COLUMNS = [
-  'expires_at',
-  'expires_on',
-  'valid_until',
-  'valid_to',
-  'visibility_expires_at',
-  'access_expires_at',
-];
-
-const CANDIDATE_TABLES = [
-  { name: 'op_contact_unlock' },
-  { name: 'op_contact_unlocks' },
-  { name: 'op_unlock' },
-  { name: 'op_unlocks' },
-  { name: 'operator_contact_unlock' },
-  { name: 'operator_contact_unlocks' },
-  { name: 'op_athlete_unlock' },
-  { name: 'op_athlete_unlocks' },
-  { name: 'op_contact_unlock_history' },
-  { name: 'operator_unlock' },
-  { name: 'operator_unlocks' },
-  { name: 'v_op_unlocks_active', expiryColumns: ['expires_at'], optional: true },
-  { name: 'v_op_unlocks', expiryColumns: ['expires_at'], optional: true },
-];
+import {
+  DEFAULT_UNLOCK_EXPIRY_COLUMNS,
+  DEFAULT_UNLOCK_ID_COLUMNS,
+  OPERATOR_UNLOCK_SOURCE_CATALOG,
+} from '../../../utils/operatorUnlockSources';
 
 const ERROR_TABLE_MISSING = new Set(['42P01', 'PGRST205']);
 const ERROR_COLUMN_MISSING = new Set(['42703', 'PGRST204']);
@@ -147,10 +126,10 @@ export default async function handler(req, res) {
 
     const nowIso = new Date().toISOString();
 
-    for (const candidate of CANDIDATE_TABLES) {
+    for (const candidate of OPERATOR_UNLOCK_SOURCE_CATALOG) {
       const tableName = candidate.name;
-      const idColumns = normalizeColumns(candidate.columns, DEFAULT_ID_COLUMNS);
-      const expiryColumns = normalizeColumns(candidate.expiryColumns, DEFAULT_EXPIRY_COLUMNS);
+      const idColumns = normalizeColumns(candidate.columns, DEFAULT_UNLOCK_ID_COLUMNS);
+      const expiryColumns = normalizeColumns(candidate.expiryColumns, DEFAULT_UNLOCK_EXPIRY_COLUMNS);
 
       const summary = {
         table: tableName,

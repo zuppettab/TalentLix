@@ -4,6 +4,10 @@ import {
   normalizeSupabaseError,
 } from '../../../utils/internalEnablerApi';
 import { resolveOperatorRequestContext } from '../../../utils/operatorApi';
+import {
+  OPERATOR_UNLOCK_TABLE_SOURCES,
+  OPERATOR_UNLOCK_VIEW_SOURCES,
+} from '../../../utils/operatorUnlockSources';
 
 const ensureArray = (value) => {
   if (Array.isArray(value)) return value;
@@ -63,8 +67,6 @@ const mapUnlockRows = (rows) => {
 };
 
 const DEBUG_PREFIX = '[api/operator/unlocked-athletes]';
-const UNLOCK_VIEW_SOURCES = ['v_op_unlocks_active', 'v_op_unlocks'];
-const UNLOCK_TABLE_SOURCES = ['op_unlocks', 'op_unlock'];
 const SELECT_FIELDS_FULL =
   'athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)';
 const SELECT_FIELDS_MIN =
@@ -199,12 +201,14 @@ export default async function handler(req, res) {
       throw normalizeSupabaseError(`Unlocked athletes lookup (${source})`, error);
     };
 
-    const probeSource = async (source, label, options) => {
+    const probeSource = async (descriptor, label, options) => {
+      const source = descriptor?.name ?? label;
       const outcome = await runUnlockSource(source, options);
       console.debug(`${DEBUG_PREFIX} probe`, {
         operatorId,
         source,
         label,
+        optional: Boolean(descriptor?.optional),
         meta: outcome.meta,
         count: outcome.rows.length,
         preview: summarizeUnlockRows(outcome.rows),
@@ -216,10 +220,11 @@ export default async function handler(req, res) {
     let resolvedSource = null;
     let resolvedMeta = null;
 
-    for (let index = 0; index < UNLOCK_VIEW_SOURCES.length; index += 1) {
-      const source = UNLOCK_VIEW_SOURCES[index];
-      const label = `view.${index === 0 ? 'active' : 'history'}`;
-      const outcome = await probeSource(source, label, { includeExpiresOrder: index === 0 });
+    for (let index = 0; index < OPERATOR_UNLOCK_VIEW_SOURCES.length; index += 1) {
+      const descriptor = OPERATOR_UNLOCK_VIEW_SOURCES[index];
+      const source = descriptor?.name ?? `view.${index}`;
+      const label = `view.${source}`;
+      const outcome = await probeSource(descriptor, label, { includeExpiresOrder: index === 0 });
       if (outcome.rows.length) {
         unlockRows = outcome.rows;
         resolvedSource = label;
@@ -229,9 +234,10 @@ export default async function handler(req, res) {
     }
 
     if (!unlockRows.length) {
-      for (const source of UNLOCK_TABLE_SOURCES) {
+      for (const descriptor of OPERATOR_UNLOCK_TABLE_SOURCES) {
+        const source = descriptor?.name ?? 'table.unknown';
         const label = `table.${source}`;
-        const outcome = await probeSource(source, label, { includeExpiresOrder: false });
+        const outcome = await probeSource(descriptor, label, { includeExpiresOrder: false });
         if (outcome.rows.length) {
           unlockRows = outcome.rows;
           resolvedSource = label;
