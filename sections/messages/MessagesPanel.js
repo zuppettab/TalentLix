@@ -134,18 +134,19 @@ const styles = {
   },
   conversationHeader: {
     display: 'flex',
-    alignItems: 'center',
-    gap: 10,
+    alignItems: 'flex-start',
+    gap: 14,
   },
   avatar: {
-    width: 40,
-    height: 40,
+    width: 52,
+    height: 52,
     borderRadius: '50%',
     background: 'linear-gradient(135deg, rgba(39,227,218,0.32), rgba(15,23,42,0.08))',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     fontWeight: 700,
+    fontSize: 16,
     color: '#027373',
     overflow: 'hidden',
   },
@@ -154,14 +155,42 @@ const styles = {
     height: '100%',
     objectFit: 'cover',
   },
+  conversationContent: {
+    flex: 1,
+    minWidth: 0,
+    display: 'grid',
+    gap: 6,
+  },
+  conversationTop: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  conversationTopLeft: {
+    display: 'grid',
+    gap: 2,
+    minWidth: 0,
+    flex: 1,
+  },
+  conversationTopRight: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  conversationTitleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
   conversationTitle: {
     margin: 0,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: 700,
     color: '#0f172a',
-    display: 'flex',
-    gap: 6,
-    alignItems: 'center',
+    letterSpacing: '-0.01em',
   },
   unreadBadge: {
     display: 'inline-flex',
@@ -172,12 +201,31 @@ const styles = {
     fontSize: 11,
     fontWeight: 700,
   },
-  conversationMeta: {
+  legalName: {
+    margin: 0,
+    fontSize: 13,
+    color: '#334155',
+    opacity: 0.85,
+    fontWeight: 500,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  locationText: {
     margin: 0,
     fontSize: 12,
     color: '#64748b',
     display: 'flex',
     gap: 6,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  conversationMeta: {
+    margin: 0,
+    fontSize: 12,
+    color: '#64748b',
+    display: 'flex',
+    gap: 8,
     alignItems: 'center',
     flexWrap: 'wrap',
   },
@@ -186,6 +234,19 @@ const styles = {
     fontSize: 13,
     color: '#475569',
     lineHeight: 1.4,
+  },
+  entityTag: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '4px 10px',
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: '.04em',
+    textTransform: 'uppercase',
+    background: 'linear-gradient(120deg, rgba(39,227,218,0.24), rgba(2,115,115,0.12))',
+    color: '#045f5f',
   },
   threadBody: {
     flex: 1,
@@ -458,6 +519,40 @@ const unwrapSingle = (value) => {
   return value ?? null;
 };
 
+const sanitizeString = (value) => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+};
+
+const sanitizeProfile = (profile) => {
+  if (!profile || typeof profile !== 'object') return null;
+  return {
+    legal_name: sanitizeString(profile.legal_name),
+    trade_name: sanitizeString(profile.trade_name),
+    logo_url: sanitizeString(profile.logo_url),
+    city: sanitizeString(profile.city),
+    state_region: sanitizeString(profile.state_region),
+    country: sanitizeString(profile.country),
+  };
+};
+
+const sanitizeType = (type) => {
+  if (!type || typeof type !== 'object') return null;
+  return {
+    code: sanitizeString(type.code),
+    name: sanitizeString(type.name),
+  };
+};
+
+const pickFirstNonEmpty = (...values) => {
+  for (const value of values) {
+    const normalized = sanitizeString(value);
+    if (normalized) return normalized;
+  }
+  return null;
+};
+
 const normalizeOperatorId = (value) => {
   if (value == null) return null;
   if (typeof value === 'string') {
@@ -478,8 +573,12 @@ const normalizeOperator = (operator) => {
   const base = unwrapSingle(operator);
   if (!base) return null;
   const profile = unwrapSingle(base.profile);
-  const normalizedProfile = profile && typeof profile === 'object' ? profile : null;
-  return { ...base, profile: normalizedProfile };
+  const type = unwrapSingle(base.type);
+  return {
+    ...base,
+    profile: sanitizeProfile(profile),
+    type: sanitizeType(type),
+  };
 };
 
 const isDevEnvironment = process.env.NODE_ENV !== 'production';
@@ -512,6 +611,41 @@ const resolveOperatorName = (operator) => {
     }
   }
   return 'Unnamed operator';
+};
+
+const resolveTradeName = (operator, fallback) => {
+  const profile = operator?.profile || {};
+  return pickFirstNonEmpty(profile.trade_name, fallback, profile.legal_name, operator?.resolved_name, operator?.name);
+};
+
+const resolveLegalName = (operator) => {
+  const profile = operator?.profile || {};
+  const legal = sanitizeString(profile.legal_name);
+  const trade = sanitizeString(profile.trade_name);
+  if (legal && legal !== trade) return legal;
+  return null;
+};
+
+const formatLocation = (profile) => {
+  if (!profile) return '';
+  const parts = [profile.city, profile.country, profile.state_region]
+    .map((value) => sanitizeString(value))
+    .filter(Boolean);
+  if (!parts.length) return '';
+  return parts.join(' · ');
+};
+
+const resolveEntityTypeLabel = (operator) => {
+  const type = operator?.type || {};
+  const direct = sanitizeString(type.name);
+  if (direct) return direct;
+  const code = sanitizeString(type.code);
+  if (!code) return null;
+  return code
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .map((chunk) => (chunk ? chunk[0].toUpperCase() + chunk.slice(1).toLowerCase() : ''))
+    .join(' ');
 };
 
 const fetchAthleteProfile = async (authUserId) => {
@@ -621,10 +755,14 @@ const fetchThreadsForAthlete = async (athleteId) => {
           athlete_deleted_at,
           operator:op_id(
             id,
+            type:op_type(code, name),
             profile:op_profile(
               legal_name,
               trade_name,
-              logo_url
+              logo_url,
+              city,
+              state_region,
+              country
             )
           )
         `
@@ -1211,7 +1349,15 @@ export default function MessagesPanel({ isMobile }) {
                 : 'No messages yet';
               const isSelected = selectedThreadId === thread.id;
               const blocked = !!thread.block;
-              const logoUrl = thread.operator?.profile?.logo_url;
+              const profile = thread.operator?.profile || {};
+              const logoUrl = profile?.logo_url || null;
+              const tradeName = resolveTradeName(thread.operator, name) || name;
+              const legalName = resolveLegalName(thread.operator);
+              const location = formatLocation(profile);
+              const entityTypeLabel = resolveEntityTypeLabel(thread.operator);
+              const timestampLabel = formatDateTime(thread.last_message_at || thread.created_at);
+              const avatarAlt = pickFirstNonEmpty(tradeName, legalName, name) || 'Operator logo';
+              const avatarInitials = initials(tradeName || name);
               return (
                 <button
                   key={thread.id}
@@ -1225,20 +1371,31 @@ export default function MessagesPanel({ isMobile }) {
                   <div style={styles.conversationHeader}>
                     <div style={styles.avatar}>
                       {logoUrl ? (
-                        <img src={logoUrl} alt={name} style={styles.avatarImg} />
+                        <img src={logoUrl} alt={avatarAlt} style={styles.avatarImg} />
                       ) : (
-                        initials(name)
+                        avatarInitials
                       )}
                     </div>
-                    <div>
-                      <p style={styles.conversationTitle}>
-                        {name}
-                        {thread.unreadCount > 0 && (
-                          <span style={styles.unreadBadge}>{thread.unreadCount}</span>
-                        )}
-                      </p>
+                    <div style={styles.conversationContent}>
+                      <div style={styles.conversationTop}>
+                        <div style={styles.conversationTopLeft}>
+                          <div style={styles.conversationTitleRow}>
+                            <span style={styles.conversationTitle}>{tradeName}</span>
+                            {thread.unreadCount > 0 && (
+                              <span style={styles.unreadBadge}>{thread.unreadCount}</span>
+                            )}
+                          </div>
+                          {legalName && <p style={styles.legalName}>{legalName}</p>}
+                        </div>
+                        {entityTypeLabel ? (
+                          <div style={styles.conversationTopRight}>
+                            <span style={styles.entityTag}>{entityTypeLabel}</span>
+                          </div>
+                        ) : null}
+                      </div>
+                      {location && <p style={styles.locationText}>{location}</p>}
                       <p style={styles.conversationMeta}>
-                        <span>{formatDateTime(thread.last_message_at || thread.created_at)}</span>
+                        <span>{timestampLabel}</span>
                         {blocked && <span>Blocked</span>}
                       </p>
                     </div>

@@ -52,6 +52,23 @@ const normalizeOperatorRow = (row) => {
         legal_name: pickString(profileCandidate.legal_name),
         trade_name: pickString(profileCandidate.trade_name),
         logo_url: pickString(profileCandidate.logo_url),
+        city: pickString(profileCandidate.city),
+        state_region: pickString(profileCandidate.state_region),
+        country: pickString(profileCandidate.country),
+      }
+    : null;
+
+  const typeCandidate = (() => {
+    if (!row?.type) return null;
+    if (typeof row.type === 'object' && !Array.isArray(row.type)) return row.type;
+    const arr = ensureArray(row.type);
+    return arr.length ? arr[0] : null;
+  })();
+
+  const type = typeCandidate
+    ? {
+        code: pickString(typeCandidate.code),
+        name: pickString(typeCandidate.name),
       }
     : null;
 
@@ -60,6 +77,7 @@ const normalizeOperatorRow = (row) => {
   return {
     id,
     resolved_name: resolvedName,
+    type,
     profile,
   };
 };
@@ -87,7 +105,9 @@ export default async function handler(req, res) {
   try {
     const { data, error } = await serviceClient
       .from('op_account')
-      .select('id, op_profile(legal_name, trade_name, logo_url)')
+      .select(
+        `id, type:op_type(code, name), op_profile(legal_name, trade_name, logo_url, city, state_region, country)`
+      )
       .in('id', operatorIds);
 
     if (error) {
