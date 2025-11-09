@@ -1517,6 +1517,19 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
         </div>
         <div style={styles.newConversationCard}>
           <div style={styles.helperText}>Start a new conversation with an unlocked athlete.</div>
+          {actionError && (
+            <div
+              style={{
+                marginTop: 6,
+                marginBottom: 10,
+                color: '#b91c1c',
+                fontWeight: 600,
+                fontSize: 13,
+              }}
+            >
+              {actionError}
+            </div>
+          )}
           <div style={styles.selectRow}>
             <select
               value={selectedUnlockAthleteId}
