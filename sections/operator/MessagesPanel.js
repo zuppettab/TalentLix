@@ -494,9 +494,6 @@ const getErrorMessage = (error, fallback = 'Unexpected error.') => {
   }
 };
 
-const UNLOCK_VIEW_SOURCES = ['v_op_unlocks_active', 'v_op_unlocks'];
-const UNLOCK_TABLE_FALLBACKS = ['op_unlocks', 'op_unlock'];
-
 const logSupabaseError = (context, error) => {
   if (!error) return;
   const message = getErrorMessage(error);
@@ -718,9 +715,6 @@ const fetchUnlockedAthletes = async (operatorId, options = {}) => {
   const summarize = (rows) => summarizeUnlockRows(rows);
 
   const { accessToken: providedAccessToken } = options || {};
-
-  let apiResult = [];
-  let apiError = null;
   let accessToken = providedAccessToken || null;
 
   debugLog('fetchUnlockedAthletes:api:begin', { operatorId });
@@ -762,17 +756,16 @@ const fetchUnlockedAthletes = async (operatorId, options = {}) => {
       throw error;
     }
 
-    apiResult = mapRows(payload?.items);
-    if (apiResult.length) {
-      debugLog('fetchUnlockedAthletes:api:resolved', {
-        operatorId,
-        count: apiResult.length,
-        preview: summarize(apiResult),
-      });
-      return apiResult;
-    }
+    const items = mapRows(payload?.items);
+
+    debugLog('fetchUnlockedAthletes:api:resolved', {
+      operatorId,
+      count: items.length,
+      preview: summarize(items),
+    });
+
+    return items;
   } catch (error) {
-    apiError = error;
     debugLog('fetchUnlockedAthletes:api:error', {
       operatorId,
       message: error?.message,
@@ -780,124 +773,8 @@ const fetchUnlockedAthletes = async (operatorId, options = {}) => {
       details: error?.details || null,
     });
     logSupabaseError('fetchUnlockedAthletesApi', error);
-  }
-
-  if (apiError) {
-    const authCodes = new Set(['AUTH_SESSION_MISSING', 'AUTH_TOKEN_EXPIRED', 'AUTH_TOKEN_MISSING']);
-    const authStatuses = new Set([401, 403]);
-    const errorCode = typeof apiError.code === 'string' ? apiError.code.trim() : '';
-    const errorStatus = typeof apiError.status === 'number' ? apiError.status : null;
-    if ((errorCode && authCodes.has(errorCode)) || (errorStatus && authStatuses.has(errorStatus))) {
-      debugLog('fetchUnlockedAthletes:api:authError', {
-        operatorId,
-        code: errorCode || null,
-        status: errorStatus,
-      });
-      throw apiError;
-    }
-  }
-
-  const runSupabaseUnlockQuery = async (source, options = {}) => {
-    const { includeExpiresOrder = true } = options || {};
-    const baseFields =
-      'athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)';
-    const minimalFields =
-      'athlete_id, unlocked_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)';
-
-    const exec = async (fields, { orderExpires } = {}) => {
-      let query = supabase.from(source).select(fields).eq('op_id', operatorId);
-      if (orderExpires) {
-        query = query.order('expires_at', { ascending: true, nullsFirst: true });
-      }
-      query = query.order('unlocked_at', { ascending: false, nullsFirst: true });
-      return query;
-    };
-
-    const { data, error } = await exec(baseFields, { orderExpires: includeExpiresOrder });
-    if (!error) {
-      return { rows: ensureArray(data), meta: { fields: 'full', includeExpiresOrder } };
-    }
-
-    const code = typeof error.code === 'string' ? error.code.trim() : '';
-
-    if (code === '42703') {
-      const { data: minimalData, error: minimalError } = await exec(minimalFields, { orderExpires: false });
-      if (!minimalError) {
-        const patched = ensureArray(minimalData).map((row) => ({ ...row, expires_at: row.expires_at ?? null }));
-        return { rows: patched, meta: { fields: 'minimal', includeExpiresOrder: false, patchedExpires: true } };
-      }
-      throw minimalError;
-    }
-
-    if (code === '42P01' || code === 'PGRST205' || code === 'PGRST204') {
-      return { rows: [], meta: { fields: 'full', includeExpiresOrder, missing: true, code } };
-    }
-
     throw error;
-  };
-
-  const supabaseSources = [
-    ...UNLOCK_VIEW_SOURCES.map((source, index) => ({
-      source,
-      label: `view.${index === 0 ? 'active' : 'history'}`,
-      includeExpiresOrder: index === 0,
-    })),
-    ...UNLOCK_TABLE_FALLBACKS.map((source) => ({
-      source,
-      label: `table.${source}`,
-      includeExpiresOrder: false,
-    })),
-  ];
-
-  for (const descriptor of supabaseSources) {
-    const { source, label, includeExpiresOrder } = descriptor;
-    try {
-      const outcome = await runSupabaseUnlockQuery(source, { includeExpiresOrder });
-      debugLog('fetchUnlockedAthletes:supabase:probe', {
-        operatorId,
-        source,
-        label,
-        meta: outcome.meta,
-        rawCount: outcome.rows.length,
-        preview: summarize(outcome.rows),
-      });
-      const normalized = mapRows(outcome.rows);
-      if (normalized.length) {
-        debugLog('fetchUnlockedAthletes:supabase:resolved', {
-          operatorId,
-          source,
-          label,
-          count: normalized.length,
-          preview: summarize(normalized),
-        });
-        return normalized;
-      }
-    } catch (error) {
-      debugLog('fetchUnlockedAthletes:supabase:error', {
-        operatorId,
-        source,
-        label,
-        message: error?.message,
-        code: error?.code || null,
-      });
-      logSupabaseError('fetchUnlockedAthletesFallback', error);
-      if (!apiError) {
-        throw error;
-      }
-    }
   }
-
-  if (apiError) {
-    debugLog('fetchUnlockedAthletes:fallback:apiErrorPropagation', {
-      operatorId,
-      message: apiError?.message,
-      code: apiError?.code || null,
-    });
-    throw apiError;
-  }
-
-  debugLog('fetchUnlockedAthletes:fallback:empty', { operatorId, apiResultCount: apiResult.length });
-  return apiResult;
 };
 
 const upsertBlock = async ({ operatorId, athleteId, action }) => {
