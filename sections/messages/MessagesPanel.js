@@ -451,10 +451,27 @@ const initials = (name) => {
   return parts.map((part) => part[0]?.toUpperCase() || '').join('') || '—';
 };
 
+const unwrapSingle = (value) => {
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value[0] ?? null : null;
+  }
+  return value ?? null;
+};
+
+const normalizeOperator = (operator) => {
+  const base = unwrapSingle(operator);
+  if (!base) return null;
+  const profile = unwrapSingle(base.profile);
+  const normalizedProfile = profile && typeof profile === 'object' ? profile : null;
+  return { ...base, profile: normalizedProfile };
+};
+
 const resolveOperatorName = (operator) => {
-  if (!operator) return 'Unknown operator';
-  const profile = operator.profile || {};
-  const display = profile.trade_name?.trim() || profile.legal_name?.trim() || operator.display_name?.trim();
+  const normalized = normalizeOperator(operator);
+  if (!normalized) return 'Unknown operator';
+  const profile = normalized.profile || {};
+  const display =
+    profile.trade_name?.trim() || profile.legal_name?.trim() || normalized.display_name?.trim();
   return display || 'Unnamed operator';
 };
 
@@ -491,7 +508,10 @@ const fetchThreadsForAthlete = async (athleteId) => {
       .eq('athlete_id', athleteId)
       .order('last_message_at', { ascending: false, nullsFirst: false });
     if (error) throw error;
-    const rows = ensureArray(data);
+    const rows = ensureArray(data).map((row) => ({
+      ...row,
+      operator: normalizeOperator(row.operator),
+    }));
     rows.sort((a, b) => {
       const tsA = a?.last_message_at ? new Date(a.last_message_at).getTime() : 0;
       const tsB = b?.last_message_at ? new Date(b.last_message_at).getTime() : 0;
