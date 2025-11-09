@@ -996,7 +996,7 @@ export default function MessagesPanel({ isMobile }) {
             onClick={loadThreads}
             style={styles.secondaryBtn}
           >
-            <RefreshCcw size={5} />
+            <RefreshCcw size={15} />
           </button>
         </div>
         {threadsError && <div style={styles.errorText}>{threadsError}</div>}
