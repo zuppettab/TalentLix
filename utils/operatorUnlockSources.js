@@ -14,6 +14,21 @@ export const DEFAULT_UNLOCK_EXPIRY_COLUMNS = [
   'access_expires_at',
 ];
 
+export const DEFAULT_UNLOCK_ATHLETE_ID_COLUMNS = [
+  'athlete_id',
+  'athlete_uuid',
+  'athlete_profile_id',
+  'athlete_profile_uuid',
+  'talent_id',
+  'talent_uuid',
+  'player_id',
+  'player_uuid',
+  'profile_id',
+  'profile_uuid',
+  'candidate_id',
+  'candidate_uuid',
+];
+
 export const OPERATOR_UNLOCK_SOURCE_CATALOG = [
   { name: 'op_contact_unlock', kind: 'table' },
   { name: 'op_contact_unlocks', kind: 'table' },
@@ -41,6 +56,7 @@ export const OPERATOR_UNLOCK_TABLE_SOURCES = OPERATOR_UNLOCK_SOURCE_CATALOG.filt
 export default {
   DEFAULT_UNLOCK_ID_COLUMNS,
   DEFAULT_UNLOCK_EXPIRY_COLUMNS,
+  DEFAULT_UNLOCK_ATHLETE_ID_COLUMNS,
   OPERATOR_UNLOCK_SOURCE_CATALOG,
   OPERATOR_UNLOCK_VIEW_SOURCES,
   OPERATOR_UNLOCK_TABLE_SOURCES,

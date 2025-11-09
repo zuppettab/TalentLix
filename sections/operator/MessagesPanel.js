@@ -14,6 +14,7 @@ import {
   ShieldOff,
   Trash2,
 } from 'lucide-react';
+import { DEFAULT_UNLOCK_ATHLETE_ID_COLUMNS } from '../../utils/operatorUnlockSources';
 import { supabase } from '../../utils/supabaseClient';
 
 const MAX_PREVIEW = 160;
@@ -339,6 +340,19 @@ const styles = {
     padding: '8px 10px',
     fontSize: 13,
     width: '100%',
+    flex: '1 1 auto',
+    minWidth: 0,
+  },
+  selectRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  selectCount: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
   },
   metaLine: {
     fontSize: 12,
@@ -451,6 +465,105 @@ const ensureArray = (value) => {
   return [value];
 };
 
+const isPlainObject = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value));
+
+const coerceAthleteIdentifier = (value) => {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  return null;
+};
+
+const RELATED_UNLOCK_FIELDS = ['athlete', 'profile', 'athlete_profile', 'talent', 'player', 'candidate', 'contact'];
+
+const resolveNestedAthleteId = (value) => {
+  if (!isPlainObject(value)) {
+    return coerceAthleteIdentifier(value);
+  }
+
+  for (const key of ['id', ...DEFAULT_UNLOCK_ATHLETE_ID_COLUMNS]) {
+    if (!(key in value)) continue;
+    const candidate = resolveNestedAthleteId(value[key]);
+    if (candidate != null) {
+      return candidate;
+    }
+  }
+
+  for (const field of RELATED_UNLOCK_FIELDS) {
+    if (!(field in value)) continue;
+    const nested = resolveNestedAthleteId(value[field]);
+    if (nested != null) {
+      return nested;
+    }
+  }
+
+  return null;
+};
+
+const mapAthleteDetails = (athlete) => {
+  if (!isPlainObject(athlete)) return null;
+
+  const pickString = (candidates) => {
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string') {
+        const trimmed = candidate.trim();
+        if (trimmed) return trimmed;
+      }
+    }
+    return null;
+  };
+
+  return {
+    id: resolveNestedAthleteId(athlete),
+    first_name: pickString([athlete.first_name, athlete.firstName, athlete.given_name, athlete.givenName]),
+    last_name: pickString([athlete.last_name, athlete.lastName, athlete.family_name, athlete.familyName]),
+    profile_picture_url: pickString([
+      athlete.profile_picture_url,
+      athlete.profilePictureUrl,
+      athlete.avatar_url,
+      athlete.avatarUrl,
+    ]),
+  };
+};
+
+const resolveAthleteDetailsFromRow = (row) => {
+  if (!isPlainObject(row)) return mapAthleteDetails(row);
+
+  for (const field of RELATED_UNLOCK_FIELDS) {
+    const mapped = mapAthleteDetails(row[field]);
+    if (mapped) return mapped;
+  }
+
+  return mapAthleteDetails(row);
+};
+
+const resolveAthleteIdFromRow = (row) => {
+  if (!isPlainObject(row)) return null;
+
+  for (const column of DEFAULT_UNLOCK_ATHLETE_ID_COLUMNS) {
+    if (!(column in row)) continue;
+    const candidate = resolveNestedAthleteId(row[column]);
+    if (candidate != null) {
+      return candidate;
+    }
+  }
+
+  for (const field of RELATED_UNLOCK_FIELDS) {
+    if (!(field in row)) continue;
+    const candidate = resolveNestedAthleteId(row[field]);
+    if (candidate != null) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
 const DEBUG_NAMESPACE = 'OperatorMessagesPanel';
 
 const debugLog = (context, payload, ...rest) => {
@@ -471,7 +584,7 @@ const summarizeUnlockRows = (rows, limit = 5) =>
   ensureArray(rows)
     .slice(0, limit)
     .map((row) => ({
-      athlete_id: row?.athlete_id ?? row?.athlete?.id ?? null,
+      athlete_id: resolveAthleteIdFromRow(row),
       unlocked_at: row?.unlocked_at ?? null,
       expires_at: row?.expires_at ?? null,
     }));
@@ -636,22 +749,14 @@ const markThreadRead = async (threadId, role) => {
 
 const mapUnlockedAthleteRow = (row) => {
   if (!row) return null;
-  const athlete = row.athlete && typeof row.athlete === 'object' ? row.athlete : null;
-  const athleteId = row.athlete_id ?? athlete?.id ?? null;
+  const athleteId = resolveAthleteIdFromRow(row);
   if (!athleteId) return null;
 
   return {
     athlete_id: athleteId,
     unlocked_at: row.unlocked_at ?? null,
     expires_at: row.expires_at ?? null,
-    athlete: athlete
-      ? {
-          id: athlete.id ?? null,
-          first_name: athlete.first_name ?? null,
-          last_name: athlete.last_name ?? null,
-          profile_picture_url: athlete.profile_picture_url ?? null,
-        }
-      : null,
+    athlete: resolveAthleteDetailsFromRow(row),
   };
 };
 
@@ -893,6 +998,8 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
   const [authSessionReady, setAuthSessionReady] = useState(false);
 
   const operatorId = operatorAccount?.id ?? null;
+  const unlockedCount = unlockedAthletes.length;
+  const unlockedCountLabel = `${unlockedCount} unlocked athlete${unlockedCount === 1 ? '' : 's'}`;
 
   useEffect(() => {
     if (!operatorData?.account?.id) return;
@@ -1410,30 +1517,35 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
         </div>
         <div style={styles.newConversationCard}>
           <div style={styles.helperText}>Start a new conversation with an unlocked athlete.</div>
-          <select
-            value={selectedUnlockAthleteId}
-            onChange={(event) => setSelectedUnlockAthleteId(event.target.value)}
-            style={styles.select}
-          >
-            <option value="">Select athlete…</option>
-            {unlockedAthletes.map((row) => {
-              const name = resolveAthleteName(row.athlete);
-              const expires = row.expires_at ? new Date(row.expires_at) : null;
-              const expiresValid = expires && !Number.isNaN(expires.getTime());
-              const expired = expiresValid && expires.getTime() <= Date.now();
-              const expiryLabel = expiresValid
-                ? expires.toLocaleDateString()
-                : null;
-              const label = expiryLabel
-                ? `${name} (unlock ${expired ? 'expired on' : 'until'} ${expiryLabel})`
-                : name;
-              return (
-                <option key={row.athlete_id} value={row.athlete_id}>
-                  {label}
-                </option>
-              );
-            })}
-          </select>
+          <div style={styles.selectRow}>
+            <select
+              value={selectedUnlockAthleteId}
+              onChange={(event) => setSelectedUnlockAthleteId(event.target.value)}
+              style={styles.select}
+            >
+              <option value="">Select athlete…</option>
+              {unlockedAthletes.map((row) => {
+                const name = resolveAthleteName(row.athlete);
+                const expires = row.expires_at ? new Date(row.expires_at) : null;
+                const expiresValid = expires && !Number.isNaN(expires.getTime());
+                const expired = expiresValid && expires.getTime() <= Date.now();
+                const expiryLabel = expiresValid
+                  ? expires.toLocaleDateString()
+                  : null;
+                const label = expiryLabel
+                  ? `${name} (unlock ${expired ? 'expired on' : 'until'} ${expiryLabel})`
+                  : name;
+                return (
+                  <option key={row.athlete_id} value={row.athlete_id}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+            <span style={styles.selectCount} aria-live="polite">
+              {unlockedCountLabel}
+            </span>
+          </div>
           <div style={styles.headerActions}>
             <button
               type="button"

@@ -5,6 +5,7 @@ import {
 } from '../../../utils/internalEnablerApi';
 import { resolveOperatorRequestContext } from '../../../utils/operatorApi';
 import {
+  DEFAULT_UNLOCK_ATHLETE_ID_COLUMNS,
   OPERATOR_UNLOCK_TABLE_SOURCES,
   OPERATOR_UNLOCK_VIEW_SOURCES,
 } from '../../../utils/operatorUnlockSources';
@@ -15,26 +16,127 @@ const ensureArray = (value) => {
   return [value];
 };
 
+const isPlainObject = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value));
+
+const coerceAthleteIdentifier = (value) => {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  return null;
+};
+
+const RELATED_ATHLETE_FIELDS = ['athlete', 'profile', 'athlete_profile', 'talent', 'player', 'candidate', 'contact'];
+
+const resolveNestedAthleteId = (value) => {
+  if (!isPlainObject(value)) {
+    return coerceAthleteIdentifier(value);
+  }
+
+  for (const key of ['id', ...DEFAULT_UNLOCK_ATHLETE_ID_COLUMNS]) {
+    if (!(key in value)) continue;
+    const candidate = resolveNestedAthleteId(value[key]);
+    if (candidate != null) {
+      return candidate;
+    }
+  }
+
+  for (const field of RELATED_ATHLETE_FIELDS) {
+    if (!(field in value)) continue;
+    const nested = resolveNestedAthleteId(value[field]);
+    if (nested != null) {
+      return nested;
+    }
+  }
+
+  return null;
+};
+
 const mapAthlete = (athlete) => {
-  if (!athlete || typeof athlete !== 'object') return null;
-  return {
-    id: athlete.id ?? null,
-    first_name: athlete.first_name ?? null,
-    last_name: athlete.last_name ?? null,
-    profile_picture_url: athlete.profile_picture_url ?? null,
+  if (!isPlainObject(athlete)) return null;
+
+  const firstNameCandidates = [athlete.first_name, athlete.firstName, athlete.given_name, athlete.givenName];
+  const lastNameCandidates = [athlete.last_name, athlete.lastName, athlete.family_name, athlete.familyName];
+  const profilePictureCandidates = [
+    athlete.profile_picture_url,
+    athlete.profilePictureUrl,
+    athlete.avatar_url,
+    athlete.avatarUrl,
+  ];
+
+  const resolveString = (candidates) => {
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string') {
+        const trimmed = candidate.trim();
+        if (trimmed) return trimmed;
+      }
+    }
+    return null;
   };
+
+  return {
+    id: resolveNestedAthleteId(athlete),
+    first_name: resolveString(firstNameCandidates),
+    last_name: resolveString(lastNameCandidates),
+    profile_picture_url: resolveString(profilePictureCandidates),
+  };
+};
+
+const resolveAthleteDetails = (row) => {
+  if (!isPlainObject(row)) {
+    return mapAthlete(row);
+  }
+
+  for (const field of RELATED_ATHLETE_FIELDS) {
+    const candidate = mapAthlete(row[field]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return mapAthlete(row);
+};
+
+const resolveAthleteIdFromRow = (row) => {
+  if (!isPlainObject(row)) return null;
+
+  for (const column of DEFAULT_UNLOCK_ATHLETE_ID_COLUMNS) {
+    if (!(column in row)) continue;
+    const candidate = resolveNestedAthleteId(row[column]);
+    if (candidate != null) {
+      return candidate;
+    }
+  }
+
+  for (const field of RELATED_ATHLETE_FIELDS) {
+    if (!(field in row)) continue;
+    const candidate = resolveNestedAthleteId(row[field]);
+    if (candidate != null) {
+      return candidate;
+    }
+  }
+
+  return null;
 };
 
 const mapUnlockRows = (rows) => {
   const byAthlete = new Map();
   ensureArray(rows)
-    .map((row) => ({
-      athlete_id: row?.athlete_id ?? row?.athlete?.id ?? null,
-      unlocked_at: row?.unlocked_at ?? null,
-      expires_at: row?.expires_at ?? null,
-      athlete: mapAthlete(row?.athlete),
-    }))
-    .filter((row) => row.athlete_id)
+    .map((row) => {
+      const athleteId = resolveAthleteIdFromRow(row);
+      if (!athleteId) return null;
+      return {
+        athlete_id: athleteId,
+        unlocked_at: row?.unlocked_at ?? null,
+        expires_at: row?.expires_at ?? null,
+        athlete: resolveAthleteDetails(row) ?? null,
+      };
+    })
+    .filter((row) => row && row.athlete_id)
     .forEach((row) => {
       const existing = byAthlete.get(row.athlete_id);
       if (!existing) {
@@ -77,7 +179,7 @@ const summarizeUnlockRows = (rows, limit = 5) =>
   ensureArray(rows)
     .slice(0, limit)
     .map((row) => ({
-      athlete_id: row?.athlete_id ?? row?.athlete?.id ?? null,
+      athlete_id: resolveAthleteIdFromRow(row),
       unlocked_at: row?.unlocked_at ?? null,
       expires_at: row?.expires_at ?? null,
     }));
