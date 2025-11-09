@@ -501,6 +501,16 @@ const resolveOperatorName = (operator) => {
     const trimmed = candidate.trim();
     if (trimmed) return trimmed;
   }
+  if (normalized?.id) {
+    try {
+      const truncated = String(normalized.id).slice(0, 8);
+      if (truncated) return `Operator ${truncated}`;
+    } catch (error) {
+      if (isDevEnvironment && typeof console?.debug === 'function') {
+        console.debug('[MessagesPanel:resolveOperatorName] Failed to stringify operator id', error);
+      }
+    }
+  }
   return 'Unnamed operator';
 };
 
@@ -611,7 +621,6 @@ const fetchThreadsForAthlete = async (athleteId) => {
           athlete_deleted_at,
           operator:op_id(
             id,
-            display_name,
             profile:op_profile(
               legal_name,
               trade_name,

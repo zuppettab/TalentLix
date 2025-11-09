@@ -55,12 +55,10 @@ const normalizeOperatorRow = (row) => {
       }
     : null;
 
-  const displayName = pickString(row.display_name);
-  const resolvedName = [profile?.trade_name, profile?.legal_name, displayName].find((value) => value) || null;
+  const resolvedName = [profile?.trade_name, profile?.legal_name].find((value) => value) || null;
 
   return {
     id,
-    display_name: displayName,
     resolved_name: resolvedName,
     profile,
   };
@@ -89,7 +87,7 @@ export default async function handler(req, res) {
   try {
     const { data, error } = await serviceClient
       .from('op_account')
-      .select('id, display_name, op_profile(legal_name, trade_name, logo_url)')
+      .select('id, op_profile(legal_name, trade_name, logo_url)')
       .in('id', operatorIds);
 
     if (error) {
