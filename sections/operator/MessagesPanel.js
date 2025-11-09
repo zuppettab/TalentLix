@@ -708,7 +708,7 @@ const fetchUnlockStatus = async (operatorId, athleteId) => {
   return { active, expires_at: data.expires_at };
 };
 
-const fetchUnlockedAthletes = async (operatorId) => {
+const fetchUnlockedAthletes = async (operatorId, options = {}) => {
   if (!supabase || !operatorId) {
     debugLog('fetchUnlockedAthletes:skip', { operatorId, supabaseReady: Boolean(supabase) });
     return [];
@@ -717,16 +717,24 @@ const fetchUnlockedAthletes = async (operatorId) => {
   const mapRows = (rows) => normalizeUnlockedAthletes(rows);
   const summarize = (rows) => summarizeUnlockRows(rows);
 
+  const { accessToken: providedAccessToken } = options || {};
+
   let apiResult = [];
   let apiError = null;
+  let accessToken = providedAccessToken || null;
 
   debugLog('fetchUnlockedAthletes:api:begin', { operatorId });
 
   try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token || null;
     if (!accessToken) {
-      throw new Error('Session expired. Please sign in again to load unlocked athletes.');
+      const { data: sessionData } = await supabase.auth.getSession();
+      accessToken = sessionData?.session?.access_token || null;
+    }
+
+    if (!accessToken) {
+      const error = new Error('Session expired. Please sign in again to load unlocked athletes.');
+      error.code = 'AUTH_SESSION_MISSING';
+      throw error;
     }
 
     const response = await fetch('/api/operator/unlocked-athletes', {
@@ -750,6 +758,7 @@ const fetchUnlockedAthletes = async (operatorId) => {
       const error = new Error(payload?.error || 'Unable to load unlocked athletes.');
       if (payload?.code) error.code = payload.code;
       if (payload?.details) error.details = payload.details;
+      if (typeof response.status === 'number') error.status = response.status;
       throw error;
     }
 
@@ -771,6 +780,21 @@ const fetchUnlockedAthletes = async (operatorId) => {
       details: error?.details || null,
     });
     logSupabaseError('fetchUnlockedAthletesApi', error);
+  }
+
+  if (apiError) {
+    const authCodes = new Set(['AUTH_SESSION_MISSING', 'AUTH_TOKEN_EXPIRED', 'AUTH_TOKEN_MISSING']);
+    const authStatuses = new Set([401, 403]);
+    const errorCode = typeof apiError.code === 'string' ? apiError.code.trim() : '';
+    const errorStatus = typeof apiError.status === 'number' ? apiError.status : null;
+    if ((errorCode && authCodes.has(errorCode)) || (errorStatus && authStatuses.has(errorStatus))) {
+      debugLog('fetchUnlockedAthletes:api:authError', {
+        operatorId,
+        code: errorCode || null,
+        status: errorStatus,
+      });
+      throw apiError;
+    }
   }
 
   const runSupabaseUnlockQuery = async (source, options = {}) => {
@@ -988,6 +1012,8 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
   const [refreshingUnlocks, setRefreshingUnlocks] = useState(false);
   const [totalUnread, setTotalUnread] = useState(0);
   const [mobileView, setMobileView] = useState('list');
+  const [sessionAccessToken, setSessionAccessToken] = useState(null);
+  const [authSessionReady, setAuthSessionReady] = useState(false);
 
   const operatorId = operatorAccount?.id ?? null;
 
@@ -1022,6 +1048,42 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
       cancelled = true;
     };
   }, [authUser?.id, operatorAccount?.id]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let cancelled = false;
+
+    const syncSession = async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!cancelled) {
+          setSessionAccessToken(sessionData?.session?.access_token || null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSessionAccessToken(null);
+          debugLog('loadUnlocked:session:error', { message: error?.message || null });
+        }
+      } finally {
+        if (!cancelled) {
+          setAuthSessionReady(true);
+        }
+      }
+    };
+
+    syncSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
+      setSessionAccessToken(session?.access_token || null);
+      setAuthSessionReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
 
   const loadThreads = useCallback(async () => {
     if (!operatorId || !supabase) return;
@@ -1087,15 +1149,22 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
   }, [operatorId, loadThreads]);
 
   const loadUnlocked = useCallback(async () => {
-    if (!operatorId || !supabase) {
-      debugLog('loadUnlocked:skip', { operatorId, supabaseReady: Boolean(supabase) });
+    if (!operatorId || !supabase || !authSessionReady) {
+      debugLog('loadUnlocked:skip', {
+        operatorId,
+        supabaseReady: Boolean(supabase),
+        authSessionReady,
+        hasToken: Boolean(sessionAccessToken),
+      });
       return;
     }
     debugLog('loadUnlocked:start', { operatorId });
     setRefreshingUnlocks(true);
     setActionError(null);
     try {
-      const rows = await fetchUnlockedAthletes(operatorId);
+      const rows = await fetchUnlockedAthletes(operatorId, {
+        accessToken: sessionAccessToken || undefined,
+      });
       debugLog('loadUnlocked:success', {
         operatorId,
         count: rows.length,
@@ -1113,12 +1182,12 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
       debugLog('loadUnlocked:finish', { operatorId });
       setRefreshingUnlocks(false);
     }
-  }, [operatorId]);
+  }, [operatorId, authSessionReady, sessionAccessToken]);
 
   useEffect(() => {
-    if (!operatorId) return;
+    if (!operatorId || !authSessionReady) return;
     loadUnlocked();
-  }, [operatorId, loadUnlocked]);
+  }, [operatorId, authSessionReady, loadUnlocked]);
 
   const selectedThread = useMemo(
     () => threads.find((thread) => thread.id === selectedThreadId) || null,
