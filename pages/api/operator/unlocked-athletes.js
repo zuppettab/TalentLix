@@ -173,6 +173,7 @@ const SELECT_FIELDS_FULL =
   'athlete_id, unlocked_at, expires_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)';
 const SELECT_FIELDS_MIN =
   'athlete_id, unlocked_at, athlete:athlete_id(id, first_name, last_name, profile_picture_url)';
+const SELECT_FIELDS_FALLBACK = '*';
 const IGNORABLE_CODES = new Set(['42P01', 'PGRST205', 'PGRST204']);
 
 const summarizeUnlockRows = (rows, limit = 5) =>
@@ -259,7 +260,7 @@ export default async function handler(req, res) {
 
     console.debug(`${DEBUG_PREFIX} resolved operator`, { operatorId, userId: user.id });
 
-    const runUnlockSource = async (source, options = {}) => {
+    const runUnlockSource = async (source, descriptor, options = {}) => {
       const { includeExpiresOrder = true } = options || {};
 
       const buildQuery = (fields, orderExpires) => {
@@ -270,6 +271,25 @@ export default async function handler(req, res) {
         query = query.order('unlocked_at', { ascending: false, nullsFirst: true });
         return query;
       };
+
+      if (descriptor?.kind === 'table') {
+        const { data, error } = await client
+          .from(source)
+          .select(SELECT_FIELDS_FALLBACK)
+          .eq('op_id', operatorId)
+          .limit(500);
+
+        if (!error) {
+          return { rows: ensureArray(data), meta: { fields: 'fallback', includeExpiresOrder: false } };
+        }
+
+        const code = typeof error.code === 'string' ? error.code.trim() : '';
+        if (code && IGNORABLE_CODES.has(code)) {
+          return { rows: [], meta: { fields: 'fallback', includeExpiresOrder: false, missing: true, code } };
+        }
+
+        throw normalizeSupabaseError(`Unlocked athletes lookup (${source})`, error);
+      }
 
       const { data, error } = await buildQuery(SELECT_FIELDS_FULL, includeExpiresOrder);
       if (!error) {
@@ -305,7 +325,7 @@ export default async function handler(req, res) {
 
     const probeSource = async (descriptor, label, options) => {
       const source = descriptor?.name ?? label;
-      const outcome = await runUnlockSource(source, options);
+      const outcome = await runUnlockSource(source, descriptor, options);
       console.debug(`${DEBUG_PREFIX} probe`, {
         operatorId,
         source,
@@ -358,6 +378,40 @@ export default async function handler(req, res) {
     });
 
     const items = mapUnlockRows(unlockRows);
+
+    const missingIds = Array.from(
+      new Set(
+        items
+          .filter((row) => !row.athlete || !row.athlete.first_name)
+          .map((row) => row.athlete_id)
+          .filter((id) => id != null),
+      ),
+    );
+
+    if (missingIds.length) {
+      const {
+        data: people,
+        error: peopleError,
+      } = await client
+        .from('athlete')
+        .select('id, first_name, last_name, profile_picture_url')
+        .in('id', missingIds);
+
+      if (peopleError) {
+        console.warn(`${DEBUG_PREFIX} athlete hydration failed`, {
+          operatorId,
+          missing: missingIds.length,
+          error: peopleError,
+        });
+      } else {
+        const index = new Map(ensureArray(people).map((athlete) => [athlete.id, athlete]));
+        for (const row of items) {
+          if (!row.athlete || !row.athlete.first_name) {
+            row.athlete = index.get(row.athlete_id) || row.athlete || null;
+          }
+        }
+      }
+    }
 
     return res.status(200).json({ success: true, items });
   } catch (error) {
