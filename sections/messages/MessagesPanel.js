@@ -482,6 +482,8 @@ const normalizeOperator = (operator) => {
   return { ...base, profile: normalizedProfile };
 };
 
+const isDevEnvironment = process.env.NODE_ENV !== 'production';
+
 const resolveOperatorName = (operator) => {
   const normalized = normalizeOperator(operator);
   if (!normalized) return 'Unknown operator';
@@ -597,7 +599,26 @@ const fetchThreadsForAthlete = async (athleteId) => {
     const { data, error } = await supabase
       .from('chat_thread')
       .select(
-        'id, op_id, athlete_id, created_at, last_message_at, last_message_text, last_message_sender, op_deleted_at, athlete_deleted_at'
+        `
+          id,
+          op_id,
+          athlete_id,
+          created_at,
+          last_message_at,
+          last_message_text,
+          last_message_sender,
+          op_deleted_at,
+          athlete_deleted_at,
+          operator:op_id(
+            id,
+            display_name,
+            profile:op_profile(
+              legal_name,
+              trade_name,
+              logo_url
+            )
+          )
+        `
       )
       .eq('athlete_id', athleteId)
       .order('last_message_at', { ascending: false, nullsFirst: false });
@@ -605,6 +626,7 @@ const fetchThreadsForAthlete = async (athleteId) => {
     const rows = ensureArray(data).map((row) => ({
       ...row,
       op_id: normalizeOperatorId(row?.op_id),
+      operator: normalizeOperator(row?.operator),
     }));
     rows.sort((a, b) => {
       const tsA = a?.last_message_at ? new Date(a.last_message_at).getTime() : 0;
@@ -804,6 +826,16 @@ export default function MessagesPanel({ isMobile }) {
     setThreadsError(null);
     try {
       const threadsResult = await fetchThreadsForAthlete(athleteId);
+      const operatorCache = operatorCacheRef.current;
+
+      threadsResult.forEach((thread) => {
+        const opId = normalizeOperatorId(thread?.op_id);
+        const joinedOperator = normalizeOperator(thread?.operator);
+        if (opId && joinedOperator && !operatorCache.has(opId)) {
+          operatorCache.set(opId, joinedOperator);
+        }
+      });
+
       const operatorIds = Array.from(
         new Set(
           threadsResult
@@ -812,13 +844,19 @@ export default function MessagesPanel({ isMobile }) {
         )
       );
 
-      const operatorCache = operatorCacheRef.current;
-
-      let operatorMap = new Map();
       if (operatorIds.length) {
         const missing = operatorIds.filter((id) => !operatorCache.has(id));
         if (missing.length) {
+          if (isDevEnvironment && typeof console?.debug === 'function') {
+            console.debug('[MessagesPanel] operator-profiles request', missing);
+          }
           const fetched = await fetchOperatorProfiles(missing);
+          if (isDevEnvironment && typeof console?.debug === 'function') {
+            console.debug('[MessagesPanel] operator-profiles result', {
+              requested: missing,
+              received: Array.from(fetched.keys()),
+            });
+          }
           missing.forEach((id) => {
             if (!fetched.has(id) && !operatorCache.has(id)) {
               operatorCache.set(id, null);
@@ -828,7 +866,6 @@ export default function MessagesPanel({ isMobile }) {
             operatorCache.set(key, value || null);
           });
         }
-        operatorMap = new Map(operatorIds.map((id) => [id, operatorCache.get(id) || null]));
       }
 
       const [blockMapOutcome, unreadOutcome] = await Promise.allSettled([
@@ -869,12 +906,17 @@ export default function MessagesPanel({ isMobile }) {
         logSupabaseError('fetchUnreadCount', unreadOutcome.reason);
       }
 
-      const prepared = threadsResult.map((thread) => ({
-        ...thread,
-        operator: normalizeOperator(operatorMap.get(thread.op_id) || null),
-        unreadCount: unreadMap[thread.id] ?? 0,
-        block: blockMap.get(thread.op_id) || null,
-      }));
+      const prepared = threadsResult.map((thread) => {
+        const opId = normalizeOperatorId(thread?.op_id);
+        const cachedOperator = opId ? operatorCache.get(opId) ?? null : null;
+        return {
+          ...thread,
+          op_id: opId,
+          operator: normalizeOperator(cachedOperator ?? thread.operator ?? null),
+          unreadCount: unreadMap[thread.id] ?? 0,
+          block: opId ? blockMap.get(opId) || null : null,
+        };
+      });
       setThreads(prepared);
       setTotalUnread(prepared.reduce((sum, thread) => sum + (thread.unreadCount || 0), 0));
     } catch (err) {
