@@ -14,8 +14,11 @@ import {
   Trash2,
 } from 'lucide-react';
 import { supabase } from '../../utils/supabaseClient';
+import { OPERATOR_LOGO_BUCKET } from '../../utils/operatorStorageBuckets';
+import { useSignedUrlCache } from '../../utils/useSignedUrlCache';
 
 const MAX_PREVIEW = 160;
+const OP_LOGO_BUCKET = OPERATOR_LOGO_BUCKET;
 
 const styles = {
   wrapper: {
@@ -525,6 +528,49 @@ const sanitizeString = (value) => {
   return trimmed || null;
 };
 
+const deriveStoragePathFromPublicUrl = (value, bucket) => {
+  if (!value || !bucket) return '';
+  const bucketName = String(bucket).replace(/^\/+|\/+$/g, '');
+  if (!bucketName) return '';
+  const stringValue = String(value);
+  const markers = [
+    `/storage/v1/object/public/${bucketName}/`,
+    `/storage/v1/object/sign/${bucketName}/`,
+  ];
+  for (const marker of markers) {
+    const index = stringValue.indexOf(marker);
+    if (index !== -1) {
+      const start = index + marker.length;
+      const remainder = stringValue.substring(start);
+      const withoutQuery = remainder.split(/[?#]/)[0];
+      return withoutQuery.replace(/^\/+/, '');
+    }
+  }
+  return '';
+};
+
+const normalizeLogoReference = (rawValue) => {
+  const value = sanitizeString(rawValue);
+  if (!value) {
+    return { url: '', path: '' };
+  }
+  const derivedFromUrl = deriveStoragePathFromPublicUrl(value, OP_LOGO_BUCKET);
+  if (derivedFromUrl) {
+    return { url: '', path: derivedFromUrl };
+  }
+  if (/^https?:\/\//i.test(value)) {
+    return { url: value, path: '' };
+  }
+  const trimmed = value.replace(/^\/+/, '');
+  if (!trimmed) {
+    return { url: '', path: '' };
+  }
+  const bucketPrefixed = trimmed.startsWith(`${OP_LOGO_BUCKET}/`)
+    ? trimmed.slice(OP_LOGO_BUCKET.length + 1)
+    : trimmed;
+  return { url: '', path: bucketPrefixed.replace(/^\/+/, '') };
+};
+
 const sanitizeProfile = (profile) => {
   if (!profile || typeof profile !== 'object') return null;
   return {
@@ -935,6 +981,8 @@ export default function MessagesPanel({ isMobile }) {
   const [totalUnread, setTotalUnread] = useState(0);
   const [mobileView, setMobileView] = useState('list');
   const operatorCacheRef = useRef(new Map());
+  const getSignedLogoUrl = useSignedUrlCache(OP_LOGO_BUCKET);
+  const [logoPreviewMap, setLogoPreviewMap] = useState({});
 
   useEffect(() => {
     if (!supabase) {
@@ -1077,6 +1125,104 @@ export default function MessagesPanel({ isMobile }) {
     if (!athleteId) return;
     loadThreads();
   }, [athleteId, loadThreads]);
+
+  useEffect(() => {
+    if (!threads || threads.length === 0) {
+      setLogoPreviewMap((prev) => {
+        if (!prev || Object.keys(prev).length === 0) return prev;
+        return {};
+      });
+      return;
+    }
+
+    const activeOpIds = new Set();
+    const immediateValues = {};
+    const pending = [];
+
+    threads.forEach((thread) => {
+      const opId = thread?.op_id;
+      if (!opId || activeOpIds.has(opId)) return;
+      const reference = normalizeLogoReference(thread?.operator?.profile?.logo_url);
+      activeOpIds.add(opId);
+      if (reference.url) {
+        immediateValues[opId] = reference.url;
+        return;
+      }
+      if (reference.path) {
+        pending.push({ opId, path: reference.path });
+        return;
+      }
+      immediateValues[opId] = '';
+    });
+
+    const applyResolved = (resolvedMap) => {
+      setLogoPreviewMap((prev) => {
+        const candidate = {};
+        let changed = false;
+        activeOpIds.forEach((opId) => {
+          const hasResolved = Object.prototype.hasOwnProperty.call(resolvedMap, opId);
+          const nextValue = (hasResolved ? resolvedMap[opId] : prev[opId]) || '';
+          candidate[opId] = nextValue;
+          if (!changed && (prev[opId] || '') !== nextValue) {
+            changed = true;
+          }
+        });
+        const prevKeys = Object.keys(prev);
+        if (!changed) {
+          if (prevKeys.length !== activeOpIds.size) {
+            changed = true;
+          } else {
+            for (const key of prevKeys) {
+              if (!activeOpIds.has(key)) {
+                changed = true;
+                break;
+              }
+            }
+          }
+        }
+        return changed ? candidate : prev;
+      });
+    };
+
+    applyResolved(immediateValues);
+
+    if (pending.length === 0 || !supabase) {
+      return;
+    }
+
+    let cancelled = false;
+
+    Promise.all(
+      pending.map(async ({ opId, path }) => {
+        try {
+          const url = await getSignedLogoUrl(path);
+          return [opId, url || ''];
+        } catch (error) {
+          if (isDevEnvironment && typeof console?.error === 'function') {
+            console.error('[MessagesPanel] Failed to resolve logo signed URL', { opId, path, error });
+          }
+          return [opId, ''];
+        }
+      })
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const resolved = { ...immediateValues };
+        results.forEach(([opId, url]) => {
+          resolved[opId] = url;
+        });
+        applyResolved(resolved);
+      })
+      .catch((error) => {
+        if (isDevEnvironment && typeof console?.error === 'function') {
+          console.error('[MessagesPanel] Unexpected error resolving logo URLs', error);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [threads, getSignedLogoUrl, supabase]);
 
   const selectedThread = useMemo(
     () => threads.find((thread) => thread.id === selectedThreadId) || null,
@@ -1350,7 +1496,8 @@ export default function MessagesPanel({ isMobile }) {
               const isSelected = selectedThreadId === thread.id;
               const blocked = !!thread.block;
               const profile = thread.operator?.profile || {};
-              const logoUrl = profile?.logo_url || null;
+              const logoReference = normalizeLogoReference(profile?.logo_url);
+              const resolvedLogoUrl = logoReference.url || (thread.op_id ? logoPreviewMap[thread.op_id] : '');
               const tradeName = resolveTradeName(thread.operator, name) || name;
               const legalName = resolveLegalName(thread.operator);
               const location = formatLocation(profile);
@@ -1370,8 +1517,8 @@ export default function MessagesPanel({ isMobile }) {
                 >
                   <div style={styles.conversationHeader}>
                     <div style={styles.avatar}>
-                      {logoUrl ? (
-                        <img src={logoUrl} alt={avatarAlt} style={styles.avatarImg} />
+                      {resolvedLogoUrl ? (
+                        <img src={resolvedLogoUrl} alt={avatarAlt} style={styles.avatarImg} />
                       ) : (
                         avatarInitials
                       )}
