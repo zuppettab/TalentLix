@@ -113,8 +113,10 @@ const styles = {
     maxHeight: PANEL_MAX_HEIGHT,
     overflowY: 'auto',
     padding: 8,
-    display: 'grid',
+    display: 'flex',
+    flexDirection: 'column',
     gap: 8,
+    alignItems: 'stretch',
   },
   listEmpty: {
     padding: '32px 20px',
