@@ -1551,9 +1551,6 @@ export default function MessagesPanel({ isMobile }) {
           ) : (
             filteredThreads.map((thread) => {
               const name = resolveOperatorName(thread.operator);
-              const preview = thread.last_message_text
-                ? `${thread.last_message_sender === 'ATHLETE' ? 'You: ' : ''}${truncate(thread.last_message_text)}`
-                : 'No messages yet';
               const isSelected = selectedThreadId === thread.id;
               const blocked = !!thread.block;
               const profile = thread.operator?.profile || {};
@@ -1638,15 +1635,6 @@ export default function MessagesPanel({ isMobile }) {
                       {blocked && <span>Blocked</span>}
                     </p>
                   </div>
-                  <p
-                    style={{
-                      ...styles.previewRow,
-                      ...styles.conversationPreview,
-                      ...(isMobile ? styles.conversationPreviewMobile : null),
-                    }}
-                  >
-                    {preview}
-                  </p>
                 </button>
               );
             })
