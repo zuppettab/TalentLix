@@ -134,28 +134,32 @@ const styles = {
     textAlign: 'left',
     padding: 12,
     display: 'grid',
-    gap: 6,
+    gridTemplateColumns: '60px 1fr',
     gridTemplateRows: 'auto auto',
+    gridTemplateAreas: '"avatar content" "avatar preview"',
+    columnGap: 12,
+    rowGap: 12,
+    alignItems: 'start',
     cursor: 'pointer',
     transition: 'border 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease',
   },
   conversationBtnMobile: {
     padding: 14,
-    gap: 10,
+    columnGap: 10,
+    rowGap: 10,
   },
   conversationBtnActive: {
     borderColor: '#27E3DA',
     boxShadow: '0 18px 36px -28px rgba(2,115,115,0.65)',
     transform: 'translateY(-1px)',
   },
-  conversationHeader: {
-    display: 'grid',
-    gridTemplateColumns: 'auto 1fr',
-    alignItems: 'center',
-    gap: 14,
-  },
-  conversationHeaderMobile: {
-    gap: 12,
+  avatarCell: {
+    gridArea: 'avatar',
+    width: 52,
+    height: 52,
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
   },
   avatar: {
     width: 52,
@@ -175,13 +179,15 @@ const styles = {
     height: '100%',
     objectFit: 'cover',
   },
-  conversationContent: {
+  contentCell: {
+    gridArea: 'content',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
     flex: 1,
     minWidth: 0,
-    display: 'grid',
-    gap: 6,
   },
-  conversationContentMobile: {
+  contentCellMobile: {
     gap: 8,
   },
   conversationTop: {
@@ -275,6 +281,10 @@ const styles = {
     gap: 2,
     alignItems: 'flex-start',
     whiteSpace: 'normal',
+  },
+  previewRow: {
+    gridArea: 'preview',
+    minWidth: 0,
   },
   conversationPreview: {
     margin: 0,
@@ -1567,12 +1577,7 @@ export default function MessagesPanel({ isMobile }) {
                     ...(isSelected ? styles.conversationBtnActive : null),
                   }}
                 >
-                  <div
-                    style={{
-                      ...styles.conversationHeader,
-                      ...(isMobile ? styles.conversationHeaderMobile : null),
-                    }}
-                  >
+                  <div style={styles.avatarCell}>
                     <div style={styles.avatar}>
                       {resolvedLogoUrl ? (
                         <img src={resolvedLogoUrl} alt={avatarAlt} style={styles.avatarImg} />
@@ -1580,61 +1585,62 @@ export default function MessagesPanel({ isMobile }) {
                         avatarInitials
                       )}
                     </div>
+                  </div>
+                  <div
+                    style={{
+                      ...styles.contentCell,
+                      ...(isMobile ? styles.contentCellMobile : null),
+                    }}
+                  >
                     <div
                       style={{
-                        ...styles.conversationContent,
-                        ...(isMobile ? styles.conversationContentMobile : null),
+                        ...styles.conversationTop,
+                        ...(isMobile ? styles.conversationTopMobile : null),
                       }}
                     >
-                      <div
-                        style={{
-                          ...styles.conversationTop,
-                          ...(isMobile ? styles.conversationTopMobile : null),
-                        }}
-                      >
-                        <div style={styles.conversationTopLeft}>
-                          <div style={styles.conversationTitleRow}>
-                            <span style={styles.conversationTitle}>{tradeName}</span>
-                            {thread.unreadCount > 0 && (
-                              <span style={styles.unreadBadge}>{thread.unreadCount}</span>
-                            )}
-                          </div>
-                          {legalName && <p style={styles.legalName}>{legalName}</p>}
+                      <div style={styles.conversationTopLeft}>
+                        <div style={styles.conversationTitleRow}>
+                          <span style={styles.conversationTitle}>{tradeName}</span>
+                          {thread.unreadCount > 0 && (
+                            <span style={styles.unreadBadge}>{thread.unreadCount}</span>
+                          )}
                         </div>
-                        {entityTypeLabel ? (
-                          <div
-                            style={{
-                              ...styles.conversationTopRight,
-                              ...(isMobile ? styles.conversationTopRightMobile : null),
-                            }}
-                          >
-                            <span style={styles.entityTag}>{entityTypeLabel}</span>
-                          </div>
-                        ) : null}
+                        {legalName && <p style={styles.legalName}>{legalName}</p>}
                       </div>
-                      {location && (
-                        <p
+                      {entityTypeLabel ? (
+                        <div
                           style={{
-                            ...styles.locationText,
-                            ...(isMobile ? styles.locationTextMobile : null),
+                            ...styles.conversationTopRight,
+                            ...(isMobile ? styles.conversationTopRightMobile : null),
                           }}
                         >
-                          {location}
-                        </p>
-                      )}
+                          <span style={styles.entityTag}>{entityTypeLabel}</span>
+                        </div>
+                      ) : null}
+                    </div>
+                    {location && (
                       <p
                         style={{
-                          ...styles.conversationMeta,
-                          ...(isMobile ? styles.conversationMetaMobile : null),
+                          ...styles.locationText,
+                          ...(isMobile ? styles.locationTextMobile : null),
                         }}
                       >
-                        <span>{timestampLabel}</span>
-                        {blocked && <span>Blocked</span>}
+                        {location}
                       </p>
-                    </div>
+                    )}
+                    <p
+                      style={{
+                        ...styles.conversationMeta,
+                        ...(isMobile ? styles.conversationMetaMobile : null),
+                      }}
+                    >
+                      <span>{timestampLabel}</span>
+                      {blocked && <span>Blocked</span>}
+                    </p>
                   </div>
                   <p
                     style={{
+                      ...styles.previewRow,
                       ...styles.conversationPreview,
                       ...(isMobile ? styles.conversationPreviewMobile : null),
                     }}
