@@ -137,15 +137,23 @@ const styles = {
     cursor: 'pointer',
     transition: 'border 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease',
   },
+  conversationBtnMobile: {
+    padding: 14,
+    gap: 10,
+  },
   conversationBtnActive: {
     borderColor: '#27E3DA',
     boxShadow: '0 18px 36px -28px rgba(2,115,115,0.65)',
     transform: 'translateY(-1px)',
   },
   conversationHeader: {
-    display: 'flex',
+    display: 'grid',
+    gridTemplateColumns: 'auto 1fr',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
+  },
+  conversationHeaderMobile: {
+    gap: 12,
   },
   avatar: {
     width: 40,
@@ -173,6 +181,11 @@ const styles = {
     gap: 6,
     alignItems: 'center',
   },
+  conversationTitleMobile: {
+    alignItems: 'flex-start',
+    flexDirection: 'column',
+    gap: 4,
+  },
   unreadBadge: {
     display: 'inline-flex',
     padding: '2px 6px',
@@ -194,6 +207,12 @@ const styles = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
+  conversationMetaMobile: {
+    display: 'grid',
+    gap: 2,
+    alignItems: 'flex-start',
+    whiteSpace: 'normal',
+  },
   conversationPreview: {
     margin: 0,
     fontSize: 13,
@@ -202,6 +221,9 @@ const styles = {
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+  },
+  conversationPreviewMobile: {
+    whiteSpace: 'normal',
   },
   threadBody: {
     flex: 1,
@@ -1646,10 +1668,16 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
                   onClick={() => handleSelectThread(thread.id)}
                   style={{
                     ...styles.conversationBtn,
+                    ...(isMobile ? styles.conversationBtnMobile : null),
                     ...(isSelected ? styles.conversationBtnActive : null),
                   }}
                 >
-                  <div style={styles.conversationHeader}>
+                  <div
+                    style={{
+                      ...styles.conversationHeader,
+                      ...(isMobile ? styles.conversationHeaderMobile : null),
+                    }}
+                  >
                     <div style={styles.avatar}>
                       {thread.athlete?.profile_picture_url ? (
                         <img
@@ -1662,19 +1690,36 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
                       )}
                     </div>
                     <div>
-                      <p style={styles.conversationTitle}>
+                      <p
+                        style={{
+                          ...styles.conversationTitle,
+                          ...(isMobile ? styles.conversationTitleMobile : null),
+                        }}
+                      >
                         {name}
                         {thread.unreadCount > 0 && (
                           <span style={styles.unreadBadge}>{thread.unreadCount}</span>
                         )}
                       </p>
-                      <p style={styles.conversationMeta}>
+                      <p
+                        style={{
+                          ...styles.conversationMeta,
+                          ...(isMobile ? styles.conversationMetaMobile : null),
+                        }}
+                      >
                         <span>{formatDateTime(thread.last_message_at || thread.created_at)}</span>
                         {blocked && <span>Blocked</span>}
                       </p>
                     </div>
                   </div>
-                  <p style={styles.conversationPreview}>{preview}</p>
+                  <p
+                    style={{
+                      ...styles.conversationPreview,
+                      ...(isMobile ? styles.conversationPreviewMobile : null),
+                    }}
+                  >
+                    {preview}
+                  </p>
                 </button>
               );
             })
