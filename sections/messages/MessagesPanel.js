@@ -1044,6 +1044,14 @@ export default function MessagesPanel({ isMobile }) {
   const operatorCacheRef = useRef(new Map());
   const getSignedLogoUrl = useSignedUrlCache(OP_LOGO_BUCKET);
   const [logoPreviewMap, setLogoPreviewMap] = useState({});
+  const threadBodyRef = useRef(null);
+
+  useEffect(() => {
+    if (messagesLoading) return;
+    const container = threadBodyRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [messages, messagesLoading, selectedThreadId]);
 
   useEffect(() => {
     if (!supabase) {
@@ -1713,7 +1721,7 @@ export default function MessagesPanel({ isMobile }) {
                 </button>
               </div>
             </div>
-            <div style={styles.threadBody}>
+            <div ref={threadBodyRef} style={styles.threadBody}>
               {messagesError && <div style={styles.errorText}>{messagesError}</div>}
               {messagesLoading ? (
                 <div style={styles.listEmpty}>
