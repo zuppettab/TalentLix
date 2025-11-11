@@ -139,15 +139,23 @@ const styles = {
     cursor: 'pointer',
     transition: 'border 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease',
   },
+  conversationBtnMobile: {
+    padding: 14,
+    gap: 10,
+  },
   conversationBtnActive: {
     borderColor: '#27E3DA',
     boxShadow: '0 18px 36px -28px rgba(2,115,115,0.65)',
     transform: 'translateY(-1px)',
   },
   conversationHeader: {
-    display: 'flex',
-    alignItems: 'flex-start',
+    display: 'grid',
+    gridTemplateColumns: 'auto 1fr',
+    alignItems: 'center',
     gap: 14,
+  },
+  conversationHeaderMobile: {
+    gap: 12,
   },
   avatar: {
     width: 52,
@@ -173,11 +181,19 @@ const styles = {
     display: 'grid',
     gap: 6,
   },
+  conversationContentMobile: {
+    gap: 8,
+  },
   conversationTop: {
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  conversationTopMobile: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 8,
   },
   conversationTopLeft: {
     display: 'grid',
@@ -190,6 +206,10 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'flex-end',
     gap: 6,
+  },
+  conversationTopRightMobile: {
+    width: '100%',
+    alignItems: 'flex-start',
   },
   conversationTitleRow: {
     display: 'flex',
@@ -235,6 +255,9 @@ const styles = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
+  locationTextMobile: {
+    whiteSpace: 'normal',
+  },
   conversationMeta: {
     margin: 0,
     fontSize: 12,
@@ -247,6 +270,12 @@ const styles = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
+  conversationMetaMobile: {
+    display: 'grid',
+    gap: 2,
+    alignItems: 'flex-start',
+    whiteSpace: 'normal',
+  },
   conversationPreview: {
     margin: 0,
     fontSize: 13,
@@ -255,6 +284,9 @@ const styles = {
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+  },
+  conversationPreviewMobile: {
+    whiteSpace: 'normal',
   },
   entityTag: {
     display: 'inline-flex',
@@ -1531,10 +1563,16 @@ export default function MessagesPanel({ isMobile }) {
                   onClick={() => handleSelectThread(thread.id)}
                   style={{
                     ...styles.conversationBtn,
+                    ...(isMobile ? styles.conversationBtnMobile : null),
                     ...(isSelected ? styles.conversationBtnActive : null),
                   }}
                 >
-                  <div style={styles.conversationHeader}>
+                  <div
+                    style={{
+                      ...styles.conversationHeader,
+                      ...(isMobile ? styles.conversationHeaderMobile : null),
+                    }}
+                  >
                     <div style={styles.avatar}>
                       {resolvedLogoUrl ? (
                         <img src={resolvedLogoUrl} alt={avatarAlt} style={styles.avatarImg} />
@@ -1542,8 +1580,18 @@ export default function MessagesPanel({ isMobile }) {
                         avatarInitials
                       )}
                     </div>
-                    <div style={styles.conversationContent}>
-                      <div style={styles.conversationTop}>
+                    <div
+                      style={{
+                        ...styles.conversationContent,
+                        ...(isMobile ? styles.conversationContentMobile : null),
+                      }}
+                    >
+                      <div
+                        style={{
+                          ...styles.conversationTop,
+                          ...(isMobile ? styles.conversationTopMobile : null),
+                        }}
+                      >
                         <div style={styles.conversationTopLeft}>
                           <div style={styles.conversationTitleRow}>
                             <span style={styles.conversationTitle}>{tradeName}</span>
@@ -1554,19 +1602,45 @@ export default function MessagesPanel({ isMobile }) {
                           {legalName && <p style={styles.legalName}>{legalName}</p>}
                         </div>
                         {entityTypeLabel ? (
-                          <div style={styles.conversationTopRight}>
+                          <div
+                            style={{
+                              ...styles.conversationTopRight,
+                              ...(isMobile ? styles.conversationTopRightMobile : null),
+                            }}
+                          >
                             <span style={styles.entityTag}>{entityTypeLabel}</span>
                           </div>
                         ) : null}
                       </div>
-                      {location && <p style={styles.locationText}>{location}</p>}
-                      <p style={styles.conversationMeta}>
+                      {location && (
+                        <p
+                          style={{
+                            ...styles.locationText,
+                            ...(isMobile ? styles.locationTextMobile : null),
+                          }}
+                        >
+                          {location}
+                        </p>
+                      )}
+                      <p
+                        style={{
+                          ...styles.conversationMeta,
+                          ...(isMobile ? styles.conversationMetaMobile : null),
+                        }}
+                      >
                         <span>{timestampLabel}</span>
                         {blocked && <span>Blocked</span>}
                       </p>
                     </div>
                   </div>
-                  <p style={styles.conversationPreview}>{preview}</p>
+                  <p
+                    style={{
+                      ...styles.conversationPreview,
+                      ...(isMobile ? styles.conversationPreviewMobile : null),
+                    }}
+                  >
+                    {preview}
+                  </p>
                 </button>
               );
             })
