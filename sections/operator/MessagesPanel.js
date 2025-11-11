@@ -1656,9 +1656,6 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
           ) : (
             filteredThreads.map((thread) => {
               const name = resolveAthleteName(thread.athlete);
-              const preview = thread.last_message_text
-                ? `${thread.last_message_sender === 'OP' ? 'You: ' : ''}${truncate(thread.last_message_text)}`
-                : 'No messages yet';
               const isSelected = selectedThreadId === thread.id;
               const blocked = !!thread.block;
               return (
@@ -1712,14 +1709,6 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
                       </p>
                     </div>
                   </div>
-                  <p
-                    style={{
-                      ...styles.conversationPreview,
-                      ...(isMobile ? styles.conversationPreviewMobile : null),
-                    }}
-                  >
-                    {preview}
-                  </p>
                 </button>
               );
             })
