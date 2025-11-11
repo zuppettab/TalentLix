@@ -20,18 +20,22 @@ import { useSignedUrlCache } from '../../utils/useSignedUrlCache';
 const MAX_PREVIEW = 160;
 const OP_LOGO_BUCKET = OPERATOR_LOGO_BUCKET;
 
+const PANEL_MAX_HEIGHT = 'min(720px, 80vh)';
+
 const styles = {
   wrapper: {
     display: 'grid',
     gridTemplateColumns: 'minmax(240px, 320px) minmax(0, 1fr)',
     gap: 18,
     width: '100%',
+    maxHeight: PANEL_MAX_HEIGHT,
     alignItems: 'stretch',
   },
   wrapperMobile: {
     display: 'flex',
     flexDirection: 'column',
     gap: 18,
+    maxHeight: PANEL_MAX_HEIGHT,
   },
   card: {
     background: '#fff',
@@ -40,6 +44,8 @@ const styles = {
     boxShadow: '0 16px 40px -32px rgba(15,23,42,0.35)',
     display: 'flex',
     flexDirection: 'column',
+    maxHeight: PANEL_MAX_HEIGHT,
+    overflow: 'hidden',
     minHeight: 0,
   },
   mobileCard: {
