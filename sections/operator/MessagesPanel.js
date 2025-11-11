@@ -258,6 +258,7 @@ const styles = {
     resize: 'vertical',
     fontFamily: 'inherit',
     outline: 'none',
+    boxSizing: 'border-box',
   },
   composerActions: {
     display: 'flex',
