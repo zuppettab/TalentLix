@@ -21,6 +21,7 @@ const MAX_PREVIEW = 160;
 const OP_LOGO_BUCKET = OPERATOR_LOGO_BUCKET;
 
 const PANEL_MAX_HEIGHT = 'min(720px, 80vh)';
+const MESSAGE_POLL_INTERVAL_MS = 40000;
 
 const styles = {
   wrapper: {
@@ -1045,6 +1046,7 @@ export default function MessagesPanel({ isMobile }) {
   const getSignedLogoUrl = useSignedUrlCache(OP_LOGO_BUCKET);
   const [logoPreviewMap, setLogoPreviewMap] = useState({});
   const threadBodyRef = useRef(null);
+  const messagesLoadingRef = useRef(false);
 
   useEffect(() => {
     if (messagesLoading) return;
@@ -1052,6 +1054,10 @@ export default function MessagesPanel({ isMobile }) {
     if (!container) return;
     container.scrollTop = container.scrollHeight;
   }, [messages, messagesLoading, selectedThreadId]);
+
+  useEffect(() => {
+    messagesLoadingRef.current = messagesLoading;
+  }, [messagesLoading]);
 
   useEffect(() => {
     if (!supabase) {
@@ -1365,6 +1371,23 @@ export default function MessagesPanel({ isMobile }) {
     }
     refreshMessages(selectedThread);
   }, [selectedThread?.id]);
+
+  useEffect(() => {
+    if (!selectedThread?.id) return;
+    if (isMobile && mobileView !== 'thread') return;
+
+    const intervalId = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
+      if (messagesLoadingRef.current) {
+        return;
+      }
+      refreshMessages(selectedThread);
+    }, MESSAGE_POLL_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [selectedThread, isMobile, mobileView, refreshMessages]);
 
   const handleSelectThread = (threadId) => {
     if (!threadId) return;
