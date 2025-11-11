@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Archive,
   ArrowLeft,
@@ -1036,10 +1036,18 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
   const [mobileView, setMobileView] = useState('list');
   const [sessionAccessToken, setSessionAccessToken] = useState(null);
   const [authSessionReady, setAuthSessionReady] = useState(false);
+  const threadBodyRef = useRef(null);
 
   const operatorId = operatorAccount?.id ?? null;
   const unlockedCount = unlockedAthletes.length;
   const unlockedCountLabel = `${unlockedCount} unlocked athlete${unlockedCount === 1 ? '' : 's'}`;
+
+  useEffect(() => {
+    if (messagesLoading) return;
+    const container = threadBodyRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [messages, messagesLoading, selectedThreadId]);
 
   useEffect(() => {
     if (!operatorData?.account?.id) return;
@@ -1800,7 +1808,7 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
                 </button>
               </div>
             </div>
-            <div style={styles.threadBody}>
+            <div ref={threadBodyRef} style={styles.threadBody}>
               {messagesError && <div style={styles.errorText}>{messagesError}</div>}
               {messagesLoading ? (
                 <div style={styles.listEmpty}>
