@@ -1,11 +1,55 @@
 import tls from 'tls';
 
-const SMTP_HOST = process.env.SMTP_HOST || 'smtps.aruba.it';
-const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
-const SMTP_SECURE = String(process.env.SMTP_SECURE || 'true').toLowerCase() !== 'false';
-const EMAIL_SENDER = process.env.EMAIL_SENDER || 'no-reply@talentlix.com';
-const EMAIL_SMTP_PASSWORD = process.env.EMAIL_SMTP_PASSWORD || '010405VegaLix..!';
-const DISPATCHER_PASSWORD = process.env.EMAIL_DISPATCHER_PASSWORD || '010405Lev..!';
+const RAW_ENV = {
+  SMTP_HOST: process.env.SMTP_HOST,
+  SMTP_PORT: process.env.SMTP_PORT,
+  SMTP_SECURE: process.env.SMTP_SECURE,
+  EMAIL_SENDER: process.env.EMAIL_SENDER,
+  EMAIL_SMTP_PASSWORD: process.env.EMAIL_SMTP_PASSWORD,
+  EMAIL_DISPATCHER_PASSWORD: process.env.EMAIL_DISPATCHER_PASSWORD,
+  NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD: process.env.NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD,
+};
+
+const SMTP_HOST = RAW_ENV.SMTP_HOST || 'smtps.aruba.it';
+const SMTP_PORT = Number(RAW_ENV.SMTP_PORT || 465);
+const SMTP_SECURE = String(RAW_ENV.SMTP_SECURE || 'true').toLowerCase() !== 'false';
+const EMAIL_SENDER = RAW_ENV.EMAIL_SENDER || 'no-reply@talentlix.com';
+const EMAIL_SMTP_PASSWORD = RAW_ENV.EMAIL_SMTP_PASSWORD || '010405VegaLix..!';
+const FALLBACK_DISPATCHER_PASSWORD = '010405Lev..!';
+const DISPATCHER_PASSWORD =
+  RAW_ENV.EMAIL_DISPATCHER_PASSWORD ||
+  RAW_ENV.NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD ||
+  FALLBACK_DISPATCHER_PASSWORD;
+
+let loggedConfigWarning = false;
+
+function logDispatcherConfigWarnings() {
+  if (loggedConfigWarning) return;
+  const warnings = [];
+  const serverPassword = RAW_ENV.EMAIL_DISPATCHER_PASSWORD;
+  const clientPassword = RAW_ENV.NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD;
+
+  if (serverPassword && !clientPassword) {
+    warnings.push(
+      'NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD non è configurata; le richieste dal browser verranno respinte con errore 401.'
+    );
+  }
+  if (!serverPassword && clientPassword) {
+    warnings.push(
+      'EMAIL_DISPATCHER_PASSWORD non è configurata; l\'API sta utilizzando la password esposta al client come fallback.'
+    );
+  }
+  if (serverPassword && clientPassword && serverPassword !== clientPassword) {
+    warnings.push(
+      'EMAIL_DISPATCHER_PASSWORD e NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD hanno valori diversi; devono coincidere per permettere l\'invio delle email.'
+    );
+  }
+
+  if (warnings.length) {
+    console.warn('[EmailDispatcher] Configurazione incompleta:', warnings.join(' '));
+  }
+  loggedConfigWarning = true;
+}
 
 const BRAND_COLORS = {
   primary: '#027373',
@@ -277,6 +321,8 @@ async function deliverEmail({ host, port, secure, username, password, from, to, 
 }
 
 export default async function handler(req, res) {
+  logDispatcherConfigWarnings();
+
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).json({ success: false, error: 'Metodo non consentito' });
@@ -285,7 +331,12 @@ export default async function handler(req, res) {
   const { password, to, subject, message, heading, previewText } = req.body || {};
 
   if (!password || password !== DISPATCHER_PASSWORD) {
-    return res.status(401).json({ success: false, error: 'Credenziali non valide' });
+    return res.status(401).json({
+      success: false,
+      error: 'Credenziali non valide',
+      details:
+        'Assicurati che EMAIL_DISPATCHER_PASSWORD e NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD siano entrambe impostate e con lo stesso valore.',
+    });
   }
 
   const recipients = normaliseRecipients(to);
