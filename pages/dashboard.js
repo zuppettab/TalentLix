@@ -255,7 +255,7 @@ export default function Dashboard() {
         if (error) throw error;
         setAthlete(applyDerivedFields(updated, overrides));
         if (reachedFullCompletion) {
-          await sendFullCompletionEmail(updated?.first_name);
+          sendFullCompletionEmail(updated?.first_name);
         }
       } catch (err) {
         console.error(err);
@@ -264,7 +264,7 @@ export default function Dashboard() {
           return applyDerivedFields({ ...base, completion_percentage: clamped }, overrides);
         });
         if (reachedFullCompletion) {
-          await sendFullCompletionEmail(currentAthlete?.first_name);
+          sendFullCompletionEmail(currentAthlete?.first_name);
         }
       }
     } else if (athleteOverride) {
@@ -276,7 +276,7 @@ export default function Dashboard() {
       setAthlete(prev => (prev ? { ...prev, completion_percentage: clamped } : prev));
       if (reachedFullCompletion) {
         const fallbackName = athleteOverride?.first_name || athleteRef.current?.first_name;
-        await sendFullCompletionEmail(fallbackName);
+        sendFullCompletionEmail(fallbackName);
       }
     }
   }, [applyDerivedFields, sendFullCompletionEmail]);
