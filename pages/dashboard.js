@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { SECTIONS, DEFAULT_SECTION, isValidSection } from '../utils/dashboardSections';
 import { supabase } from '../utils/supabaseClient';
 import { computeProfileCompletion, MEDIA_CATEGORIES } from '../utils/profileCompletion';
+import { sendEmail } from '../utils/emailDispatcher';
 import PersonalPanel from '../sections/personal/PersonalPanel';
 import ContactsPanel from '../sections/contacts/ContactsPanel';
 import SportInfoPanel from '../sections/sports/SportInfoPanel';
@@ -174,6 +175,51 @@ export default function Dashboard() {
     return next;
   }, []);
 
+  const sendFullCompletionEmail = useCallback(async (firstNameRaw) => {
+    if (!user?.email) return;
+    const firstName = (firstNameRaw || '').trim();
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: 'TalentLix · Profile 100% complete',
+        heading: 'You reached 100% completion',
+        previewText: 'Operators can now review every detail of your TalentLix profile.',
+        message: [
+          firstName ? `Hi ${firstName},` : 'Hi there,',
+          'Congratulations! You have completed 100% of your TalentLix profile.',
+          'Operators, agents, and clubs can now access every detail they need to evaluate you and get in touch.',
+          'Keep your information fresh and respond quickly to opportunities to make the most of your visibility.',
+          'See you on TalentLix,',
+          'The TalentLix Team',
+        ],
+      });
+    } catch (emailError) {
+      console.error('Failed to send profile completion email', emailError);
+    }
+  }, [user]);
+
+  const sendProfilePublishedEmail = useCallback(async (firstNameRaw) => {
+    if (!user?.email) return;
+    const firstName = (firstNameRaw || '').trim();
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: 'TalentLix · Profile published',
+        heading: 'Your TalentLix profile is live',
+        previewText: 'Operators can now find and contact you on TalentLix.',
+        message: [
+          firstName ? `Hi ${firstName},` : 'Hi there,',
+          'Your TalentLix profile is now published and visible in searches performed by operators, agents, and clubs.',
+          'Stay active on the platform, monitor your inbox, and keep your details current so you never miss a new opportunity.',
+          'We are cheering for you,',
+          'The TalentLix Team',
+        ],
+      });
+    } catch (emailError) {
+      console.error('Failed to send profile published email', emailError);
+    }
+  }, [user]);
+
   const recomputeCompletion = useCallback(async ({ overrides = {}, athleteOverride } = {}) => {
     const currentAthlete = athleteOverride
       ? athleteOverride
@@ -196,6 +242,7 @@ export default function Dashboard() {
     setCompletionBreakdown(breakdown);
     const clamped = Math.max(40, Math.min(100, Math.round(completion)));
     const currentCompletion = Number(currentAthlete.completion_percentage ?? 0);
+    const reachedFullCompletion = clamped === 100 && currentCompletion < 100;
 
     if (currentCompletion !== clamped) {
       try {
@@ -207,12 +254,18 @@ export default function Dashboard() {
           .single();
         if (error) throw error;
         setAthlete(applyDerivedFields(updated, overrides));
+        if (reachedFullCompletion) {
+          await sendFullCompletionEmail(updated?.first_name);
+        }
       } catch (err) {
         console.error(err);
         setAthlete(prev => {
           const base = prev ? { ...prev } : { ...(currentAthlete || {}) };
           return applyDerivedFields({ ...base, completion_percentage: clamped }, overrides);
         });
+        if (reachedFullCompletion) {
+          await sendFullCompletionEmail(currentAthlete?.first_name);
+        }
       }
     } else if (athleteOverride) {
       setAthlete(prev => {
@@ -221,8 +274,12 @@ export default function Dashboard() {
       });
     } else {
       setAthlete(prev => (prev ? { ...prev, completion_percentage: clamped } : prev));
+      if (reachedFullCompletion) {
+        const fallbackName = athleteOverride?.first_name || athleteRef.current?.first_name;
+        await sendFullCompletionEmail(fallbackName);
+      }
     }
-  }, [applyDerivedFields]);
+  }, [applyDerivedFields, sendFullCompletionEmail]);
 
   const handleSectionSaved = useCallback(async (sectionId, nextAthlete = null) => {
     const baseAthlete = nextAthlete ? { ...(athleteRef.current || {}), ...nextAthlete } : athleteRef.current;
@@ -467,6 +524,9 @@ export default function Dashboard() {
         .single();
       if (error) throw error;
       setAthlete(data);
+      if (!isPublished && data?.profile_published) {
+        await sendProfilePublishedEmail(data?.first_name);
+      }
     } catch (e) {
       console.error(e);
       alert('Error updating publish status');
