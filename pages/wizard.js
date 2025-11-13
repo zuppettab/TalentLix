@@ -473,6 +473,23 @@ export default function Wizard() {
             'The TalentLix Team',
           ],
         });
+
+        if (!formData.profile_published) {
+          await sendEmail({
+            to: user.email,
+            subject: 'TalentLix · Publish your profile',
+            heading: 'Publish your TalentLix profile',
+            previewText: 'Publish your TalentLix profile to be discovered by operators.',
+            message: [
+              firstName ? `Hi ${firstName},` : 'Hi there,',
+              'During the final step of the registration wizard you chose not to publish your profile yet.',
+              'Until you publish your profile, operators, agents, and clubs will not be able to find or contact you on TalentLix.',
+              'Publish your profile as soon as possible by completing all the necessary information and make yourself discoverable right away.',
+              'See you on TalentLix,',
+              'The TalentLix Team',
+            ],
+          });
+        }
       }
     } catch (emailError) {
       console.error('Failed to send registration completed email', emailError);
