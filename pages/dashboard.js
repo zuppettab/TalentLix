@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { SECTIONS, DEFAULT_SECTION, isValidSection } from '../utils/dashboardSections';
 import { supabase } from '../utils/supabaseClient';
 import { computeProfileCompletion, MEDIA_CATEGORIES } from '../utils/profileCompletion';
+import { sendEmail } from '../utils/emailDispatcher';
 import PersonalPanel from '../sections/personal/PersonalPanel';
 import ContactsPanel from '../sections/contacts/ContactsPanel';
 import SportInfoPanel from '../sections/sports/SportInfoPanel';
@@ -71,9 +72,11 @@ export default function Dashboard() {
   const athleteRef = useRef(null);
   const cardDataRef = useRef(cardData);
   const tooltipWrapRef = useRef(null);
+  const userRef = useRef(null);
 
   useEffect(() => { athleteRef.current = athlete; }, [athlete]);
   useEffect(() => { cardDataRef.current = cardData; }, [cardData]);
+  useEffect(() => { userRef.current = user; }, [user]);
 
   const fetchContactsVerification = useCallback(async (athleteId) => {
     const { data, error } = await supabase
@@ -198,6 +201,8 @@ export default function Dashboard() {
     const clamped = Math.max(40, Math.min(100, Math.round(completion)));
     const currentCompletion = Number(currentAthlete.completion_percentage ?? 0);
 
+    const shouldCelebrateCompletion = currentCompletion < 100 && clamped === 100;
+
     if (currentCompletion !== clamped) {
       try {
         const { data: updated, error } = await supabase
@@ -208,6 +213,28 @@ export default function Dashboard() {
           .single();
         if (error) throw error;
         setAthlete(applyDerivedFields(updated, overrides));
+
+        if (shouldCelebrateCompletion && userRef.current?.email) {
+          const firstName = (updated?.first_name || currentAthlete.first_name || '').trim();
+          try {
+            await sendEmail({
+              to: userRef.current.email,
+              subject: 'TalentLix · Profile completion unlocked',
+              heading: 'Your TalentLix profile is 100% complete',
+              previewText: 'Your TalentLix profile is now fully complete.',
+              message: [
+                firstName ? `Hi ${firstName},` : 'Hi there,',
+                'Congratulations! You have just reached 100% completion on your TalentLix profile.',
+                'Operators, clubs, and agents can now review every detail they need to contact you.',
+                'Keep your information updated to stay ahead in their searches.',
+                'See you on TalentLix,',
+                'The TalentLix Team',
+              ],
+            });
+          } catch (emailErr) {
+            console.error('Failed to send profile completion email', emailErr);
+          }
+        }
       } catch (err) {
         console.error(err);
         setAthlete(prev => {
@@ -468,6 +495,27 @@ export default function Dashboard() {
         .single();
       if (error) throw error;
       setAthlete(data);
+
+      if (!isPublished && data?.profile_published && userRef.current?.email) {
+        const firstName = (data?.first_name || athlete?.first_name || '').trim();
+        try {
+          await sendEmail({
+            to: userRef.current.email,
+            subject: 'TalentLix · Your profile is now live',
+            heading: 'Your TalentLix profile is live',
+            previewText: 'Operators can now find your TalentLix profile.',
+            message: [
+              firstName ? `Hi ${firstName},` : 'Hi there,',
+              'Great news! Your TalentLix profile is now published and visible on the platform.',
+              'Operators, clubs, and agents can start searching for you and will reach out if they are interested.',
+              'Best of luck,',
+              'The TalentLix Team',
+            ],
+          });
+        } catch (emailErr) {
+          console.error('Failed to send publish confirmation email', emailErr);
+        }
+      }
     } catch (e) {
       console.error(e);
       alert('Error updating publish status');
