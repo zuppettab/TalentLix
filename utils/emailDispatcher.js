@@ -1,7 +1,17 @@
 
 const DEFAULT_ENDPOINT = '/api/email/send';
-const DISPATCHER_PASSWORD =
-  process.env.NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD || '010405Lev..!';
+
+function resolveDispatcherPassword() {
+  const password = process.env.NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD;
+
+  if (!password) {
+    throw new Error(
+      'Password del dispatcher non configurata. Verifica la variabile di ambiente NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD.',
+    );
+  }
+
+  return password;
+}
 
 function toPayloadMessage(message) {
   if (!message) {
@@ -37,13 +47,15 @@ export async function sendEmail({
     throw new Error('È necessario indicare il contenuto (message).');
   }
 
+  const dispatcherPassword = resolveDispatcherPassword();
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      password: DISPATCHER_PASSWORD,
+      password: dispatcherPassword,
       to,
       subject,
       message: toPayloadMessage(message),
@@ -56,7 +68,7 @@ export async function sendEmail({
     let errorDetail = 'Invio email fallito';
     try {
       const payload = await response.json();
-      errorDetail = payload?.error || payload?.details || errorDetail;
+      errorDetail = payload?.details || payload?.error || errorDetail;
     } catch (err) {
       // ignore
     }

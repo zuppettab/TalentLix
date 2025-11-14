@@ -13,7 +13,7 @@ For local development you can add the variable to `.env.local`. Hosting provider
 
 ### Configurazione
 
-Il motore SMTP centralizzato vive nell'API route `pages/api/email/send.js` e utilizza le credenziali TurboSMTP fornite. Copia il file `.env.local.example` in `.env.local` (o nelle variabili d'ambiente dell'hosting) per impostare i valori necessari. **Non** committare mai i valori reali: memorizzali in un vault o password manager aziendale e copiali localmente solo quando necessario.
+Il motore SMTP centralizzato vive nell'API route `pages/api/email/send.js` e utilizza le credenziali TurboSMTP fornite. Copia il file `.env.local.example` in `.env.local` (o nelle variabili d'ambiente dell'hosting) per impostare i valori necessari. **Non** committare mai i valori reali: memorizzali in un vault o password manager aziendale e copiali localmente solo quando necessario. Il file di esempio ora contiene solo chiavi vuote, quindi valorizza ogni voce prima di avviare l'applicazione o distribuire una nuova build.
 
 ```
 SMTP_HOST=<smtp-host-from-turbosmtp>
