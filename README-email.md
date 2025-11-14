@@ -1,3 +1,4 @@
+
 # TalentLix
 
 ## Environment configuration
@@ -25,8 +26,6 @@ NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD=010405Lev..!
 ```
 
 > `NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD` viene esposto al client così che le pagine possano autenticarsi verso il motore.
-
-⚠️ **Importante:** imposta sempre **entrambi** i valori `EMAIL_DISPATCHER_PASSWORD` e `NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD` con la stessa stringa. Se uno dei due manca (o i valori non coincidono) le chiamate dal browser a `/api/email/send` verranno rifiutate con errore 401 e nessuna mail verrà inviata.
 
 ### Endpoint server
 
