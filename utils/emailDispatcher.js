@@ -64,18 +64,31 @@ export async function sendEmail({
     }),
   });
 
-  if (!response.ok) {
-    let errorDetail = 'Invio email fallito';
-    try {
-      const payload = await response.json();
-      errorDetail = payload?.details || payload?.error || errorDetail;
-    } catch (err) {
-      // ignore
-    }
-    throw new Error(errorDetail);
+  let payload;
+
+  try {
+    payload = await response.json();
+  } catch (err) {
+    payload = null;
   }
 
-  const payload = await response.json();
+  if (!response.ok) {
+    const errorTitle = payload?.error;
+    const errorDetails = payload?.details;
+    const errorMessage = errorTitle || errorDetails || 'Invio email fallito';
+
+    const error = new Error(errorMessage);
+    if (errorTitle) {
+      error.title = errorTitle;
+    }
+    if (errorDetails) {
+      error.details = errorDetails;
+    }
+    error.status = response.status;
+
+    throw error;
+  }
+
   return payload;
 }
 

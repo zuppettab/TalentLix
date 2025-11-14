@@ -101,7 +101,11 @@ export default function EmailTestPage() {
     setStatus(null);
 
     if (!to.trim() || !message.trim()) {
-      setStatus({ type: 'error', text: 'Inserisci sia il destinatario che il contenuto del messaggio.' });
+      setStatus({
+        type: 'error',
+        title: 'Dati mancanti',
+        text: 'Inserisci sia il destinatario che il contenuto del messaggio.',
+      });
       return;
     }
 
@@ -116,10 +120,27 @@ export default function EmailTestPage() {
         previewText: 'Invio effettuato dalla pagina di prova pubblica.',
       });
 
-      setStatus({ type: 'success', text: 'Email inviata con successo! Controlla la casella del destinatario.' });
+      setStatus({
+        type: 'success',
+        title: 'Email inviata con successo',
+        text: 'Controlla la casella del destinatario per verificare la ricezione del messaggio.',
+      });
       setMessage('');
     } catch (error) {
-      setStatus({ type: 'error', text: error.message || 'Invio non riuscito. Riprova più tardi.' });
+      const detailMessage = error.details;
+      const hasDetail = Boolean(detailMessage);
+      const fallbackText =
+        error.message && error.message !== error.title
+          ? error.message
+          : 'Invio non riuscito. Riprova più tardi o verifica la configurazione.';
+
+      setStatus({
+        type: 'error',
+        title: error.title || 'Invio non riuscito',
+        text: hasDetail ? 'Consulta il dettaglio tecnico riportato di seguito per capire la causa.' : fallbackText,
+        details: hasDetail ? detailMessage : null,
+        httpStatus: error.status,
+      });
     } finally {
       setIsSending(false);
     }
@@ -171,16 +192,41 @@ export default function EmailTestPage() {
         </form>
 
         {status && (
-          <p
+          <div
             style={{
               ...styles.status,
               ...(status.type === 'success' ? styles.success : styles.error),
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.5rem',
             }}
             role="status"
             aria-live="polite"
           >
-            {status.text}
-          </p>
+            <strong>{status.title}</strong>
+            <span>{status.text}</span>
+            {status.details && status.details !== status.text && (
+              <code
+                style={{
+                  display: 'block',
+                  backgroundColor: 'rgba(220, 38, 38, 0.08)',
+                  color: '#7f1d1d',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem',
+                  textAlign: 'left',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {status.details}
+              </code>
+            )}
+            {status.httpStatus && (
+              <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>
+                Codice di risposta: {status.httpStatus}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </main>
