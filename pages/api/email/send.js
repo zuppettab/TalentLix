@@ -1,17 +1,17 @@
 import tls from 'tls';
 
 function resolveEmailConfig() {
-  const rawConfig = {
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    secure: process.env.SMTP_SECURE,
-    sender: process.env.EMAIL_SENDER,
-    username: process.env.EMAIL_SMTP_USERNAME,
-    password: process.env.EMAIL_SMTP_PASSWORD,
-    dispatcherPassword: process.env.EMAIL_DISPATCHER_PASSWORD,
+  const envConfig = {
+    SMTP_HOST: process.env.SMTP_HOST,
+    SMTP_PORT: process.env.SMTP_PORT,
+    SMTP_SECURE: process.env.SMTP_SECURE,
+    EMAIL_SENDER: process.env.EMAIL_SENDER,
+    EMAIL_SMTP_USERNAME: process.env.EMAIL_SMTP_USERNAME,
+    EMAIL_SMTP_PASSWORD: process.env.EMAIL_SMTP_PASSWORD,
+    EMAIL_DISPATCHER_PASSWORD: process.env.EMAIL_DISPATCHER_PASSWORD,
   };
 
-  const missing = Object.entries(rawConfig)
+  const missing = Object.entries(envConfig)
     .filter(([, value]) => typeof value === 'undefined' || value === '')
     .map(([key]) => key);
 
@@ -19,21 +19,21 @@ function resolveEmailConfig() {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
 
-  const port = Number(rawConfig.port);
+  const port = Number(envConfig.SMTP_PORT);
   if (!Number.isInteger(port) || port <= 0) {
     throw new Error('SMTP_PORT must be a positive integer');
   }
 
-  const secure = String(rawConfig.secure).toLowerCase() !== 'false';
+  const secure = String(envConfig.SMTP_SECURE).toLowerCase() !== 'false';
 
   return {
-    host: rawConfig.host,
+    host: envConfig.SMTP_HOST,
     port,
     secure,
-    sender: rawConfig.sender,
-    username: rawConfig.username,
-    password: rawConfig.password,
-    dispatcherPassword: rawConfig.dispatcherPassword,
+    sender: envConfig.EMAIL_SENDER,
+    username: envConfig.EMAIL_SMTP_USERNAME,
+    password: envConfig.EMAIL_SMTP_PASSWORD,
+    dispatcherPassword: envConfig.EMAIL_DISPATCHER_PASSWORD,
   };
 }
 
