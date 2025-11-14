@@ -13,18 +13,20 @@ For local development you can add the variable to `.env.local`. Hosting provider
 
 ### Configurazione
 
-Il motore SMTP centralizzato vive nell'API route `pages/api/email/send.js` e utilizza le credenziali TurboSMTP fornite. Copia il file `.env.local.example` in `.env.local` (o nelle variabili d'ambiente dell'hosting) per impostare i valori necessari:
+Il motore SMTP centralizzato vive nell'API route `pages/api/email/send.js` e utilizza le credenziali TurboSMTP fornite. Copia il file `.env.local.example` in `.env.local` (o nelle variabili d'ambiente dell'hosting) per impostare i valori necessari. **Non** committare mai i valori reali: memorizzali in un vault o password manager aziendale e copiali localmente solo quando necessario.
 
 ```
-SMTP_HOST=pro.turbo-smtp.com
-SMTP_PORT=465
-SMTP_SECURE=true
-EMAIL_SENDER=no-reply@talentlix.com
-EMAIL_SMTP_USERNAME=439d3cedd6e1b96a3254
-EMAIL_SMTP_PASSWORD=087f5dDsQYr9GjS6OzyM
-EMAIL_DISPATCHER_PASSWORD=010405Lev..!
-NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD=010405Lev..!
+SMTP_HOST=<smtp-host-from-turbosmtp>
+SMTP_PORT=<smtp-port-from-turbosmtp>
+SMTP_SECURE=<true-or-false-according-to-provider>
+EMAIL_SENDER=<sender-address-configured-in-turbosmtp>
+EMAIL_SMTP_USERNAME=<smtp-username-from-secrets-vault>
+EMAIL_SMTP_PASSWORD=<smtp-password-from-secrets-vault>
+EMAIL_DISPATCHER_PASSWORD=<dispatcher-password-from-secrets-vault>
+NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD=<dispatcher-password-from-secrets-vault>
 ```
+
+Consulta il vault/password manager aziendale per recuperare username, password e chiave del dispatcher. Se non hai accesso, contatta l'amministratore di sistema.
 
 > `NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD` viene esposto al client così che le pagine possano autenticarsi verso il motore.
 
@@ -34,7 +36,7 @@ Esegui una chiamata `POST` a `/api/email/send` con corpo JSON:
 
 ```json
 {
-  "password": "010405Lev..!",
+  "password": "<dispatcher-password-from-secrets-vault>",
   "to": ["destinatario@example.com"],
   "subject": "Oggetto della mail",
   "message": "Corpo della mail con paragrafi separati da righe vuote",
