@@ -32,7 +32,6 @@ export const fetchOperatorByEmail = async (supabaseClient, rawEmail) => {
       .from('op_contact')
       .select(
         `
-          id,
           op_id,
           email_primary,
           op_account!inner (
