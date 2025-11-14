@@ -1,41 +1,12 @@
 import tls from 'tls';
 
-function resolveEmailConfig() {
-  const envConfig = {
-    SMTP_HOST: process.env.SMTP_HOST,
-    SMTP_PORT: process.env.SMTP_PORT,
-    SMTP_SECURE: process.env.SMTP_SECURE,
-    EMAIL_SENDER: process.env.EMAIL_SENDER,
-    EMAIL_SMTP_USERNAME: process.env.EMAIL_SMTP_USERNAME,
-    EMAIL_SMTP_PASSWORD: process.env.EMAIL_SMTP_PASSWORD,
-    EMAIL_DISPATCHER_PASSWORD: process.env.EMAIL_DISPATCHER_PASSWORD,
-  };
-
-  const missing = Object.entries(envConfig)
-    .filter(([, value]) => typeof value === 'undefined' || value === '')
-    .map(([key]) => key);
-
-  if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
-  }
-
-  const port = Number(envConfig.SMTP_PORT);
-  if (!Number.isInteger(port) || port <= 0) {
-    throw new Error('SMTP_PORT must be a positive integer');
-  }
-
-  const secure = String(envConfig.SMTP_SECURE).toLowerCase() !== 'false';
-
-  return {
-    host: envConfig.SMTP_HOST,
-    port,
-    secure,
-    sender: envConfig.EMAIL_SENDER,
-    username: envConfig.EMAIL_SMTP_USERNAME,
-    password: envConfig.EMAIL_SMTP_PASSWORD,
-    dispatcherPassword: envConfig.EMAIL_DISPATCHER_PASSWORD,
-  };
-}
+const SMTP_HOST = process.env.SMTP_HOST || 'pro.turbo-smtp.com';
+const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
+const SMTP_SECURE = String(process.env.SMTP_SECURE || 'true').toLowerCase() !== 'false';
+const EMAIL_SENDER = process.env.EMAIL_SENDER || 'no-reply@talentlix.com';
+const EMAIL_SMTP_USERNAME = process.env.EMAIL_SMTP_USERNAME || '439d3cedd6e1b96a3254';
+const EMAIL_SMTP_PASSWORD = process.env.EMAIL_SMTP_PASSWORD || '087f5dDsQYr9GjS6OzyM';
+const DISPATCHER_PASSWORD = process.env.EMAIL_DISPATCHER_PASSWORD || '010405Lev..!';
 
 const BRAND_COLORS = {
   primary: '#027373',
@@ -312,19 +283,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Metodo non consentito' });
   }
 
-  let emailConfig;
-  try {
-    emailConfig = resolveEmailConfig();
-  } catch (error) {
-    console.error('[EmailDispatcher] configurazione mancante o invalida', error);
-    return res
-      .status(500)
-      .json({ success: false, error: 'Configurazione email non valida', details: error.message });
-  }
-
   const { password, to, subject, message, heading, previewText } = req.body || {};
 
-  if (!password || password !== emailConfig.dispatcherPassword) {
+  if (!password || password !== DISPATCHER_PASSWORD) {
     return res.status(401).json({ success: false, error: 'Credenziali non valide' });
   }
 
@@ -347,12 +308,12 @@ export default async function handler(req, res) {
 
   try {
     await deliverEmail({
-      host: emailConfig.host,
-      port: emailConfig.port,
-      secure: emailConfig.secure,
-      username: emailConfig.username,
-      password: emailConfig.password,
-      from: emailConfig.sender,
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_SECURE,
+      username: EMAIL_SMTP_USERNAME,
+      password: EMAIL_SMTP_PASSWORD,
+      from: EMAIL_SENDER,
       to: recipients,
       subject,
       html,
