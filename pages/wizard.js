@@ -1,9 +1,9 @@
 
 
+
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../utils/supabaseClient';
-import { sendEmail } from '../utils/emailDispatcher';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select from 'react-select';
 import countries from '../utils/countries';
@@ -432,7 +432,6 @@ export default function Wizard() {
       };
 
   const finalizeProfile = async () => {
-    setErrorMessage('');
     const guardianFirstName = (formData.guardian_first_name || '').trim();
     const guardianLastName = (formData.guardian_last_name || '').trim();
 
@@ -449,36 +448,7 @@ export default function Wizard() {
         parental_consent_at: formData.parental_consent ? formData.parental_consent_at : null,
       })
       .eq('id', user.id);
-    if (error) {
-      setErrorMessage(`Error: ${error.message}`);
-      return;
-    }
-
-    writeStoredStep(null, user?.id || null);
-
-    try {
-      if (user?.email) {
-        const firstName = (formData.first_name || '').trim();
-        await sendEmail({
-          to: user.email,
-          subject: 'TalentLix · Registration completed',
-          heading: 'Your TalentLix profile is ready',
-          previewText: 'You have completed the basic registration of your TalentLix profile.',
-          message: [
-            firstName ? `Hi ${firstName},` : 'Hi there,',
-            'Congratulations! You have completed the basic registration for your TalentLix profile.',
-            'If you have already chosen to publish your profile, you are now visible in the searches performed by operators, agents, and clubs.',
-            'Now is the perfect time to expand and complete your profile with more information to attract even greater attention from industry professionals. Do not wait—log in and keep improving your profile today.',
-            'Best of luck,',
-            'The TalentLix Team',
-          ],
-        });
-      }
-    } catch (emailError) {
-      console.error('Failed to send registration completed email', emailError);
-    }
-
-    router.push('/dashboard');
+    if (!error) router.push('/dashboard');
   };
 
   const goBackOneStep = useCallback(() => {
