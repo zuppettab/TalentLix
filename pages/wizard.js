@@ -14,31 +14,6 @@ import sports from '../utils/sports';
 
 const MAX_YEARS_EXPERIENCE = 80;
 
-const normalizeBoolean = (value) => {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (value == null) {
-    return false;
-  }
-  if (typeof value === 'number') {
-    return value !== 0;
-  }
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === '') {
-      return false;
-    }
-    if (['true', 't', '1', 'yes', 'y', 'on'].includes(normalized)) {
-      return true;
-    }
-    if (['false', 'f', '0', 'no', 'n', 'off'].includes(normalized)) {
-      return false;
-    }
-  }
-  return Boolean(value);
-};
-
 const parseDob = (str) => {
   if (!str) return null;
   let y, m, d;
@@ -221,13 +196,11 @@ export default function Wizard() {
       ...athleteWithoutFlag,
       guardian_first_name: athleteData?.guardian_first_name ?? '',
       guardian_last_name: athleteData?.guardian_last_name ?? '',
-      parental_consent: normalizeBoolean(athleteData?.parental_consent),
+      parental_consent: athleteData?.parental_consent ?? false,
       parental_consent_at: athleteData?.parental_consent_at ?? null,
       seeking_team: false,
-      gdpr_accepted: normalizeBoolean(athleteData?.gdpr_accepted),
+      gdpr_accepted: athleteData?.gdpr_accepted ?? false,
       gdpr_accepted_at: athleteData?.gdpr_accepted_at ?? null,
-      profile_published: normalizeBoolean(athleteData?.profile_published),
-      needs_parental_authorization: normalizeBoolean(athleteData?.needs_parental_authorization),
     };
     
     // Carica anche RESIDENCE da contacts_verification
@@ -462,21 +435,18 @@ export default function Wizard() {
     setErrorMessage('');
     const guardianFirstName = (formData.guardian_first_name || '').trim();
     const guardianLastName = (formData.guardian_last_name || '').trim();
-    const profilePublished = normalizeBoolean(formData.profile_published);
-    const gdprAccepted = normalizeBoolean(formData.gdpr_accepted);
-    const parentalConsent = normalizeBoolean(formData.parental_consent);
 
     const { error } = await supabase.from('athlete')
       .update({
         completion_percentage: 40,
         current_step: null,
-        profile_published: profilePublished,
-        gdpr_accepted: gdprAccepted,
+        profile_published: formData.profile_published,
+        gdpr_accepted: formData.gdpr_accepted,
         gdpr_accepted_at: formData.gdpr_accepted_at,
         guardian_first_name: guardianFirstName || null,
         guardian_last_name: guardianLastName || null,
-        parental_consent: parentalConsent,
-        parental_consent_at: parentalConsent ? formData.parental_consent_at : null,
+        parental_consent: !!formData.parental_consent,
+        parental_consent_at: formData.parental_consent ? formData.parental_consent_at : null,
       })
       .eq('id', user.id);
     if (error) {
@@ -503,23 +473,6 @@ export default function Wizard() {
             'The TalentLix Team',
           ],
         });
-
-        if (!profilePublished) {
-          await sendEmail({
-            to: user.email,
-            subject: 'TalentLix · Publish your profile',
-            heading: 'Publish your TalentLix profile',
-            previewText: 'Publish your TalentLix profile to be discovered by operators.',
-            message: [
-              firstName ? `Hi ${firstName},` : 'Hi there,',
-              'During the final step of the registration wizard you chose not to publish your profile yet.',
-              'Until you publish your profile, operators, agents, and clubs will not be able to find or contact you on TalentLix.',
-              'Publish your profile as soon as possible by completing all the necessary information and make yourself discoverable right away.',
-              'See you on TalentLix,',
-              'The TalentLix Team',
-            ],
-          });
-        }
       }
     } catch (emailError) {
       console.error('Failed to send registration completed email', emailError);
@@ -1510,7 +1463,7 @@ const Step4 = ({ formData, setFormData, finalize, goToPrevious }) => {
   const [gdprHtml, setGdprHtml] = useState('');
   const [hasScrolled, setHasScrolled] = useState(false);
   const [parentalErrors, setParentalErrors] = useState({});
-  const gdprAccepted = normalizeBoolean(formData.gdpr_accepted);
+  const gdprAccepted = !!formData.gdpr_accepted;
 
   // fetch GDPR HTML
   useEffect(() => {
@@ -1547,7 +1500,7 @@ const Step4 = ({ formData, setFormData, finalize, goToPrevious }) => {
   })();
 
   const avatarSize = 'clamp(110px, 28vw, 140px)';
-  const needsGuardianInfo = normalizeBoolean(formData.needs_parental_authorization) || (age != null && age < 14);
+  const needsGuardianInfo = Boolean(formData.needs_parental_authorization) || (age != null && age < 14);
 
   useEffect(() => {
     if (!needsGuardianInfo) {
@@ -1719,7 +1672,7 @@ const Step4 = ({ formData, setFormData, finalize, goToPrevious }) => {
             <label style={{ textAlign:'left', display:'flex', alignItems:'center', gap:8 }}>
               <input
                 type="checkbox"
-                checked={normalizeBoolean(formData.parental_consent)}
+                checked={!!formData.parental_consent}
                 onChange={(e) => {
                   const checked = e.target.checked;
                   setFormData(prev => ({
@@ -1783,7 +1736,7 @@ const Step4 = ({ formData, setFormData, finalize, goToPrevious }) => {
         <input
           type="checkbox"
           name="profile_published"
-          checked={normalizeBoolean(formData.profile_published)}
+          checked={!!formData.profile_published}
           onChange={(e) => setFormData({ ...formData, profile_published: e.target.checked })}
         />{' '}
         Publish Profile Now?
@@ -1813,7 +1766,7 @@ const Step4 = ({ formData, setFormData, finalize, goToPrevious }) => {
               if (!(formData.guardian_last_name || '').trim()) {
                 nextErrors.guardian_last_name = 'Guardian last name is required.';
               }
-              if (!normalizeBoolean(formData.parental_consent)) {
+              if (!formData.parental_consent) {
                 nextErrors.parental_consent = 'Guardian consent must be granted.';
               }
 
