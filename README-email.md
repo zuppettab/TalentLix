@@ -13,14 +13,15 @@ For local development you can add the variable to `.env.local`. Hosting provider
 
 ### Configurazione
 
-Il motore SMTP centralizzato vive nell'API route `pages/api/email/send.js` e utilizza le credenziali Aruba fornite. Copia il file `.env.local.example` in `.env.local` (o nelle variabili d'ambiente dell'hosting) per impostare i valori necessari:
+Il motore SMTP centralizzato vive nell'API route `pages/api/email/send.js` e utilizza le credenziali TurboSMTP fornite. Copia il file `.env.local.example` in `.env.local` (o nelle variabili d'ambiente dell'hosting) per impostare i valori necessari:
 
 ```
-SMTP_HOST=smtps.aruba.it
+SMTP_HOST=pro.turbo-smtp.com
 SMTP_PORT=465
 SMTP_SECURE=true
 EMAIL_SENDER=no-reply@talentlix.com
-EMAIL_SMTP_PASSWORD=010405VegaLix..!
+EMAIL_SMTP_USERNAME=439d3cedd6e1b96a3254
+EMAIL_SMTP_PASSWORD=087f5dDsQYr9GjS6OzyM
 EMAIL_DISPATCHER_PASSWORD=010405Lev..!
 NEXT_PUBLIC_EMAIL_DISPATCHER_PASSWORD=010405Lev..!
 ```
