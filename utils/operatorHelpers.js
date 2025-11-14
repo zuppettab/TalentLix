@@ -5,14 +5,21 @@ const normalizeStatus = (value) => (typeof value === 'string' ? value.trim().toL
 const ACTIVE_ACCOUNT_STATUSES = new Set(['active']);
 const COMPLETED_WIZARD_STATUSES = new Set(['complete', 'completed', 'submitted']);
 
+const toArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (value === null || value === undefined) return [];
+  return [value];
+};
+
 const mapOperatorRow = (row) => {
   if (!row || typeof row !== 'object') return null;
 
-  const { op_account: account, ...contact } = row;
+  const { op_account: accountRaw, ...contact } = row;
+  const account = toArray(accountRaw)[0] ?? null;
 
   return {
     contact,
-    account: account ?? null,
+    account,
   };
 };
 
@@ -28,34 +35,52 @@ export const fetchOperatorByEmail = async (supabaseClient, rawEmail) => {
   }
 
   try {
-    const { data, error } = await supabaseClient
-      .from('op_contact')
-      .select(
-        `
-          id,
-          op_id,
-          email_primary,
-          op_account!inner (
-            id,
-            status,
-            wizard_status,
-            type_id
-          )
-        `
+    const selection = `
+      op_id,
+      email_primary,
+      op_account!inner (
+        id,
+        status,
+        wizard_status,
+        type_id
       )
-      .ilike('email_primary', email)
+    `;
+
+    const { data: exactRow, error: exactError } = await supabaseClient
+      .from('op_contact')
+      .select(selection)
+      .eq('email_primary', email)
       .maybeSingle();
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        // No rows found for the provided email.
-        return { data: null, error: null };
-      }
-
-      return { data: null, error };
+    if (exactError && exactError.code !== 'PGRST116') {
+      return { data: null, error: exactError };
     }
 
-    return { data: mapOperatorRow(data), error: null };
+    let candidate = exactRow || null;
+
+    if (!candidate) {
+      const { data: fuzzyRows, error: fuzzyError } = await supabaseClient
+        .from('op_contact')
+        .select(selection)
+        .ilike('email_primary', `%${email}%`)
+        .limit(5);
+
+      if (fuzzyError) {
+        return { data: null, error: fuzzyError };
+      }
+
+      const match = toArray(fuzzyRows).find(
+        (row) => normalizeEmail(row?.email_primary) === email
+      );
+
+      candidate = match ?? null;
+    }
+
+    if (!candidate) {
+      return { data: null, error: null };
+    }
+
+    return { data: mapOperatorRow(candidate), error: null };
   } catch (err) {
     return { data: null, error: err };
   }
