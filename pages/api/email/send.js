@@ -1,10 +1,11 @@
 import tls from 'tls';
 
-const SMTP_HOST = process.env.SMTP_HOST || 'smtps.aruba.it';
+const SMTP_HOST = process.env.SMTP_HOST || 'pro.turbo-smtp.com';
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const SMTP_SECURE = String(process.env.SMTP_SECURE || 'true').toLowerCase() !== 'false';
 const EMAIL_SENDER = process.env.EMAIL_SENDER || 'no-reply@talentlix.com';
-const EMAIL_SMTP_PASSWORD = process.env.EMAIL_SMTP_PASSWORD || '010405VegaLix..!';
+const EMAIL_SMTP_USERNAME = process.env.EMAIL_SMTP_USERNAME || '439d3cedd6e1b96a3254';
+const EMAIL_SMTP_PASSWORD = process.env.EMAIL_SMTP_PASSWORD || '087f5dDsQYr9GjS6OzyM';
 const DISPATCHER_PASSWORD = process.env.EMAIL_DISPATCHER_PASSWORD || '010405Lev..!';
 
 const BRAND_COLORS = {
@@ -310,7 +311,7 @@ export default async function handler(req, res) {
       host: SMTP_HOST,
       port: SMTP_PORT,
       secure: SMTP_SECURE,
-      username: EMAIL_SENDER,
+      username: EMAIL_SMTP_USERNAME,
       password: EMAIL_SMTP_PASSWORD,
       from: EMAIL_SENDER,
       to: recipients,
