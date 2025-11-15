@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { fetchOperatorByEmail, isOperatorRecord } from '../utils/operatorHelpers';
 import { PASSWORD_RESET_EMAIL_MESSAGE } from '../utils/resetPasswordMessages';
 
 export default function ForgotPasswordOperator() {
@@ -24,32 +23,15 @@ export default function ForgotPasswordOperator() {
     setError('');
     setMessage('');
 
-    const { data: operatorRecord, error: lookupError } = await fetchOperatorByEmail(supabase, email);
-
-    if (lookupError) {
-      console.error('Unable to verify operator account for reset password flow.', lookupError);
-      setError(lookupError.message || 'Unable to verify the operator account. Please try again.');
-      return;
-    }
-
-    if (!operatorRecord) {
-      setError('We couldn’t find an operator account with that email address.');
-      return;
-    }
-
-    if (!isOperatorRecord(operatorRecord)) {
-      setError('This operator account is not eligible for password resets. Please contact support.');
-      return;
-    }
-
-    const targetEmail = operatorRecord?.contact?.email_primary || email;
+    const targetEmail = (email || '').trim().toLowerCase();
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.talentlix.com';
     const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
       redirectTo: `${siteUrl}/reset-password-operator`,
     });
-    if (error) setError(error.message);
-    else setMessage(PASSWORD_RESET_EMAIL_MESSAGE);
+    if (error) console.error('reset error', error);
+    setMessage(PASSWORD_RESET_EMAIL_MESSAGE);
+    setError('');
   };
 
   return (
