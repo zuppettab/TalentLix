@@ -104,7 +104,7 @@ const runEmailLookup = async (supabaseClient, comparator, value) => {
 const normalizeLookupResults = (rows) =>
   rows
     .map(mapOperatorRow)
-    .filter((record) => record && isOperatorRecord(record));
+    .filter(Boolean);
 
 export const fetchOperatorByEmail = async (supabaseClient, rawEmail) => {
   const email = normalizeEmail(rawEmail);
@@ -143,7 +143,8 @@ export const fetchOperatorByEmail = async (supabaseClient, rawEmail) => {
         return { data: null, error };
       }
 
-      const eligibleRecords = normalizeLookupResults(rows);
+      const records = normalizeLookupResults(rows);
+      const eligibleRecords = records.filter(isOperatorRecord);
 
       if (eligibleRecords.length > 1) {
         console.warn('Multiple eligible operator accounts found for email lookup.', {
@@ -156,6 +157,19 @@ export const fetchOperatorByEmail = async (supabaseClient, rawEmail) => {
 
       if (eligibleRecords.length === 1) {
         return { data: eligibleRecords[0], error: null };
+      }
+
+      if (records.length === 1) {
+        return { data: records[0], error: null };
+      }
+
+      if (records.length > 1) {
+        console.warn('Multiple operator records found for email lookup with no eligible accounts.', {
+          email,
+          comparator: lookup.comparator,
+          opIds: records.map((record) => record.contact?.op_id).filter(Boolean),
+        });
+        return { data: records[0], error: null };
       }
     }
 
