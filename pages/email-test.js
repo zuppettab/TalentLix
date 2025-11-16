@@ -2,11 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import { supabase } from '../utils/supabaseClient';
 import { sendEmailWithSupabase } from '../utils/emailClient';
-import {
-  buildTalentLixConfirmationEmail,
-  buildTalentLixMagicLinkEmail,
-  buildTalentLixPasswordResetEmail,
-} from '../utils/emailTemplates';
 
 const formStyles = {
   container: {
@@ -136,8 +131,6 @@ const initialForm = {
   html: '',
 };
 
-const DEFAULT_BASE_URL = 'https://app.talentlix.com';
-
 const isValidEmail = (value) => {
   if (typeof value !== 'string') return false;
   return /.+@.+/.test(value.trim());
@@ -149,7 +142,6 @@ export default function EmailServiceTestPage() {
   const [form, setForm] = useState(initialForm);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
-  const [selectedPreset, setSelectedPreset] = useState('custom');
 
   useEffect(() => {
     let isMounted = true;
@@ -178,70 +170,11 @@ export default function EmailServiceTestPage() {
   }, []);
 
   const userEmail = useMemo(() => session?.user?.email ?? null, [session]);
-  const userName = useMemo(() => {
-    const metadataName = session?.user?.user_metadata?.full_name;
-    if (metadataName && typeof metadataName === 'string') {
-      return metadataName;
-    }
-    if (!userEmail) return null;
-    const [name] = userEmail.split('@');
-    return name || null;
-  }, [session, userEmail]);
-
-  const baseAppUrl = useMemo(() => {
-    if (typeof window !== 'undefined' && window.location?.origin) {
-      return window.location.origin;
-    }
-    return DEFAULT_BASE_URL;
-  }, []);
-
-  const templateBuilders = useMemo(
-    () => ({
-      confirmation: () =>
-        buildTalentLixConfirmationEmail({
-          confirmationUrl: `${baseAppUrl}/auth/confirm?token=EXAMPLE`,
-          userName,
-        }),
-      passwordReset: () =>
-        buildTalentLixPasswordResetEmail({
-          resetUrl: `${baseAppUrl}/auth/reset-password?token=EXAMPLE`,
-          userName,
-        }),
-      magicLink: () =>
-        buildTalentLixMagicLinkEmail({
-          magicLinkUrl: `${baseAppUrl}/auth/magic-link?token=EXAMPLE`,
-          userName,
-        }),
-    }),
-    [baseAppUrl, userName]
-  );
 
   const handleChange = useCallback((event) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
   }, []);
-
-  const handlePresetChange = useCallback(
-    (event) => {
-      const { value } = event.target;
-      setSelectedPreset(value);
-      if (value === 'custom') {
-        return;
-      }
-
-      const builder = templateBuilders[value];
-      if (!builder) return;
-
-      const payload = builder();
-      setForm((current) => ({
-        ...current,
-        subject: payload?.subject ?? current.subject ?? '',
-        text: payload?.text ?? current.text ?? '',
-        html: payload?.html ?? current.html ?? '',
-      }));
-    },
-    [templateBuilders]
-  );
 
   const canSubmit = useMemo(() => {
     if (!session) return false;
@@ -267,7 +200,6 @@ export default function EmailServiceTestPage() {
       });
       setResult({ type: 'success', message: response?.message ?? 'Email sent successfully.' });
       setForm(initialForm);
-      setSelectedPreset('custom');
     } catch (error) {
       console.error('Failed to send test email', error);
       const details = error?.details ? ` (${error.details})` : '';
@@ -320,19 +252,6 @@ export default function EmailServiceTestPage() {
           then submit the form to trigger an email via the authenticated API endpoint.
         </p>
         <form onSubmit={handleSubmit}>
-          <label htmlFor="template-preset" style={formStyles.label}>Template preset</label>
-          <select
-            id="template-preset"
-            name="template-preset"
-            value={selectedPreset}
-            onChange={handlePresetChange}
-            style={{ ...formStyles.input, backgroundColor: '#ffffff' }}
-          >
-            <option value="custom">Custom content</option>
-            <option value="confirmation">Email confirmation</option>
-            <option value="passwordReset">Password reset</option>
-            <option value="magicLink">Magic sign-in link</option>
-          </select>
           <label htmlFor="email-to" style={formStyles.label}>Recipient email</label>
           <input
             id="email-to"
