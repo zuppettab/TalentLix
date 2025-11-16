@@ -70,6 +70,7 @@ const resolveTransportConfig = () => {
 };
 
 let transporterPromise = null;
+let defaultSenderAddress = null;
 
 const getTransporter = async () => {
   if (!transporterPromise) {
@@ -77,6 +78,7 @@ const getTransporter = async () => {
       const config = resolveTransportConfig();
       const { defaults, ...transportConfig } = config;
       const transporter = nodemailer.createTransport(transportConfig);
+      defaultSenderAddress = defaults?.from ?? null;
       if (defaults?.from) {
         transporter.use('compile', (mail, done) => {
           if (!mail.data.from) {
@@ -90,6 +92,19 @@ const getTransporter = async () => {
   }
 
   return transporterPromise;
+};
+
+const collectEnvelopeRecipients = (...lists) => {
+  const recipients = lists
+    .filter(Boolean)
+    .flatMap((entry) =>
+      String(entry)
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    );
+
+  return recipients.length ? recipients : undefined;
 };
 
 export const sendEmail = async ({
@@ -125,6 +140,10 @@ export const sendEmail = async ({
     html: typeof html === 'string' ? html : undefined,
   };
 
+  if (defaultSenderAddress) {
+    mailOptions.from = defaultSenderAddress;
+  }
+
   const normalizedCc = normalizeAddressList(cc);
   if (normalizedCc) {
     mailOptions.cc = normalizedCc;
@@ -147,6 +166,18 @@ export const sendEmail = async ({
     };
   } else if (headers && typeof headers === 'object') {
     mailOptions.headers = headers;
+  }
+
+  const envelopeRecipients = collectEnvelopeRecipients(
+    normalizedTo,
+    mailOptions.cc,
+    mailOptions.bcc
+  );
+  if (defaultSenderAddress && envelopeRecipients) {
+    mailOptions.envelope = {
+      from: defaultSenderAddress,
+      to: envelopeRecipients,
+    };
   }
 
   const info = await transporter.sendMail(mailOptions);
