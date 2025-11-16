@@ -1,5 +1,126 @@
 import nodemailer from 'nodemailer';
+import fs from 'fs';
+import path from 'path';
 import { createHttpError } from './internalEnablerApi';
+
+const getAssetAbsolutePath = (...segments) => path.join(process.cwd(), ...segments);
+
+let inlineLogoDataUri;
+
+const getInlineLogoDataUri = () => {
+  if (typeof inlineLogoDataUri === 'string') {
+    return inlineLogoDataUri;
+  }
+
+  try {
+    const assetPath = getAssetAbsolutePath('public', 'logo-talentlix.png');
+    const buffer = fs.readFileSync(assetPath);
+    inlineLogoDataUri = `data:image/png;base64,${buffer.toString('base64')}`;
+  } catch (error) {
+    console.warn('[emailService] Unable to inline TalentLix logo asset for emails', error);
+    inlineLogoDataUri = '';
+  }
+
+  return inlineLogoDataUri;
+};
+
+const escapeHtml = (value = '') =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const convertTextToHtml = (value) => {
+  if (!value || typeof value !== 'string') return '';
+
+  return value
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map(
+      (paragraph) =>
+        `<p style="margin:0 0 16px 0; line-height:1.6;">${escapeHtml(paragraph).replace(
+          /\n/g,
+          '<br />'
+        )}</p>`
+    )
+    .join('');
+};
+
+const extractBodyContent = (html) => {
+  if (!html || typeof html !== 'string') return '';
+  const trimmed = html.trim();
+  const bodyMatch = trimmed.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  if (bodyMatch && bodyMatch[1]) {
+    return bodyMatch[1].trim();
+  }
+  return trimmed;
+};
+
+const buildTalentLixTemplate = (contentHtml, subject = 'TalentLix update') => {
+  const logoUri = getInlineLogoDataUri();
+  const year = new Date().getFullYear();
+  const websiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://talentlix.com';
+  const innerContent = contentHtml || '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0; padding:24px; background-color:#F5F7FB; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; color:#0F172A;">
+    <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%; border-collapse:collapse;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:560px; width:100%; background:#FFFFFF; border-radius:24px; padding:32px 32px 24px; box-shadow:0 10px 40px rgba(15,23,42,0.08); border:1px solid #E5E7EB;">
+            <tr>
+              <td align="center" style="padding-bottom:24px;">
+                ${
+                  logoUri
+                    ? `<img src="${logoUri}" alt="TalentLix" width="96" height="96" style="display:block; margin:0 auto;" />`
+                    : '<strong style="font-size:20px; color:#0EA5E9;">TalentLix</strong>'
+                }
+              </td>
+            </tr>
+            <tr>
+              <td style="font-size:15px; line-height:1.7; color:#111827;">
+                ${innerContent}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-top:32px;">
+                <div style="height:1px; width:100%; background:#E5E7EB;"></div>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding-top:16px; font-size:12px; color:#6B7280; line-height:1.6;">
+                © ${year} TalentLix. All rights reserved.<br />
+                <a href="${websiteUrl}" style="color:#0EA5E9; text-decoration:none;">Visit our website</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+};
+
+const applyTalentLixBranding = (mailOptions) => {
+  const rawHtml = mailOptions.html || convertTextToHtml(mailOptions.text || '');
+  const bodyHtml = extractBodyContent(rawHtml);
+  if (!bodyHtml) {
+    return mailOptions;
+  }
+
+  mailOptions.html = buildTalentLixTemplate(bodyHtml, mailOptions.subject || 'TalentLix update');
+  return mailOptions;
+};
 
 const parseBoolean = (value) => {
   if (typeof value === 'boolean') return value;
@@ -264,6 +385,7 @@ export const sendEmail = async (payload = {}) => {
   applyRecipientLists(baseOptions, payload);
   mergeMetadataHeaders(baseOptions, payload);
   attachHeaders(baseOptions, payload);
+  applyTalentLixBranding(baseOptions);
   const mailOptions = finalizeMailOptions(baseOptions);
 
   const info = await transporter.sendMail(mailOptions);
