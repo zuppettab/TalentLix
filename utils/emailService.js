@@ -70,6 +70,7 @@ const resolveTransportConfig = () => {
 };
 
 let transporterPromise = null;
+let defaultSenderAddress = null;
 
 const getTransporter = async () => {
   if (!transporterPromise) {
@@ -77,6 +78,7 @@ const getTransporter = async () => {
       const config = resolveTransportConfig();
       const { defaults, ...transportConfig } = config;
       const transporter = nodemailer.createTransport(transportConfig);
+      defaultSenderAddress = defaults?.from ?? null;
       if (defaults?.from) {
         transporter.use('compile', (mail, done) => {
           if (!mail.data.from) {
@@ -90,6 +92,83 @@ const getTransporter = async () => {
   }
 
   return transporterPromise;
+};
+
+const RESERVED_SENDER_HEADERS = new Set([
+  'from',
+  'sender',
+  'reply-to',
+  'return-path',
+  'x-sender',
+]);
+
+const sanitizeHeaders = (headers) => {
+  if (!headers || typeof headers !== 'object') {
+    return undefined;
+  }
+
+  return Object.entries(headers).reduce((acc, [rawKey, value]) => {
+    if (!rawKey) {
+      return acc;
+    }
+
+    const key = String(rawKey).trim();
+    if (!key) {
+      return acc;
+    }
+
+    if (RESERVED_SENDER_HEADERS.has(key.toLowerCase())) {
+      return acc;
+    }
+
+    acc[key] = value;
+    return acc;
+  }, {});
+};
+
+const collectEnvelopeRecipients = (...lists) => {
+  const recipients = lists
+    .filter(Boolean)
+    .flatMap((entry) =>
+      String(entry)
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    );
+
+  return recipients.length ? recipients : undefined;
+};
+
+const enforceSenderIdentity = (mailOptions, envelopeRecipients) => {
+  if (!defaultSenderAddress) {
+    return;
+  }
+
+  mailOptions.from = defaultSenderAddress;
+  mailOptions.sender = defaultSenderAddress;
+
+  if (!mailOptions.replyTo) {
+    mailOptions.replyTo = defaultSenderAddress;
+  }
+
+  const normalizedEnvelope = {
+    from: defaultSenderAddress,
+  };
+  if (envelopeRecipients?.length) {
+    normalizedEnvelope.to = envelopeRecipients;
+  }
+  mailOptions.envelope = normalizedEnvelope;
+
+  if (mailOptions.headers) {
+    mailOptions.headers = {
+      ...mailOptions.headers,
+      Sender: defaultSenderAddress,
+    };
+  } else {
+    mailOptions.headers = {
+      Sender: defaultSenderAddress,
+    };
+  }
 };
 
 export const sendEmail = async ({
@@ -125,6 +204,10 @@ export const sendEmail = async ({
     html: typeof html === 'string' ? html : undefined,
   };
 
+  if (defaultSenderAddress) {
+    mailOptions.from = defaultSenderAddress;
+  }
+
   const normalizedCc = normalizeAddressList(cc);
   if (normalizedCc) {
     mailOptions.cc = normalizedCc;
@@ -140,14 +223,28 @@ export const sendEmail = async ({
     mailOptions.replyTo = normalizedReplyTo;
   }
 
+  let mergedHeaders;
   if (metadata && typeof metadata === 'object') {
-    mailOptions.headers = {
+    mergedHeaders = {
       ...headers,
       'X-TalentLix-Metadata': Buffer.from(JSON.stringify(metadata)).toString('base64'),
     };
   } else if (headers && typeof headers === 'object') {
-    mailOptions.headers = headers;
+    mergedHeaders = headers;
   }
+
+  const sanitizedHeaderBag = sanitizeHeaders(mergedHeaders);
+  if (sanitizedHeaderBag && Object.keys(sanitizedHeaderBag).length) {
+    mailOptions.headers = sanitizedHeaderBag;
+  }
+
+  const envelopeRecipients = collectEnvelopeRecipients(
+    normalizedTo,
+    mailOptions.cc,
+    mailOptions.bcc
+  );
+
+  enforceSenderIdentity(mailOptions, envelopeRecipients);
 
   const info = await transporter.sendMail(mailOptions);
 
