@@ -87,9 +87,33 @@ export default function RegisterOperator() {
 }
 
 const styles = {
-  background: { backgroundImage: "url('/BackG.png')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', width: '100%', height: '100vh', position: 'relative' },
-  overlay: { backgroundColor: 'rgba(255, 255, 255, 0.7)', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 },
-  container: { minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', fontFamily: 'Inter, sans-serif', position: 'relative' },
+  background: {
+    backgroundImage: "url('/BackG.png')",
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    width: '100%',
+    minHeight: '100vh',
+    position: 'relative',
+    display: 'flex'
+  },
+  overlay: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    width: '100%',
+    minHeight: '100vh',
+    flex: 1,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: '2rem 1rem'
+  },
+  container: {
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    fontFamily: 'Inter, sans-serif'
+  },
   card: { background: '#F8F9FA', padding: '2rem', borderRadius: '12px', textAlign: 'center', width: '100%', maxWidth: '400px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid #E0E0E0' },
   logo: { width: '80px', marginBottom: '1rem' },
   title: { color: '#000000', fontSize: '1.5rem', marginBottom: '1.5rem' },
