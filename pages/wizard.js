@@ -11,6 +11,7 @@ import 'react-phone-input-2/lib/style.css';
 import PhoneInput from 'react-phone-input-2';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import sports from '../utils/sports';
+import { sendEmailWithSupabase } from '../utils/emailClient';
 
 const MAX_YEARS_EXPERIENCE = 80;
 
@@ -431,6 +432,35 @@ export default function Wizard() {
         }
       };
 
+  const sendWizardCompletionEmail = async () => {
+    if (!user?.email) return;
+
+    const reminder = formData.profile_published
+      ? ''
+      : 'Remember that if you do not enable the publication of your profile, operators and clubs will not be able to find and contact you.';
+
+    const text = [
+      'Congratulations, you have successfully completed the Wizard! Log in to your dashboard to expand your profile details so operators and clubs can find and contact you immediately.',
+      reminder,
+    ].filter(Boolean).join(' ');
+
+    const html = [
+      '<p>Congratulations, you have successfully completed the Wizard! Log in to your dashboard to expand your profile details so operators and clubs can find and contact you immediately.</p>',
+      reminder ? `<p>${reminder}</p>` : '',
+    ].filter(Boolean).join('');
+
+    try {
+      await sendEmailWithSupabase(supabase, {
+        to: user.email,
+        subject: 'You completed the TalentLix Wizard',
+        text,
+        html,
+      });
+    } catch (err) {
+      console.error('Failed to send wizard completion email', err);
+    }
+  };
+
   const finalizeProfile = async () => {
     const guardianFirstName = (formData.guardian_first_name || '').trim();
     const guardianLastName = (formData.guardian_last_name || '').trim();
@@ -448,7 +478,10 @@ export default function Wizard() {
         parental_consent_at: formData.parental_consent ? formData.parental_consent_at : null,
       })
       .eq('id', user.id);
-    if (!error) router.push('/dashboard');
+    if (!error) {
+      await sendWizardCompletionEmail();
+      router.push('/dashboard');
+    }
   };
 
   const goBackOneStep = useCallback(() => {
