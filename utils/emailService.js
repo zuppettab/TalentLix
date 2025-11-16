@@ -60,47 +60,45 @@ const extractBodyContent = (html) => {
 };
 
 const buildTalentLixTemplate = (contentHtml, subject = 'TalentLix update') => {
-  const logoUri = getInlineLogoDataUri();
+  const inlineLogo = getInlineLogoDataUri();
+  const fallbackLogoUrl = process.env.NEXT_PUBLIC_BRAND_LOGO_URL || 'https://www.talentlix.com/logo-talentlix.png';
+  const logoSrc = inlineLogo || fallbackLogoUrl;
   const year = new Date().getFullYear();
-  const websiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://talentlix.com';
+  const websiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.talentlix.com';
   const innerContent = contentHtml || '';
 
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="utf-8" />
+    <meta charset="UTF-8" />
+    <meta name="x-apple-disable-message-reformatting">
     <meta http-equiv="x-ua-compatible" content="ie=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(subject)}</title>
   </head>
-  <body style="margin:0; padding:24px; background-color:#F5F7FB; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; color:#0F172A;">
-    <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%; border-collapse:collapse;">
+  <body style="margin:0; padding:0; background-color:#f4f6f8; font-family:Arial,Helvetica,sans-serif; color:#111827;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f4f6f8">
       <tr>
-        <td align="center">
-          <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:560px; width:100%; background:#FFFFFF; border-radius:24px; padding:32px 32px 24px; box-shadow:0 10px 40px rgba(15,23,42,0.08); border:1px solid #E5E7EB;">
+        <td align="center" style="padding:40px 16px;">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:600px; max-width:100%; border-radius:16px; overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,0.08);">
             <tr>
-              <td align="center" style="padding-bottom:24px;">
+              <td align="center" style="padding:36px 24px;background:#ffffff;">
                 ${
-                  logoUri
-                    ? `<img src="${logoUri}" alt="TalentLix" width="96" height="96" style="display:block; margin:0 auto;" />`
-                    : '<strong style="font-size:20px; color:#0EA5E9;">TalentLix</strong>'
+                  logoSrc
+                    ? `<img src="${logoSrc}" alt="TalentLix" width="150" style="display:block;border:0;outline:none;text-decoration:none;" />`
+                    : '<strong style="font-size:20px; color:#19BDB6;">TalentLix</strong>'
                 }
               </td>
             </tr>
             <tr>
-              <td style="font-size:15px; line-height:1.7; color:#111827;">
+              <td style="padding:36px 50px;color:#222;font-size:16px;line-height:1.6;">
                 ${innerContent}
               </td>
             </tr>
             <tr>
-              <td style="padding-top:32px;">
-                <div style="height:1px; width:100%; background:#E5E7EB;"></div>
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="padding-top:16px; font-size:12px; color:#6B7280; line-height:1.6;">
-                © ${year} TalentLix. All rights reserved.<br />
-                <a href="${websiteUrl}" style="color:#0EA5E9; text-decoration:none;">Visit our website</a>
+              <td align="center" bgcolor="#f8f9fa" style="padding:20px;font-size:13px;color:#888;">
+                <p style="margin:4px 0;">© ${year} <strong>TalentLix</strong>. All rights reserved.</p>
+                <p style="margin:4px 0;"><a href="${websiteUrl}" style="color:#27E3DA;text-decoration:none;">Visit our website</a></p>
               </td>
             </tr>
           </table>
