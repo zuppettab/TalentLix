@@ -94,6 +94,21 @@ const getTransporter = async () => {
   return transporterPromise;
 };
 
+const RESERVED_HEADER_NAMES = new Set([
+  'from',
+  'sender',
+  'reply-to',
+  'reply_to',
+  'replyto',
+  'return-path',
+  'return_path',
+  'returnpath',
+  'x-sender',
+  'x-from',
+  'x-envelope-from',
+  'envelope-from',
+]);
+
 const collectEnvelopeRecipients = (...lists) => {
   const recipients = lists
     .filter(Boolean)
@@ -107,24 +122,7 @@ const collectEnvelopeRecipients = (...lists) => {
   return recipients.length ? recipients : undefined;
 };
 
-export const sendEmail = async ({
-  to,
-  cc,
-  bcc,
-  subject,
-  text,
-  html,
-  replyTo,
-  headers,
-  metadata,
-} = {}) => {
-  const transporter = await getTransporter();
-
-  const normalizedTo = normalizeAddressList(to);
-  if (!normalizedTo) {
-    throw createHttpError(400, 'Recipient address is required.');
-  }
-
+const createBaseMailOptions = ({ subject, text, html }) => {
   if (!subject || typeof subject !== 'string') {
     throw createHttpError(400, 'Email subject is required.');
   }
@@ -133,16 +131,20 @@ export const sendEmail = async ({
     throw createHttpError(400, 'Email body is required. Provide text or HTML content.');
   }
 
-  const mailOptions = {
-    to: normalizedTo,
+  return {
     subject,
     text: typeof text === 'string' ? text : undefined,
     html: typeof html === 'string' ? html : undefined,
   };
+};
 
-  if (defaultSenderAddress) {
-    mailOptions.from = defaultSenderAddress;
+const applyRecipientLists = (mailOptions, { to, cc, bcc, replyTo }) => {
+  const normalizedTo = normalizeAddressList(to);
+  if (!normalizedTo) {
+    throw createHttpError(400, 'Recipient address is required.');
   }
+
+  mailOptions.to = normalizedTo;
 
   const normalizedCc = normalizeAddressList(cc);
   if (normalizedCc) {
@@ -159,26 +161,110 @@ export const sendEmail = async ({
     mailOptions.replyTo = normalizedReplyTo;
   }
 
-  if (metadata && typeof metadata === 'object') {
-    mailOptions.headers = {
-      ...headers,
-      'X-TalentLix-Metadata': Buffer.from(JSON.stringify(metadata)).toString('base64'),
-    };
-  } else if (headers && typeof headers === 'object') {
-    mailOptions.headers = headers;
+  return mailOptions;
+};
+
+const mergeMetadataHeaders = (mailOptions, { metadata }) => {
+  if (!metadata || typeof metadata !== 'object') {
+    return mailOptions;
   }
 
-  const envelopeRecipients = collectEnvelopeRecipients(
-    normalizedTo,
-    mailOptions.cc,
-    mailOptions.bcc
-  );
-  if (defaultSenderAddress && envelopeRecipients) {
+  const encodedMetadata = Buffer.from(JSON.stringify(metadata)).toString('base64');
+  mailOptions.headers = {
+    ...(mailOptions.headers || {}),
+    'X-TalentLix-Metadata': encodedMetadata,
+  };
+
+  return mailOptions;
+};
+
+const sanitizeHeaders = (headers = {}) =>
+  Object.entries(headers).reduce((acc, [key, value]) => {
+    if (!key) return acc;
+    const normalized = key.trim().toLowerCase();
+    if (RESERVED_HEADER_NAMES.has(normalized)) {
+      return acc;
+    }
+    acc[key] = value;
+    return acc;
+  }, {});
+
+const attachHeaders = (mailOptions, { headers }) => {
+  if (!headers || typeof headers !== 'object') {
+    return mailOptions;
+  }
+
+  const safeHeaders = sanitizeHeaders(headers);
+  if (!Object.keys(safeHeaders).length) {
+    return mailOptions;
+  }
+
+  const existingHeaders = mailOptions.headers || {};
+  const mergedHeaders = { ...existingHeaders };
+  Object.entries(safeHeaders).forEach(([key, value]) => {
+    if (
+      key &&
+      key.trim().toLowerCase() === 'x-talentlix-metadata' &&
+      Object.prototype.hasOwnProperty.call(existingHeaders, 'X-TalentLix-Metadata')
+    ) {
+      return;
+    }
+    mergedHeaders[key] = value;
+  });
+
+  mailOptions.headers = mergedHeaders;
+
+  return mailOptions;
+};
+
+const enforceSenderIdentity = (mailOptions, envelopeRecipients) => {
+  const identity = defaultSenderAddress || process.env.EMAIL_SENDER;
+  if (!identity) {
+    return mailOptions;
+  }
+
+  mailOptions.from = identity;
+  mailOptions.sender = identity;
+  mailOptions.replyTo = identity;
+
+  mailOptions.headers = {
+    ...(mailOptions.headers || {}),
+    Sender: identity,
+  };
+
+  if (envelopeRecipients?.length) {
     mailOptions.envelope = {
-      from: defaultSenderAddress,
+      ...(mailOptions.envelope || {}),
       to: envelopeRecipients,
     };
   }
+
+  mailOptions.envelope = {
+    ...(mailOptions.envelope || {}),
+    from: identity,
+  };
+
+  return mailOptions;
+};
+
+const finalizeMailOptions = (mailOptions) => {
+  const envelopeRecipients = collectEnvelopeRecipients(
+    mailOptions.to,
+    mailOptions.cc,
+    mailOptions.bcc
+  );
+
+  return enforceSenderIdentity(mailOptions, envelopeRecipients);
+};
+
+export const sendEmail = async (payload = {}) => {
+  const transporter = await getTransporter();
+
+  const baseOptions = createBaseMailOptions(payload);
+  applyRecipientLists(baseOptions, payload);
+  mergeMetadataHeaders(baseOptions, payload);
+  attachHeaders(baseOptions, payload);
+  const mailOptions = finalizeMailOptions(baseOptions);
 
   const info = await transporter.sendMail(mailOptions);
 
