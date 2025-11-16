@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { SECTIONS, DEFAULT_SECTION, isValidSection } from '../utils/dashboardSections';
 import { supabase } from '../utils/supabaseClient';
+import { sendEmailWithSupabase } from '../utils/emailClient';
 import { computeProfileCompletion, MEDIA_CATEGORIES } from '../utils/profileCompletion';
 import PersonalPanel from '../sections/personal/PersonalPanel';
 import ContactsPanel from '../sections/contacts/ContactsPanel';
@@ -16,6 +17,10 @@ import AwardsWidget from '../sections/awards/AwardsWidget';
 import PrivacyPanel from '../sections/privacy/PrivacyPanel';
 
 const ATHLETE_TABLE = 'athlete';
+
+const PUBLISH_STATUS_SUBJECT = 'TalentLix Profile Publication Update';
+const PUBLISH_ENABLED_MESSAGE = 'You have published your profile. Operators and clubs can now search for and contact you. Remember to keep your information up to date and include all details to increase the chances that club operators can find and reach out to you.';
+const PUBLISH_DISABLED_MESSAGE = 'You have just disabled the publication of your profile. If your profile is not published, club operators will not be able to search for or contact you.';
 
 const SECTION_TITLE_BY_ID = SECTIONS.reduce((acc, section) => {
   acc[section.id] = section.title;
@@ -72,8 +77,25 @@ export default function Dashboard() {
   const cardDataRef = useRef(cardData);
   const tooltipWrapRef = useRef(null);
 
+  const userEmail = user?.email || null;
+
   useEffect(() => { athleteRef.current = athlete; }, [athlete]);
   useEffect(() => { cardDataRef.current = cardData; }, [cardData]);
+
+  const sendPublishStatusEmail = useCallback(async (nextPublished) => {
+    const recipient = athleteRef.current?.email || userEmail;
+    if (!recipient) return;
+    const text = nextPublished ? PUBLISH_ENABLED_MESSAGE : PUBLISH_DISABLED_MESSAGE;
+    try {
+      await sendEmailWithSupabase(supabase, {
+        to: recipient,
+        subject: PUBLISH_STATUS_SUBJECT,
+        text,
+      });
+    } catch (error) {
+      console.error('Failed to send publish status email', error);
+    }
+  }, [userEmail]);
 
   const fetchContactsVerification = useCallback(async (athleteId) => {
     const { data, error } = await supabase
@@ -460,14 +482,17 @@ export default function Dashboard() {
     }
     try {
       setSavingPublish(true);
+      const nextPublished = !isPublished;
       const { data, error } = await supabase
         .from(ATHLETE_TABLE)
-        .update({ profile_published: !isPublished })
+        .update({ profile_published: nextPublished })
         .eq('id', athlete.id)
         .select()
         .single();
       if (error) throw error;
       setAthlete(data);
+      athleteRef.current = data;
+      await sendPublishStatusEmail(nextPublished);
     } catch (e) {
       console.error(e);
       alert('Error updating publish status');
