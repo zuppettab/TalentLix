@@ -151,7 +151,7 @@ export default function Home() {
 
       <style jsx>{`
         .hero {
-          padding: 3.25rem 1.5rem 0.25rem;
+          padding: 1.75rem 1.5rem 0.25rem;
           text-align: center;
         }
 
@@ -169,7 +169,7 @@ export default function Home() {
 
         @media (max-width: 640px) {
           .hero {
-            padding: 2.5rem 1.5rem 1.25rem;
+            padding: 1.35rem 1.25rem 0.75rem;
           }
 
           .hero__logo {
