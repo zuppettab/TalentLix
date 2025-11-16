@@ -63,6 +63,37 @@ await sendEmailWithSupabase(supabase, {
 
 Per casi particolari (es. token già disponibile) è possibile usare `sendEmailRequest({ accessToken, ...payload })`.
 
+### Template grafici TalentLix
+
+Per riprodurre la stessa grafica delle email di autenticazione è disponibile `utils/emailTemplates.js`, che esporta sia un
+renderer generico (`renderTalentLixEmailTemplate`) sia preset pronti:
+
+- `buildTalentLixConfirmationEmail({ confirmationUrl, userName })`
+- `buildTalentLixPasswordResetEmail({ resetUrl, userName, expiresInMinutes })`
+- `buildTalentLixMagicLinkEmail({ magicLinkUrl, userName })`
+
+Ogni helper restituisce `{ subject, text, html, previewText }` già popolati con il layout brandizzato. Esempio:
+
+```js
+import { sendEmailWithSupabase } from '../utils/emailClient';
+import { buildTalentLixConfirmationEmail } from '../utils/emailTemplates';
+
+const { subject, text, html } = buildTalentLixConfirmationEmail({
+  confirmationUrl: confirmationLink,
+  userName: profile.full_name,
+});
+
+await sendEmailWithSupabase(supabase, {
+  to: user.email,
+  subject,
+  text,
+  html,
+});
+```
+
+Per casi non coperti dai preset basta passare titolo, paragrafi e CTA a `renderTalentLixEmailTemplate` per ottenere l'HTML
+completo già pronto per l'invio.
+
 ### Campi supportati
 
 - `to` (stringa o array) – obbligatorio
@@ -109,6 +140,7 @@ Gli errori restituiscono `error`, `code` e `details` quando disponibili.
 
 - Accessibile solo se si è autenticati (atleta o operatore).
 - Offre un form con campi per destinatario, oggetto, testo e HTML opzionale.
+- Include preset per le email di autenticazione (conferma, reset password, magic link) così da generare HTML brandizzato con un click.
 - Visualizza l'esito dell'invio e permette di ripetere il test.
 - Mostra link ai flussi di login se non si possiede una sessione attiva.
 
