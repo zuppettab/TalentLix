@@ -373,7 +373,20 @@ TalentLix Team`;
   return { to, subject, text, html };
 };
 
-const buildOperatorNotificationPayload = ({ operatorEmail, athleteFullName, expiryLabel }) => {
+const formatCreditsLabel = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  const normalized = Math.round(number * 100) / 100;
+  return Number.isInteger(normalized) ? `${normalized}` : normalized.toFixed(2);
+};
+
+const buildOperatorNotificationPayload = ({
+  operatorEmail,
+  athleteFullName,
+  expiryLabel,
+  creditsSpent,
+  walletBalance,
+}) => {
   const to = normalizeEmail(operatorEmail);
   if (!to) return null;
 
@@ -387,16 +400,47 @@ const buildOperatorNotificationPayload = ({ operatorEmail, athleteFullName, expi
     ? `Full contact details will remain available until <strong>${expiryLabel}</strong>.`
     : 'Full contact details will remain available while this unlock stays active.';
 
+  const creditsSpentLabel = formatCreditsLabel(creditsSpent);
+  const walletBalanceLabel = formatCreditsLabel(walletBalance);
+  const spendLine = creditsSpentLabel
+    ? `Credits spent on this unlock: ${creditsSpentLabel}.`
+    : null;
+  const balanceLine = walletBalanceLabel
+    ? `Wallet balance after this unlock: ${walletBalanceLabel}.`
+    : null;
+  const htmlSpendLine = creditsSpentLabel
+    ? `Credits spent on this unlock: <strong>${creditsSpentLabel}</strong>.`
+    : null;
+  const htmlBalanceLine = walletBalanceLabel
+    ? `Wallet balance after this unlock: <strong>${walletBalanceLabel}</strong>.`
+    : null;
+
   const text = `${greeting}
 
 You just unlocked the athlete ${resolvedAthleteName}.
 ${availabilityLine}
 
+${spendLine ? spendLine : ''}
+${balanceLine ? balanceLine : ''}
+
 TalentLix Team`;
-  const html = `<p>${greeting}</p>
-<p>You just unlocked the athlete <strong>${resolvedAthleteName}</strong>.</p>
-<p>${htmlAvailabilityLine}</p>
-<p>TalentLix Team</p>`;
+  const htmlLines = [
+    `<p>${greeting}</p>`,
+    `<p>You just unlocked the athlete <strong>${resolvedAthleteName}</strong>.</p>`,
+    `<p>${htmlAvailabilityLine}</p>`,
+  ];
+
+  if (htmlSpendLine) {
+    htmlLines.push(`<p>${htmlSpendLine}</p>`);
+  }
+
+  if (htmlBalanceLine) {
+    htmlLines.push(`<p>${htmlBalanceLine}</p>`);
+  }
+
+  htmlLines.push('<p>TalentLix Team</p>');
+
+  const html = htmlLines.join('');
 
   return { to, subject, text, html };
 };
@@ -744,6 +788,8 @@ export default async function handler(req, res) {
         operatorEmail,
         athleteFullName,
         expiryLabel,
+        creditsSpent: creditsCost,
+        walletBalance: nextBalanceRaw,
       }),
     });
 
