@@ -5,6 +5,7 @@ import {
 } from '../../../utils/internalEnablerApi';
 import { resolveOperatorRequestContext } from '../../../utils/operatorApi';
 import { loadOperatorContactBundle } from './athlete-contacts';
+import { sendEmail } from '../../../utils/emailService';
 
 const CONTACT_UNLOCK_TABLE_CANDIDATES = [
   'op_contact_unlocks',
@@ -301,6 +302,168 @@ const normalizeUuid = (value) => {
   return trimmed;
 };
 
+const normalizeString = (value) => {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  return trimmed || '';
+};
+
+const normalizeNamePart = (value) => {
+  const normalized = normalizeString(value);
+  return normalized || null;
+};
+
+const normalizeEmail = (value) => normalizeString(value);
+
+const toArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (value == null) return [];
+  return [value];
+};
+
+const pickFirst = (value) => {
+  const arr = toArray(value);
+  return arr.length ? arr[0] : null;
+};
+
+const formatFullName = (firstName, lastName, fallback = '') => {
+  const parts = [normalizeNamePart(firstName), normalizeNamePart(lastName)].filter(Boolean);
+  if (parts.length) {
+    return parts.join(' ');
+  }
+  return fallback;
+};
+
+const formatUnlockExpiryLabel = (isoString) => {
+  if (!isoString) return null;
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toUTCString().replace('GMT', 'UTC');
+};
+
+const buildAthleteNotificationPayload = ({
+  athleteEmail,
+  athleteFirstName,
+  operatorDisplayName,
+  operatorTypeLabel,
+}) => {
+  const to = normalizeEmail(athleteEmail);
+  if (!to) return null;
+
+  const greeting = athleteFirstName ? `Hi ${athleteFirstName},` : 'Hello,';
+  const resolvedOperatorName = operatorDisplayName || 'a TalentLix operator';
+  const operatorTypeSuffix = operatorTypeLabel ? ` (${operatorTypeLabel})` : '';
+  const operatorDescriptor = `${resolvedOperatorName}${operatorTypeSuffix}`;
+
+  const subject = 'A TalentLix operator viewed your profile';
+  const text = `${greeting}
+
+Congratulations! ${operatorDescriptor} has unlocked and viewed your full TalentLix profile.
+
+Keep your information up to date to make the most of this opportunity.
+
+TalentLix Team`;
+  const html = `<p>${greeting}</p>
+<p>Congratulations! <strong>${resolvedOperatorName}</strong>${operatorTypeSuffix} has unlocked and viewed your full TalentLix profile.</p>
+<p>Keep your information up to date to make the most of this opportunity.</p>
+<p>TalentLix Team</p>`;
+
+  return { to, subject, text, html };
+};
+
+const buildOperatorNotificationPayload = ({ operatorEmail, athleteFullName, expiryLabel }) => {
+  const to = normalizeEmail(operatorEmail);
+  if (!to) return null;
+
+  const resolvedAthleteName = athleteFullName || 'this athlete';
+  const subject = 'Athlete contact unlock confirmed';
+  const greeting = 'Hello,';
+  const availabilityLine = expiryLabel
+    ? `Full contact details will remain available until ${expiryLabel}.`
+    : 'Full contact details will remain available while this unlock stays active.';
+  const htmlAvailabilityLine = expiryLabel
+    ? `Full contact details will remain available until <strong>${expiryLabel}</strong>.`
+    : 'Full contact details will remain available while this unlock stays active.';
+
+  const text = `${greeting}
+
+You just unlocked the athlete ${resolvedAthleteName}.
+${availabilityLine}
+
+TalentLix Team`;
+  const html = `<p>${greeting}</p>
+<p>You just unlocked the athlete <strong>${resolvedAthleteName}</strong>.</p>
+<p>${htmlAvailabilityLine}</p>
+<p>TalentLix Team</p>`;
+
+  return { to, subject, text, html };
+};
+
+const sendUnlockNotificationEmails = async ({ athletePayload, operatorPayload }) => {
+  const tasks = [];
+
+  if (athletePayload) {
+    tasks.push(
+      sendEmail(athletePayload).catch((error) => {
+        console.error('Failed to send athlete unlock notification email', error);
+      })
+    );
+  }
+
+  if (operatorPayload) {
+    tasks.push(
+      sendEmail(operatorPayload).catch((error) => {
+        console.error('Failed to send operator unlock confirmation email', error);
+      })
+    );
+  }
+
+  if (tasks.length) {
+    await Promise.allSettled(tasks);
+  }
+};
+
+const fetchAthleteIdentityForNotifications = async (client, athleteId) => {
+  try {
+    const { data, error } = await client
+      .from('athlete')
+      .select('first_name, last_name, email')
+      .eq('id', athleteId)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    let email = normalizeEmail(data?.email);
+
+    if (!email && client?.auth?.admin?.getUserById) {
+      try {
+        const { data: authData, error: authError } = await client.auth.admin.getUserById(athleteId);
+        if (authError) throw authError;
+        email = normalizeEmail(authData?.user?.email);
+      } catch (authLookupError) {
+        console.error('Unlock notification fallback auth lookup failed', authLookupError);
+      }
+    }
+
+    if (!data && !email) {
+      return null;
+    }
+
+    return {
+      first_name: normalizeNamePart(data?.first_name),
+      last_name: normalizeNamePart(data?.last_name),
+      email,
+    };
+  } catch (identityError) {
+    console.error('Unable to load athlete identity for unlock notifications', identityError);
+    return null;
+  }
+};
+
 const respondWithError = (res, error, fallbackMessage) => {
   const statusCode = typeof error?.statusCode === 'number' ? error.statusCode : 500;
   const message = typeof error?.message === 'string' && error.message
@@ -357,9 +520,15 @@ export default async function handler(req, res) {
       throw createHttpError(400, 'A valid athleteId must be provided.');
     }
 
+    const operatorEmail = normalizeEmail(user?.email);
+
     const { data: accountRow, error: accountError } = await client
       .from('op_account')
-      .select('id')
+      .select(`
+        id,
+        op_profile:op_profile(legal_name, trade_name, entity_name, contact_name, company_name),
+        op_type:op_type(code, name)
+      `)
       .eq('auth_user_id', user.id)
       .maybeSingle();
 
@@ -371,6 +540,23 @@ export default async function handler(req, res) {
     if (!operatorId) {
       throw createHttpError(403, 'Operator account not found for the current user.');
     }
+
+    const operatorProfile = pickFirst(accountRow?.op_profile);
+    const operatorType = pickFirst(accountRow?.op_type);
+    const operatorNameCandidates = [
+      operatorProfile?.trade_name,
+      operatorProfile?.legal_name,
+      operatorProfile?.entity_name,
+      operatorProfile?.company_name,
+      operatorProfile?.contact_name,
+      user?.user_metadata?.full_name,
+      user?.user_metadata?.name,
+    ];
+    const operatorDisplayName = operatorNameCandidates
+      .map((value) => normalizeNamePart(value))
+      .find(Boolean) || 'a TalentLix operator';
+    const operatorTypeLabel =
+      normalizeString(operatorType?.name) || normalizeString(operatorType?.code) || '';
 
     const { data: activeUnlock, error: activeUnlockError } = await client
       .from('v_op_unlocks_active')
@@ -524,6 +710,35 @@ export default async function handler(req, res) {
     } catch (bundleError) {
       console.error('Unable to refresh operator contact bundle after unlock', bundleError);
     }
+
+    const contactFirstName = normalizeNamePart(contacts?.first_name);
+    const contactLastName = normalizeNamePart(contacts?.last_name);
+    const contactEmail = normalizeEmail(contacts?.email);
+    const needsIdentityFallback = !contactEmail || (!contactFirstName && !contactLastName);
+    const fallbackIdentity = needsIdentityFallback
+      ? await fetchAthleteIdentityForNotifications(client, resolvedId)
+      : null;
+
+    const athleteFirstName = contactFirstName || fallbackIdentity?.first_name || null;
+    const athleteLastName = contactLastName || fallbackIdentity?.last_name || null;
+    const athleteEmail = contactEmail || fallbackIdentity?.email || '';
+    const athleteFullName = formatFullName(athleteFirstName, athleteLastName, 'this athlete');
+    const unlockExpiresAt = contacts?.expires_at || unlockRow?.expires_at || expiresAt || null;
+    const expiryLabel = formatUnlockExpiryLabel(unlockExpiresAt);
+
+    await sendUnlockNotificationEmails({
+      athletePayload: buildAthleteNotificationPayload({
+        athleteEmail,
+        athleteFirstName,
+        operatorDisplayName,
+        operatorTypeLabel,
+      }),
+      operatorPayload: buildOperatorNotificationPayload({
+        operatorEmail,
+        athleteFullName,
+        expiryLabel,
+      }),
+    });
 
     return res.status(200).json({
       success: true,
