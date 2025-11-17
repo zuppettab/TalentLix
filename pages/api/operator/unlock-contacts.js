@@ -526,7 +526,8 @@ export default async function handler(req, res) {
       .from('op_account')
       .select(`
         id,
-        op_profile:op_profile(legal_name, trade_name, entity_name, contact_name, company_name),
+        display_name,
+        op_profile:op_profile(legal_name, trade_name, website, logo_url, city, state_region, country),
         op_type:op_type(code, name)
       `)
       .eq('auth_user_id', user.id)
@@ -546,15 +547,22 @@ export default async function handler(req, res) {
     const operatorNameCandidates = [
       operatorProfile?.trade_name,
       operatorProfile?.legal_name,
-      operatorProfile?.entity_name,
-      operatorProfile?.company_name,
-      operatorProfile?.contact_name,
+      accountRow?.display_name,
       user?.user_metadata?.full_name,
       user?.user_metadata?.name,
     ];
-    const operatorDisplayName = operatorNameCandidates
+    const resolvedOperatorName = operatorNameCandidates
       .map((value) => normalizeNamePart(value))
-      .find(Boolean) || 'a TalentLix operator';
+      .find(Boolean);
+
+    if (!resolvedOperatorName) {
+      console.warn('Operator display name fallback used during contact unlock', {
+        operatorId,
+        candidateSources: operatorNameCandidates,
+      });
+    }
+
+    const operatorDisplayName = resolvedOperatorName || 'a TalentLix operator';
     const operatorTypeLabel =
       normalizeString(operatorType?.name) || normalizeString(operatorType?.code) || '';
 
