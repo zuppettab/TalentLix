@@ -21,6 +21,8 @@ const ATHLETE_TABLE = 'athlete';
 const PUBLISH_STATUS_SUBJECT = 'TalentLix Profile Publication Update';
 const PUBLISH_ENABLED_MESSAGE = 'You have published your profile. Operators and clubs can now search for and contact you. Remember to keep your information up to date and include all details to increase the chances that club operators can find and reach out to you.';
 const PUBLISH_DISABLED_MESSAGE = 'You have just disabled the publication of your profile. If your profile is not published, club operators will not be able to search for or contact you.';
+const PROFILE_COMPLETION_SUBJECT = 'TalentLix Profile Completion Milestone';
+const PROFILE_COMPLETION_MESSAGE = 'Congratulations! Your profile has reached 100% completion. This will bring you more visibility and connect you with many more operators and clubs!';
 
 const SECTION_TITLE_BY_ID = SECTIONS.reduce((acc, section) => {
   acc[section.id] = section.title;
@@ -94,6 +96,20 @@ export default function Dashboard() {
       });
     } catch (error) {
       console.error('Failed to send publish status email', error);
+    }
+  }, [userEmail]);
+
+  const sendProfileCompletionEmail = useCallback(async (fallbackRecipient = null) => {
+    const recipient = fallbackRecipient || athleteRef.current?.email || userEmail;
+    if (!recipient) return;
+    try {
+      await sendEmailWithSupabase(supabase, {
+        to: recipient,
+        subject: PROFILE_COMPLETION_SUBJECT,
+        text: PROFILE_COMPLETION_MESSAGE,
+      });
+    } catch (error) {
+      console.error('Failed to send profile completion email', error);
     }
   }, [userEmail]);
 
@@ -219,6 +235,7 @@ export default function Dashboard() {
     setCompletionBreakdown(breakdown);
     const clamped = Math.max(40, Math.min(100, Math.round(completion)));
     const currentCompletion = Number(currentAthlete.completion_percentage ?? 0);
+    const reachedCompletionMilestone = currentCompletion < 100 && clamped === 100;
 
     if (currentCompletion !== clamped) {
       try {
@@ -245,7 +262,11 @@ export default function Dashboard() {
     } else {
       setAthlete(prev => (prev ? { ...prev, completion_percentage: clamped } : prev));
     }
-  }, [applyDerivedFields]);
+
+    if (reachedCompletionMilestone) {
+      await sendProfileCompletionEmail(currentAthlete?.email || null);
+    }
+  }, [applyDerivedFields, sendProfileCompletionEmail]);
 
   const handleSectionSaved = useCallback(async (sectionId, nextAthlete = null) => {
     const baseAthlete = nextAthlete ? { ...(athleteRef.current || {}), ...nextAthlete } : athleteRef.current;
