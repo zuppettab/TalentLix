@@ -526,7 +526,6 @@ export default async function handler(req, res) {
       .from('op_account')
       .select(`
         id,
-        display_name,
         op_profile:op_profile(legal_name, trade_name, website, logo_url, city, state_region, country),
         op_type:op_type(code, name)
       `)
@@ -547,9 +546,9 @@ export default async function handler(req, res) {
     const operatorNameCandidates = [
       operatorProfile?.trade_name,
       operatorProfile?.legal_name,
-      accountRow?.display_name,
       user?.user_metadata?.full_name,
       user?.user_metadata?.name,
+      user?.email,
     ];
     const resolvedOperatorName = operatorNameCandidates
       .map((value) => normalizeNamePart(value))
