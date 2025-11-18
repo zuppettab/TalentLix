@@ -38,6 +38,39 @@ const ERROR_COLUMN_MISSING = new Set(['42703', 'PGRST204']);
 const ERROR_VIEW_READONLY = new Set(['0A000', '42809']);
 const ERROR_CONFLICT = new Set(['23505']);
 const ERROR_NOT_NULL = new Set(['23502']);
+const ZERO_BALANCE_TOLERANCE = 0.00001;
+
+const buildWalletZeroBalanceEmail = ({ to, operatorName }) => {
+  if (!to) return null;
+
+  const safeName = typeof operatorName === 'string' ? operatorName.trim() : '';
+  const greeting = safeName ? `Hi ${safeName},` : 'Hi there,';
+
+  const subject = 'Your TalentLix wallet balance is 0 credits';
+  const textLines = [
+    greeting,
+    '',
+    'Your TalentLix wallet has just reached 0 credits. To continue unlocking athlete contacts you need to add credits to your wallet.',
+    '',
+    'Go to your operator dashboard, open the Wallet section and complete a top-up to restore access.',
+    '',
+    'TalentLix Team',
+  ];
+
+  const htmlLines = [
+    `<p>${greeting}</p>`,
+    '<p>Your TalentLix wallet has just reached <strong>0 credits</strong>. To continue unlocking athlete contacts you need to add credits to your wallet.</p>',
+    '<p>Go to your operator dashboard, open the Wallet section and complete a top-up to restore access.</p>',
+    '<p>TalentLix Team</p>',
+  ];
+
+  return {
+    to,
+    subject,
+    text: textLines.join('\n'),
+    html: htmlLines.join(''),
+  };
+};
 
 const extractConstraintColumn = (error) => {
   if (!error) return null;
@@ -668,6 +701,8 @@ export default async function handler(req, res) {
     }
 
     const nextBalanceRaw = Math.round((currentBalance - creditsCost) * 100) / 100;
+    const reachedZeroBalance =
+      currentBalance > ZERO_BALANCE_TOLERANCE && Math.abs(nextBalanceRaw) <= ZERO_BALANCE_TOLERANCE;
 
     if (nextBalanceRaw < -0.005) {
       const insufficient = createHttpError(400, 'Insufficient credits to unlock contacts.');
@@ -792,6 +827,21 @@ export default async function handler(req, res) {
         walletBalance: nextBalanceRaw,
       }),
     });
+
+    if (reachedZeroBalance && operatorEmail) {
+      const zeroBalancePayload = buildWalletZeroBalanceEmail({
+        to: operatorEmail,
+        operatorName: operatorDisplayName,
+      });
+
+      if (zeroBalancePayload) {
+        try {
+          await sendEmail(zeroBalancePayload);
+        } catch (zeroBalanceError) {
+          console.error('Failed to send wallet zero balance alert email', zeroBalanceError);
+        }
+      }
+    }
 
     return res.status(200).json({
       success: true,
