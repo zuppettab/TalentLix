@@ -54,6 +54,35 @@ const STATUS_BADGES = {
   },
 };
 
+// Mapping between wallet transaction kinds and the semantic direction used to
+// decorate values with the correct sign. Keep this list in sync with new kinds
+// introduced in the backend.
+const KIND_DIRECTION_MAP = {
+  TOPUP: 'credit',
+  WALLET_TOPUP: 'credit',
+  ADMIN_TOPUP: 'credit',
+  MANUAL_TOPUP: 'credit',
+  MANUAL_CREDIT: 'credit',
+  CREDIT: 'credit',
+  REFUND: 'credit',
+  BONUS: 'credit',
+  PROMO_CREDIT: 'credit',
+  ADJUSTMENT_POS: 'credit',
+  ADJUSTMENT_PLUS: 'credit',
+  ADMIN_ADJUST: 'debit',
+  ADMIN_DEBIT: 'debit',
+  ADJUSTMENT: 'debit',
+  ADJUST: 'debit',
+  MANUAL_ADJUST: 'debit',
+  DEBIT: 'debit',
+  MANUAL_DEBIT: 'debit',
+  DEBIT_CONTACT_UNLOCK: 'debit',
+  ADJUSTMENT_NEG: 'debit',
+  BOOKING_FEE: 'debit',
+  WITHDRAW: 'debit',
+  WITHDRAWAL: 'debit',
+};
+
 const formatCredits = (value) => {
   if (value == null) return '0.00';
   const numeric = Number(value);
@@ -125,6 +154,45 @@ const buildWalletTopUpEmail = ({
     text: textLines.join('\n'),
     html: htmlLines.join(''),
   };
+};
+
+const normalizeDirection = (value) => {
+  if (value === 'credit' || value === 'debit') {
+    return value;
+  }
+  return null;
+};
+
+const inferTransactionDirection = (tx) => {
+  if (!tx) return null;
+  const normalizedKind = String(tx.kind || '').trim().toUpperCase();
+  if (normalizedKind && KIND_DIRECTION_MAP[normalizedKind]) {
+    return KIND_DIRECTION_MAP[normalizedKind];
+  }
+
+  const creditValue = Number(tx.credits);
+  if (Number.isFinite(creditValue) && creditValue !== 0) {
+    return creditValue > 0 ? 'credit' : 'debit';
+  }
+
+  const amountValue = Number(tx.amount_eur);
+  if (Number.isFinite(amountValue) && amountValue !== 0) {
+    return amountValue > 0 ? 'credit' : 'debit';
+  }
+
+  return null;
+};
+
+const formatSignedValue = (value, directionHint = null) => {
+  const numeric = Number(value);
+  const resolvedDirection =
+    normalizeDirection(directionHint) ||
+    (Number.isFinite(numeric) && numeric !== 0 ? (numeric > 0 ? 'credit' : 'debit') : null);
+
+  const magnitude = Number.isFinite(numeric) ? Math.abs(numeric) : 0;
+  const sign = resolvedDirection === 'debit' ? '-' : resolvedDirection === 'credit' ? '+' : '';
+
+  return `${sign}${formatCredits(magnitude)}`;
 };
 
 const styles = {
@@ -747,10 +815,9 @@ export default function WalletPanel({ operatorData = {}, authUser = null, onRefr
                 tone: 'info',
               };
 
-              const creditValue = Number(tx.credits ?? 0);
-              const amountValue = Number(tx.amount_eur ?? tx.credits ?? 0);
-              const creditLabel = `${creditValue < 0 ? '-' : '+'}${formatCredits(Math.abs(creditValue))}`;
-              const amountLabel = `${amountValue < 0 ? '-' : '+'}${formatCredits(Math.abs(amountValue))}`;
+              const txDirection = inferTransactionDirection(tx);
+              const creditLabel = formatSignedValue(tx.credits ?? 0, txDirection);
+              const amountLabel = formatSignedValue(tx.amount_eur ?? tx.credits ?? 0, txDirection);
 
               return (
                 <div key={tx.id || tx.tx_ref} style={styles.historyItem}>
