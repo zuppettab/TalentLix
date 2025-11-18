@@ -353,25 +353,29 @@ export default function WalletPanel({ operatorData = {}, authUser = null, onRefr
   const operatorIdentity = useMemo(() => {
     const contact = operatorData?.contact || {};
     const profile = operatorData?.profile || {};
+    const account = operatorData?.account || {};
     const userMeta = authUser?.user_metadata || {};
 
     const name = pickFirstNonEmpty([
       profile.trade_name,
       profile.legal_name,
+      account.display_name,
       userMeta.full_name,
       userMeta.name,
       authUser?.email,
     ]);
 
     const email = pickFirstNonEmpty([
+      authUser?.email,
+      userMeta.email,
+      account.email,
       contact.email_billing,
       contact.email_primary,
       contact.email_secondary,
-      authUser?.email,
     ]);
 
     return { name, email };
-  }, [authUser, operatorData?.contact, operatorData?.profile]);
+  }, [authUser, operatorData?.account, operatorData?.contact, operatorData?.profile]);
 
   const walletUnavailable = useMemo(() => {
     if (!walletError) return false;
