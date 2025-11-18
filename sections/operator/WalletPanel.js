@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { supabase } from '../../utils/supabaseClient';
+import { sendEmailWithSupabase } from '../../utils/emailClient';
 
 const QUICK_PACKAGES = [
   { amount: 25, code: 'PKG_25', label: '25€' },
@@ -82,6 +83,48 @@ const formatDateTime = (value) => {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+};
+
+const buildWalletTopUpEmail = ({
+  to,
+  operatorName,
+  credits,
+  providerLabel,
+  occurredAt,
+}) => {
+  if (!to) return null;
+
+  const safeName = typeof operatorName === 'string' ? operatorName.trim() : '';
+  const greeting = safeName ? `Hi ${safeName},` : 'Hi there,';
+  const creditLabel = formatCredits(credits);
+  const providerSegment = providerLabel ? ` via ${providerLabel}` : '';
+  const occurredLabel = formatDateTime(occurredAt) || 'just now';
+
+  const subject = 'Your TalentLix wallet top-up is confirmed';
+  const textLines = [
+    greeting,
+    '',
+    `We added ${creditLabel} credits to your TalentLix wallet${providerSegment} on ${occurredLabel}. The credits are now available in your operator dashboard.`,
+    '',
+    'If you did not request this top-up please contact the TalentLix support team immediately.',
+    '',
+    'TalentLix Team',
+  ];
+
+  const htmlProviderSegment = providerLabel ? ` via <strong>${providerLabel}</strong>` : '';
+  const htmlLines = [
+    `<p>${greeting}</p>`,
+    `<p>We added <strong>${creditLabel} credits</strong> to your TalentLix wallet${htmlProviderSegment} on ${occurredLabel}. The credits are now available in your operator dashboard.</p>`,
+    '<p>If you did not request this top-up please contact the TalentLix support team immediately.</p>',
+    '<p>TalentLix Team</p>',
+  ];
+
+  return {
+    to,
+    subject,
+    text: textLines.join('\n'),
+    html: htmlLines.join(''),
+  };
 };
 
 const styles = {
@@ -269,7 +312,23 @@ const styles = {
   },
 };
 
-export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = false }) {
+const normalizeString = (value) => {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  return trimmed || '';
+};
+
+const pickFirstNonEmpty = (values = []) => {
+  for (const value of values) {
+    const normalized = normalizeString(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return null;
+};
+
+export default function WalletPanel({ operatorData = {}, authUser = null, onRefresh, isMobile = false }) {
   const walletData = operatorData?.wallet || {};
   const accountId = operatorData?.account?.id || null;
   const balance = walletData?.balance_credits ?? 0;
@@ -290,6 +349,29 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
     Boolean(supabase) &&
     Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
     Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+
+  const operatorIdentity = useMemo(() => {
+    const contact = operatorData?.contact || {};
+    const profile = operatorData?.profile || {};
+    const userMeta = authUser?.user_metadata || {};
+
+    const name = pickFirstNonEmpty([
+      profile.trade_name,
+      profile.legal_name,
+      userMeta.full_name,
+      userMeta.name,
+      authUser?.email,
+    ]);
+
+    const email = pickFirstNonEmpty([
+      contact.email_billing,
+      contact.email_primary,
+      contact.email_secondary,
+      authUser?.email,
+    ]);
+
+    return { name, email };
+  }, [authUser, operatorData?.contact, operatorData?.profile]);
 
   const walletUnavailable = useMemo(() => {
     if (!walletError) return false;
@@ -361,6 +443,7 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
       }
 
       const provider = PROVIDERS.find((item) => item.id === providerId) || null;
+      const providerLabel = provider?.label || providerId;
       const packageMeta = QUICK_PACKAGES.find((pkg) => Math.abs(pkg.amount - normalizedAmount) < 0.01);
       const packageCode = packageMeta?.code || 'CUSTOM';
       const creditsToAdd = Math.round(normalizedAmount * 100) / 100;
@@ -368,7 +451,7 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
 
       setIsProcessing(true);
       setMessageTone('info');
-      setMessage(`Processing your top-up with ${provider?.label || 'the selected provider'}…`);
+      setMessage(`Processing your top-up with ${providerLabel || 'the selected provider'}…`);
 
       let pendingTxId = null;
 
@@ -441,7 +524,27 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
           setSelectedPackage(null);
         }
 
+        const topUpCompletedAt = new Date().toISOString();
+
         await onRefresh?.({ silent: true });
+
+        if (operatorIdentity.email) {
+          const emailPayload = buildWalletTopUpEmail({
+            to: operatorIdentity.email,
+            operatorName: operatorIdentity.name,
+            credits: creditsToAdd,
+            providerLabel,
+            occurredAt: topUpCompletedAt,
+          });
+
+          if (emailPayload) {
+            try {
+              await sendEmailWithSupabase(supabase, emailPayload);
+            } catch (emailError) {
+              console.error('Failed to send wallet top-up confirmation email', emailError);
+            }
+          }
+        }
       } catch (err) {
         console.error('Failed to settle wallet top-up', err);
         setMessageTone('error');
@@ -461,7 +564,7 @@ export default function WalletPanel({ operatorData = {}, onRefresh, isMobile = f
         setIsProcessing(false);
       }
     },
-    [accountId, amountInput, balance, onRefresh, supabaseReady, walletData?.id]
+    [accountId, amountInput, balance, onRefresh, operatorIdentity, supabaseReady, walletData?.id]
   );
 
   const handleRetry = useCallback(() => {
