@@ -553,7 +553,6 @@ export default function Dashboard() {
           <img src="/logo-talentlix.png" alt="TalentLix" style={styles.logo} />
           <div>
             <div style={styles.headerTitle}>Athlete Dashboard</div>
-            <div style={styles.headerName}>{fullName}</div>
           </div>
         </div>
 
@@ -564,6 +563,7 @@ export default function Dashboard() {
             onLogout={handleLogout}
             compact={isMobile}
             athleteId={athlete?.id}
+            fullName={fullName}
           />
         </div>
       </header>
@@ -796,7 +796,7 @@ export default function Dashboard() {
 }
 
 /** Login/logout in alto a destra */
-function AuthControl({ email, avatarUrl, onLogout, compact, athleteId }) {
+function AuthControl({ email, avatarUrl, onLogout, compact, athleteId, fullName }) {
   return (
     <div style={{ ...styles.authWrap, ...(compact ? styles.authWrapMobile : null) }}>
       <div style={styles.linkGroup}>
@@ -813,7 +813,10 @@ function AuthControl({ email, avatarUrl, onLogout, compact, athleteId }) {
           ? <img src={avatarUrl} alt="Avatar" style={styles.authAvatar} />
           : <div style={styles.authAvatarPlaceholder} />
         }
-        <span style={styles.authEmail}>{email || '—'}</span>
+        <div style={styles.authBoxText}>
+          <span style={styles.authName}>{fullName || '—'}</span>
+          <span style={styles.authEmail}>{email || '—'}</span>
+        </div>
         <button onClick={onLogout} style={{ ...styles.logoutBtn, ...styles.touchBtn }} title="Logout">Logout</button>
       </div>
     </div>
@@ -912,7 +915,6 @@ const styles = {
   headerLeftMobile: { flex: '1 1 100%' },
   logo: { width: 40, height: 'auto' },
   headerTitle: { fontSize: 18, fontWeight: 700, lineHeight: 1.1 },
-  headerName: { fontSize: 14, opacity: 0.7, lineHeight: 1.1 },
 
   authWrapMobileSlot: { flex: '1 1 100%', display: 'flex', justifyContent: 'flex-end' },
 
@@ -920,8 +922,10 @@ const styles = {
   authWrapMobile: { width: '100%', justifyContent: 'space-between' },
   linkGroup: { display: 'flex', alignItems: 'center', gap: 8 },
   authBox: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', border: '1px solid #E0E0E0', borderRadius: 8, background: '#FFF' },
+  authBoxText: { display: 'flex', flexDirection: 'column', lineHeight: 1.1, minWidth: 0 },
   authAvatar: { width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' },
   authAvatarPlaceholder: { width: 28, height: 28, borderRadius: '50%', background: '#EEE' },
+  authName: { fontSize: 13, fontWeight: 600, maxWidth: 160, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   authEmail: { fontSize: 12, opacity: 0.8, maxWidth: 160, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   logoutBtn: { fontSize: 12, padding: '8px 12px', borderRadius: 10, border: '1px solid #E0E0E0', background: '#FFF', cursor: 'pointer' },
 
