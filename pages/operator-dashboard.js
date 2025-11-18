@@ -28,6 +28,21 @@ const SECTION_COMPONENTS = {
 
 const FUNCTIONAL_SECTIONS = new Set(['wallet', 'search', 'messages']);
 
+const normalizeIdentityValue = (value) => {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+};
+
+const pickFirstNonEmpty = (...values) => {
+  for (const value of values) {
+    const normalized = normalizeIdentityValue(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return '';
+};
+
 const formatCredits = (value) => {
   if (value == null) return '0.00';
   const numeric = Number(value);
@@ -603,6 +618,33 @@ export default function OperatorDashboard() {
     };
   }, [fetchOperatorData, user?.id]);
 
+  const refreshWalletSilently = useCallback(() => {
+    if (!user?.id) return;
+    loadOperatorData({ silent: true });
+  }, [loadOperatorData, user?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const handleFocus = () => {
+      refreshWalletSilently();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshWalletSilently();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshWalletSilently]);
+
   const current = useMemo(() => {
     const raw = Array.isArray(router.query.section) ? router.query.section[0] : router.query.section;
     return isValidOperatorSection(raw) ? raw : DEFAULT_OPERATOR_SECTION;
@@ -610,6 +652,7 @@ export default function OperatorDashboard() {
 
   const setSection = (id) => {
     router.push({ pathname: '/operator-dashboard', query: { ...router.query, section: id } }, undefined, { shallow: true });
+    refreshWalletSilently();
   };
 
   const sectionObj = getOperatorSectionById(current);
@@ -686,6 +729,38 @@ export default function OperatorDashboard() {
     ? '…'
     : formatCredits(walletBalance);
 
+  const operatorIdentity = useMemo(() => {
+    const profile = operatorData?.profile || {};
+    const account = operatorData?.account || {};
+    const contact = operatorData?.contact || {};
+    const userMeta = user?.user_metadata || {};
+
+    const name = pickFirstNonEmpty(
+      profile.contact_name,
+      profile.contact_person,
+      profile.trade_name,
+      profile.legal_name,
+      account.display_name,
+      userMeta.full_name,
+      userMeta.name,
+      user?.email
+    );
+
+    const email = pickFirstNonEmpty(
+      user?.email,
+      userMeta.email,
+      account.email,
+      contact.email_primary,
+      contact.email_secondary,
+      contact.email_billing
+    );
+
+    return {
+      name: name || email || 'Operator',
+      email: email || user?.email || '—',
+    };
+  }, [operatorData?.account, operatorData?.contact, operatorData?.profile, user]);
+
   return (
     <div style={styles.page}>
       <header style={headerStyle}>
@@ -703,7 +778,10 @@ export default function OperatorDashboard() {
               {walletDisplay}
             </span>
           </div>
-          <span style={styles.userEmail}>{user?.email}</span>
+          <div style={styles.userIdentity}>
+            <span style={styles.userName}>{operatorIdentity.name}</span>
+            <span style={styles.userEmail}>{operatorIdentity.email}</span>
+          </div>
           <button type="button" style={styles.signOutBtn} onClick={handleSignOut}>Sign out</button>
         </div>
       </header>
@@ -895,7 +973,28 @@ const styles = {
   },
   walletBadgeLabel: { fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: '#0F172A' },
   walletBadgeValue: { fontSize: 18, fontWeight: 700, color: '#0F172A' },
-  userEmail: { fontSize: 13, color: '#4B5563', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 180 },
+  userIdentity: {
+    display: 'grid',
+    gap: 2,
+    textAlign: 'right',
+    minWidth: 0,
+    maxWidth: 200,
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#0F172A',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  userEmail: {
+    fontSize: 13,
+    color: '#4B5563',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
   signOutBtn: {
     background: 'linear-gradient(90deg, #27E3DA, #F7B84E)',
     border: 'none',
