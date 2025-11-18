@@ -697,38 +697,6 @@ export default function OperatorDashboard() {
     return nextStatus;
   }, [operatorData]);
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.replace('/login-operator');
-  };
-
-  if (loading || !user) {
-    return (
-      <div style={styles.loadingWrap}>
-        <div style={styles.loaderContainer} role="status" aria-live="polite">
-          <div style={styles.spinner} aria-hidden="true" />
-          <span style={styles.srOnly}>Loading operator dashboard…</span>
-        </div>
-        <style jsx>{`
-          @keyframes operatorDashboardSpin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    );
-  }
-
-  const headerStyle = { ...styles.header, ...(isMobile ? styles.headerMobile : null) };
-  const headerLeftStyle = { ...styles.headerLeft, ...(isMobile ? styles.headerLeftMobile : null) };
-  const headerRightStyle = { ...styles.headerRight, ...(isMobile ? styles.headerRightMobile : null) };
-  const mainStyle = { ...styles.main, ...(isMobile ? styles.mainMobile : null) };
-  const walletBalance = operatorData?.wallet?.balance_credits;
-  const walletLoading = operatorData?.wallet?.loading;
-  const walletDisplay = walletLoading
-    ? '…'
-    : formatCredits(walletBalance);
-
   const operatorIdentity = useMemo(() => {
     const profile = operatorData?.profile || {};
     const account = operatorData?.account || {};
@@ -760,6 +728,38 @@ export default function OperatorDashboard() {
       email: email || user?.email || '—',
     };
   }, [operatorData?.account, operatorData?.contact, operatorData?.profile, user]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.replace('/login-operator');
+  };
+
+  if (loading || !user) {
+    return (
+      <div style={styles.loadingWrap}>
+        <div style={styles.loaderContainer} role="status" aria-live="polite">
+          <div style={styles.spinner} aria-hidden="true" />
+          <span style={styles.srOnly}>Loading operator dashboard…</span>
+        </div>
+        <style jsx>{`
+          @keyframes operatorDashboardSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  const headerStyle = { ...styles.header, ...(isMobile ? styles.headerMobile : null) };
+  const headerLeftStyle = { ...styles.headerLeft, ...(isMobile ? styles.headerLeftMobile : null) };
+  const headerRightStyle = { ...styles.headerRight, ...(isMobile ? styles.headerRightMobile : null) };
+  const mainStyle = { ...styles.main, ...(isMobile ? styles.mainMobile : null) };
+  const walletBalance = operatorData?.wallet?.balance_credits;
+  const walletLoading = operatorData?.wallet?.loading;
+  const walletDisplay = walletLoading
+    ? '…'
+    : formatCredits(walletBalance);
 
   return (
     <div style={styles.page}>
