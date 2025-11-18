@@ -747,6 +747,11 @@ export default function WalletPanel({ operatorData = {}, authUser = null, onRefr
                 tone: 'info',
               };
 
+              const creditValue = Number(tx.credits ?? 0);
+              const amountValue = Number(tx.amount_eur ?? tx.credits ?? 0);
+              const creditLabel = `${creditValue < 0 ? '-' : '+'}${formatCredits(Math.abs(creditValue))}`;
+              const amountLabel = `${amountValue < 0 ? '-' : '+'}${formatCredits(Math.abs(amountValue))}`;
+
               return (
                 <div key={tx.id || tx.tx_ref} style={styles.historyItem}>
                   <div style={styles.historyHeader}>
@@ -761,8 +766,8 @@ export default function WalletPanel({ operatorData = {}, authUser = null, onRefr
                     </span>
                   </div>
                   <div style={styles.historyMeta}>
-                    <span>+{formatCredits(tx.credits)} credits</span>
-                    <span>Amount: € {formatCredits(tx.amount_eur ?? tx.credits)}</span>
+                    <span>{creditLabel} credits</span>
+                    <span>Amount: € {amountLabel}</span>
                     <span>Ref: {tx.tx_ref || '—'}</span>
                     <span>
                       Created: {formatDateTime(tx.created_at) || '—'}
