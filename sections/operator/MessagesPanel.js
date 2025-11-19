@@ -1011,6 +1011,53 @@ const sendMessage = async ({ threadId, text, operatorId }) => {
     .eq('id', threadId);
 };
 
+const notifyFirstOperatorMessage = async (threadId) => {
+  if (!supabase || !threadId) {
+    debugLog('notifyFirstMessage:skip', { reason: 'missing_supabase_or_thread', hasSupabase: Boolean(supabase), threadId });
+    return;
+  }
+
+  try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      throw sessionError;
+    }
+
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) {
+      debugLog('notifyFirstMessage:skip', { reason: 'missing_access_token', threadId });
+      return;
+    }
+
+    const response = await fetch('/api/operator/first-message-notification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ threadId }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      debugLog('notifyFirstMessage:api:error', {
+        threadId,
+        status: response.status,
+        body: payload,
+      });
+      return;
+    }
+
+    debugLog('notifyFirstMessage:api:success', { threadId });
+  } catch (error) {
+    debugLog('notifyFirstMessage:exception', {
+      threadId,
+      message: error?.message,
+      code: error?.code || null,
+    });
+  }
+};
+
 export default function MessagesPanel({ operatorData, authUser, isMobile }) {
   const [operatorAccount, setOperatorAccount] = useState(() => ({
     id: operatorData?.account?.id ?? null,
@@ -1365,6 +1412,7 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
     setActionError(null);
     try {
       await sendMessage({ threadId: selectedThread.id, text: messageDraft.trim(), operatorId });
+      notifyFirstOperatorMessage(selectedThread.id);
       setMessageDraft('');
       await refreshMessages(selectedThread);
       await loadThreads();
