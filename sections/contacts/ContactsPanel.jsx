@@ -7,6 +7,7 @@ import { supabase as sb } from '../../utils/supabaseClient'; // Supabase client 
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
+import { sendEmailWithSupabase } from '../../utils/emailClient';
 
 const supabase = sb;
 
@@ -547,6 +548,42 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
   };
 
   // ----------------------- SUBMIT FOR REVIEW -----------------------
+  const getAthleteFullName = () => {
+    const full = [athlete?.first_name, athlete?.last_name].filter(Boolean).join(' ').trim();
+    return full || 'TalentLix athlete';
+  };
+
+  const resolveRecipientEmail = async () => {
+    if (athlete?.email) return athlete.email;
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      return data?.user?.email || null;
+    } catch (emailError) {
+      console.error('Unable to resolve athlete email for submission notice', emailError);
+      return null;
+    }
+  };
+
+  const sendSubmissionConfirmationEmail = async () => {
+    try {
+      const recipient = await resolveRecipientEmail();
+      if (!recipient) return;
+      const fullName = getAthleteFullName();
+      const greeting = `Dear ${fullName},`;
+      const bodyText = 'You have submitted the documents for your verified identification to the TalentLix team. As soon as possible our team will review your position.';
+      const closing = 'TalentLix Team';
+      await sendEmailWithSupabase(supabase, {
+        to: recipient,
+        subject: 'We received your identity verification request',
+        text: `${greeting}\n\n${bodyText}\n\n${closing}`,
+        html: `<p>${greeting}</p><p>${bodyText}</p><p>${closing}</p>`,
+      });
+    } catch (emailError) {
+      console.error('Failed to send identity submission email', emailError);
+    }
+  };
+
   const submitForReview = async () => {
     try {
       setSaving(true); setStatus({ type: '', msg: '' });
@@ -562,6 +599,7 @@ export default function ContactsPanel({ athlete, onSaved, isMobile }) {
       // Lock immediato in UI
       setCv((prev) => ({ ...(prev || {}), ...payload }));
       setStatus({ type: 'ok', msg: 'Under review…' });
+      await sendSubmissionConfirmationEmail();
     } catch (e) {
       console.error(e);
       setStatus({ type: 'error', msg: 'Submit failed.' });
