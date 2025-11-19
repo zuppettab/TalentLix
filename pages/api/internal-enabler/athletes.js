@@ -37,6 +37,30 @@ const fetchAthleteIdentity = async (client, athleteId) => {
     const lastName = normalizeString(data?.last_name);
     let email = normalizeEmail(data?.email);
 
+    if (!email) {
+      try {
+        const { data: contactsRow, error: contactsError } = await client
+          .from('contacts_verification')
+          .select('athlete_email')
+          .eq('athlete_id', athleteId)
+          .order('verification_status_changed_at', { ascending: false })
+          .order('submitted_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (contactsError && contactsError.code !== 'PGRST116') {
+          throw contactsError;
+        }
+
+        const contactsEmail = normalizeEmail(contactsRow?.athlete_email);
+        if (contactsEmail) {
+          email = contactsEmail;
+        }
+      } catch (contactsLookupError) {
+        console.error('Unable to load contacts verification email for review notification', contactsLookupError);
+      }
+    }
+
     if (!email && client?.auth?.admin?.getUserById) {
       try {
         const { data: authData, error: authError } = await client.auth.admin.getUserById(athleteId);
