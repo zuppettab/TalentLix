@@ -4,8 +4,113 @@ import {
   normalizeSupabaseError,
   resolveAdminRequestContext,
 } from '../../../utils/internalEnablerApi';
+import { sendEmail } from '../../../utils/emailService';
 
 const VALID_ACTIONS = new Set(['start_review', 'request_info', 'approve', 'reject']);
+
+const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
+const normalizeEmail = (value) => normalizeString(value).toLowerCase();
+
+const escapeHtml = (value) => {
+  if (typeof value !== 'string') return '';
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
+const fetchAthleteIdentity = async (client, athleteId) => {
+  try {
+    const { data, error } = await client
+      .from('athlete')
+      .select('first_name, last_name, email')
+      .eq('id', athleteId)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    const firstName = normalizeString(data?.first_name);
+    const lastName = normalizeString(data?.last_name);
+    let email = normalizeEmail(data?.email);
+
+    if (!email && client?.auth?.admin?.getUserById) {
+      try {
+        const { data: authData, error: authError } = await client.auth.admin.getUserById(athleteId);
+        if (authError) {
+          console.error('Failed to load athlete auth user for review notification', authError);
+        } else {
+          email = normalizeEmail(authData?.user?.email);
+        }
+      } catch (adminError) {
+        console.error('Unable to fetch athlete auth identity for review notification', adminError);
+      }
+    }
+
+    return {
+      email,
+      firstName,
+      lastName,
+    };
+  } catch (identityError) {
+    console.error('Unable to resolve athlete identity for review notification', identityError);
+    return {
+      email: '',
+      firstName: '',
+      lastName: '',
+    };
+  }
+};
+
+const buildOutcomeEmailPayload = ({ to, fullName, outcome, reason }) => {
+  if (!to) return null;
+  const safeName = fullName || 'TalentLix athlete';
+
+  if (outcome === 'approved') {
+    const subject = 'Your identity verification has been approved';
+    const body =
+      'The documentation for your verified identification has been approved successfully. This increases the completion percentage of your profile and the trust that operators and clubs place in you. Good luck!';
+    const text = `Dear ${safeName},\n\n${body}\n\nTalentLix Team`;
+    const html = `<p>Dear ${safeName},</p><p>${body}</p><p>TalentLix Team</p>`;
+    return { to, subject, text, html };
+  }
+
+  if (outcome === 'rejected') {
+    const subject = 'Your identity verification was not approved';
+    const normalizedReason = normalizeString(reason);
+    const reasonText = normalizedReason
+      ? `Reasons provided by our internal team: ${normalizedReason}`
+      : 'Reasons provided by our internal team: not specified.';
+    const text = `Dear ${safeName},\n\nThe documentation you submitted has been reviewed and unfortunately your verified identity was not approved. ${reasonText}\n\nDo not worry, you can submit a new request right away with the necessary corrections.\n\nTalentLix Team`;
+    const htmlReason = normalizedReason
+      ? `<p><strong>Reasons provided:</strong> ${escapeHtml(normalizedReason)}</p>`
+      : '<p><strong>Reasons provided:</strong> Not specified.</p>';
+    const html = `<p>Dear ${safeName},</p><p>The documentation you submitted has been reviewed and unfortunately your verified identity was not approved.</p>${htmlReason}<p>Do not worry, you can submit a new request right away with the necessary corrections.</p><p>TalentLix Team</p>`;
+    return { to, subject, text, html };
+  }
+
+  return null;
+};
+
+const sendOutcomeEmail = async ({ client, athleteId, outcome, reason }) => {
+  try {
+    const identity = await fetchAthleteIdentity(client, athleteId);
+    const fullName = [identity.firstName, identity.lastName].filter(Boolean).join(' ').trim();
+    const payload = buildOutcomeEmailPayload({
+      to: identity.email,
+      fullName,
+      outcome,
+      reason,
+    });
+    if (!payload) return;
+    await sendEmail(payload);
+  } catch (emailError) {
+    console.error('Failed to send athlete review outcome email', emailError);
+  }
+};
 
 const performStartReview = async (client, athleteId) => {
   const { data, error } = await client
@@ -116,7 +221,14 @@ export default async function handler(req, res) {
     }
 
     const handler = ACTION_HANDLERS[action];
-    await handler(client, athleteId, typeof reason === 'string' ? reason.trim() : null);
+    const normalizedReason = typeof reason === 'string' ? reason.trim() : null;
+    await handler(client, athleteId, normalizedReason);
+
+    if (action === 'approve') {
+      await sendOutcomeEmail({ client, athleteId, outcome: 'approved' });
+    } else if (action === 'reject') {
+      await sendOutcomeEmail({ client, athleteId, outcome: 'rejected', reason: normalizedReason });
+    }
 
     return res.status(200).json({ success: true });
   } catch (error) {
