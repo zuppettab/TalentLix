@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../utils/supabaseClient';
+import { buildEmailPayload, sendEmailWithSupabase } from '../utils/emailClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select from 'react-select';
 import PhoneInput from 'react-phone-input-2';
@@ -830,6 +831,7 @@ export default function OperatorWizard() {
       .eq('id', req.id);
     if (rErr) throw rErr;
     await updateWizardStatus(WIZARD.SUBMITTED);
+    await sendSubmissionConfirmationEmail();
     router.replace('/operator-in-review');
   };
 
@@ -1501,6 +1503,26 @@ export default function OperatorWizard() {
     }
     writeStoredStep(Math.min(4, Math.max(1, step)));
   }, [step, writeStoredStep]);
+
+  const sendSubmissionConfirmationEmail = useCallback(async () => {
+    const to = (contact.email_primary || user?.email || '').trim();
+    if (!to) return;
+
+    const name = operatorName || 'Operator';
+    const subject = 'Your operator registration is under review';
+    const body =
+      'You have completed the operator onboarding wizard. Our team will now review your registration to enable your account. If all data are complete and consistent, you will receive the confirmation of activation very soon.';
+
+    const text = `Dear ${name},\n\n${body}\n\nTalentLix Team`;
+    const html = `<p>Dear ${name},</p><p>${body}</p><p>TalentLix Team</p>`;
+
+    try {
+      const payload = buildEmailPayload({ to, subject, text, html });
+      await sendEmailWithSupabase(supabase, payload);
+    } catch (err) {
+      console.warn('[OperatorWizard] Failed to send submission confirmation email', err);
+    }
+  }, [contact.email_primary, operatorName, user?.email]);
 
   /** -------------------------
    *  RENDER
