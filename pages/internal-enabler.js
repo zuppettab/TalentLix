@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase as sb } from '../utils/supabaseClient';
 import { isAdminUser } from '../utils/authRoles';
 import { OPERATOR_DOCUMENTS_BUCKET } from '../utils/operatorStorageBuckets';
+import { buildEmailPayload, sendEmailWithSupabase } from '../utils/emailClient';
 
 const supabase = sb;
 
@@ -767,6 +768,54 @@ export default function InternalEnabler() {
     if (url) window.open(url, '_blank', 'noreferrer');
   };
 
+  const sendAthleteOutcomeNotification = useCallback(async (athlete, outcome, reasonRaw) => {
+    const to = (athlete?.email || '').trim();
+    if (!to) {
+      console.warn('[InternalEnabler] Missing athlete email, skipping outcome notification');
+      return;
+    }
+
+    const fullName = `${athlete?.first_name || ''} ${athlete?.last_name || ''}`.trim() || 'TalentLix athlete';
+    const outcomeKey = outcome === 'approved' ? 'approved' : 'rejected';
+
+    let subject;
+    let text;
+    let html;
+
+    if (outcomeKey === 'approved') {
+      subject = 'Your identity verification has been approved';
+      const body =
+        'The documentation for your verified identification has been approved successfully. This increases the completion percentage of your profile and the trust that operators and clubs place in you. Good luck!';
+
+      text = `Dear ${fullName},\n\n${body}\n\nTalentLix Team`;
+      html = `<p>Dear ${fullName},</p><p>${body}</p><p>TalentLix Team</p>`;
+    } else {
+      subject = 'Your identity verification was not approved';
+
+      const reason = (reasonRaw || '').toString().trim();
+      const reasonText = reason
+        ? `Reasons provided by our internal team: ${reason}`
+        : 'Reasons provided by our internal team: not specified.';
+
+      const safeReason = reason.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      text = `Dear ${fullName},\n\nThe documentation you submitted has been reviewed and unfortunately your verified identity was not approved. ${reasonText}\n\nDo not worry, you can submit a new request right away with the necessary corrections.\n\nTalentLix Team`;
+
+      const htmlReason = reason
+        ? `<p><strong>Reasons provided:</strong> ${safeReason}</p>`
+        : '<p><strong>Reasons provided:</strong> Not specified.</p>';
+
+      html = `<p>Dear ${fullName},</p><p>The documentation you submitted has been reviewed and unfortunately your verified identity was not approved.</p>${htmlReason}<p>Do not worry, you can submit a new request right away with the necessary corrections.</p><p>TalentLix Team</p>`;
+    }
+
+    try {
+      const payload = buildEmailPayload({ to, subject, text, html });
+      await sendEmailWithSupabase(supabase, payload);
+    } catch (error) {
+      console.error('[InternalEnabler] Outcome email failed', error);
+    }
+  }, []);
+
   const startAthleteReview = async (athleteId) => {
     try {
       setBusy(athleteId);
@@ -802,13 +851,16 @@ export default function InternalEnabler() {
     }
   };
 
-  const doApprove = async (athleteId) => {
+  const doApprove = async (athlete) => {
+    const athleteId = athlete?.id;
+    if (!athleteId) { alert('Missing athlete identifier.'); return; }
     try {
       setBusy(athleteId);
       await callAdminAction('/api/internal-enabler/athletes', {
         action: 'approve',
         athleteId,
       });
+      await sendAthleteOutcomeNotification(athlete, 'approved');
       await refreshAll();
     } catch (e) {
       console.error(e);
@@ -818,16 +870,20 @@ export default function InternalEnabler() {
     }
   };
 
-  const doReject = async (athleteId) => {
+  const doReject = async (athlete) => {
+    const athleteId = athlete?.id;
+    if (!athleteId) { alert('Missing athlete identifier.'); return; }
     const reason = window.prompt('Reason for rejection (optional):', '');
     if (reason === null) return;
+    const trimmedReason = (reason || '').trim();
     try {
       setBusy(athleteId);
       await callAdminAction('/api/internal-enabler/athletes', {
         action: 'reject',
         athleteId,
-        reason: (reason || '').trim() || null,
+        reason: trimmedReason || null,
       });
+      await sendAthleteOutcomeNotification(athlete, 'rejected', trimmedReason);
       await refreshAll();
     } catch (e) {
       console.error(e);
@@ -1250,12 +1306,12 @@ export default function InternalEnabler() {
                 <div style={cell}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button
-                      onClick={() => doApprove(r.id)}
+                      onClick={() => doApprove(r)}
                       disabled={!canApprove || busy === r.id}
                       style={actionBtn(!canApprove || busy === r.id, '#2E7D32')}
                     >Approve</button>
                     <button
-                      onClick={() => doReject(r.id)}
+                      onClick={() => doReject(r)}
                       disabled={!canReject || busy === r.id}
                       style={actionBtn(!canReject || busy === r.id, '#B00020')}
                     >Reject</button>
