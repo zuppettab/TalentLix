@@ -816,6 +816,74 @@ export default function InternalEnabler() {
     }
   }, []);
 
+  const sendOperatorOutcomeNotification = useCallback(async (operator, outcome, reasonRaw) => {
+    const to = (
+      operator?.contact?.email_primary
+      || operator?.contact?.email_secondary
+      || operator?.email
+    )?.trim();
+
+    if (!to) {
+      console.warn('[InternalEnabler] Missing operator email, skipping outcome notification');
+      return;
+    }
+
+    const displayName = (
+      operator?.profile?.legal_name
+      || operator?.profile?.trade_name
+      || operator?.account?.display_name
+      || `Operator ${operator?.id || ''}`
+    ).trim();
+
+    const outcomeKey = outcome === 'approved' ? 'approved' : 'rejected';
+
+    let subject;
+    let text;
+    let html;
+
+    if (outcomeKey === 'approved') {
+      subject = 'Your operator profile has been approved';
+      const body =
+        'Your operator profile has been verified and your account is now enabled. '
+        + 'You can sign in to your dashboard right away and start searching for the athletes that interest you. '
+        + 'Thank you for the trust you have placed in our project and good luck!';
+
+      text = `Dear ${displayName},\n\n${body}\n\nTalentLix Team`;
+      html = `<p>Dear ${displayName},</p><p>${body}</p><p>TalentLix Team</p>`;
+    } else {
+      subject = 'Your operator profile was not approved';
+
+      const reason = (reasonRaw || '').toString().trim();
+      const reasonText = reason
+        ? `Please review the feedback from our team: ${reason}`
+        : 'Please review the feedback from our team to resolve the pending issues.';
+
+      const safeReason = reason.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      text = `Dear ${displayName},\n\nOur team has not approved your profile yet, so your account is still disabled. ${reasonText}`
+        + '\nDo not worry: review the notes and our staff will contact you soon to resolve the problem.'
+        + '\n\nThank you for trusting our project and speak soon.\n\nTalentLix Team';
+
+      const htmlReason = reason
+        ? `<p><strong>Feedback:</strong> ${safeReason}</p>`
+        : '<p><strong>Feedback:</strong> Not specified.</p>';
+
+      html = `<p>Dear ${displayName},</p>`
+        + '<p>Our team has not approved your profile yet, so your account is still disabled.</p>'
+        + `${htmlReason}`
+        + '<p>Do not worry: review the notes and our staff will contact you soon to resolve the problem.</p>'
+        + '<p>Thank you for trusting our project and speak soon.</p>'
+        + '<p>TalentLix Team</p>';
+    }
+
+    try {
+      const payload = buildEmailPayload({ to, subject, text, html });
+      await sendEmailWithSupabase(supabase, payload);
+    } catch (error) {
+      console.error('[InternalEnabler] Operator outcome email failed', error);
+    }
+  }, []);
+
   const startAthleteReview = async (athleteId) => {
     try {
       setBusy(athleteId);
@@ -944,6 +1012,7 @@ export default function InternalEnabler() {
         operatorId: row.id,
         verificationId: row.verification.id,
       });
+      await sendOperatorOutcomeNotification(row, 'approved');
       await refreshAll();
     } catch (e) {
       console.error(e);
@@ -967,6 +1036,7 @@ export default function InternalEnabler() {
         verificationId: row.verification.id,
         reason: trimmed,
       });
+      await sendOperatorOutcomeNotification(row, 'rejected', trimmed);
       await refreshAll();
     } catch (e) {
       console.error(e);
