@@ -1374,7 +1374,8 @@ export default function InternalEnabler() {
 
           {opOrdered.map((row) => {
             const { profile, contact, verification, documents, review_state } = row;
-            const canFinalize = ['submitted', 'in_review'].includes(review_state);
+            const canApprove = ['submitted', 'in_review'].includes(review_state);
+            const canReject = review_state !== 'rejected';
             const reason = verification?.reason ? verification.reason : null;
             const key = String(row.id);
             const walletInfo = row.wallet || null;
@@ -1465,13 +1466,13 @@ export default function InternalEnabler() {
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button
                       onClick={() => approveOperator(row)}
-                      disabled={!canFinalize || opBusy === row.id || unlockResetBusyRow}
-                      style={actionBtn(!canFinalize || opBusy === row.id || unlockResetBusyRow, '#2E7D32')}
+                      disabled={!canApprove || opBusy === row.id || unlockResetBusyRow}
+                      style={actionBtn(!canApprove || opBusy === row.id || unlockResetBusyRow, '#2E7D32')}
                     >Approve</button>
                     <button
                       onClick={() => rejectOperator(row)}
-                      disabled={!canFinalize || opBusy === row.id || unlockResetBusyRow}
-                      style={actionBtn(!canFinalize || opBusy === row.id || unlockResetBusyRow, '#B00020')}
+                      disabled={!canReject || opBusy === row.id || unlockResetBusyRow}
+                      style={actionBtn(!canReject || opBusy === row.id || unlockResetBusyRow, '#B00020')}
                     >Reject</button>
                     <button
                       onClick={() => resetOperatorUnlocks(row.id)}
