@@ -631,6 +631,14 @@ export default function AthleteDetailPage() {
     await performAthleteAction('reject', (reason || '').trim() || null);
   }, [performAthleteAction]);
 
+  const reviewStatus = useMemo(
+    () => (detail?.contacts?.review_status || '').toString().toLowerCase(),
+    [detail],
+  );
+
+  const canApprove = reviewStatus === 'submitted';
+  const canReject = reviewStatus === 'submitted' || reviewStatus === 'approved';
+
   if (!authChecked) {
     return (
       <div style={styles.fullPage}>Checking permissions…</div>
@@ -672,7 +680,7 @@ export default function AthleteDetailPage() {
             type="button"
             onClick={handleApprove}
             style={styles.primaryButton}
-            disabled={loading || actionBusy}
+            disabled={!canApprove || loading || actionBusy}
           >
             {actionBusy === 'approve' ? 'Approving…' : 'Approve'}
           </button>
@@ -680,7 +688,7 @@ export default function AthleteDetailPage() {
             type="button"
             onClick={handleReject}
             style={styles.dangerButton}
-            disabled={loading || actionBusy}
+            disabled={!canReject || loading || actionBusy}
           >
             {actionBusy === 'reject' ? 'Rejecting…' : 'Reject'}
           </button>
