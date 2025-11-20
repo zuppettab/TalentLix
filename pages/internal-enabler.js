@@ -961,48 +961,6 @@ export default function InternalEnabler() {
     }
   };
 
-  const startOperatorReview = async (row) => {
-    if (!row?.verification?.id) { alert('Missing verification request.'); return; }
-    try {
-      setOpBusy(row.id);
-      await callAdminAction('/api/internal-enabler/operators', {
-        action: 'start_review',
-        operatorId: row.id,
-        verificationId: row.verification.id,
-        markSubmitted: !row.verification?.submitted_at,
-      });
-      await refreshAll();
-    } catch (e) {
-      console.error(e);
-      alert(e?.message || 'Failed to start operator review');
-    } finally {
-      setOpBusy(null);
-    }
-  };
-
-  const requestOperatorInfo = async (row) => {
-    if (!row?.verification?.id) { alert('Missing verification request.'); return; }
-    const reason = window.prompt('Reason for the info request (required):', '');
-    if (reason === null) return;
-    const trimmed = reason.trim();
-    if (!trimmed) { alert('Please provide a valid reason.'); return; }
-    try {
-      setOpBusy(row.id);
-      await callAdminAction('/api/internal-enabler/operators', {
-        action: 'request_info',
-        operatorId: row.id,
-        verificationId: row.verification.id,
-        reason: trimmed,
-      });
-      await refreshAll();
-    } catch (e) {
-      console.error(e);
-      alert(e?.message || 'Operator update failed');
-    } finally {
-      setOpBusy(null);
-    }
-  };
-
   const approveOperator = async (row) => {
     if (!row?.verification?.id) { alert('Missing verification request.'); return; }
     try {
@@ -1416,9 +1374,7 @@ export default function InternalEnabler() {
 
           {opOrdered.map((row) => {
             const { profile, contact, verification, documents, review_state } = row;
-            const canStart = ['submitted', 'needs_more_info'].includes(review_state);
             const canFinalize = ['submitted', 'in_review'].includes(review_state);
-            const canRequestInfo = ['submitted', 'in_review'].includes(review_state);
             const reason = verification?.reason ? verification.reason : null;
             const key = String(row.id);
             const walletInfo = row.wallet || null;
@@ -1507,16 +1463,6 @@ export default function InternalEnabler() {
 
                 <div style={cell}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button
-                      onClick={() => startOperatorReview(row)}
-                      disabled={!canStart || opBusy === row.id || unlockResetBusyRow}
-                      style={actionBtn(!canStart || opBusy === row.id || unlockResetBusyRow, '#0277BD')}
-                    >Start review</button>
-                    <button
-                      onClick={() => requestOperatorInfo(row)}
-                      disabled={!canRequestInfo || opBusy === row.id || unlockResetBusyRow}
-                      style={actionBtn(!canRequestInfo || opBusy === row.id || unlockResetBusyRow, '#8A6D3B')}
-                    >Need info</button>
                     <button
                       onClick={() => approveOperator(row)}
                       disabled={!canFinalize || opBusy === row.id || unlockResetBusyRow}
