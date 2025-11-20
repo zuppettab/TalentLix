@@ -98,6 +98,17 @@ const mapMediaCategoryKey = (value) => {
   return MEDIA_CATEGORY_MAP[normalized] || normalized;
 };
 
+const buildButtonStyle = (baseStyle, disabled) => (
+  disabled
+    ? {
+        ...baseStyle,
+        opacity: 0.6,
+        filter: 'grayscale(1)',
+        cursor: 'not-allowed',
+      }
+    : baseStyle
+);
+
 const CollapsibleSection = ({ title, description, children, defaultOpen = true }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -638,6 +649,9 @@ export default function AthleteDetailPage() {
 
   const canApprove = reviewStatus === 'submitted';
   const canReject = reviewStatus === 'submitted' || reviewStatus === 'approved';
+  const refreshDisabled = loading || actionBusy;
+  const approveDisabled = !canApprove || loading || actionBusy;
+  const rejectDisabled = !canReject || loading || actionBusy;
 
   if (!authChecked) {
     return (
@@ -671,24 +685,24 @@ export default function AthleteDetailPage() {
           <button
             type="button"
             onClick={loadDetail}
-            style={styles.secondaryButton}
-            disabled={loading || actionBusy}
+            style={buildButtonStyle(styles.secondaryButton, refreshDisabled)}
+            disabled={refreshDisabled}
           >
             {loading ? 'Refreshing…' : 'Refresh data'}
           </button>
           <button
             type="button"
             onClick={handleApprove}
-            style={styles.primaryButton}
-            disabled={!canApprove || loading || actionBusy}
+            style={buildButtonStyle(styles.primaryButton, approveDisabled)}
+            disabled={approveDisabled}
           >
             {actionBusy === 'approve' ? 'Approving…' : 'Approve'}
           </button>
           <button
             type="button"
             onClick={handleReject}
-            style={styles.dangerButton}
-            disabled={!canReject || loading || actionBusy}
+            style={buildButtonStyle(styles.dangerButton, rejectDisabled)}
+            disabled={rejectDisabled}
           >
             {actionBusy === 'reject' ? 'Rejecting…' : 'Reject'}
           </button>
