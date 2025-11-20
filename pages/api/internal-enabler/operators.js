@@ -85,7 +85,7 @@ const performReject = async (client, operatorId, { verificationId, reason }) => 
     client,
     verificationId,
     { state: 'REJECTED', reason },
-    ['IN_REVIEW', 'NEEDS_MORE_INFO']
+    ['IN_REVIEW', 'NEEDS_MORE_INFO', 'VERIFIED']
   );
 };
 
