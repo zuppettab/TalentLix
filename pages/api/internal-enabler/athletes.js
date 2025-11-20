@@ -201,11 +201,12 @@ const performReject = async (client, athleteId, reason) => {
     .update({
       review_status: 'rejected',
       id_verified: false,
+      verified_at: null,
       verification_status_changed_at: new Date().toISOString(),
       rejected_reason: reason || null,
     })
     .eq('athlete_id', athleteId)
-    .in('review_status', ['submitted', 'in_review'])
+    .in('review_status', ['submitted', 'in_review', 'approved'])
     .select('id');
 
   if (error) throw normalizeSupabaseError('Athlete rejection', error);
