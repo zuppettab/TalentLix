@@ -1199,9 +1199,8 @@ export default function InternalEnabler() {
 
           {ordered.map((r) => {
             const cv = r.cv || {};
-            const canStartReview = ['submitted', 'needs_more_info'].includes(r.review_status);
-            const canFinalize = ['submitted', 'in_review'].includes(r.review_status);
-            const canRequestInfo = ['submitted', 'in_review'].includes(r.review_status);
+            const canApprove = ['submitted', 'in_review'].includes(r.review_status);
+            const canReject = r.review_status !== 'rejected';
             return (
               <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '220px 1fr 1fr 1fr 1fr 1fr', borderTop: '1px solid #EEE' }}>
                 <div style={cell}>
@@ -1251,24 +1250,14 @@ export default function InternalEnabler() {
                 <div style={cell}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button
-                      onClick={() => startAthleteReview(r.id)}
-                      disabled={!canStartReview || busy === r.id}
-                      style={actionBtn(!canStartReview || busy === r.id, '#0277BD')}
-                    >Start review</button>
-                    <button
-                      onClick={() => requestAthleteInfo(r.id)}
-                      disabled={!canRequestInfo || busy === r.id}
-                      style={actionBtn(!canRequestInfo || busy === r.id, '#8A6D3B')}
-                    >Need info</button>
-                    <button
                       onClick={() => doApprove(r.id)}
-                      disabled={!canFinalize || busy === r.id}
-                      style={actionBtn(!canFinalize || busy === r.id, '#2E7D32')}
+                      disabled={!canApprove || busy === r.id}
+                      style={actionBtn(!canApprove || busy === r.id, '#2E7D32')}
                     >Approve</button>
                     <button
                       onClick={() => doReject(r.id)}
-                      disabled={!canFinalize || busy === r.id}
-                      style={actionBtn(!canFinalize || busy === r.id, '#B00020')}
+                      disabled={!canReject || busy === r.id}
+                      style={actionBtn(!canReject || busy === r.id, '#B00020')}
                     >Reject</button>
                   </div>
                 </div>
