@@ -2,6 +2,7 @@ import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase as sb } from '../../../utils/supabaseClient';
 import { isAdminUser } from '../../../utils/authRoles';
+import { buildEmailPayload, sendEmailWithSupabase } from '../../../utils/emailClient';
 
 const supabase = sb;
 
@@ -183,6 +184,10 @@ export default function AthleteDetailPage() {
   const [loading, setLoading] = useState(false);
   const [dataError, setDataError] = useState('');
   const [detail, setDetail] = useState(null);
+  const [actionBusy, setActionBusy] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [athleteEmail, setAthleteEmail] = useState('');
+  const [athleteFullName, setAthleteFullName] = useState('TalentLix athlete');
 
   const athleteId = useMemo(() => (Array.isArray(id) ? id[0] : id) || '', [id]);
 
@@ -269,6 +274,7 @@ export default function AthleteDetailPage() {
     if (!athleteId) return;
     setLoading(true);
     setDataError('');
+    setActionError('');
     try {
       const token = await getFreshAccessToken();
       if (!token) {
@@ -299,10 +305,118 @@ export default function AthleteDetailPage() {
     loadDetail();
   }, [user, athleteId, loadDetail]);
 
+  useEffect(() => {
+    if (!detail) return;
+
+    const athlete = detail?.athlete || {};
+    const contacts = detail?.contacts || {};
+
+    const firstName = athlete.first_name || contacts.first_name || '';
+    const lastName = athlete.last_name || contacts.last_name || '';
+    const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+
+    const emailFromContacts = contacts.athlete_email || '';
+    const emailFromAthlete = athlete.email || '';
+    const resolvedEmail = (emailFromContacts || emailFromAthlete || '').trim().toLowerCase();
+
+    setAthleteFullName(fullName || 'TalentLix athlete');
+    setAthleteEmail(resolvedEmail);
+  }, [detail]);
+
   const openDocument = useCallback(async (path) => {
     const url = await createSignedUrl(path);
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
   }, []);
+
+  const sendOutcomeNotificationFromPage = useCallback(async (outcome, reasonRaw) => {
+    const to = (athleteEmail || '').trim();
+    if (!to) {
+      console.warn('[AthleteDetail] Missing athlete email, skipping outcome notification');
+      return;
+    }
+
+    const fullName = athleteFullName || 'TalentLix athlete';
+    const outcomeKey = outcome === 'approved' ? 'approved' : 'rejected';
+
+    let subject;
+    let text;
+    let html;
+
+    if (outcomeKey === 'approved') {
+      subject = 'Your identity verification has been approved';
+      const body =
+        'The documentation for your verified identification has been approved successfully. This increases the completion percentage of your profile and the trust that operators and clubs place in you. Good luck!';
+
+      text = `Dear ${fullName},\n\n${body}\n\nTalentLix Team`;
+      html = `<p>Dear ${fullName},</p><p>${body}</p><p>TalentLix Team</p>`;
+    } else {
+      subject = 'Your identity verification was not approved';
+
+      const reason = (reasonRaw || '').toString().trim();
+      const reasonText = reason
+        ? `Reasons provided by our internal team: ${reason}`
+        : 'Reasons provided by our internal team: not specified.';
+
+      const safeReason = reason.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      text = `Dear ${fullName},\n\nThe documentation you submitted has been reviewed and unfortunately your verified identity was not approved. ${reasonText}\n\nDo not worry, you can submit a new request right away with the necessary corrections.\n\nTalentLix Team`;
+
+      const htmlReason = reason
+        ? `<p><strong>Reasons provided:</strong> ${safeReason}</p>`
+        : '<p><strong>Reasons provided:</strong> Not specified.</p>';
+
+      html = `<p>Dear ${fullName},</p><p>The documentation you submitted has been reviewed and unfortunately your verified identity was not approved.</p>${htmlReason}<p>Do not worry, you can submit a new request right away with the necessary corrections.</p><p>TalentLix Team</p>`;
+    }
+
+    try {
+      const payload = buildEmailPayload({ to, subject, text, html });
+      await sendEmailWithSupabase(supabase, payload);
+    } catch (err) {
+      console.error('[AthleteDetail] Outcome email failed', err);
+    }
+  }, [athleteEmail, athleteFullName]);
+
+  const performAthleteAction = useCallback(async (action, reason) => {
+    if (!athleteId) return;
+    setActionError('');
+    setActionBusy(action);
+    try {
+      const token = await getFreshAccessToken();
+      if (!token) {
+        throw new Error('Unable to determine current session. Please sign in again.');
+      }
+
+      const response = await fetch('/api/internal-enabler/athletes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action, athleteId, reason }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = typeof payload?.error === 'string' && payload.error
+          ? payload.error
+          : `Request failed with status ${response.status}`;
+        throw new Error(message);
+      }
+
+      if (action === 'approve') {
+        await sendOutcomeNotificationFromPage('approved');
+      } else if (action === 'reject') {
+        await sendOutcomeNotificationFromPage('rejected', reason);
+      }
+
+      await loadDetail();
+    } catch (error) {
+      console.error('Failed to perform athlete action', error);
+      setActionError(error?.message || 'Unable to update athlete verification.');
+    } finally {
+      setActionBusy('');
+    }
+  }, [athleteId, getFreshAccessToken, loadDetail, sendOutcomeNotificationFromPage]);
 
   const fullName = useMemo(() => {
     if (!detail?.athlete) return '—';
@@ -507,6 +621,16 @@ export default function AthleteDetailPage() {
 
   const activityEntries = useMemo(() => detail?.activity || [], [detail]);
 
+  const handleApprove = useCallback(async () => {
+    await performAthleteAction('approve');
+  }, [performAthleteAction]);
+
+  const handleReject = useCallback(async () => {
+    const reason = window.prompt('Reason for rejection (optional):', '');
+    if (reason === null) return;
+    await performAthleteAction('reject', (reason || '').trim() || null);
+  }, [performAthleteAction]);
+
   if (!authChecked) {
     return (
       <div style={styles.fullPage}>Checking permissions…</div>
@@ -535,13 +659,35 @@ export default function AthleteDetailPage() {
           <h1 style={styles.pageTitle}>{fullName}</h1>
           <p style={styles.pageSubtitle}>Comprehensive identity overview with collapsible sections.</p>
         </div>
-        <div>
-          <button type="button" onClick={loadDetail} style={styles.secondaryButton} disabled={loading}>
+        <div style={styles.actionsRow}>
+          <button
+            type="button"
+            onClick={loadDetail}
+            style={styles.secondaryButton}
+            disabled={loading || actionBusy}
+          >
             {loading ? 'Refreshing…' : 'Refresh data'}
+          </button>
+          <button
+            type="button"
+            onClick={handleApprove}
+            style={styles.primaryButton}
+            disabled={loading || actionBusy}
+          >
+            {actionBusy === 'approve' ? 'Approving…' : 'Approve'}
+          </button>
+          <button
+            type="button"
+            onClick={handleReject}
+            style={styles.dangerButton}
+            disabled={loading || actionBusy}
+          >
+            {actionBusy === 'reject' ? 'Rejecting…' : 'Reject'}
           </button>
         </div>
       </header>
 
+      {actionError ? <div style={styles.errorBanner}>{actionError}</div> : null}
       {dataError ? <div style={styles.errorBanner}>{dataError}</div> : null}
 
       {loading && !detail ? (
@@ -706,6 +852,12 @@ const styles = {
     gap: 16,
     marginBottom: 24,
   },
+  actionsRow: {
+    display: 'flex',
+    gap: 10,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
   backLink: {
     display: 'inline-block',
     marginBottom: 12,
@@ -730,6 +882,26 @@ const styles = {
     background: '#FFFFFF',
     cursor: 'pointer',
     fontWeight: 600,
+    minWidth: 140,
+  },
+  primaryButton: {
+    padding: '10px 14px',
+    borderRadius: 10,
+    border: '1px solid #2563EB',
+    background: '#2563EB',
+    color: '#FFFFFF',
+    cursor: 'pointer',
+    fontWeight: 700,
+    minWidth: 140,
+  },
+  dangerButton: {
+    padding: '10px 14px',
+    borderRadius: 10,
+    border: '1px solid #EF4444',
+    background: '#EF4444',
+    color: '#FFFFFF',
+    cursor: 'pointer',
+    fontWeight: 700,
     minWidth: 140,
   },
   section: {
