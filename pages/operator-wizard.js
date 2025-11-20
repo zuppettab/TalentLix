@@ -1505,8 +1505,8 @@ export default function OperatorWizard() {
   }, [step, writeStoredStep]);
 
   const sendSubmissionConfirmationEmail = useCallback(async () => {
-    const to = (contact.email_primary || user?.email || '').trim();
-    if (!to) return;
+    const recipient = (contact.email_primary || contact.email_billing || user?.email || '').trim();
+    if (!recipient) return;
 
     const name = operatorName || 'Operator';
     const subject = 'Your operator registration is under review';
@@ -1517,12 +1517,12 @@ export default function OperatorWizard() {
     const html = `<p>Dear ${name},</p><p>${body}</p><p>TalentLix Team</p>`;
 
     try {
-      const payload = buildEmailPayload({ to, subject, text, html });
+      const payload = buildEmailPayload({ to: recipient, subject, text, html });
       await sendEmailWithSupabase(supabase, payload);
     } catch (err) {
       console.warn('[OperatorWizard] Failed to send submission confirmation email', err);
     }
-  }, [contact.email_primary, operatorName, user?.email]);
+  }, [contact.email_billing, contact.email_primary, operatorName, user?.email]);
 
   /** -------------------------
    *  RENDER
@@ -1547,6 +1547,7 @@ export default function OperatorWizard() {
   }
 
   const progressStep = typeof step === 'number' ? step : 4;
+  const isPrimaryEmailLocked = !!user?.email;
 
   return (
     <div style={styles.background}>
@@ -1670,19 +1671,24 @@ export default function OperatorWizard() {
                 {/* STEP 2 — stile atleti: PhoneInput, OTP, errori inline */}
                 {step === 2 && (
                   <>
-                    <h2 style={styles.title}>Step 2 · Contacts, branding & verification</h2>
-                    <div style={styles.formGroup}>
-                      <input
-                        style={{ ...styles.input, background:'#f8f9fa', cursor:'not-allowed' }}
-                        type="email"
-                        placeholder="Primary email"
-                        value={contact.email_primary}
-                        readOnly
-                        aria-readonly="true"
-                        title="Primary email is linked to your account"
-                      />
-                      <input style={styles.input} type="email" placeholder="Billing email (optional)"
-                             value={contact.email_billing} onChange={(e)=> setContact({ ...contact, email_billing:e.target.value })}/>
+                  <h2 style={styles.title}>Step 2 · Contacts, branding & verification</h2>
+                  <div style={styles.formGroup}>
+                    <input
+                      style={{
+                        ...styles.input,
+                        background: isPrimaryEmailLocked ? '#f8f9fa' : '#fff',
+                        cursor: isPrimaryEmailLocked ? 'not-allowed' : 'text',
+                      }}
+                      type="email"
+                      placeholder="Primary email"
+                      value={contact.email_primary}
+                      readOnly={isPrimaryEmailLocked}
+                      aria-readonly={isPrimaryEmailLocked}
+                      title={isPrimaryEmailLocked ? 'Primary email is linked to your account' : 'Enter the primary contact email'}
+                      onChange={(e)=> !isPrimaryEmailLocked && setContact({ ...contact, email_primary:e.target.value })}
+                    />
+                    <input style={styles.input} type="email" placeholder="Billing email (optional)"
+                           value={contact.email_billing} onChange={(e)=> setContact({ ...contact, email_billing:e.target.value })}/>
 
                       <input
                         style={styles.input}
