@@ -87,6 +87,8 @@ const performReject = async (client, operatorId, { verificationId, reason }) => 
     { state: 'REJECTED', reason },
     ['IN_REVIEW', 'NEEDS_MORE_INFO', 'VERIFIED']
   );
+
+  await updateOperatorAccount(client, operatorId, { wizard_status: 'IN_PROGRESS' });
 };
 
 const ACTION_HANDLERS = {
