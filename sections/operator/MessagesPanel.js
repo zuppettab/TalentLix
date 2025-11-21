@@ -1074,7 +1074,7 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
   const [messageDraft, setMessageDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [activeTab, setActiveTab] = useState('active');
-  const [unlockStatus, setUnlockStatus] = useState({ active: false, expires_at: null });
+  const [unlockStatus, setUnlockStatus] = useState({ active: false, expires_at: null, loading: true });
   const [blockInfo, setBlockInfo] = useState(null);
   const [actionError, setActionError] = useState(null);
   const [unlockedAthletes, setUnlockedAthletes] = useState([]);
@@ -1292,10 +1292,11 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
       if (!thread?.id) return;
       setMessagesLoading(true);
       setMessagesError(null);
-      try {
-        const [messagesOutcome, unlockOutcome, blockOutcome] = await Promise.allSettled([
-          fetchMessagesForThread(thread.id),
-          fetchUnlockStatus(operatorId, thread.athlete_id),
+    try {
+      setUnlockStatus((prev) => ({ ...prev, loading: true }));
+      const [messagesOutcome, unlockOutcome, blockOutcome] = await Promise.allSettled([
+        fetchMessagesForThread(thread.id),
+        fetchUnlockStatus(operatorId, thread.athlete_id),
           supabase
             .from('chat_block')
             .select('op_id, athlete_id, blocked_by, blocked_at')
@@ -1312,10 +1313,10 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
         }
 
         if (unlockOutcome.status === 'fulfilled') {
-          setUnlockStatus(unlockOutcome.value);
+          setUnlockStatus({ ...unlockOutcome.value, loading: false });
         } else {
           logSupabaseError('fetchUnlockStatus', unlockOutcome.reason);
-          setUnlockStatus({ active: false, expires_at: null });
+          setUnlockStatus({ active: false, expires_at: null, loading: false });
         }
 
         if (blockOutcome.status === 'fulfilled') {
@@ -1336,6 +1337,7 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
         );
         setTotalUnread((prev) => Math.max(0, prev - (thread.unreadCount || 0)));
       } catch (err) {
+        setUnlockStatus({ active: false, expires_at: null, loading: false });
         setMessagesError(getErrorMessage(err, 'Unable to load messages.'));
         setMessages([]);
       } finally {
@@ -1350,6 +1352,7 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
       setMessages([]);
       setMessagesError(null);
       setBlockInfo(null);
+      setUnlockStatus({ active: false, expires_at: null, loading: false });
       return;
     }
     refreshMessages(selectedThread);
@@ -1551,9 +1554,10 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
     ? `No ${activeTab === 'archived' ? 'archived' : 'active'} conversations match this filter.`
     : 'No conversations yet. Start a new one from the unlocked athletes list.';
 
+  const unlockExpired = !unlockStatus.loading && !unlockStatus.active;
   const composerDisabled =
     !selectedThread ||
-    !unlockStatus.active ||
+    unlockExpired ||
     (blockInfo && blockInfo.blocked_by && blockInfo.blocked_by !== 'OP');
 
   const selectedName = selectedThread ? resolveAthleteName(selectedThread.athlete) : '';
@@ -1818,7 +1822,7 @@ export default function MessagesPanel({ operatorData, authUser, isMobile }) {
                 <p style={styles.participantSubtitle}>
                   Last update {formatDateTime(selectedThread.last_message_at || selectedThread.created_at)}
                 </p>
-                {!unlockStatus.active && (
+                {unlockExpired && (
                   <div style={styles.warningBanner}>
                     <Shield size={16} />
                     <span>
