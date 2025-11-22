@@ -14,6 +14,7 @@ import IdentityPanel from '../sections/operator/IdentityPanel';
 import WalletPanel from '../sections/operator/WalletPanel';
 import SearchPanel from '../sections/operator/SearchPanel';
 import MessagesPanel from '../sections/operator/MessagesPanel';
+import UnlockedAthletesPanel from '../sections/operator/UnlockedAthletesPanel';
 import PrivacyConsentPanel from '../sections/operator/PrivacyConsentPanel';
 
 const SECTION_COMPONENTS = {
@@ -22,11 +23,12 @@ const SECTION_COMPONENTS = {
   identity: IdentityPanel,
   wallet: WalletPanel,
   search: SearchPanel,
+  unlocked: UnlockedAthletesPanel,
   messages: MessagesPanel,
   privacy: PrivacyConsentPanel,
 };
 
-const FUNCTIONAL_SECTIONS = new Set(['wallet', 'search', 'messages']);
+const FUNCTIONAL_SECTIONS = new Set(['wallet', 'search', 'unlocked', 'messages']);
 
 const normalizeIdentityValue = (value) => {
   if (typeof value !== 'string') return '';

@@ -7,11 +7,12 @@ export const OPERATOR_SECTIONS = [
   { id: 'identity', title: 'Identity' },
   { id: 'wallet', title: 'Wallet' },
   { id: 'search', title: 'Search' },
+  { id: 'unlocked', title: 'Unlocked athletes' },
   { id: 'messages', title: 'Messages' },
   { id: 'privacy', title: 'Privacy & consent' },
 ];
 
-/** @type {'entity'|'contacts'|'identity'|'wallet'|'search'|'messages'|'privacy'} */
+/** @type {'entity'|'contacts'|'identity'|'wallet'|'search'|'unlocked'|'messages'|'privacy'} */
 export const DEFAULT_OPERATOR_SECTION = 'entity';
 
 /** Validate a section id coming from the URL (e.g. ?section=...). */
