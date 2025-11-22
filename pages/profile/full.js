@@ -67,6 +67,13 @@ const formatCredits = (value) => {
     maximumFractionDigits: 2,
   }).format(numeric);
 };
+const formatGender = (value) => {
+  if (!value) return '—';
+  const normalized = String(value).toLowerCase();
+  if (normalized === 'm' || normalized === 'male') return 'Male';
+  if (normalized === 'f' || normalized === 'female') return 'Female';
+  return value;
+};
 
 function useIsMobile(breakpointPx = 720) {
   const [isMobile, setIsMobile] = useState(false);
@@ -986,6 +993,7 @@ function PreviewCard({ athleteId }) {
               <div style={S.titleRow}><User size={18}/><h2 style={S.h2}>Profile</h2></div>
               <div className="profileGrid twoCol">
                 <Info label="Date of birth" value={`${athlete?.date_of_birth ? fmtDate(athlete.date_of_birth) : '—'}${typeof age==='number' ? ` · ${age} y/o` : ''}`}/>
+                <Info label="Gender" value={formatGender(athlete?.gender)}/>
                 <Info label="Nationality" value={`${natFlag ? natFlag+' ' : ''}${athlete?.nationality || '—'}`}/>
                 <Info label="Birth city" value={athlete?.birth_city || '—'}/>
                 <Info label="Residence" value={residenceDisplay}/>
