@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExternalLink, RefreshCcw } from 'lucide-react';
+import sports from '../../utils/sports';
 import { supabase } from '../../utils/supabaseClient';
 
 const CONTRACT_STATUS = [
@@ -173,6 +174,7 @@ const styles = {
   },
   tagSeeking: { background: 'linear-gradient(120deg, rgba(39,227,218,0.35), rgba(56,189,248,0.35))' },
   tagAgent: { background: 'linear-gradient(120deg, rgba(109,40,217,0.25), rgba(14,165,233,0.25))', color: '#1e293b' },
+  section: { display: 'grid', gap: 8 },
   profileBtnRow: { display: 'flex', justifyContent: 'flex-start', flex: 1, gap: 8 },
   profileBtn: {
     display: 'inline-flex',
@@ -305,6 +307,14 @@ const computeAge = (dob) => {
   const m = now.getMonth() - parsed.getMonth();
   if (m < 0 || (m === 0 && now.getDate() < parsed.getDate())) age--;
   return age;
+};
+
+const formatGender = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === 'm' || normalized === 'male') return 'Male';
+  if (normalized === 'f' || normalized === 'female') return 'Female';
+  return null;
 };
 
 const resolveInitials = (value) => {
@@ -461,12 +471,24 @@ export default function UnlockedAthletesPanel({ authUser }) {
             const contractLabel = exp?.contract_status
               ? CONTRACT_STATUS.find((x) => x.value === exp.contract_status)?.label || exp.contract_status
               : '—';
+            const genderLabel = formatGender(ath.gender);
+            const sportFromExp = sports.find((sport) => sport.value === exp?.sport) || null;
+            const sportLabel = sportFromExp ? sportFromExp.label : exp?.sport || 'Sport —';
             const metaItems = [
               { label: 'Nationality', value: ath.nationality || '—' },
               { label: 'Current team', value: exp?.team || '—' },
               { label: 'Current residence', value: residence },
               { label: 'Contract status', value: contractLabel },
             ];
+            const regions = Array.isArray(exp?.preferred_regions) ? exp.preferred_regions.filter(Boolean) : [];
+            const formattedRegions = regions.slice(0, 3).join(', ');
+            const subtitleParts = [
+              exp?.role ? exp.role : 'Role —',
+              sportLabel,
+              genderLabel,
+              typeof age === 'number' ? `${age} y` : null,
+            ];
+            const subtitleText = subtitleParts.filter(Boolean).join(' • ');
             const showTags = exp?.seeking_team || exp?.is_represented;
             const unlockInfo = unlockMap.get(ath.id);
             const expiresLabel = unlockInfo?.expires_at
@@ -494,12 +516,7 @@ export default function UnlockedAthletesPanel({ authUser }) {
                         {contactsRecord?.id_verified && <span style={styles.verifiedBadge}>Verified</span>}
                       </div>
                       {exp?.category && <span style={styles.categoryBadge}>{exp.category}</span>}
-                      {age != null && (
-                        <p style={styles.small}>
-                          {ath.gender ? `${ath.gender === 'male' ? 'Male' : 'Female'} • ` : ''}
-                          {age} years
-                        </p>
-                      )}
+                      <p style={styles.small}>{subtitleText}</p>
                     </div>
                   </header>
 
@@ -512,27 +529,42 @@ export default function UnlockedAthletesPanel({ authUser }) {
                     ))}
                   </div>
 
-                  <div style={styles.tagsAndAction}>
-                    {showTags && (
-                      <div style={styles.tagRow}>
-                        {exp?.seeking_team && <span style={{ ...styles.tag, ...styles.tagSeeking }}>Seeking team</span>}
-                        {exp?.is_represented && <span style={{ ...styles.tag, ...styles.tagAgent }}>Agent</span>}
-                      </div>
-                    )}
+                  <div style={styles.section}>
+                    <span style={styles.metaLabel}>
+                      Preferred regions:{' '}
+                      <span style={{ fontWeight: 700, letterSpacing: 'normal', textTransform: 'none' }}>
+                        {regions.length > 0 ? formattedRegions : '—'}
+                      </span>
+                    </span>
 
-                    <div style={styles.profileBtnRow}>
-                      <div style={styles.unlockBadge}>
-                        {expiresLabel ? `Unlocked until ${expiresLabel}` : 'Unlocked'}
+                    <div
+                      style={{
+                        ...styles.tagsAndAction,
+                        justifyContent: showTags ? 'space-between' : 'flex-end',
+                        alignItems: 'center',
+                      }}
+                    >
+                      {showTags && (
+                        <div style={styles.tagRow}>
+                          {exp?.seeking_team && <span style={{ ...styles.tag, ...styles.tagSeeking }}>Seeking team</span>}
+                          {exp?.is_represented && <span style={{ ...styles.tag, ...styles.tagAgent }}>Agent</span>}
+                        </div>
+                      )}
+
+                      <div style={styles.profileBtnRow}>
+                        <div style={styles.unlockBadge}>
+                          {expiresLabel ? `Unlocked until ${expiresLabel}` : 'Unlocked'}
+                        </div>
+                        <a
+                          href={`/profile/full?id=${ath.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={styles.profileBtn}
+                        >
+                          <span>Full profile</span>
+                          <ExternalLink size={14} strokeWidth={2} />
+                        </a>
                       </div>
-                      <a
-                        href={`/profile/full?id=${ath.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={styles.profileBtn}
-                      >
-                        <span>Full profile</span>
-                        <ExternalLink size={14} strokeWidth={2} />
-                      </a>
                     </div>
                   </div>
                 </div>
