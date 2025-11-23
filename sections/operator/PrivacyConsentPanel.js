@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { supabase } from '../../utils/supabaseClient';
 
 const DEFAULT_POLICY_VERSION = process.env.NEXT_PUBLIC_PRIVACY_POLICY_VERSION || '2024-01-01';
 
@@ -76,6 +77,12 @@ export default function PrivacyConsentPanel({ operatorData = {}, authUser }) {
   const sectionState = operatorData?.sectionStatus?.privacy || {};
   const loading = sectionState.loading ?? operatorData.loading;
   const error = sectionState.error ?? operatorData.error;
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   const [policyHtml, setPolicyHtml] = useState('');
   const [policyStatus, setPolicyStatus] = useState('loading');
@@ -106,6 +113,7 @@ export default function PrivacyConsentPanel({ operatorData = {}, authUser }) {
   }, []);
 
   const acceptedFlag = privacy?.accepted === true;
+  const accountEmail = contact?.email_primary || authUser?.email || '';
 
   const acceptanceStatus = useMemo(() => {
     if (!privacy) {
@@ -145,6 +153,60 @@ export default function PrivacyConsentPanel({ operatorData = {}, authUser }) {
   const acceptedAt = privacy?.accepted_at ? formatTimestamp(privacy.accepted_at) : '';
   const revokedAt = privacy?.revoked_at ? formatTimestamp(privacy.revoked_at) : '';
 
+  const handlePasswordChange = useCallback(async (event) => {
+    event.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!accountEmail) {
+      setPasswordError('Unable to update password because no account email is available.');
+      return;
+    }
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Please complete every password field.');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError('The new password must contain at least 8 characters.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New password and confirmation must match.');
+      return;
+    }
+
+    setSavingPassword(true);
+
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: accountEmail,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        throw new Error('Current password is not correct.');
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setPasswordSuccess('Password updated successfully.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      setPasswordError(err?.message || 'Unable to update the password right now.');
+    } finally {
+      setSavingPassword(false);
+    }
+  }, [accountEmail, confirmPassword, currentPassword, newPassword]);
+
   if (loading) {
     return <StateMessage>Loading privacy preferences…</StateMessage>;
   }
@@ -183,6 +245,60 @@ export default function PrivacyConsentPanel({ operatorData = {}, authUser }) {
               <span style={styles.placeholder}>The policy could not be loaded. Please contact support if the issue persists.</span>
             )}
           </div>
+        </div>
+
+        <div style={styles.card}>
+          <h4 style={styles.cardTitle}>Password & security</h4>
+          <p style={styles.cardDescription}>Update your TalentLix account password without leaving the dashboard.</p>
+          <form style={styles.passwordForm} onSubmit={handlePasswordChange}>
+            <label style={styles.infoLabel} htmlFor="operator-current-password">Current password</label>
+            <input
+              id="operator-current-password"
+              type="password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              style={styles.input}
+              placeholder="Enter your current password"
+              required
+            />
+
+            <label style={styles.infoLabel} htmlFor="operator-new-password">New password</label>
+            <input
+              id="operator-new-password"
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              style={styles.input}
+              placeholder="At least 8 characters"
+              minLength={8}
+              required
+            />
+
+            <label style={styles.infoLabel} htmlFor="operator-confirm-password">Confirm new password</label>
+            <input
+              id="operator-confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              style={styles.input}
+              placeholder="Repeat the new password"
+              minLength={8}
+              required
+            />
+
+            <button
+              type="submit"
+              style={{ ...styles.saveButton, ...(savingPassword ? styles.saveButtonDisabled : null) }}
+              disabled={savingPassword}
+            >
+              {savingPassword ? 'Updating…' : 'Save new password'}
+            </button>
+
+            <p style={styles.helper}>Use a strong password to protect access to athlete data.</p>
+
+            {passwordError && <div style={styles.errorText}>{passwordError}</div>}
+            {passwordSuccess && <div style={styles.successText}>{passwordSuccess}</div>}
+          </form>
         </div>
       </div>
     </div>
@@ -314,5 +430,57 @@ const styles = {
     borderColor: '#FCA5A5',
     background: '#FEF2F2',
     color: '#B91C1C',
+  },
+  passwordForm: {
+    display: 'grid',
+    gap: 10,
+  },
+  input: {
+    width: '100%',
+    padding: '12px 12px',
+    borderRadius: 12,
+    border: '1px solid #E2E8F0',
+    fontSize: 14,
+    boxSizing: 'border-box',
+    background: '#FFF',
+  },
+  saveButton: {
+    padding: '12px 14px',
+    borderRadius: 12,
+    border: 'none',
+    background: '#27E3DA',
+    color: '#0B3D91',
+    fontWeight: 700,
+    fontSize: 14,
+    cursor: 'pointer',
+    transition: 'opacity 0.2s ease, transform 0.1s ease',
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
+    cursor: 'not-allowed',
+    transform: 'none',
+  },
+  helper: {
+    margin: 0,
+    fontSize: 12,
+    color: '#475569',
+  },
+  errorText: {
+    margin: 0,
+    padding: '10px 12px',
+    borderRadius: 12,
+    background: '#FEF2F2',
+    color: '#B91C1C',
+    border: '1px solid #FCA5A5',
+    fontSize: 13,
+  },
+  successText: {
+    margin: 0,
+    padding: '10px 12px',
+    borderRadius: 12,
+    background: '#ECFDF3',
+    color: '#166534',
+    border: '1px solid #86EFAC',
+    fontSize: 13,
   },
 };

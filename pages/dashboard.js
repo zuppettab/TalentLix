@@ -784,7 +784,7 @@ export default function Dashboard() {
                   <AthleteStatsPanel athlete={athlete} isMobile={isMobile} />
                 )}
                 {current === 'privacy' && (
-                  <PrivacyPanel athlete={athlete} />
+                  <PrivacyPanel athlete={athlete} userEmail={userEmail} />
                 )}
                 {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'media' && current !== 'social' && current !== 'physical' && current !== 'awards' && current !== 'messages' && current !== 'stats' && current !== 'privacy' && (
                   <p style={styles.placeholder}>TODO — “{sectionObj?.title}”</p>
