@@ -9,7 +9,7 @@ export const OPERATOR_SECTIONS = [
   { id: 'search', title: 'Search' },
   { id: 'unlocked', title: 'Unlocked athletes' },
   { id: 'messages', title: 'Messages' },
-  { id: 'privacy', title: 'Privacy & consent' },
+  { id: 'privacy', title: 'Privacy & Security' },
 ];
 
 /** @type {'entity'|'contacts'|'identity'|'wallet'|'search'|'unlocked'|'messages'|'privacy'} */
