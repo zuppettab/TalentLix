@@ -11,7 +11,7 @@ export const SECTIONS = [
   { id: 'social',    title: 'Social' },
   { id: 'messages',  title: 'Messages' },
   { id: 'stats',     title: 'Profile insights' },
-  { id: 'privacy',   title: 'Privacy & consent' },
+  { id: 'privacy',   title: 'Privacy & Security' },
 ];
 
 /** @type {'personal'|'contacts'|'sports'|'physical'|'media'|'social'|'messages'|'stats'|'awards'|'privacy'} */
