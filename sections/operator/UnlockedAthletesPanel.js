@@ -73,6 +73,7 @@ const styles = {
     boxShadow: '0 22px 45px -28px rgba(15,23,42,0.32)',
     width: '100%',
     maxWidth: 360,
+    marginBottom: 'clamp(1rem, 3vw, 1.75rem)',
   },
   cardInner: {
     background: '#fff',
