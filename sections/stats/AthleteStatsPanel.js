@@ -7,7 +7,6 @@ const COLORS = {
   views: '#F7B84E',
   unlocks: '#6C63FF',
   messages: '#FF7B7B',
-  recency: '#2D9CDB',
 };
 
 const DEFAULT_STATS = {
@@ -15,7 +14,6 @@ const DEFAULT_STATS = {
   profile_views: 0,
   contact_unlocks: 0,
   messaging_operators: 0,
-  profile_views_last_month: 0,
   first_seen_at: null,
   last_seen_at: null,
 };
@@ -50,30 +48,6 @@ const fetchDistinctMessagingOperators = async (athleteId) => {
   }
 };
 
-const fetchRecentProfileViews = async (athleteId) => {
-  if (!athleteId) return 0;
-  const since = new Date();
-  since.setMonth(since.getMonth() - 1);
-
-  try {
-    const { count, error } = await supabase
-      .from('athlete_search_event')
-      .select('id', { head: true, count: 'exact' })
-      .eq('athlete_id', athleteId)
-      .eq('event_type', 'profile_view')
-      .gte('created_at', since.toISOString());
-
-    if (error) {
-      throw error;
-    }
-
-    return Number.isFinite(count) ? count : 0;
-  } catch (err) {
-    console.warn('Unable to load recent profile views', err);
-    return 0;
-  }
-};
-
 export default function AthleteStatsPanel({ athlete, isMobile }) {
   const [stats, setStats] = useState(DEFAULT_STATS);
   const [error, setError] = useState(null);
@@ -100,9 +74,8 @@ export default function AthleteStatsPanel({ athlete, isMobile }) {
 
         if (!isMounted) return;
 
-        const [distinctMessagingOperators, recentProfileViews] = await Promise.all([
+        const [distinctMessagingOperators] = await Promise.all([
           fetchDistinctMessagingOperators(athlete.id),
-          fetchRecentProfileViews(athlete.id),
         ]);
 
         const nextStats = {
@@ -110,7 +83,6 @@ export default function AthleteStatsPanel({ athlete, isMobile }) {
           ...(data || {}),
           first_seen_at: (data?.first_seen_at || athlete?.created_at || null),
           messaging_operators: distinctMessagingOperators,
-          profile_views_last_month: recentProfileViews,
         };
 
         setStats(nextStats);
@@ -156,13 +128,6 @@ export default function AthleteStatsPanel({ athlete, isMobile }) {
       description: 'Unique operators who messaged you',
       value: stats.messaging_operators,
       color: COLORS.messages,
-    },
-    {
-      key: 'profile_views_last_month',
-      label: 'Profile visits (30 days)',
-      description: 'Full profile opens in the last month',
-      value: stats.profile_views_last_month,
-      color: COLORS.recency,
     },
   ];
 
