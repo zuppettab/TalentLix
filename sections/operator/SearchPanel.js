@@ -311,6 +311,26 @@ export default function SearchPanel() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
 
+  const recordSearchImpressions = useCallback(async (athletes) => {
+    const ids = (athletes || []).map((row) => row.id).filter(Boolean);
+    if (!ids.length) return;
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
+      await fetch('/api/athlete-search-stats', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ athleteIds: ids, eventType: 'search_impression' }),
+      });
+    } catch (err) {
+      console.error('Failed to record search impressions', err);
+    }
+  }, []);
+
   /* -------- Unlock tariff / operator -------- */
   const [operatorId, setOperatorId] = useState(null);
   const [contactsMap, setContactsMap] = useState({});
@@ -575,6 +595,7 @@ export default function SearchPanel() {
 
       setRows(data || []);
       setTotal(count || 0);
+      recordSearchImpressions(data);
       if ((count || 0) === 0) setNoData('No matches for the selected filters.');
     } catch (e) {
       setRows([]); setTotal(0);

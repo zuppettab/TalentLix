@@ -150,6 +150,7 @@ function PreviewCard({ athleteId }) {
   const isMobile = useIsMobile(720);
 
   const isMountedRef = useRef(true);
+  const profileViewLoggedRef = useRef(new Set());
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -158,6 +159,37 @@ function PreviewCard({ athleteId }) {
   }, []);
 
   const [lightbox, setLightbox] = useState({ open:false, type:'', src:'', title:'' });
+
+  useEffect(() => {
+    let cancelled = false;
+    const recordProfileView = async () => {
+      if (!athleteId || profileViewLoggedRef.current.has(athleteId)) return;
+
+      profileViewLoggedRef.current.add(athleteId);
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token || null;
+        await fetch('/api/athlete-search-stats', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: JSON.stringify({ athleteIds: [athleteId], eventType: 'profile_view' }),
+        });
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to record profile view', err);
+        }
+      }
+    };
+
+    recordProfileView();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [athleteId]);
 
   // Load (client only)
   useEffect(() => {

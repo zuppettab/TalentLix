@@ -6,6 +6,7 @@ import {
 import { resolveOperatorRequestContext } from '../../../utils/operatorApi';
 import { loadOperatorContactBundle } from './athlete-contacts';
 import { sendEmail } from '../../../utils/emailService';
+import { incrementAthleteSearchStats } from '../../../utils/athleteSearchStats';
 
 const CONTACT_UNLOCK_TABLE_CANDIDATES = [
   'op_contact_unlocks',
@@ -795,6 +796,12 @@ export default async function handler(req, res) {
       contacts = await loadOperatorContactBundle(client, operatorId, resolvedId);
     } catch (bundleError) {
       console.error('Unable to refresh operator contact bundle after unlock', bundleError);
+    }
+
+    try {
+      await incrementAthleteSearchStats(client, [resolvedId], 'contact_unlock');
+    } catch (statsError) {
+      console.error('Unable to record contact unlock stats', statsError);
     }
 
     const contactFirstName = normalizeNamePart(contacts?.first_name);
