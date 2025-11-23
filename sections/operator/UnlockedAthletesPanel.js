@@ -5,6 +5,21 @@ import { ExternalLink, RefreshCcw } from 'lucide-react';
 import sports from '../../utils/sports';
 import { supabase } from '../../utils/supabaseClient';
 
+function useIsMobile(breakpointPx = 640) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mq = window.matchMedia(`(max-width:${breakpointPx}px)`);
+    const onChange = (event) => setIsMobile(event.matches);
+    onChange(mq);
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, [breakpointPx]);
+
+  return isMobile;
+}
+
 const CONTRACT_STATUS = [
   { value: 'free_agent', label: 'Free agent' },
   { value: 'under_contract', label: 'Under contract' },
@@ -330,6 +345,7 @@ const resolveInitials = (value) => {
 };
 
 export default function UnlockedAthletesPanel({ authUser }) {
+  const isMobile = useIsMobile(720);
   const [unlockRows, setUnlockRows] = useState([]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -417,6 +433,21 @@ export default function UnlockedAthletesPanel({ authUser }) {
     );
   }
 
+  const gridStyle = useMemo(() => ({
+    ...styles.grid,
+    ...(isMobile
+      ? {
+          gridTemplateColumns: 'minmax(0, 1fr)',
+          rowGap: 'clamp(3rem, 7vw, 4rem)',
+        }
+      : null),
+  }), [isMobile]);
+
+  const cardStyle = useMemo(() => ({
+    ...styles.card,
+    ...(isMobile ? { maxWidth: '100%' } : null),
+  }), [isMobile]);
+
   return (
     <div style={styles.page}>
       <div style={styles.topRow}>
@@ -457,7 +488,7 @@ export default function UnlockedAthletesPanel({ authUser }) {
       )}
 
       <section style={styles.results} aria-live="polite">
-        <div style={styles.grid}>
+        <div style={gridStyle}>
           {rows.map((ath) => {
             const exp = Array.isArray(ath.exp) ? ath.exp[0] : null;
             const contactsRecord = Array.isArray(ath.contacts_verification)
@@ -500,7 +531,7 @@ export default function UnlockedAthletesPanel({ authUser }) {
               : null;
 
             return (
-              <article key={ath.id} style={styles.card}>
+              <article key={ath.id} style={cardStyle}>
                 <div style={styles.cardInner}>
                   <header style={styles.cardHeader}>
                     <div style={styles.avatarWrap} aria-hidden>
