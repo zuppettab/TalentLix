@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { supabase } from '../../utils/supabaseClient';
 
 const parseDateValue = (value) => {
   if (!value) return null;
@@ -34,9 +35,15 @@ const calculateAge = (value) => {
   return years;
 };
 
-export default function PrivacyPanel({ athlete }) {
+export default function PrivacyPanel({ athlete, userEmail }) {
   const [policyHtml, setPolicyHtml] = useState('');
   const [policyStatus, setPolicyStatus] = useState('loading');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -100,6 +107,60 @@ export default function PrivacyPanel({ athlete }) {
 
   const parentalConsentProvided = Boolean(athlete?.parental_consent);
   const parentalConsentAt = formatTimestamp(athlete?.parental_consent_at);
+
+  const handlePasswordChange = useCallback(async (event) => {
+    event.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!userEmail) {
+      setPasswordError('Unable to update password: no account email available.');
+      return;
+    }
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Please fill in all password fields.');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError('The new password must be at least 8 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New password and confirmation do not match.');
+      return;
+    }
+
+    setSavingPassword(true);
+
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        throw new Error('Current password is incorrect.');
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setPasswordSuccess('Password updated successfully.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      setPasswordError(err?.message || 'Unable to update password right now.');
+    } finally {
+      setSavingPassword(false);
+    }
+  }, [confirmPassword, currentPassword, newPassword, userEmail]);
 
   const summaryItems = [
     {
@@ -198,6 +259,56 @@ export default function PrivacyPanel({ athlete }) {
           )}
         </div>
       </div>
+
+      <div style={styles.card}>
+        <h3 style={styles.title}>Password & security</h3>
+        <p style={styles.description}>Update the password associated with your TalentLix account.</p>
+        <form style={styles.passwordForm} onSubmit={handlePasswordChange}>
+          <label style={styles.label} htmlFor="current-password">Current password</label>
+          <input
+            id="current-password"
+            type="password"
+            placeholder="Enter your current password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            style={styles.input}
+            required
+          />
+
+          <label style={styles.label} htmlFor="new-password">New password</label>
+          <input
+            id="new-password"
+            type="password"
+            placeholder="At least 8 characters"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            style={styles.input}
+            required
+            minLength={8}
+          />
+
+          <label style={styles.label} htmlFor="confirm-password">Confirm new password</label>
+          <input
+            id="confirm-password"
+            type="password"
+            placeholder="Repeat the new password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            style={styles.input}
+            required
+            minLength={8}
+          />
+
+          <button type="submit" style={{ ...styles.saveButton, ...(savingPassword ? styles.saveButtonDisabled : null) }} disabled={savingPassword}>
+            {savingPassword ? 'Updating…' : 'Save new password'}
+          </button>
+
+          <p style={styles.helper}>Use a unique password with at least 8 characters to keep your account safe.</p>
+
+          {passwordError && <div style={styles.errorText}>{passwordError}</div>}
+          {passwordSuccess && <div style={styles.successText}>{passwordSuccess}</div>}
+        </form>
+      </div>
     </div>
   );
 }
@@ -249,4 +360,56 @@ const styles = {
     wordBreak: 'break-word',
   },
   placeholder: { fontSize: 13, color: '#777', fontStyle: 'italic' },
+  passwordForm: {
+    display: 'grid',
+    gap: 10,
+  },
+  input: {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: 10,
+    border: '1px solid #E0E0E0',
+    fontSize: 14,
+    boxSizing: 'border-box',
+  },
+  saveButton: {
+    padding: '12px 14px',
+    borderRadius: 10,
+    border: 'none',
+    background: '#27E3DA',
+    color: '#0B3D91',
+    fontWeight: 700,
+    fontSize: 14,
+    cursor: 'pointer',
+    transition: 'opacity 0.2s ease, transform 0.1s ease',
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
+    cursor: 'not-allowed',
+    transform: 'none',
+  },
+  helper: {
+    margin: 0,
+    fontSize: 12,
+    color: '#555',
+    lineHeight: 1.4,
+  },
+  errorText: {
+    margin: 0,
+    padding: '10px 12px',
+    borderRadius: 10,
+    background: '#FEF2F2',
+    color: '#B91C1C',
+    border: '1px solid #FCA5A5',
+    fontSize: 13,
+  },
+  successText: {
+    margin: 0,
+    padding: '10px 12px',
+    borderRadius: 10,
+    background: '#ECFDF3',
+    color: '#166534',
+    border: '1px solid #86EFAC',
+    fontSize: 13,
+  },
 };
