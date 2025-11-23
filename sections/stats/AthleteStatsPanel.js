@@ -248,7 +248,7 @@ export default function AthleteStatsPanel({ athlete, isMobile }) {
           <LegendDot color={COLORS.unlocks} label="Contact unlocks" />
         </div>
 
-        <LineChart labels={chartData.labels} series={chartData.series} maxValue={chartData.maxValue} />
+        <BarChart labels={chartData.labels} series={chartData.series} maxValue={chartData.maxValue} />
       </div>
     </div>
   );
@@ -263,27 +263,47 @@ function LegendDot({ color, label }) {
   );
 }
 
-function LineChart({ labels, series, maxValue }) {
-  const width = 100 * Math.max(1, labels.length - 1);
+function BarChart({ labels, series, maxValue }) {
   const height = 140;
-  const stepX = labels.length > 1 ? width / (labels.length - 1) : width;
+  const barWidth = 18;
+  const barGap = 4;
+  const groupGap = 16;
+  const barsPerGroup = 3;
+  const groupWidth = barsPerGroup * barWidth + (barsPerGroup - 1) * barGap;
+  const width = labels.length > 0
+    ? labels.length * groupWidth + Math.max(0, labels.length - 1) * groupGap
+    : groupWidth;
 
-  const buildPoints = (values) => values.map((v, idx) => {
-    const x = idx * stepX;
-    const y = height - (Number(v || 0) / maxValue) * height;
-    return `${x},${y}`;
-  }).join(' ');
+  const buildBar = (value, groupIdx, barIdx, color) => {
+    const normalizedValue = Math.max(0, Number(value || 0));
+    const barHeight = (normalizedValue / maxValue) * height;
+    const x = groupIdx * (groupWidth + groupGap) + barIdx * (barWidth + barGap);
+    const y = height - barHeight;
 
-  const impressionPoints = buildPoints(series.impressions || []);
-  const viewPoints = buildPoints(series.views || []);
-  const unlockPoints = buildPoints(series.unlocks || []);
+    return (
+      <rect
+        key={`${groupIdx}-${barIdx}`}
+        x={x}
+        y={y}
+        width={barWidth}
+        height={barHeight}
+        rx={4}
+        ry={4}
+        fill={color}
+      />
+    );
+  };
 
   return (
     <div style={panelStyles.chartArea}>
       <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={panelStyles.chartSvg}>
-        <polyline points={impressionPoints} fill="none" stroke={COLORS.impressions} strokeWidth="3" strokeLinecap="round" />
-        <polyline points={viewPoints} fill="none" stroke={COLORS.views} strokeWidth="3" strokeLinecap="round" />
-        <polyline points={unlockPoints} fill="none" stroke={COLORS.unlocks} strokeWidth="3" strokeLinecap="round" />
+        {labels.map((_, idx) => (
+          <g key={`group-${idx}`}>
+            {buildBar(series.impressions?.[idx], idx, 0, COLORS.impressions)}
+            {buildBar(series.views?.[idx], idx, 1, COLORS.views)}
+            {buildBar(series.unlocks?.[idx], idx, 2, COLORS.unlocks)}
+          </g>
+        ))}
       </svg>
       <div
         style={{
