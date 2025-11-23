@@ -294,7 +294,7 @@ export default function PrivacyConsentPanel({ operatorData = {}, authUser }) {
               {savingPassword ? 'Updating…' : 'Save new password'}
             </button>
 
-            <p style={styles.helper}>Use a strong password to protect access to athlete data.</p>
+            <p style={styles.helper}>Use a strong password to protect access.</p>
 
             {passwordError && <div style={styles.errorText}>{passwordError}</div>}
             {passwordSuccess && <div style={styles.successText}>{passwordSuccess}</div>}
