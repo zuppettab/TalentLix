@@ -6,17 +6,73 @@ const COLORS = {
   impressions: '#27E3DA',
   views: '#F7B84E',
   unlocks: '#6C63FF',
+  messages: '#FF7B7B',
+  recency: '#2D9CDB',
 };
 
 const DEFAULT_STATS = {
   search_impressions: 0,
   profile_views: 0,
   contact_unlocks: 0,
+  messaging_operators: 0,
+  profile_views_last_month: 0,
   first_seen_at: null,
   last_seen_at: null,
 };
 
 const formatNumber = (value) => new Intl.NumberFormat('en-US').format(Number(value || 0));
+
+const fetchDistinctMessagingOperators = async (athleteId) => {
+  if (!athleteId) return 0;
+  try {
+    const { data, error } = await supabase
+      .from('chat_message')
+      .select('sender_op_id, thread:chat_thread!inner(op_id, athlete_id)')
+      .eq('sender_kind', 'OP')
+      .eq('thread.athlete_id', athleteId);
+
+    if (error) {
+      throw error;
+    }
+
+    const unique = new Set();
+    (data || []).forEach((row) => {
+      const sender = row?.sender_op_id;
+      const threadOperator = row?.thread?.op_id;
+      if (sender) unique.add(String(sender));
+      if (threadOperator) unique.add(String(threadOperator));
+    });
+
+    return unique.size;
+  } catch (err) {
+    console.warn('Unable to load messaging operator count', err);
+    return 0;
+  }
+};
+
+const fetchRecentProfileViews = async (athleteId) => {
+  if (!athleteId) return 0;
+  const since = new Date();
+  since.setMonth(since.getMonth() - 1);
+
+  try {
+    const { count, error } = await supabase
+      .from('athlete_search_event')
+      .select('id', { head: true, count: 'exact' })
+      .eq('athlete_id', athleteId)
+      .eq('event_type', 'profile_view')
+      .gte('created_at', since.toISOString());
+
+    if (error) {
+      throw error;
+    }
+
+    return Number.isFinite(count) ? count : 0;
+  } catch (err) {
+    console.warn('Unable to load recent profile views', err);
+    return 0;
+  }
+};
 
 export default function AthleteStatsPanel({ athlete, isMobile }) {
   const [stats, setStats] = useState(DEFAULT_STATS);
@@ -44,15 +100,24 @@ export default function AthleteStatsPanel({ athlete, isMobile }) {
 
         if (!isMounted) return;
 
-        setStats({
+        const [distinctMessagingOperators, recentProfileViews] = await Promise.all([
+          fetchDistinctMessagingOperators(athlete.id),
+          fetchRecentProfileViews(athlete.id),
+        ]);
+
+        const nextStats = {
           ...DEFAULT_STATS,
           ...(data || {}),
           first_seen_at: (data?.first_seen_at || athlete?.created_at || null),
-        });
+          messaging_operators: distinctMessagingOperators,
+          profile_views_last_month: recentProfileViews,
+        };
+
+        setStats(nextStats);
       } catch (err) {
         if (!isMounted) return;
         console.error(err);
-        setError('Unable to load your visibility stats right now.');
+        setError('Unable to load your profile insights right now.');
       }
     };
 
@@ -85,18 +150,32 @@ export default function AthleteStatsPanel({ athlete, isMobile }) {
       value: stats.contact_unlocks,
       color: COLORS.unlocks,
     },
+    {
+      key: 'messaging_operators',
+      label: 'Operator conversations',
+      description: 'Unique operators who messaged you',
+      value: stats.messaging_operators,
+      color: COLORS.messages,
+    },
+    {
+      key: 'profile_views_last_month',
+      label: 'Profile visits (30 days)',
+      description: 'Full profile opens in the last month',
+      value: stats.profile_views_last_month,
+      color: COLORS.recency,
+    },
   ];
 
   if (!athlete) {
-    return <p style={panelStyles.placeholder}>Log in to view your visibility stats.</p>;
+    return <p style={panelStyles.placeholder}>Log in to view your profile insights.</p>;
   }
 
   return (
     <div style={{ ...panelStyles.wrapper, ...(isMobile ? panelStyles.wrapperMobile : null) }}>
       <header style={panelStyles.header}>
         <div>
-          <div style={panelStyles.title}>Visibility stats</div>
-          <div style={panelStyles.subtitle}>See how operators discover and interact with your profile.</div>
+          <div style={panelStyles.title}>Profile insights</div>
+          <div style={panelStyles.subtitle}>See how operators discover, view, and engage with your profile.</div>
         </div>
       </header>
 

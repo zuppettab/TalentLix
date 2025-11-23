@@ -10,7 +10,7 @@ export const SECTIONS = [
   { id: 'media',     title: 'Media' },
   { id: 'social',    title: 'Social' },
   { id: 'messages',  title: 'Messages' },
-  { id: 'stats',     title: 'Visibility stats' },
+  { id: 'stats',     title: 'Profile insights' },
   { id: 'privacy',   title: 'Privacy & consent' },
 ];
 
