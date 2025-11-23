@@ -15,6 +15,7 @@ import SocialPanel from '../sections/social/SocialPanel';
 import MessagesPanel from '../sections/messages/MessagesPanel';
 import AwardsWidget from '../sections/awards/AwardsWidget';
 import PrivacyPanel from '../sections/privacy/PrivacyPanel';
+import AthleteStatsPanel from '../sections/stats/AthleteStatsPanel';
 
 const ATHLETE_TABLE = 'athlete';
 
@@ -662,7 +663,7 @@ export default function Dashboard() {
                   onClick={() => setSection(s.id)}
                 style={{
                   ...styles.navBtn,
-                  ...(s.id === 'messages' ? styles.navBtnMessages : null),
+                  ...(s.id === 'messages' || s.id === 'stats' ? styles.navBtnMessages : null),
                   ...(status === 'complete' ? styles.navBtnComplete : null),
                   ...(status === 'incomplete' ? styles.navBtnIncomplete : null),
                   ...(current === s.id ? styles.navBtnActive : null),
@@ -779,10 +780,13 @@ export default function Dashboard() {
                 {current === 'messages' && (
                   <MessagesPanel isMobile={isMobile} />
                 )}
+                {current === 'stats' && (
+                  <AthleteStatsPanel athlete={athlete} isMobile={isMobile} />
+                )}
                 {current === 'privacy' && (
                   <PrivacyPanel athlete={athlete} />
                 )}
-                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'media' && current !== 'social' && current !== 'physical' && current !== 'awards' && current !== 'messages' && current !== 'privacy' && (
+                {current !== 'personal' && current !== 'contacts' && current !== 'sports' && current !== 'media' && current !== 'social' && current !== 'physical' && current !== 'awards' && current !== 'messages' && current !== 'stats' && current !== 'privacy' && (
                   <p style={styles.placeholder}>TODO — “{sectionObj?.title}”</p>
                 )}
 
@@ -879,7 +883,7 @@ function MobileScrollableTabs({ sections, current, onSelect, statusMap }) {
               onClick={() => onSelect(s.id)}
               style={{
                 ...styles.mobileTabBtn,
-                ...(s.id === 'messages' ? styles.mobileTabBtnMessages : null),
+                ...(s.id === 'messages' || s.id === 'stats' ? styles.mobileTabBtnMessages : null),
                 ...(status === 'complete' ? styles.mobileTabBtnComplete : null),
                 ...(status === 'incomplete' ? styles.mobileTabBtnIncomplete : null),
                 ...(current === s.id ? styles.mobileTabBtnActive : null)
