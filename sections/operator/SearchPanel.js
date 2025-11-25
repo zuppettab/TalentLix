@@ -8,6 +8,7 @@ import { supabase } from '../../utils/supabaseClient';
 import countries from '../../utils/countries';
 import sports from '../../utils/sports';
 import { ExternalLink } from 'lucide-react';
+import { computeAthleteScoreSegments, buildStarFills } from '../../utils/athleteScore';
 
 /* -------------------- Costanti -------------------- */
 const CONTRACT_STATUS = [
@@ -33,10 +34,18 @@ const buildSportPattern = (value) => {
   return `%${escaped}%`; // ILIKE + wildcard
 };
 
+const getStats = (row) => {
+  if (!row) return {};
+  if (Array.isArray(row.stats)) return row.stats[0] || {};
+  return row.stats || {};
+};
+
 /* -------------------- Debounce -------------------- */
 function useDebouncedEffect(fn, deps, delay = 250) {
   useEffect(() => { const id = setTimeout(() => fn?.(), delay); return () => clearTimeout(id); /* eslint-disable-next-line */ }, deps);
 }
+
+const STAR_PATH = 'M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.516 8.279L12 18.896l-7.452 4.517 1.516-8.279L0 9.306l8.332-1.151z';
 
 /* -------------------- Stili (come i tuoi) -------------------- */
 const styles = {
@@ -204,6 +213,8 @@ const styles = {
     whiteSpace: 'nowrap',
     border: 0,
   },
+  starsWrap: { display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  starSvg: { width: 16, height: 16, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.05))' },
   pager: { display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', marginTop: 'clamp(2.25rem, 5vw, 3.5rem)', flexWrap: 'wrap' },
   pageBtn: { border: '1px solid #CBD5E1', background: '#fff', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
   disabled: { opacity: .4, cursor: 'not-allowed' },
@@ -558,7 +569,9 @@ export default function SearchPanel() {
         .from('athlete')
         .select(`
           id, gender, nationality, date_of_birth, profile_picture_url, profile_published,
-          contacts_verification!left(id_verified, residence_city, residence_country),
+          completion_percentage, current_step,
+          contacts_verification!left(id_verified, residence_city, residence_country, review_status),
+          stats:athlete_search_stats(profile_views, contact_unlocks, messaging_operators),
           exp:sports_experiences!inner(
             sport, role, team, category, seeking_team, is_represented, contract_status, preferred_regions
           )
@@ -1121,6 +1134,9 @@ export default function SearchPanel() {
                 const pendingSpinnerStyle = isCompactLayout
                   ? { width: 18, height: 18 }
                   : { width: 20, height: 20 };
+                const stats = getStats(ath);
+                const performanceSegments = computeAthleteScoreSegments({ athlete: ath, stats, contactsVerification: contactsRecord });
+                const starFills = buildStarFills(performanceSegments);
 
                 return (
                   <article key={ath.id} style={styles.card} className="search-panel-card">
@@ -1179,6 +1195,32 @@ export default function SearchPanel() {
                             {ath.gender ? ` • ${ath.gender === 'M' ? 'Male' : 'Female'}` : ''}
                             {typeof age === 'number' ? ` • ${age} y` : ''}
                           </p>
+                          <div style={styles.starsWrap} aria-label="Talent score">
+                            {starFills.map((fill, idx) => {
+                              const gradientId = `search-star-${ath.id}-${idx}`;
+                              return (
+                                <svg
+                                  key={gradientId}
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 24 24"
+                                  aria-hidden
+                                  style={styles.starSvg}
+                                >
+                                  <defs>
+                                    <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                                      <stop offset="0%" stopColor="#F7B84E" />
+                                      <stop offset={`${fill * 100}%`} stopColor="#F7B84E" />
+                                      <stop offset={`${fill * 100}%`} stopColor="transparent" />
+                                      <stop offset="100%" stopColor="transparent" />
+                                    </linearGradient>
+                                  </defs>
+                                  <path d={STAR_PATH} fill="#F1F1F1" stroke="#E0E0E0" strokeWidth="0.6" />
+                                  <path d={STAR_PATH} fill={`url(#${gradientId})`} />
+                                </svg>
+                              );
+                            })}
+                          </div>
                         </div>
                       </header>
 
