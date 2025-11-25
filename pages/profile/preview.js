@@ -7,6 +7,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { supabase as sb } from '../../utils/supabaseClient';
 import { flagFromCountry } from '../../utils/flags';
+import { computeAthleteScoreSegments, buildStarFills, STAR_COUNT, SEGMENTS_PER_STAR } from '../../utils/athleteScore';
 import {
   Play, Film, ChevronRight, ChevronDown, ExternalLink,
   Calendar, Award as AwardIcon, Medal, Phone, Mail, Globe, User,
@@ -58,6 +59,34 @@ const ytId=(url)=>{try{const u=new URL(String(url)); if(u.hostname.includes('you
 const vmId=(url)=>{const m=String(url||'').match(/vimeo\.com\/(\d+)/i); return m?m[1]:null;};
 const embedUrl=(url)=> ytId(url)?`https://www.youtube.com/embed/${ytId(url)}?rel=0` : (vmId(url)?`https://player.vimeo.com/video/${vmId(url)}`:url);
 const contractText = (v) => v==='free_agent'?'Free agent': v==='under_contract'?'Under contract': v==='on_loan'?'On loan':'—';
+const STAR_PATH = 'M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.516 8.279L12 18.896l-7.452 4.517 1.516-8.279L0 9.306l8.332-1.151z';
+const DEFAULT_STATS = { profile_views: 0, contact_unlocks: 0, messaging_operators: 0 };
+
+const fetchDistinctMessagingOperators = async (athleteId) => {
+  if (!athleteId) return 0;
+  try {
+    const { data, error } = await supabase
+      .from('chat_message')
+      .select('sender_op_id, thread:chat_thread!inner(op_id, athlete_id)')
+      .eq('sender_kind', 'OP')
+      .eq('thread.athlete_id', athleteId);
+
+    if (error) throw error;
+
+    const unique = new Set();
+    (data || []).forEach((row) => {
+      const sender = row?.sender_op_id;
+      const threadOperator = row?.thread?.op_id;
+      if (sender) unique.add(String(sender));
+      if (threadOperator) unique.add(String(threadOperator));
+    });
+
+    return unique.size;
+  } catch (err) {
+    console.warn('Unable to load messaging operator count', err);
+    return 0;
+  }
+};
 
 /* ------------------------------ Page ------------------------------ */
 export default function ProfilePreviewPage() {
@@ -88,6 +117,7 @@ function PreviewCard({ athleteId }) {
   const [career, setCareer]     = useState([]);     // athlete_career[]
   const [physical, setPhysical] = useState(null);   // physical_data (latest)
   const [contacts, setContacts] = useState(null);   // contacts_verification
+  const [stats, setStats] = useState(DEFAULT_STATS);
   const [social, setSocial]     = useState([]);     // social_profiles[]
   const [awards, setAwards]     = useState([]);     // awards_recognitions[]
   const [media, setMedia]       = useState({ featured:{}, intro:null, highlights:[], gallery:[], games:[] });
@@ -173,6 +203,20 @@ function PreviewCard({ athleteId }) {
                            .sort((a,b)=> String(b.meta?.match_date||'').localeCompare(String(a.meta?.match_date||'')));
         }
 
+        const { data: statsRow, error: statsError } = await supabase
+          .from('athlete_search_stats')
+          .select('profile_views, contact_unlocks, search_impressions')
+          .eq('athlete_id', athleteId)
+          .maybeSingle();
+
+        if (statsError && statsError.code !== 'PGRST116') {
+          throw statsError;
+        }
+
+        const [distinctMessagingOperators] = await Promise.all([
+          fetchDistinctMessagingOperators(athleteId),
+        ]);
+
         if (!alive) return;
         setAthlete(a || null);
         setEmail(user?.email || '');
@@ -180,6 +224,11 @@ function PreviewCard({ athleteId }) {
         setCareer(car || []);
         setPhysical((pd && pd[0]) || null);
         setContacts(cv || null);
+        setStats({
+          ...DEFAULT_STATS,
+          ...(statsRow || {}),
+          messaging_operators: distinctMessagingOperators,
+        });
         setSocial(so || []);
         setAwards(awSigned || []);
         setMedia({ featured, intro, gallery, highlights, games });
@@ -194,6 +243,11 @@ function PreviewCard({ athleteId }) {
   const natFlag = flagFromCountry(athlete?.nationality) || '';
   const completion = clamp(athlete?.completion_percentage, 0, 100);
   const currentSeason = (career||[]).find(c => c.is_current) || null;
+  const performanceSegments = useMemo(
+    () => computeAthleteScoreSegments({ athlete, stats, contactsVerification: contacts }),
+    [athlete, stats, contacts],
+  );
+  const starFills = useMemo(() => buildStarFills(performanceSegments), [performanceSegments]);
 
   // Avatar: profile -> featured headshot -> initials
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -235,6 +289,11 @@ function PreviewCard({ athleteId }) {
     h1:{ fontSize:22, lineHeight:1.15, fontWeight:900, margin:0 },
     chips:{ display:'flex', gap:8, flexWrap:'wrap' },
     chip:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', background:'#fff', fontSize:12 },
+    scoreRow:{ display:'grid', gridTemplateColumns:'auto 1fr', alignItems:'center', gap:10 },
+    scoreLabel:{ fontSize:12, color:'#666' },
+    starsWrap:{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' },
+    starSvg:{ filter:'drop-shadow(0 1px 1px rgba(0,0,0,0.05))' },
+    scoreValue:{ fontSize:12, fontWeight:700, color:'#0F172A' },
     progressRow:{ display:'grid', gridTemplateColumns:'auto 1fr auto', gap:8, alignItems:'center', marginTop:2 },
     progressBar:{ height:8, borderRadius:999, background:'#eee', overflow:'hidden' },
     progressFill:{ height:'100%', background:'linear-gradient(90deg,#27E3DA,#F7B84E)' },
@@ -311,18 +370,50 @@ function PreviewCard({ athleteId }) {
             ? <img src={avatarUrl} alt={`${fullName} avatar`} style={S.avatar}/>
             : <div style={S.avatarFallback}>{initials(fullName)}</div>
           }
-          <div>
-            <h1 style={S.h1}>{fullName}</h1>
-            <div style={S.chips}>
-              {(sports?.role || currentSeason?.role) && <span style={S.chip}><User size={14}/>{sports?.role || currentSeason?.role}</span>}
-              {(athlete?.nationality || natFlag) && <span style={S.chip}>{natFlag || '🏳️'} {athlete?.nationality || ''}</span>}
-              {typeof age==='number' && <span style={S.chip}><Calendar size={14}/>{age} y/o</span>}
-            </div>
-            <div style={S.progressRow}>
-              <span style={{ fontSize:12, color:'#666' }}>Profile completion</span>
-              <div style={S.progressBar}><div style={{ ...S.progressFill, width: `${completion}%` }}/></div>
-              <span style={S.progressPct}>{completion}%</span>
-            </div>
+            <div>
+              <h1 style={S.h1}>{fullName}</h1>
+              <div style={S.chips}>
+                {(sports?.role || currentSeason?.role) && <span style={S.chip}><User size={14}/>{sports?.role || currentSeason?.role}</span>}
+                {(athlete?.nationality || natFlag) && <span style={S.chip}>{natFlag || '🏳️'} {athlete?.nationality || ''}</span>}
+                {typeof age==='number' && <span style={S.chip}><Calendar size={14}/>{age} y/o</span>}
+              </div>
+              <div style={S.scoreRow}>
+                <span style={S.scoreLabel}>Talent score</span>
+                <div style={S.starsWrap}>
+                  {starFills.map((fill, idx) => {
+                    const gradientId = `preview-star-${idx}`;
+                    return (
+                      <svg
+                        key={gradientId}
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        aria-label={`${Math.round(fill * 3)} of 3 segments filled`}
+                        style={S.starSvg}
+                      >
+                        <defs>
+                          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#F7B84E" />
+                            <stop offset={`${fill * 100}%`} stopColor="#F7B84E" />
+                            <stop offset={`${fill * 100}%`} stopColor="transparent" />
+                            <stop offset="100%" stopColor="transparent" />
+                          </linearGradient>
+                        </defs>
+                        <path d={STAR_PATH} fill="#F1F1F1" stroke="#E0E0E0" strokeWidth="0.6" />
+                        <path d={STAR_PATH} fill={`url(#${gradientId})`} />
+                      </svg>
+                    );
+                  })}
+                  <div style={S.scoreValue}>
+                    {(performanceSegments / SEGMENTS_PER_STAR).toFixed(1)} / {STAR_COUNT}
+                  </div>
+                </div>
+              </div>
+              <div style={S.progressRow}>
+                <span style={{ fontSize:12, color:'#666' }}>Profile completion</span>
+                <div style={S.progressBar}><div style={{ ...S.progressFill, width: `${completion}%` }}/></div>
+                <span style={S.progressPct}>{completion}%</span>
+              </div>
           </div>
         </section>
 
