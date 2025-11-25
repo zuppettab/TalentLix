@@ -3,6 +3,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExternalLink, RefreshCcw } from 'lucide-react';
+import { computeAthleteScoreSegments, buildStarFills, SEGMENTS_PER_STAR, STAR_COUNT } from '../../utils/athleteScore';
 import sports from '../../utils/sports';
 import { supabase } from '../../utils/supabaseClient';
 
@@ -11,6 +12,9 @@ const CONTRACT_STATUS = [
   { value: 'under_contract', label: 'Under contract' },
   { value: 'on_loan', label: 'On loan' },
 ];
+
+const DEFAULT_STATS = { profile_views: 0, contact_unlocks: 0, messaging_operators: 0 };
+const STAR_PATH = 'M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.516 8.279L12 18.896l-7.452 4.517 1.516-8.279L0 9.306l8.332-1.151z';
 
 const styles = {
   page: {
@@ -129,6 +133,9 @@ const styles = {
     alignSelf: 'flex-start',
   },
   small: { margin: 0, color: '#475569', fontSize: '.9rem' },
+  starsRow: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  starSvg: { width: 16, height: 16, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.05))' },
+  scoreValue: { fontSize: 12, fontWeight: 700, color: '#0f172a' },
   metaGrid: {
     display: 'grid',
     gap: 12,
@@ -234,8 +241,8 @@ const styles = {
 };
 
 const SELECT_FIELDS = `
-  id, first_name, last_name, gender, nationality, date_of_birth, profile_picture_url, profile_published,
-  contacts_verification!left(id_verified, residence_city, residence_country),
+  id, first_name, last_name, gender, nationality, date_of_birth, profile_picture_url, profile_published, completion_percentage, current_step,
+  contacts_verification!left(id_verified, residence_city, residence_country, review_status),
   exp:sports_experiences!inner(
     sport, role, team, category, seeking_team, is_represented, contract_status, preferred_regions
   )
@@ -334,6 +341,7 @@ const resolveInitials = (value) => {
 export default function UnlockedAthletesPanel({ authUser }) {
   const [unlockRows, setUnlockRows] = useState([]);
   const [rows, setRows] = useState([]);
+  const [statsMap, setStatsMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [error, setError] = useState('');
@@ -392,6 +400,30 @@ export default function UnlockedAthletesPanel({ authUser }) {
         .in('id', activeIds)
         .order('last_name', { ascending: true });
       if (queryError) throw queryError;
+      const ids = (data || []).map((row) => row.id).filter(Boolean);
+      if (ids.length) {
+        try {
+          const { data: statsRows, error: statsError } = await supabase
+            .from('athlete_search_stats')
+            .select('athlete_id, profile_views, contact_unlocks')
+            .in('athlete_id', ids);
+
+          if (!statsError) {
+            const map = {};
+            statsRows?.forEach((row) => {
+              map[row.athlete_id] = { ...DEFAULT_STATS, ...row };
+            });
+            setStatsMap(map);
+          } else {
+            setStatsMap({});
+          }
+        } catch (statsErr) {
+          console.error('Failed to load unlocked athlete stats', statsErr);
+          setStatsMap({});
+        }
+      } else {
+        setStatsMap({});
+      }
       setRows(data || []);
     } catch (err) {
       setProfileError(err.message || 'Unable to load unlocked athlete profiles.');
@@ -500,6 +532,13 @@ export default function UnlockedAthletesPanel({ authUser }) {
                   return parsed.toLocaleDateString();
                 })()
               : null;
+            const stats = statsMap[ath.id] || DEFAULT_STATS;
+            const performanceSegments = computeAthleteScoreSegments({
+              athlete: ath,
+              stats,
+              contactsVerification: contactsRecord,
+            });
+            const starFills = buildStarFills(performanceSegments);
 
             return (
               <article key={ath.id} style={styles.card}>
@@ -519,6 +558,35 @@ export default function UnlockedAthletesPanel({ authUser }) {
                       </div>
                       {exp?.category && <span style={styles.categoryBadge}>{exp.category}</span>}
                       <p style={styles.small}>{subtitleText}</p>
+                      <div style={styles.starsRow} aria-label="Talent score">
+                        {starFills.map((fill, idx) => {
+                          const gradientId = `unlocked-star-${ath.id}-${idx}`;
+                          return (
+                            <svg
+                              key={gradientId}
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                              style={styles.starSvg}
+                            >
+                              <defs>
+                                <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                                  <stop offset="0%" stopColor="#F7B84E" />
+                                  <stop offset={`${fill * 100}%`} stopColor="#F7B84E" />
+                                  <stop offset={`${fill * 100}%`} stopColor="transparent" />
+                                  <stop offset="100%" stopColor="transparent" />
+                                </linearGradient>
+                              </defs>
+                              <path d={STAR_PATH} fill="#F1F1F1" stroke="#E0E0E0" strokeWidth="0.6" />
+                              <path d={STAR_PATH} fill={`url(#${gradientId})`} />
+                            </svg>
+                          );
+                        })}
+                        <span style={styles.scoreValue}>
+                          {(performanceSegments / SEGMENTS_PER_STAR).toFixed(1)} / {STAR_COUNT}
+                        </span>
+                      </div>
                     </div>
                   </header>
 
