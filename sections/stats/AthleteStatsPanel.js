@@ -1,5 +1,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
+import { computeAthleteScoreSegments, buildStarFills, STAR_COUNT, SEGMENTS_PER_STAR } from '../../utils/athleteScore';
 import { supabase } from '../../utils/supabaseClient';
 
 const COLORS = {
@@ -20,43 +21,7 @@ const DEFAULT_STATS = {
 
 const formatNumber = (value) => new Intl.NumberFormat('en-US').format(Number(value || 0));
 
-const STAR_COUNT = 5;
-const SEGMENTS_PER_STAR = 3;
-const MAX_SEGMENTS = STAR_COUNT * SEGMENTS_PER_STAR;
 const STAR_PATH = 'M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.516 8.279L12 18.896l-7.452 4.517 1.516-8.279L0 9.306l8.332-1.151z';
-
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-
-const computePerformanceSegments = ({ athlete, stats, contactsVerification }) => {
-  if (!athlete) return 0;
-
-  let segments = 0;
-  const completion = Number(athlete?.completion_percentage ?? 0);
-  const hasCompletedWizard = athlete?.current_step == null && completion >= 40;
-  const hasVerifiedContacts = (contactsVerification?.review_status || '').trim().toLowerCase() === 'approved';
-
-  if (hasCompletedWizard) segments += SEGMENTS_PER_STAR;
-  if (hasVerifiedContacts) segments += SEGMENTS_PER_STAR;
-
-  if (completion >= 100) segments += 1;
-
-  const profileViews = Math.floor(Number(stats.profile_views || 0) / 20);
-  const contactUnlocks = Math.floor(Number(stats.contact_unlocks || 0) / 5);
-  const messagingOperators = Math.floor(Number(stats.messaging_operators || 0) / 3);
-
-  segments += profileViews + contactUnlocks + messagingOperators;
-
-  return clamp(segments, 0, MAX_SEGMENTS);
-};
-
-const buildStarFills = (segments) => {
-  const fills = [];
-  for (let i = 0; i < STAR_COUNT; i += 1) {
-    const remaining = clamp(segments - (i * SEGMENTS_PER_STAR), 0, SEGMENTS_PER_STAR);
-    fills.push(remaining / SEGMENTS_PER_STAR);
-  }
-  return fills;
-};
 
 const fetchDistinctMessagingOperators = async (athleteId) => {
   if (!athleteId) return 0;
@@ -139,7 +104,7 @@ export default function AthleteStatsPanel({ athlete, isMobile, contactsVerificat
   }, [athlete]);
 
   const performanceSegments = useMemo(
-    () => computePerformanceSegments({ athlete, stats, contactsVerification }),
+    () => computeAthleteScoreSegments({ athlete, stats, contactsVerification }),
     [athlete, stats, contactsVerification],
   );
 
