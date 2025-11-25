@@ -4,10 +4,11 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import Select from 'react-select';
 import AsyncSelect from 'react-select/async';
-import { supabase } from '../../utils/supabaseClient';
+import { ExternalLink } from 'lucide-react';
+import { computeAthleteScoreSegments, buildStarFills, SEGMENTS_PER_STAR, STAR_COUNT } from '../../utils/athleteScore';
 import countries from '../../utils/countries';
 import sports from '../../utils/sports';
-import { ExternalLink } from 'lucide-react';
+import { supabase } from '../../utils/supabaseClient';
 
 /* -------------------- Costanti -------------------- */
 const CONTRACT_STATUS = [
@@ -15,6 +16,9 @@ const CONTRACT_STATUS = [
   { value: 'under_contract', label: 'Under contract' },
   { value: 'on_loan',        label: 'On loan' },
 ];
+
+const DEFAULT_STATS = { profile_views: 0, contact_unlocks: 0, messaging_operators: 0 };
+const STAR_PATH = 'M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.516 8.279L12 18.896l-7.452 4.517 1.516-8.279L0 9.306l8.332-1.151z';
 
 const pageSize = 12;
 
@@ -129,6 +133,9 @@ const styles = {
     alignSelf: 'flex-start',
   },
   small: { margin: 0, color: '#475569', fontSize: '.9rem' },
+  starsRow: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  starSvg: { width: 16, height: 16, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.05))' },
+  scoreValue: { fontSize: 12, fontWeight: 700, color: '#0f172a' },
   metaGrid: {
     display: 'grid',
     gap: 12,
@@ -308,6 +315,7 @@ export default function SearchPanel() {
   /* -------- Risultati/paginazione -------- */
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
+  const [statsMap, setStatsMap] = useState({});
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
 
@@ -557,8 +565,8 @@ export default function SearchPanel() {
       let q = supabase
         .from('athlete')
         .select(`
-          id, gender, nationality, date_of_birth, profile_picture_url, profile_published,
-          contacts_verification!left(id_verified, residence_city, residence_country),
+          id, gender, nationality, date_of_birth, profile_picture_url, profile_published, completion_percentage, current_step,
+          contacts_verification!left(id_verified, residence_city, residence_country, review_status),
           exp:sports_experiences!inner(
             sport, role, team, category, seeking_team, is_represented, contract_status, preferred_regions
           )
@@ -594,6 +602,30 @@ export default function SearchPanel() {
       if (error) throw error;
 
       setRows(data || []);
+      const ids = (data || []).map((row) => row.id).filter(Boolean);
+      if (ids.length) {
+        try {
+          const { data: statsRows, error: statsError } = await supabase
+            .from('athlete_search_stats')
+            .select('athlete_id, profile_views, contact_unlocks')
+            .in('athlete_id', ids);
+
+          if (!statsError) {
+            const map = {};
+            statsRows?.forEach((row) => {
+              map[row.athlete_id] = { ...DEFAULT_STATS, ...row };
+            });
+            setStatsMap(map);
+          } else {
+            setStatsMap({});
+          }
+        } catch (statsErr) {
+          console.error('Failed to load search stats', statsErr);
+          setStatsMap({});
+        }
+      } else {
+        setStatsMap({});
+      }
       setTotal(count || 0);
       recordSearchImpressions(data);
       if ((count || 0) === 0) setNoData('No matches for the selected filters.');
@@ -1121,6 +1153,13 @@ export default function SearchPanel() {
                 const pendingSpinnerStyle = isCompactLayout
                   ? { width: 18, height: 18 }
                   : { width: 20, height: 20 };
+                const stats = statsMap[ath.id] || DEFAULT_STATS;
+                const performanceSegments = computeAthleteScoreSegments({
+                  athlete: ath,
+                  stats,
+                  contactsVerification: contactsRecord,
+                });
+                const starFills = buildStarFills(performanceSegments);
 
                 return (
                   <article key={ath.id} style={styles.card} className="search-panel-card">
@@ -1179,6 +1218,35 @@ export default function SearchPanel() {
                             {ath.gender ? ` • ${ath.gender === 'M' ? 'Male' : 'Female'}` : ''}
                             {typeof age === 'number' ? ` • ${age} y` : ''}
                           </p>
+                          <div style={styles.starsRow} aria-label="Talent score">
+                            {starFills.map((fill, idx) => {
+                              const gradientId = `search-star-${ath.id}-${idx}`;
+                              return (
+                                <svg
+                                  key={gradientId}
+                                  width="18"
+                                  height="18"
+                                  viewBox="0 0 24 24"
+                                  aria-hidden="true"
+                                  style={styles.starSvg}
+                                >
+                                  <defs>
+                                    <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                                      <stop offset="0%" stopColor="#F7B84E" />
+                                      <stop offset={`${fill * 100}%`} stopColor="#F7B84E" />
+                                      <stop offset={`${fill * 100}%`} stopColor="transparent" />
+                                      <stop offset="100%" stopColor="transparent" />
+                                    </linearGradient>
+                                  </defs>
+                                  <path d={STAR_PATH} fill="#F1F1F1" stroke="#E0E0E0" strokeWidth="0.6" />
+                                  <path d={STAR_PATH} fill={`url(#${gradientId})`} />
+                                </svg>
+                              );
+                            })}
+                            <span style={styles.scoreValue}>
+                              {(performanceSegments / SEGMENTS_PER_STAR).toFixed(1)} / {STAR_COUNT}
+                            </span>
+                          </div>
                         </div>
                       </header>
 
