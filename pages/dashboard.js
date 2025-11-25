@@ -781,7 +781,11 @@ export default function Dashboard() {
                   <MessagesPanel isMobile={isMobile} />
                 )}
                 {current === 'stats' && (
-                  <AthleteStatsPanel athlete={athlete} isMobile={isMobile} />
+                  <AthleteStatsPanel
+                    athlete={athlete}
+                    isMobile={isMobile}
+                    contactsVerification={cardData.contactsVerification}
+                  />
                 )}
                 {current === 'privacy' && (
                   <PrivacyPanel athlete={athlete} userEmail={userEmail} />

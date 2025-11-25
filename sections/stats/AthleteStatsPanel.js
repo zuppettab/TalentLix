@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 
 const COLORS = {
@@ -19,6 +19,44 @@ const DEFAULT_STATS = {
 };
 
 const formatNumber = (value) => new Intl.NumberFormat('en-US').format(Number(value || 0));
+
+const STAR_COUNT = 5;
+const SEGMENTS_PER_STAR = 3;
+const MAX_SEGMENTS = STAR_COUNT * SEGMENTS_PER_STAR;
+const STAR_PATH = 'M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.516 8.279L12 18.896l-7.452 4.517 1.516-8.279L0 9.306l8.332-1.151z';
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const computePerformanceSegments = ({ athlete, stats, contactsVerification }) => {
+  if (!athlete) return 0;
+
+  let segments = 0;
+  const completion = Number(athlete?.completion_percentage ?? 0);
+  const hasCompletedWizard = athlete?.current_step == null && completion >= 40;
+  const hasVerifiedContacts = (contactsVerification?.review_status || '').trim().toLowerCase() === 'approved';
+
+  if (hasCompletedWizard) segments += SEGMENTS_PER_STAR;
+  if (hasVerifiedContacts) segments += SEGMENTS_PER_STAR;
+
+  if (completion >= 100) segments += 1;
+
+  const profileViews = Math.floor(Number(stats.profile_views || 0) / 20);
+  const contactUnlocks = Math.floor(Number(stats.contact_unlocks || 0) / 5);
+  const messagingOperators = Math.floor(Number(stats.messaging_operators || 0) / 3);
+
+  segments += profileViews + contactUnlocks + messagingOperators;
+
+  return clamp(segments, 0, MAX_SEGMENTS);
+};
+
+const buildStarFills = (segments) => {
+  const fills = [];
+  for (let i = 0; i < STAR_COUNT; i += 1) {
+    const remaining = clamp(segments - (i * SEGMENTS_PER_STAR), 0, SEGMENTS_PER_STAR);
+    fills.push(remaining / SEGMENTS_PER_STAR);
+  }
+  return fills;
+};
 
 const fetchDistinctMessagingOperators = async (athleteId) => {
   if (!athleteId) return 0;
@@ -48,7 +86,7 @@ const fetchDistinctMessagingOperators = async (athleteId) => {
   }
 };
 
-export default function AthleteStatsPanel({ athlete, isMobile }) {
+export default function AthleteStatsPanel({ athlete, isMobile, contactsVerification }) {
   const [stats, setStats] = useState(DEFAULT_STATS);
   const [error, setError] = useState(null);
 
@@ -100,6 +138,13 @@ export default function AthleteStatsPanel({ athlete, isMobile }) {
     };
   }, [athlete]);
 
+  const performanceSegments = useMemo(
+    () => computePerformanceSegments({ athlete, stats, contactsVerification }),
+    [athlete, stats, contactsVerification],
+  );
+
+  const starFills = useMemo(() => buildStarFills(performanceSegments), [performanceSegments]);
+
   const statCards = [
     {
       key: 'search_impressions',
@@ -144,6 +189,42 @@ export default function AthleteStatsPanel({ athlete, isMobile }) {
         </div>
       </header>
 
+      <div style={panelStyles.scoreRow}>
+        <div style={panelStyles.scoreTextWrap}>
+          <div style={panelStyles.scoreLabel}>Talent score</div>
+          <div style={panelStyles.scoreHint}>Earn up to five stars by completing your setup and engaging with operators.</div>
+        </div>
+        <div style={panelStyles.starsWrap}>
+          {starFills.map((fill, idx) => {
+            const gradientId = `athlete-star-grad-${idx}`;
+            return (
+              <svg
+                key={gradientId}
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                aria-label={`${Math.round(fill * 3)} of 3 segments filled`}
+                style={panelStyles.starSvg}
+              >
+                <defs>
+                  <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#F7B84E" />
+                    <stop offset={`${fill * 100}%`} stopColor="#F7B84E" />
+                    <stop offset={`${fill * 100}%`} stopColor="transparent" />
+                    <stop offset="100%" stopColor="transparent" />
+                  </linearGradient>
+                </defs>
+                <path d={STAR_PATH} fill="#F1F1F1" stroke="#E0E0E0" strokeWidth="0.6" />
+                <path d={STAR_PATH} fill={`url(#${gradientId})`} />
+              </svg>
+            );
+          })}
+          <div style={panelStyles.scoreValue}>
+            {(performanceSegments / SEGMENTS_PER_STAR).toFixed(1)} / {STAR_COUNT}
+          </div>
+        </div>
+      </div>
+
       {error && <div style={panelStyles.errorBox}>{error}</div>}
 
       <div style={panelStyles.cardsRow}>
@@ -176,6 +257,23 @@ const panelStyles = {
     flexWrap: 'wrap',
     gap: 12,
   },
+  scoreRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    padding: '12px 14px',
+    border: '1px solid #E0E0E0',
+    borderRadius: 14,
+    background: '#FCFCFC',
+  },
+  scoreTextWrap: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 180 },
+  scoreLabel: { fontSize: 14, fontWeight: 700 },
+  scoreHint: { fontSize: 12, color: '#555', lineHeight: 1.4 },
+  starsWrap: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  starSvg: { width: 28, height: 28 },
+  scoreValue: { fontSize: 13, fontWeight: 600, color: '#555', marginLeft: 4 },
   title: { fontSize: 20, fontWeight: 700 },
   subtitle: { fontSize: 14, color: '#555' },
   cardsRow: {
