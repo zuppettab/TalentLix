@@ -283,18 +283,19 @@ function PreviewCard({ athleteId }) {
       background:'#fff',
       overflow:'hidden'
     },
-    hero:{ display:'grid', gridTemplateColumns:'auto 1fr', gap:16, padding:16, alignItems:'center', borderBottom:'1px solid #eee' },
+    hero:{ display:'grid', gridTemplateColumns:'auto 1fr', gap:20, padding:20, alignItems:'center', borderBottom:'1px solid #eee' },
     avatar:{ width:96, height:96, borderRadius:'50%', objectFit:'cover', display:'block', border:'2px solid #fff', boxShadow:'0 2px 8px rgba(0,0,0,0.12)' },
     avatarFallback:{ width:96, height:96, borderRadius:'50%', display:'grid', placeItems:'center', background:'linear-gradient(135deg,#27E3DA,#F7B84E)', color:'#111', fontSize:28 },
     h1:{ fontSize:22, lineHeight:1.15, fontWeight:900, margin:0 },
     chips:{ display:'flex', gap:8, flexWrap:'wrap' },
     chip:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', background:'#fff', fontSize:12 },
-    scoreRow:{ display:'grid', gridTemplateColumns:'auto 1fr', alignItems:'center', gap:10 },
+    scoreRow:{ display:'grid', gridTemplateColumns:'auto 1fr', alignItems:'center', gap:12 },
     scoreLabel:{ fontSize:12, color:'#666' },
-    starsWrap:{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' },
+    starsWrap:{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' },
     starSvg:{ filter:'drop-shadow(0 1px 1px rgba(0,0,0,0.05))' },
     scoreValue:{ fontSize:12, fontWeight:700, color:'#0F172A' },
-    progressRow:{ display:'grid', gridTemplateColumns:'auto 1fr auto', gap:8, alignItems:'center', marginTop:2 },
+    metricsWrap:{ display:'grid', gap:12, marginTop:14, padding:12, borderRadius:12, background:'#fafafa', border:'1px solid #f1f1f1' },
+    progressRow:{ display:'grid', gridTemplateColumns:'auto 1fr auto', gap:10, alignItems:'center' },
     progressBar:{ height:8, borderRadius:999, background:'#eee', overflow:'hidden' },
     progressFill:{ height:'100%', background:'linear-gradient(90deg,#27E3DA,#F7B84E)' },
     progressPct:{ fontSize:12, color:'#666' },
@@ -365,7 +366,7 @@ function PreviewCard({ athleteId }) {
       <div style={S.card}>
 
           {/* Compact HERO */}
-          <section style={S.hero} aria-label="Profile header">
+          <section style={S.hero} className="heroSection" aria-label="Profile header">
           {avatarUrl
             ? <img src={avatarUrl} alt={`${fullName} avatar`} style={S.avatar}/>
             : <div style={S.avatarFallback}>{initials(fullName)}</div>
@@ -377,42 +378,44 @@ function PreviewCard({ athleteId }) {
                 {(athlete?.nationality || natFlag) && <span style={S.chip}>{natFlag || '🏳️'} {athlete?.nationality || ''}</span>}
                 {typeof age==='number' && <span style={S.chip}><Calendar size={14}/>{age} y/o</span>}
               </div>
-              <div style={S.scoreRow}>
-                <span style={S.scoreLabel}>Talent score</span>
-                <div style={S.starsWrap}>
-                  {starFills.map((fill, idx) => {
-                    const gradientId = `preview-star-${idx}`;
-                    return (
-                      <svg
-                        key={gradientId}
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        aria-label={`${Math.round(fill * 3)} of 3 segments filled`}
-                        style={S.starSvg}
-                      >
-                        <defs>
-                          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="#F7B84E" />
-                            <stop offset={`${fill * 100}%`} stopColor="#F7B84E" />
-                            <stop offset={`${fill * 100}%`} stopColor="transparent" />
-                            <stop offset="100%" stopColor="transparent" />
-                          </linearGradient>
-                        </defs>
-                        <path d={STAR_PATH} fill="#F1F1F1" stroke="#E0E0E0" strokeWidth="0.6" />
-                        <path d={STAR_PATH} fill={`url(#${gradientId})`} />
-                      </svg>
-                    );
-                  })}
-                  <div style={S.scoreValue}>
-                    {(performanceSegments / SEGMENTS_PER_STAR).toFixed(1)} / {STAR_COUNT}
+              <div style={S.metricsWrap} className="heroMetrics">
+                <div style={S.scoreRow} className="scoreRow">
+                  <span style={S.scoreLabel} className="scoreLabel scoreLabel--mobileHide">Talent score</span>
+                  <div style={S.starsWrap} className="starsWrap">
+                    {starFills.map((fill, idx) => {
+                      const gradientId = `preview-star-${idx}`;
+                      return (
+                        <svg
+                          key={gradientId}
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          aria-label={`${Math.round(fill * 3)} of 3 segments filled`}
+                          style={S.starSvg}
+                        >
+                          <defs>
+                            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                              <stop offset="0%" stopColor="#F7B84E" />
+                              <stop offset={`${fill * 100}%`} stopColor="#F7B84E" />
+                              <stop offset={`${fill * 100}%`} stopColor="transparent" />
+                              <stop offset="100%" stopColor="transparent" />
+                            </linearGradient>
+                          </defs>
+                          <path d={STAR_PATH} fill="#F1F1F1" stroke="#E0E0E0" strokeWidth="0.6" />
+                          <path d={STAR_PATH} fill={`url(#${gradientId})`} />
+                        </svg>
+                      );
+                    })}
+                    <div style={S.scoreValue}>
+                      {(performanceSegments / SEGMENTS_PER_STAR).toFixed(1)} / {STAR_COUNT}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div style={S.progressRow}>
-                <span style={{ fontSize:12, color:'#666' }}>Profile completion</span>
-                <div style={S.progressBar}><div style={{ ...S.progressFill, width: `${completion}%` }}/></div>
-                <span style={S.progressPct}>{completion}%</span>
+                <div style={S.progressRow} className="progressRow">
+                  <span style={{ fontSize:12, color:'#666' }}>Profile completion</span>
+                  <div style={S.progressBar}><div style={{ ...S.progressFill, width: `${completion}%` }}/></div>
+                  <span style={S.progressPct}>{completion}%</span>
+                </div>
               </div>
           </div>
         </section>
@@ -625,6 +628,17 @@ function PreviewCard({ athleteId }) {
 
         {/* Minimal responsiveness */}
       <style jsx>{`
+        .heroSection {
+          gap: 20px;
+        }
+        .heroMetrics {
+          border: 1px solid #f1f1f1;
+        }
+        .scoreRow,
+        .progressRow,
+        .starsWrap {
+          width: 100%;
+        }
         .mainGrid {
           display: grid;
           gap: 24px;
@@ -642,6 +656,12 @@ function PreviewCard({ athleteId }) {
           grid-template-columns: 1fr 1fr 1fr;
         }
         .photosGrid img { width: 100%; }
+        @media (max-width: 880px) {
+          .heroSection {
+            grid-template-columns: auto 1fr;
+            align-items: flex-start;
+          }
+        }
         @media (max-width: 768px) {
           .mainGrid,
           .twoCol,
@@ -650,6 +670,31 @@ function PreviewCard({ athleteId }) {
           }
           .photosGrid {
             grid-template-columns: 1fr 1fr;
+          }
+        }
+        @media (max-width: 680px) {
+          .heroSection {
+            grid-template-columns: 1fr;
+          }
+          .heroMetrics {
+            padding: 12px;
+          }
+          .scoreLabel--mobileHide {
+            display: none;
+          }
+          .scoreRow {
+            grid-template-columns: 1fr;
+            row-gap: 8px;
+          }
+          .starsWrap {
+            justify-content: flex-start;
+          }
+          .progressRow {
+            grid-template-columns: 1fr;
+            row-gap: 6px;
+          }
+          .progressRow span:last-child {
+            justify-self: flex-start;
           }
         }
         @media (max-width: 480px) {
