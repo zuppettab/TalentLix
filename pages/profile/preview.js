@@ -286,7 +286,7 @@ function PreviewCard({ athleteId }) {
     hero:{ display:'grid', gridTemplateColumns:'auto 1fr', gap:20, padding:20, alignItems:'center', borderBottom:'1px solid #eee' },
     avatar:{ width:96, height:96, borderRadius:'50%', objectFit:'cover', display:'block', border:'2px solid #fff', boxShadow:'0 2px 8px rgba(0,0,0,0.12)' },
     avatarFallback:{ width:96, height:96, borderRadius:'50%', display:'grid', placeItems:'center', background:'linear-gradient(135deg,#27E3DA,#F7B84E)', color:'#111', fontSize:28 },
-    h1:{ fontSize:22, lineHeight:1.15, fontWeight:900, margin:0 },
+    h1:{ fontSize:22, lineHeight:1.15, fontWeight:900, margin:'0 0 6px' },
     chips:{ display:'flex', gap:8, flexWrap:'wrap' },
     chip:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, border:'1px solid #e5e7eb', background:'#fff', fontSize:12 },
     scoreRow:{ display:'grid', gridTemplateColumns:'auto 1fr', alignItems:'center', gap:12 },
