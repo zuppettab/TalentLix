@@ -24,6 +24,7 @@ const MSG = {
   category: 'Category is required',
   years_experience_int: 'Years must be an integer',
   years_experience_range: 'Years must be between 0 and 60',
+  years_experience_age: 'Years of experience must not exceed 90% of the athlete age',
   contract_end_date_invalid: 'Contract end date must be a valid date (YYYY-MM-DD)',
   trial_start_invalid: 'Trial start must be a valid date (YYYY-MM-DD)',
   trial_end_invalid: 'Trial end must be a valid date (YYYY-MM-DD)',
@@ -112,8 +113,35 @@ const CONTRACT_STATUS_OPTIONS = [
   { value: 'on_loan', label: 'On loan' },
 ];
 
+const getAge = (isoDate) => {
+  if (!isoDate) return null;
+  const str = isoDate.toString().trim();
+  if (!str) return null;
+  const match = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const [_, y, m, d] = match;
+  const year = Number(y);
+  const month = Number(m);
+  const day = Number(d);
+  const now = new Date();
+  const birth = new Date(year, (month || 1) - 1, day || 1);
+  if (Number.isNaN(birth.getTime())) return null;
+
+  let age = now.getFullYear() - birth.getFullYear();
+  const mo = now.getMonth() - birth.getMonth();
+  if (mo < 0 || (mo === 0 && now.getDate() < birth.getDate())) age--;
+  return age;
+};
+
 export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
   const router = useRouter();
+
+  const athleteAge = useMemo(() => getAge(athlete?.date_of_birth), [athlete?.date_of_birth]);
+  const experienceCap = useMemo(() => {
+    if (athleteAge == null || !Number.isFinite(athleteAge) || athleteAge <= 0) return null;
+    return Math.floor(athleteAge * 0.9);
+  }, [athleteAge]);
 
   // ----------------------- STATE (form corrente) -----------------------
   const [loading, setLoading] = useState(true);
@@ -245,6 +273,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
       const n = Number(v);
       if (!Number.isInteger(n)) return MSG.years_experience_int;
       if (n < 0 || n > 60) return MSG.years_experience_range;
+      if (experienceCap != null && n > experienceCap) return MSG.years_experience_age;
     }
     if (name === 'contract_end_date') {
       const v = (value ?? '').toString().trim();
