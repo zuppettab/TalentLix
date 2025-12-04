@@ -142,9 +142,15 @@ export default function AwardsWidget({ athleteId, isMobile, onSaved }) {
   };
   const validate = (obj) => {
     const out = {};
+    const nowYear = new Date().getFullYear();
+
     if (!validYear(obj.season_start)) out.season_start = 'Year must be between 1900 and 2100';
+    else if (obj.season_start !== '' && Number(obj.season_start) > nowYear)
+      out.season_start = 'Year cannot be in the future';
+
     if (obj.season_end !== '' && obj.season_end != null) {
       if (!validYear(obj.season_end)) out.season_end = 'Year must be between 1900 and 2100';
+      else if (Number(obj.season_end) > nowYear) out.season_end = 'Year cannot be in the future';
       else if (obj.season_start !== '' && Number(obj.season_end) < Number(obj.season_start))
         out.season_end = 'Season end must be >= start (or empty)';
     }
