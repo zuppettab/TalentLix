@@ -17,11 +17,10 @@ const SPORTS_TABLE = 'sports_experiences';
 const CAREER_TABLE = 'athlete_career';
 
 // Obbligatori (coerenti con Wizard Step 3)
-const REQUIRED = ['sport', 'main_role', 'category'];
+const REQUIRED = ['sport', 'category'];
 
 const MSG = {
   sport: 'Sport is required',
-  main_role: 'Main role is required',
   category: 'Category is required',
   years_experience_int: 'Years must be an integer',
   years_experience_range: 'Years must be between 0 and 60',
@@ -388,7 +387,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
       const payload = {
         athlete_id: athlete.id,
         sport: (form.sport || '').trim(),
-        role: (form.main_role || '').trim(),
+        role: (form.main_role || '').trim() || null,
         team: (form.team_name || null) || null,
         previous_team: (form.previous_team || null) || null,
         category: (form.category || '').trim(),
@@ -492,7 +491,7 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
       </div>
 
       <div style={styles.field}>
-        <label style={styles.label}>Main role *</label>
+        <label style={styles.label}>Main role</label>
         <input
           name="main_role"
           value={form.main_role}
