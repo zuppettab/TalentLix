@@ -101,7 +101,7 @@ export default function SeasonAccordionItem({
                   {editErrors.team_name && <div style={styles.error}>{editErrors.team_name}</div>}
                 </div>
                 <div>
-                  <label style={styles.sublabel}>Role *</label>
+                  <label style={styles.sublabel}>Role</label>
                   <input
                     value={edit.role}
                     onChange={(e) => setEdit((p) => ({ ...p, role: e.target.value }))}
