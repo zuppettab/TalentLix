@@ -178,7 +178,7 @@ export default function PhysicalPanel({ athlete, onSaved, isMobile: isMobileProp
       case 'height_cm': return inRange(n, 100, 250, 'cm', 'Height');
       case 'weight_kg': return inRange(n, 30, 200, 'kg', 'Weight');
       case 'wingspan_cm': return inRange(n, 100, 270, 'cm', 'Wingspan');
-      case 'standing_reach_cm': return inRange(n, 100, 280, 'cm', 'Standing reach');
+      case 'standing_reach_cm': return inRange(n, 100, 350, 'cm', 'Standing reach');
       case 'body_fat_percent': return inRange(n, 1, 60, '%', 'Body fat');
 
       case 'grip_strength_left_kg':
