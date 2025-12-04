@@ -28,6 +28,9 @@ const MSG = {
   contract_end_date_invalid: 'Contract end date must be a valid date (YYYY-MM-DD)',
   trial_start_invalid: 'Trial start must be a valid date (YYYY-MM-DD)',
   trial_end_invalid: 'Trial end must be a valid date (YYYY-MM-DD)',
+  contract_end_date_future: 'Contract end date must be on or after today',
+  trial_start_future: 'Trial start must be on or after today',
+  trial_end_future: 'Trial end must be on or after today',
   trial_window_incomplete: 'Both trial dates are required',
   trial_window_order: 'Start date must be before or equal to end date',
 
@@ -90,6 +93,8 @@ const isValidISODate = (value) => {
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.toISOString().slice(0, 10) === str;
 };
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
 // ---- react-select styles (coerenti) ----
 const makeSelectStyles = (hasError) => ({
@@ -279,18 +284,21 @@ export default function SportInfoPanel({ athlete, onSaved, isMobile }) {
       const v = (value ?? '').toString().trim();
       if (v === '') return '';
       if (!isValidISODate(v)) return MSG.contract_end_date_invalid;
+      if (v < todayISO()) return MSG.contract_end_date_future;
     }
     if (name === 'trial_start') {
       if (!state.seeking_team) return '';
       const v = (value ?? '').toString().trim();
       if (v === '') return '';
       if (!isValidISODate(v)) return MSG.trial_start_invalid;
+      if (v < todayISO()) return MSG.trial_start_future;
     }
     if (name === 'trial_end') {
       if (!state.seeking_team) return '';
       const v = (value ?? '').toString().trim();
       if (v === '') return '';
       if (!isValidISODate(v)) return MSG.trial_end_invalid;
+      if (v < todayISO()) return MSG.trial_end_future;
     }
     if (name === 'trial_window') {
       if (!state.seeking_team) return '';
