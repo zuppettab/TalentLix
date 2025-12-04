@@ -785,7 +785,6 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
     }
 
     if (!obj.team_name?.toString().trim()) out.team_name = MSG.team_required;
-    if (!obj.role?.toString().trim()) out.role = MSG.role_required;
     if (!obj.category?.toString().trim()) out.category = MSG.cat_required;
 
     return out;
