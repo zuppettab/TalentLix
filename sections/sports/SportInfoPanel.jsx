@@ -35,7 +35,6 @@ const MSG = {
   season_year_range: 'Year must be between 1900 and 2100',
   season_order: 'Season end must be >= start (or empty)',
   team_required: 'Team is required',
-  role_required: 'Role is required',
   cat_required: 'Category is required',
 };
 
@@ -1025,7 +1024,7 @@ function CareerWidget({ athleteId, defaultSport, isMobile }) {
             {addErrors.team_name && <div style={styles.error}>{addErrors.team_name}</div>}
           </div>
           <div>
-            <label style={styles.sublabel}>Role *</label>
+            <label style={styles.sublabel}>Role</label>
             <input
               value={add.role}
               onChange={(e) => setAdd((p) => ({ ...p, role: e.target.value }))}
