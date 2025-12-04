@@ -58,6 +58,7 @@ export default function AwardsWidget({ athleteId, isMobile, onSaved }) {
   const clickEditEvidence = () => editEvidenceRef.current?.click();
   const [addEvidenceName, setAddEvidenceName] = useState('');
   const [editEvidenceName, setEditEvidenceName] = useState('');
+  const todayStr = new Date().toISOString().split('T')[0];
 
   const makeEvidencePath = () => `${athleteId}/awards/${Date.now()}`;
   const uploadEvidenceFile = async (file) => {
@@ -157,6 +158,11 @@ export default function AwardsWidget({ athleteId, isMobile, onSaved }) {
     // data in formato YYYY-MM-DD se compilata
     if (obj.date_awarded && !/^\d{4}-\d{2}-\d{2}$/.test(String(obj.date_awarded))) {
       out.date_awarded = 'Use YYYY-MM-DD';
+    } else if (obj.date_awarded) {
+      const awardedDate = new Date(obj.date_awarded);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (awardedDate > today) out.date_awarded = 'Date cannot be in the future';
     }
     return out;
   };
@@ -381,6 +387,7 @@ export default function AwardsWidget({ athleteId, isMobile, onSaved }) {
             <div>
               <input
                 type="date"
+                max={todayStr}
                 value={add.date_awarded}
                 onChange={(e) => setAdd((p) => ({ ...p, date_awarded: e.target.value }))}
                 style={{ ...styles.careerInput, borderColor: addErrors.date_awarded ? '#b00' : '#E0E0E0' }}
@@ -504,6 +511,7 @@ export default function AwardsWidget({ athleteId, isMobile, onSaved }) {
                             <div>
                               <input
                                 type="date"
+                                max={todayStr}
                                 value={edit.date_awarded}
                                 onChange={(e) => setEdit((p) => ({ ...p, date_awarded: e.target.value }))}
                                 style={{ ...styles.careerInput, borderColor: editErrors.date_awarded ? '#b00' : '#E0E0E0' }}
@@ -772,6 +780,7 @@ function AwardAccordionItem({
                   <div>
                     <input
                       type="date"
+                      max={todayStr}
                       value={edit.date_awarded}
                       onChange={(e) => setEdit((p) => ({ ...p, date_awarded: e.target.value }))}
                       style={{ ...styles.careerInput, borderColor: editErrors.date_awarded ? '#b00' : '#E0E0E0' }}
