@@ -345,6 +345,7 @@ export default function AwardsWidget({ athleteId, isMobile, onSaved }) {
                 type="number"
                 value={add.season_start}
                 onChange={(e) => setAdd((p) => ({ ...p, season_start: e.target.value }))}
+                placeholder="YYYY"
                 style={{ ...styles.careerInput, borderColor: addErrors.season_start ? '#b00' : '#E0E0E0' }}
               />
               {addErrors.season_start && <div style={styles.error}>{addErrors.season_start}</div>}
@@ -357,6 +358,7 @@ export default function AwardsWidget({ athleteId, isMobile, onSaved }) {
                 type="number"
                 value={add.season_end}
                 onChange={(e) => setAdd((p) => ({ ...p, season_end: e.target.value }))}
+                placeholder="YYYY"
                 style={{ ...styles.careerInput, borderColor: addErrors.season_end ? '#b00' : '#E0E0E0' }}
               />
               {addErrors.season_end && <div style={styles.error}>{addErrors.season_end}</div>}
@@ -469,6 +471,7 @@ export default function AwardsWidget({ athleteId, isMobile, onSaved }) {
                                 type="number"
                                 value={edit.season_start}
                                 onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
+                                placeholder="YYYY"
                                 style={{ ...styles.careerInput, borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
                               />
                               {editErrors.season_start && <div style={styles.error}>{editErrors.season_start}</div>}
@@ -481,6 +484,7 @@ export default function AwardsWidget({ athleteId, isMobile, onSaved }) {
                                 type="number"
                                 value={edit.season_end}
                                 onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
+                                placeholder="YYYY"
                                 style={{ ...styles.careerInput, borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
                               />
                               {editErrors.season_end && <div style={styles.error}>{editErrors.season_end}</div>}
@@ -738,6 +742,7 @@ function AwardAccordionItem({
                       type="number"
                       value={edit.season_start}
                       onChange={(e) => setEdit((p) => ({ ...p, season_start: e.target.value }))}
+                      placeholder="YYYY"
                       style={{ ...styles.careerInput, borderColor: editErrors.season_start ? '#b00' : '#E0E0E0' }}
                     />
                     {editErrors.season_start && <div style={styles.error}>{editErrors.season_start}</div>}
@@ -750,6 +755,7 @@ function AwardAccordionItem({
                       type="number"
                       value={edit.season_end}
                       onChange={(e) => setEdit((p) => ({ ...p, season_end: e.target.value }))}
+                      placeholder="YYYY"
                       style={{ ...styles.careerInput, borderColor: editErrors.season_end ? '#b00' : '#E0E0E0' }}
                     />
                     {editErrors.season_end && <div style={styles.error}>{editErrors.season_end}</div>}
